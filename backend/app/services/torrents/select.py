@@ -1,0 +1,29 @@
+import re
+
+from rapidfuzz import fuzz
+
+from app.services.sources.youtube import norm
+
+
+def choose(results: list[dict], artist: str, album: str, total_duration: float, min_seeders: int) -> dict | None:
+    candidates = []
+    for result in results:
+        title = result.get("title", "")
+        seeders = result.get("seeders") or 0
+        size = result.get("size") or 0
+        if result.get("protocol") != "torrent" or seeders < min_seeders:
+            continue
+        if fuzz.token_set_ratio(norm(f"{artist} {album}"), norm(title)) < 80:
+            continue
+        if any(
+            re.search(rf"\b{re.escape(word)}\b", title.casefold())
+            and not re.search(rf"\b{re.escape(word)}\b", album.casefold())
+            for word in ("discography", "collection", "anthology", "box set", "boxset", "complete works")
+        ):
+            continue
+        if size < total_duration * 16_000 or size > 3 * 1024**3:
+            continue
+        lower = title.casefold()
+        rank = 3 if "flac" in lower else 2 if "320" in lower else 1 if "v0" in lower or "mp3" in lower else 0
+        candidates.append(((rank, min(seeders, 50), -size), result))
+    return max(candidates, key=lambda c: c[0])[1] if candidates else None

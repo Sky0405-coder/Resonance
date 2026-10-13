@@ -553,6 +553,10 @@ class DownloadRequest {
     required this.createdAt,
     this.coverUrl,
     this.note,
+    this.torrentStatus,
+    this.torrentName,
+    this.torrentProgress = 0,
+    this.torrentError,
     this.items = const [],
   });
   final String id;
@@ -570,6 +574,10 @@ class DownloadRequest {
   final int doneCount;
   final int failedCount;
   final DateTime createdAt;
+  final String? torrentStatus;
+  final String? torrentName;
+  final double torrentProgress;
+  final String? torrentError;
   final List<DownloadItem> items;
 
   bool get isOpen => status == 'pending_approval' || status == 'active';
@@ -590,6 +598,10 @@ class DownloadRequest {
     doneCount: j['done_count'],
     failedCount: j['failed_count'],
     createdAt: DateTime.parse(j['created_at']),
+    torrentStatus: j['torrent_status'],
+    torrentName: j['torrent_name'],
+    torrentProgress: (j['torrent_progress'] as num?)?.toDouble() ?? 0,
+    torrentError: j['torrent_error'],
     items: [for (final i in j['items'] ?? const []) DownloadItem.fromJson(i)],
   );
 }
@@ -609,5 +621,109 @@ class DownloadSummary {
     queued: j['queued'],
     failed: j['failed'],
     pendingApproval: j['pending_approval'],
+  );
+}
+
+// --- import / library cleanup (admin) -----------------------------------------
+
+class ImportInfo {
+  const ImportInfo({
+    required this.importDir,
+    required this.pendingFiles,
+    required this.acoustidConfigured,
+    required this.importMode,
+  });
+  final String importDir;
+  final int pendingFiles;
+  final bool acoustidConfigured;
+  final String importMode;
+
+  factory ImportInfo.fromJson(Map<String, dynamic> j) => ImportInfo(
+    importDir: j['import_dir'],
+    pendingFiles: j['pending_files'],
+    acoustidConfigured: j['acoustid_configured'],
+    importMode: j['import_mode'],
+  );
+}
+
+class ImportBatch {
+  const ImportBatch({
+    required this.id,
+    required this.kind,
+    required this.mode,
+    required this.status,
+    required this.total,
+    required this.processed,
+    required this.identified,
+    required this.imported,
+    required this.duplicates,
+    required this.unidentified,
+    required this.failed,
+    required this.progress,
+    required this.createdAt,
+    this.message,
+    this.finishedAt,
+  });
+  final String id;
+  final String kind;
+  final String mode;
+  final String status;
+  final int total;
+  final int processed;
+  final int identified;
+  final int imported;
+  final int duplicates;
+  final int unidentified;
+  final int failed;
+  final double progress;
+  final String? message;
+  final DateTime createdAt;
+  final DateTime? finishedAt;
+
+  bool get isRunning => status == 'queued' || status == 'running';
+
+  factory ImportBatch.fromJson(Map<String, dynamic> j) => ImportBatch(
+    id: j['id'],
+    kind: j['kind'],
+    mode: j['mode'],
+    status: j['status'],
+    total: j['total'],
+    processed: j['processed'],
+    identified: j['identified'],
+    imported: j['imported'],
+    duplicates: j['duplicates'],
+    unidentified: j['unidentified'],
+    failed: j['failed'],
+    progress: (j['progress'] as num).toDouble(),
+    message: j['message'],
+    createdAt: DateTime.parse(j['created_at']),
+    finishedAt: _date(j['finished_at']),
+  );
+}
+
+class ImportFile {
+  const ImportFile({required this.id, required this.path, required this.status, this.method, this.acoustidScore, this.target, this.error, this.title, this.artist, this.album});
+  final String id;
+  final String path;
+  final String status;
+  final String? method;
+  final double? acoustidScore;
+  final String? target;
+  final String? error;
+  final String? title;
+  final String? artist;
+  final String? album;
+
+  factory ImportFile.fromJson(Map<String, dynamic> j) => ImportFile(
+    id: j['id'],
+    path: j['path'],
+    status: j['status'],
+    method: j['method'],
+    acoustidScore: (j['acoustid_score'] as num?)?.toDouble(),
+    target: j['target'],
+    error: j['error'],
+    title: j['title'],
+    artist: j['artist'],
+    album: j['album'],
   );
 }

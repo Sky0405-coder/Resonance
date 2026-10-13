@@ -8,8 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, auth, catalog, library, me, playlists, requests
+from app.api import admin, auth, catalog, imports, library, me, playlists, requests, torrents
 from app.config import get_settings
+from app.services import importer
 from app.services.downloads import manager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -21,9 +22,11 @@ settings = get_settings()
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.download_workers > 0:
         await manager.start()
+    await importer.start()
     try:
         yield
     finally:
+        await importer.stop()
         await manager.stop()
 
 
@@ -36,7 +39,7 @@ app.add_middleware(
     expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
 )
 
-for module in (auth, me, library, playlists, admin, catalog, requests):
+for module in (auth, me, library, playlists, admin, catalog, requests, imports, torrents):
     app.include_router(module.router)
 
 

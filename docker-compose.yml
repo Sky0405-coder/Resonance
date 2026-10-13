@@ -3,7 +3,8 @@
 # Set these in Coolify → Environment Variables:
 #   POSTGRES_PASSWORD        random string
 #   MUSIC_PATH               host path of the music library on the HDD, e.g. /mnt/hdd/music
-#   DOWNLOADS_PATH           host path for incoming downloads (same disk as MUSIC_PATH -> hardlinks), e.g. /mnt/hdd/downloads
+#   DOWNLOADS_PATH           host path for incoming downloads (same disk as MUSIC_PATH), e.g. /mnt/hdd/downloads
+#   IMPORT_PATH              drop folder: music copied here is identified, tagged and moved into the library, e.g. /mnt/hdd/import
 #   APPDATA_PATH             host path on the SSD for DB + caches, e.g. /mnt/ssd/resonance
 #   WIREGUARD_PRIVATE_KEY    from the ProtonVPN WireGuard config (enable "NAT-PMP / port forwarding" when creating it)
 #   PROTON_SERVER_COUNTRIES  e.g. Netherlands,Switzerland
@@ -24,6 +25,7 @@ services:
     volumes:
       - ${MUSIC_PATH}:/data/music
       - ${DOWNLOADS_PATH}:/data/downloads
+      - ${IMPORT_PATH}:/data/import
       - ${APPDATA_PATH}/app:/data/app
     expose:
       - "8000"

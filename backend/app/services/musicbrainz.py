@@ -11,6 +11,10 @@ from app.services.matching import name_key
 VERSION = "0.1.0"
 
 
+# MusicBrainz special-purpose artist for compilations.
+VARIOUS_ARTISTS_ID = "89ad4ac3-39f7-470e-963a-56509c546377"
+
+
 class TrackMeta(BaseModel):
     title: str
     artist: str
@@ -132,6 +136,8 @@ class MusicBrainzClient:
         release = release_json
         rg = release["release-group"]
         album_artist, album_artist_mbid = _credit(release)
+        if album_artist_mbid == VARIOUS_ARTISTS_ID:
+            album_artist = "Various Artists"  # credited as "Verschiedene Interpreten", "Multi-interprètes", …
         genres = rg.get("genres", [])
         genre = max(genres, key=lambda g: g.get("count", 0))["name"].title() if genres else None
         label = next((l["label"]["name"] for l in release.get("label-info", []) if l.get("label")), None)
@@ -172,6 +178,20 @@ class MusicBrainzClient:
                     )
                 )
         return out
+
+    async def recording_basic(self, mbid: str) -> dict:
+        recording = await self._get(f"recording/{mbid}", inc="artist-credits+isrcs+genres")
+        artist, artist_mbid = _credit(recording)
+        genres = recording.get("genres", [])
+        length = recording.get("length")
+        return {
+            "title": recording.get("title", ""),
+            "artist": artist,
+            "artist_mbid": artist_mbid,
+            "isrc": next(iter(recording.get("isrcs", [])), None),
+            "genre": max(genres, key=lambda g: g.get("count", 0))["name"].title() if genres else None,
+            "length": length / 1000 if length is not None else None,
+        }
 
     async def recording_meta(self, recording_mbid: str, prefer_album: str | None = None) -> TrackMeta:
         recording = await self._get(f"recording/{recording_mbid}", inc="releases+release-groups")

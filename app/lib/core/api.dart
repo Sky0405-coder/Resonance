@@ -208,5 +208,24 @@ class ApiClient {
   Future<Job> startScan({bool full = false}) async =>
       Job.fromJson(await _call(() async => (await _dio.post('/api/admin/library/scan', queryParameters: {'full': full})).data));
 
+  Future<ImportInfo> importInfo() async => ImportInfo.fromJson(await _get('/api/admin/imports/info'));
+
+  Future<List<ImportBatch>> importBatches() async =>
+      [for (final b in await _get('/api/admin/imports')) ImportBatch.fromJson(b)];
+
+  /// [kind] is `import` (import folder) or `cleanup` (library in place).
+  Future<ImportBatch> startImport(String kind) async =>
+      ImportBatch.fromJson(await _post('/api/admin/imports', {'kind': kind}));
+
+  Future<void> cancelImport(String id) => _post('/api/admin/imports/$id/cancel');
+
+  Future<List<ImportFile>> importFiles(String batchId, {String? status, int limit = 200}) async {
+    final j = await _get('/api/admin/imports/$batchId/files', {'status': ?status, 'limit': limit});
+    return [for (final f in j['items']) ImportFile.fromJson(f)];
+  }
+
+  Future<Map<String, dynamic>> torrentStatus() async =>
+      Map<String, dynamic>.from(await _get('/api/admin/torrents/status'));
+
   Future<List<Job>> jobs() async => [for (final j in await _get('/api/admin/jobs')) Job.fromJson(j)];
 }

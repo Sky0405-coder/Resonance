@@ -129,7 +129,7 @@ async def env(
     deezer_data: dict,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[SimpleNamespace]:
-    assert engine.url.database == "app_test"
+    assert engine.url.database.startswith("app_test")
 
     async def reset() -> None:
         async with engine.begin() as conn:

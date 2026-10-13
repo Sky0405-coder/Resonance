@@ -333,6 +333,10 @@ class DownloadRequestOut(ORM):
     status: str
     is_temporary: bool
     note: str | None
+    torrent_status: str | None
+    torrent_name: str | None
+    torrent_progress: float
+    torrent_error: str | None
     created_at: datetime
     updated_at: datetime
     user: UserRef
@@ -361,3 +365,41 @@ class DownloadSummary(BaseModel):
     queued: int
     failed: int
     pending_approval: int
+
+
+# --- imports ---------------------------------------------------------------
+
+
+class ImportBatchIn(BaseModel):
+    kind: Literal["import", "cleanup"]
+
+
+class ImportBatchOut(ORM):
+    id: uuid.UUID
+    kind: str
+    mode: str
+    status: str
+    total: int
+    processed: int
+    identified: int
+    imported: int
+    duplicates: int
+    unidentified: int
+    failed: int
+    message: str | None
+    created_at: datetime
+    finished_at: datetime | None
+    progress: float = 0
+
+
+class ImportFileOut(ORM):
+    id: uuid.UUID
+    path: str
+    status: str
+    method: str | None
+    acoustid_score: float | None
+    target: str | None
+    error: str | None
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None

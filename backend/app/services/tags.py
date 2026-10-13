@@ -2,14 +2,35 @@
 
 import base64
 import re
+import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import mutagen
+from mutagen.apev2 import APEv2
+from mutagen.asf import ASF
 from mutagen.flac import Picture
+from mutagen.id3 import ID3
+from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 
-AUDIO_EXTENSIONS = {".mp3", ".flac", ".m4a", ".mp4", ".aac", ".ogg", ".oga", ".opus", ".wav", ".aif", ".aiff", ".wv", ".ape", ".wma", ".mpc"}
+AUDIO_EXTENSIONS = {
+    ".mp3",
+    ".flac",
+    ".m4a",
+    ".mp4",
+    ".aac",
+    ".ogg",
+    ".oga",
+    ".opus",
+    ".wav",
+    ".aif",
+    ".aiff",
+    ".wv",
+    ".ape",
+    ".wma",
+    ".mpc",
+}
 COVER_NAMES = ("cover", "folder", "front", "album", "albumart")
 COVER_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 
@@ -24,6 +45,12 @@ class TrackTags:
     artist_credit: str
     album: str
     album_artist: str
+    has_album_tag: bool = False
+    has_album_artist_tag: bool = False
+    track_total: int | None = None
+    disc_total: int | None = None
+    label: str | None = None
+    mb_release_group_id: str | None = None
     track_no: int | None = None
     disc_no: int | None = None
     year: int | None = None
@@ -58,9 +85,15 @@ _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 _LIMITS = {
     "title": 512, "artist": 512, "artist_credit": 1024, "album": 512, "album_artist": 512, "genre": 256,
     "codec": 32, "mb_recording_id": 36, "mb_album_id": 36, "mb_artist_id": 36, "mb_album_artist_id": 36,
-    "isrc": 16, "artist_sort": 512, "album_artist_sort": 512,
+    "mb_release_group_id": 36, "label": 512, "isrc": 16, "artist_sort": 512, "album_artist_sort": 512,
 }  # fmt: skip
-_EXACT = {"mb_recording_id": 36, "mb_album_id": 36, "mb_artist_id": 36, "mb_album_artist_id": 36}
+_EXACT = {
+    "mb_release_group_id": 36,
+    "mb_recording_id": 36,
+    "mb_album_id": 36,
+    "mb_artist_id": 36,
+    "mb_album_artist_id": 36,
+}
 _REQUIRED = {"title", "artist", "artist_credit", "album", "album_artist"}
 
 
@@ -109,52 +142,139 @@ def primary_artist(credit: str) -> str:
     return _FEAT.split(credit, maxsplit=1)[0].strip() or credit
 
 
+def _normal_tags(audio: mutagen.FileType) -> dict:
+    tags = audio.tags
+    if tags is None:
+        return {}
+    if isinstance(tags, ID3):
+        keys = {
+            "title": "TIT2",
+            "artist": "TPE1",
+            "album": "TALB",
+            "albumartist": "TPE2",
+            "tracknumber": "TRCK",
+            "discnumber": "TPOS",
+            "date": "TDRC",
+            "originaldate": "TDOR",
+            "genre": "TCON",
+            "isrc": "TSRC",
+            "label": "TPUB",
+            "artistsort": "TSOP",
+            "albumartistsort": "TSO2",
+        }
+        out = {k: tags[v].text for k, v in keys.items() if v in tags}
+        for frame in tags.getall("TXXX"):
+            key = frame.desc.lower().replace("musicbrainz ", "musicbrainz_").replace(" ", "")
+            out[key] = frame.text
+        ufid = tags.get("UFID:http://musicbrainz.org")
+        if ufid:
+            out["musicbrainz_trackid"] = [ufid.data.decode("ascii", errors="replace")]
+        return out
+    if isinstance(audio, MP4):
+        keys = {
+            "title": "\xa9nam",
+            "artist": "\xa9ART",
+            "album": "\xa9alb",
+            "albumartist": "aART",
+            "date": "\xa9day",
+            "genre": "\xa9gen",
+            "artistsort": "soar",
+            "albumartistsort": "soaa",
+        }
+        out = {k: tags[v] for k, v in keys.items() if v in tags}
+        for key, value in tags.items():
+            if key.startswith("----:com.apple.iTunes:"):
+                name = key.rsplit(":", 1)[1].lower().replace("musicbrainz ", "musicbrainz_").replace(" ", "")
+                out[name] = [bytes(v).decode("utf-8", errors="replace") for v in value]
+        for atom, key in (("trkn", "tracknumber"), ("disk", "discnumber")):
+            if tags.get(atom):
+                number, total = tags[atom][0]
+                out[key] = [f"{number}/{total}"]
+        return out
+    out = {k.lower(): v for k, v in tags.items()}
+    if isinstance(tags, APEv2):
+        out = {k: list(v) if hasattr(v, "__iter__") else [str(v)] for k, v in out.items() if k != "cover art (front)"}
+        aliases = {"album artist": "albumartist", "track": "tracknumber", "disc": "discnumber"}
+    elif isinstance(audio, ASF):
+        aliases = {
+            "author": "artist",
+            "wm/albumtitle": "album",
+            "wm/albumartist": "albumartist",
+            "wm/tracknumber": "tracknumber",
+            "wm/partofset": "discnumber",
+            "wm/year": "year",
+            "wm/genre": "genre",
+            "wm/isrc": "isrc",
+            "wm/publisher": "label",
+        }
+        for key in list(out):
+            if key.startswith("musicbrainz/"):
+                aliases[key] = key.replace("musicbrainz/", "musicbrainz_").replace(" ", "")
+    else:
+        aliases = {}
+    for original, normal in aliases.items():
+        if original in out:
+            out[normal] = out[original]
+    return out
+
+
+def _total(value: str | None) -> int | None:
+    return _int_prefix(value.split("/", 1)[1]) if value and "/" in value else None
+
+
 def read_tags(path: Path) -> TrackTags | None:
     try:
-        audio = mutagen.File(path, easy=True)
+        audio = mutagen.File(path)
+        if audio is None:
+            return None
+        tags = _normal_tags(audio)
+        if isinstance(audio, (MP3, MP4)):
+            # Keep EasyID3/EasyMP4's existing genre and ReplayGain decoding alongside the extra raw fields.
+            easy = mutagen.File(path, easy=True)
+            if easy is not None and easy.tags is not None:
+                tags.update(dict(easy.tags.items()))
     except Exception:
         return None
-    if audio is None:
-        return None
-    tags = audio.tags
     info = audio.info
-    isrc = _first(tags, "isrc")
-    if path.suffix.lower() in {".m4a", ".mp4"} and isrc is None:
-        raw = MP4(path).tags
-        values = raw.get("----:com.apple.iTunes:ISRC", []) if raw else []
-        isrc = bytes(values[0]).decode("utf-8", errors="replace") if values else None
-
     artists = _all(tags, "artist")
     credit = " / ".join(artists) if len(artists) > 1 else (artists[0] if artists else "")
-    # Fall back to the folder layout Artist/Album/Track when tags are missing.
     album_dir = path.parent
     artist = primary_artist(artists[0]) if artists else album_dir.parent.name or "Unknown Artist"
-    album_artist = _first(tags, "albumartist", "album artist", "album_artist") or artist
-    title = _first(tags, "title") or path.stem
-
+    raw_album_artist = _first(tags, "albumartist", "album artist", "album_artist")
+    raw_album = _first(tags, "album")
+    raw_title = _first(tags, "title")
+    track = _first(tags, "tracknumber")
+    disc = _first(tags, "discnumber")
     return TrackTags(
-        title=title,
+        title=raw_title or path.stem,
         artist=artist,
         artist_credit=credit or artist,
-        album=_first(tags, "album") or album_dir.name or "Unknown Album",
-        album_artist=album_artist,
-        track_no=_int_prefix(_first(tags, "tracknumber")),
-        disc_no=_int_prefix(_first(tags, "discnumber")),
+        album=raw_album or album_dir.name or "Unknown Album",
+        album_artist=raw_album_artist or artist,
+        has_album_tag=bool(raw_album),
+        has_album_artist_tag=bool(raw_album_artist),
+        track_no=_int_prefix(track),
+        track_total=_int_prefix(_first(tags, "totaltracks", "tracktotal")) or _total(track),
+        disc_no=_int_prefix(disc),
+        disc_total=_int_prefix(_first(tags, "totaldiscs", "disctotal")) or _total(disc),
         year=_int_prefix(_first(tags, "originaldate", "date", "year")),
         genre=_first(tags, "genre"),
+        label=_first(tags, "label"),
         duration=float(getattr(info, "length", 0) or 0),
         codec=_codec(audio, path),
         bitrate=(getattr(info, "bitrate", 0) or 0) // 1000 or None,
         sample_rate=getattr(info, "sample_rate", None),
         mb_recording_id=_first(tags, "musicbrainz_trackid", "musicbrainz track id"),
         mb_album_id=_first(tags, "musicbrainz_albumid", "musicbrainz album id"),
+        mb_release_group_id=_first(tags, "musicbrainz_releasegroupid"),
         mb_artist_id=_first(tags, "musicbrainz_artistid", "musicbrainz artist id"),
         mb_album_artist_id=_first(tags, "musicbrainz_albumartistid", "musicbrainz album artist id"),
-        isrc=isrc,
+        isrc=_first(tags, "isrc"),
         artist_sort=_first(tags, "artistsort"),
         album_artist_sort=_first(tags, "albumartistsort"),
         replaygain_track_gain=_gain(_first(tags, "replaygain_track_gain")),
         replaygain_album_gain=_gain(_first(tags, "replaygain_album_gain")),
+        extra={"has_title_tag": bool(raw_title), "has_artist_tag": bool(artists)},
     )
 
 
@@ -189,6 +309,22 @@ def embedded_cover(path: Path) -> bytes | None:
     covr = tags.get("covr") if hasattr(tags, "get") else None  # MP4
     if covr:
         return bytes(covr[0])
+    if isinstance(tags, APEv2) and tags.get("Cover Art (Front)"):
+        return bytes(tags["Cover Art (Front)"]).split(b"\0", 1)[-1]
+    if isinstance(audio, ASF) and tags.get("WM/Picture"):
+        try:
+            raw = bytes(tags["WM/Picture"][0].value)
+            size = struct.unpack_from("<I", raw, 1)[0]
+            offset = 5
+            for _ in range(2):
+                while raw[offset : offset + 2] != b"\0\0":
+                    if offset + 2 > len(raw):
+                        raise ValueError("Ungültiges ASF-Cover")
+                    offset += 2
+                offset += 2
+            return raw[offset : offset + size]
+        except (ValueError, IndexError, struct.error):
+            return None
     block = tags.get("metadata_block_picture") if hasattr(tags, "get") else None  # Ogg/Opus
     if block:
         try:

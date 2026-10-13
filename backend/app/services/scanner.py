@@ -234,14 +234,28 @@ async def start_scan(db: AsyncSession, full: bool = False) -> Job:
     return job
 
 
-async def import_file(db: AsyncSession, rel: str) -> Track | None:
+async def import_files(db: AsyncSession, rels: list[str]) -> dict[str, Track | None]:
     global _imports
     async with library_lock:
-        stat = (get_settings().music_dir / rel).stat()
         syncer = _Syncer(db, full=False)
         await syncer.load()
-        existing = await db.scalar(select(Track).where(Track.path == rel))
-        track = await syncer.upsert(rel, stat.st_mtime, stat.st_size, existing)
+        out = {}
+        for rel in dict.fromkeys(rels):
+            stat = (get_settings().music_dir / rel).stat()
+            existing = await db.scalar(select(Track).where(Track.path == rel))
+            out[rel] = await syncer.upsert(rel, stat.st_mtime, stat.st_size, existing)
         await db.commit()
         _imports += 1
-        return track
+        return out
+
+
+async def import_file(db: AsyncSession, rel: str) -> Track | None:
+    return (await import_files(db, [rel]))[rel]
+
+
+async def relocate_track(db: AsyncSession, old_rel: str, new_rel: str) -> None:
+    async with library_lock:
+        track = await db.scalar(select(Track).where(Track.path == old_rel))
+        if track is not None:
+            track.path = new_rel
+        await db.commit()

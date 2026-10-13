@@ -31,6 +31,14 @@ class RadioConfig(BaseModel):
 class DownloadConfig(BaseModel):
     # YouTube Music via yt-dlp as a download source.
     youtube_enabled: bool = True
+    # Try public torrents (Prowlarr + qBittorrent) first for album requests.
+    torrent_enabled: bool = False
+    torrent_min_seeders: int = Field(1, ge=0, le=1000)
+    # Give up (and fall back to YouTube) when a torrent makes no progress for this long.
+    torrent_timeout_minutes: int = Field(60, ge=5, le=10080)
+    prowlarr_api_key: str = ""
+    qbittorrent_username: str = "admin"
+    qbittorrent_password: str = ""
     # Replace low-quality (e.g. YouTube) files with better releases when found.
     quality_upgrade_enabled: bool = True
     daily_limit_enabled: bool = True
@@ -39,11 +47,23 @@ class DownloadConfig(BaseModel):
     auto_approve_requests: bool = True
 
 
+class LibraryConfig(BaseModel):
+    # Free key from https://acoustid.org/new-application – enables audio fingerprint identification.
+    acoustid_api_key: str = ""
+    # "move": imported files leave the import folder; "copy": originals stay untouched.
+    import_mode: Literal["move", "copy"] = "move"
+    # Files that cannot be identified are imported with their existing tags instead of being left behind.
+    import_unidentified: bool = True
+    # Periodically import new files from the import folder (only in "move" mode).
+    auto_import: bool = True
+
+
 class ServerConfig(BaseModel):
     server_name: str = "Resonance"
     registration: RegistrationConfig = RegistrationConfig()
     radio: RadioConfig = RadioConfig()
     downloads: DownloadConfig = DownloadConfig()
+    library: LibraryConfig = LibraryConfig()
 
 
 def _deep_merge(base: dict, patch: dict) -> dict:

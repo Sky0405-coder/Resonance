@@ -9,6 +9,7 @@ import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../widgets/collection.dart';
 import '../../widgets/common.dart';
+import 'import_tab.dart';
 
 /// Jellyfin-style dashboard; only routed to for admins (and the API enforces it).
 class AdminPage extends StatelessWidget {
@@ -16,7 +17,7 @@ class AdminPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: 4,
+    length: 5,
     child: Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -28,11 +29,12 @@ class AdminPage extends StatelessWidget {
             Tab(icon: Icon(Icons.dashboard_outlined), text: 'Übersicht'),
             Tab(icon: Icon(Icons.people_outline), text: 'Benutzer'),
             Tab(icon: Icon(Icons.link), text: 'Einladungen'),
+            Tab(icon: Icon(Icons.move_to_inbox), text: 'Import'),
             Tab(icon: Icon(Icons.tune), text: 'Server'),
           ],
         ),
       ),
-      body: const TabBarView(children: [_OverviewTab(), _UsersTab(), _InvitesTab(), _ServerTab()]),
+      body: const TabBarView(children: [_OverviewTab(), _UsersTab(), _InvitesTab(), ImportTab(), _ServerTab()]),
     ),
   );
 }
@@ -478,6 +480,7 @@ class _ServerTab extends ConsumerWidget {
         final reg = c['registration'] as Map;
         final radio = c['radio'] as Map;
         final dl = c['downloads'] as Map;
+        final lib = (c['library'] ?? const {}) as Map;
         return ListView(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
           children: [
@@ -522,6 +525,75 @@ class _ServerTab extends ConsumerWidget {
                 ],
               ),
             ),
+            const _Group('Bibliothek & Import'),
+            ListTile(
+              title: const Text('AcoustID-Schlüssel'),
+              subtitle: Text(
+                (lib['acoustid_api_key'] ?? '').isEmpty
+                    ? 'Nicht gesetzt – kostenlos auf acoustid.org/new-application'
+                    : 'Gesetzt',
+              ),
+              trailing: const Icon(Icons.edit),
+              onTap: () async {
+                final ctrl = TextEditingController(text: lib['acoustid_api_key'] ?? '');
+                final key = await showDialog<String>(
+                  context: context,
+                  builder: (d) => AlertDialog(
+                    title: const Text('AcoustID-Schlüssel'),
+                    content: TextField(
+                      controller: ctrl,
+                      autofocus: true,
+                      decoration: const InputDecoration(helperText: 'Für die Erkennung per Audio-Fingerabdruck'),
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(d), child: const Text('Abbrechen')),
+                      FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: const Text('Speichern')),
+                    ],
+                  ),
+                );
+                if (key != null) {
+                  await patch({
+                    'library': {'acoustid_api_key': key},
+                  });
+                }
+              },
+            ),
+            RadioGroup<String>(
+              groupValue: lib['import_mode'] ?? 'move',
+              onChanged: (v) => patch({
+                'library': {'import_mode': v},
+              }),
+              child: const Column(
+                children: [
+                  RadioListTile(
+                    value: 'move',
+                    title: Text('Importierte Dateien verschieben'),
+                    subtitle: Text('Der Import-Ordner wird danach geleert'),
+                  ),
+                  RadioListTile(
+                    value: 'copy',
+                    title: Text('Importierte Dateien kopieren'),
+                    subtitle: Text('Originale bleiben unverändert im Import-Ordner'),
+                  ),
+                ],
+              ),
+            ),
+            SwitchListTile(
+              title: const Text('Nicht erkannte Dateien trotzdem importieren'),
+              subtitle: const Text('Mit ihren vorhandenen Tags; sonst bleiben sie im Import-Ordner liegen'),
+              value: lib['import_unidentified'] ?? true,
+              onChanged: (v) => patch({
+                'library': {'import_unidentified': v},
+              }),
+            ),
+            SwitchListTile(
+              title: const Text('Import-Ordner automatisch importieren'),
+              subtitle: const Text('Prüft alle 5 Minuten auf neue Dateien (nur im Modus „Verschieben“)'),
+              value: lib['auto_import'] ?? true,
+              onChanged: (v) => patch({
+                'library': {'auto_import': v},
+              }),
+            ),
             const _Group('Song-Radio'),
             SwitchListTile(
               title: const Text('Fehlende Songs automatisch herunterladen'),
@@ -550,6 +622,58 @@ class _ServerTab extends ConsumerWidget {
               }),
             ),
             const _Group('Downloads'),
+            SwitchListTile(
+              title: const Text('Torrents für Alben'),
+              subtitle: const Text(
+                'Sucht Alben zuerst über Prowlarr (öffentliche Tracker) und lädt sie mit qBittorrent über das VPN. '
+                'Was dort fehlt, kommt von YouTube Music.',
+              ),
+              value: dl['torrent_enabled'] ?? false,
+              onChanged: (v) => patch({
+                'downloads': {'torrent_enabled': v},
+              }),
+            ),
+            if (dl['torrent_enabled'] ?? false) ...[
+              _TextTile(
+                title: 'Prowlarr-API-Schlüssel',
+                value: dl['prowlarr_api_key'] ?? '',
+                secret: true,
+                hint: 'Prowlarr → Settings → General → API Key',
+                onChanged: (v) => patch({
+                  'downloads': {'prowlarr_api_key': v},
+                }),
+              ),
+              _TextTile(
+                title: 'qBittorrent-Benutzer',
+                value: dl['qbittorrent_username'] ?? '',
+                onChanged: (v) => patch({
+                  'downloads': {'qbittorrent_username': v},
+                }),
+              ),
+              _TextTile(
+                title: 'qBittorrent-Passwort',
+                value: dl['qbittorrent_password'] ?? '',
+                secret: true,
+                onChanged: (v) => patch({
+                  'downloads': {'qbittorrent_password': v},
+                }),
+              ),
+              _NumberTile(
+                title: 'Mindestanzahl Seeder',
+                value: dl['torrent_min_seeders'] ?? 1,
+                onChanged: (v) => patch({
+                  'downloads': {'torrent_min_seeders': v},
+                }),
+              ),
+              _NumberTile(
+                title: 'Aufgeben nach … Minuten ohne Fortschritt',
+                value: dl['torrent_timeout_minutes'] ?? 60,
+                onChanged: (v) => patch({
+                  'downloads': {'torrent_timeout_minutes': v},
+                }),
+              ),
+              const _TorrentCheckTile(),
+            ],
             SwitchListTile(
               title: const Text('YouTube Music als Quelle'),
               subtitle: const Text('Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)'),
@@ -641,4 +765,101 @@ class _NumberTile extends StatelessWidget {
       if (result != null) onChanged(result);
     },
   );
+}
+
+class _TextTile extends StatelessWidget {
+  const _TextTile({required this.title, required this.value, required this.onChanged, this.secret = false, this.hint});
+  final String title;
+  final String value;
+  final bool secret;
+  final String? hint;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    title: Text(title),
+    subtitle: Text(value.isEmpty ? 'Nicht gesetzt' : (secret ? '••••••••' : value)),
+    trailing: const Icon(Icons.edit),
+    onTap: () async {
+      final ctrl = TextEditingController(text: value);
+      final result = await showDialog<String>(
+        context: context,
+        builder: (d) => AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            obscureText: secret,
+            decoration: InputDecoration(helperText: hint),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(d), child: const Text('Abbrechen')),
+            FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: const Text('Speichern')),
+          ],
+        ),
+      );
+      if (result != null) onChanged(result);
+    },
+  );
+}
+
+/// Checks the Prowlarr / qBittorrent connection with the saved credentials.
+class _TorrentCheckTile extends ConsumerStatefulWidget {
+  const _TorrentCheckTile();
+
+  @override
+  ConsumerState<_TorrentCheckTile> createState() => _TorrentCheckTileState();
+}
+
+class _TorrentCheckTileState extends ConsumerState<_TorrentCheckTile> {
+  Map<String, dynamic>? _result;
+  bool _busy = false;
+
+  Future<void> _check() async {
+    setState(() => _busy = true);
+    try {
+      final r = await ref.read(apiProvider).torrentStatus();
+      if (mounted) setState(() => _result = r);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget line(String name, Map? r) {
+      final ok = r?['ok'] == true;
+      return Row(
+        children: [
+          Icon(ok ? Icons.check_circle : Icons.error_outline, size: 18, color: ok ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error),
+          const SizedBox(width: 8),
+          Expanded(child: Text('$name: ${r?['message'] ?? ''}')),
+        ],
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _check,
+            icon: _busy
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.network_check),
+            label: const Text('Verbindung testen'),
+          ),
+          if (_result != null) ...[
+            const SizedBox(height: 8),
+            line('Prowlarr', _result!['prowlarr'] as Map?),
+            const SizedBox(height: 4),
+            line('qBittorrent', _result!['qbittorrent'] as Map?),
+          ],
+        ],
+      ),
+    );
+  }
 }

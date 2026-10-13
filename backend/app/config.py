@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://app:app@localhost:55432/app"
     # Root of the sorted music library (read by the scanner, written by the importer later on).
     music_dir: Path = Path("/data/music")
+    # Drop folder for new music (import).
+    import_dir: Path = Path("/data/import")
     # Writable directory for caches (covers, transcodes) and other app state.
     data_dir: Path = Path("/data/app")
     # Built Flutter web app; served at / when present.
@@ -25,6 +27,8 @@ class Settings(BaseSettings):
     download_workers: int = 2
     # Optional Netscape cookies file for yt-dlp (age-restricted videos).
     ytdlp_cookies_file: Path | None = None
+    qbittorrent_url: str = "http://localhost:8080"
+    prowlarr_url: str = "http://localhost:9696"
 
     session_ttl_days: int = 90
     invite_default_ttl_hours: int = 72

@@ -437,6 +437,23 @@ class RequestDetailPage extends ConsumerWidget {
                         ),
                         if (isAdmin) Text('Angefragt von ${r.user.name}', style: const TextStyle(color: Palette.textMuted)),
                         if (r.note != null) Text('Begründung: ${r.note}', style: const TextStyle(color: Palette.textMuted)),
+                        if (r.torrentStatus != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _torrentLabel(r),
+                            style: const TextStyle(color: Palette.textMuted),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (r.torrentStatus == 'downloading') ...[
+                            const SizedBox(height: 4),
+                            LinearProgressIndicator(
+                              value: r.torrentProgress,
+                              minHeight: 3,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ],
+                        ],
                       ],
                     ),
                   ),
@@ -519,6 +536,7 @@ class _ItemRow extends StatelessWidget {
                     item.artist,
                     requestStatusLabel(item.status),
                     if (item.source == 'youtube') 'YouTube Music',
+                    if (item.source == 'torrent') 'Torrent',
                   ].join(' • '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -542,3 +560,12 @@ class _ItemRow extends StatelessWidget {
     );
   }
 }
+
+String _torrentLabel(DownloadRequest r) => switch (r.torrentStatus) {
+  'searching' => 'Suche Torrent …',
+  'downloading' => 'Torrent: ${r.torrentName ?? ''} (${(r.torrentProgress * 100).round()} %)',
+  'importing' => 'Torrent wird importiert …',
+  'done' => 'Torrent: ${r.torrentName ?? ''}',
+  'failed' => 'Kein Torrent – lade über YouTube Music${r.torrentError == null ? '' : ' (${r.torrentError})'}',
+  _ => '',
+};
