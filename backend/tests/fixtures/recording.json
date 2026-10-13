@@ -1,0 +1,5 @@
+{
+  "id": "40000000-0000-0000-0000-000000000001", "title": "First Song", "length": 3000, "video": false,
+  "artist-credit": [{"name": "Test Artist", "artist": {"id": "10000000-0000-0000-0000-000000000001", "name": "Test Artist"}, "joinphrase": ""}],
+  "releases": [{"id": "20000000-0000-0000-0000-000000000001", "title": "Test Album", "status": "Official", "date": "2020-05-03", "release-group": {"id": "30000000-0000-0000-0000-000000000001", "title": "Test Album", "primary-type": "Album", "secondary-types": []}}]
+}

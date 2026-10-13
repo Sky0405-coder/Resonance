@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "id": 301,
+      "title": "First Song",
+      "duration": 3,
+      "rank": 999999,
+      "preview": "https://example.test/301.mp3",
+      "artist": {
+        "id": 101,
+        "name": "Test Artist"
+      },
+      "album": {
+        "id": 201,
+        "title": "Test Album",
+        "cover_medium": "https://example.test/medium.jpg",
+        "cover_big": "https://example.test/big.jpg",
+        "cover_xl": "https://example.test/xl.jpg"
+      },
+      "isrc": "DEABC2000001",
+      "contributors": [
+        {
+          "id": 101,
+          "name": "Test Artist",
+          "role": "Main"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "20000000-0000-0000-0000-000000000001",
+  "title": "Test Album",
+  "status": "Official",
+  "date": "2020-05-03",
+  "artist-credit": [{"name": "Test Artist", "artist": {"id": "10000000-0000-0000-0000-000000000001", "name": "Test Artist"}, "joinphrase": ""}],
+  "release-group": {"id": "30000000-0000-0000-0000-000000000001", "title": "Test Album", "primary-type": "Album", "secondary-types": [], "first-release-date": "2020-05-03", "genres": [{"name": "art rock", "count": 4}, {"name": "pop", "count": 1}]},
+  "label-info": [{"label": {"name": "Test Label"}}],
+  "media": [
+    {"position": 1, "format": "Digital Media", "tracks": [
+      {"position": 1, "title": "First Song", "length": 3000, "recording": {"id": "40000000-0000-0000-0000-000000000001", "title": "First Song", "video": false, "isrcs": ["DEABC2000001"]}},
+      {"position": 2, "title": "Second Song", "length": 3000, "recording": {"id": "40000000-0000-0000-0000-000000000002", "title": "Second Song", "video": false}}
+    ]},
+    {"position": 2, "format": "Digital Media", "tracks": [
+      {"position": 1, "title": "Third Song", "length": 3000, "recording": {"id": "40000000-0000-0000-0000-000000000003", "title": "Third Song", "video": false}}
+    ]}
+  ]
+}

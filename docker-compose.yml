@@ -1,0 +1,116 @@
+# Resonance stack for Coolify ("Docker Compose" build pack, this repo as source).
+#
+# Set these in Coolify → Environment Variables:
+#   POSTGRES_PASSWORD        random string
+#   MUSIC_PATH               host path of the music library on the HDD, e.g. /mnt/hdd/music
+#   DOWNLOADS_PATH           host path for incoming downloads (same disk as MUSIC_PATH -> hardlinks), e.g. /mnt/hdd/downloads
+#   APPDATA_PATH             host path on the SSD for DB + caches, e.g. /mnt/ssd/resonance
+#   WIREGUARD_PRIVATE_KEY    from the ProtonVPN WireGuard config (enable "NAT-PMP / port forwarding" when creating it)
+#   PROTON_SERVER_COUNTRIES  e.g. Netherlands,Switzerland
+# Then assign your domain to the "resonance" service (port 8000).
+#
+# qBittorrent / Prowlarr are already part of the stack; the app starts using
+# them with the download pipeline (phase 2). Their web UIs are only reachable
+# through gluetun on the internal network unless you publish the ports below.
+
+services:
+  resonance:
+    build: .
+    restart: unless-stopped
+    environment:
+      RESONANCE_DATABASE_URL: postgresql+asyncpg://resonance:${POSTGRES_PASSWORD}@postgres:5432/resonance
+      RESONANCE_QBITTORRENT_URL: http://gluetun:8080
+      RESONANCE_PROWLARR_URL: http://gluetun:9696
+    volumes:
+      - ${MUSIC_PATH}:/data/music
+      - ${DOWNLOADS_PATH}:/data/downloads
+      - ${APPDATA_PATH}/app:/data/app
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: resonance
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: resonance
+    volumes:
+      - ${APPDATA_PATH}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resonance"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # All download traffic goes through the VPN. If the tunnel drops, gluetun's
+  # firewall blocks everything (kill switch) - qBittorrent never leaks.
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      VPN_SERVICE_PROVIDER: protonvpn
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
+      SERVER_COUNTRIES: ${PROTON_SERVER_COUNTRIES:-Netherlands}
+      VPN_PORT_FORWARDING: "on"
+      PORT_FORWARD_ONLY: "on"
+      # Push the forwarded port into qBittorrent (needs "Bypass authentication for clients on localhost" in qBittorrent).
+      VPN_PORT_FORWARDING_UP_COMMAND: >-
+        /bin/sh -c 'wget -O- --retry-connrefused --post-data
+        "json={\"listen_port\":{{PORTS}},\"current_network_interface\":\"{{VPN_INTERFACE}}\"}"
+        http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
+      TZ: Europe/Berlin
+    volumes:
+      - ${APPDATA_PATH}/gluetun:/gluetun
+    # Uncomment to reach the web UIs from your LAN:
+    # ports:
+    #   - "8080:8080"   # qBittorrent
+    #   - "9696:9696"   # Prowlarr
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Europe/Berlin
+      WEBUI_PORT: "8080"
+    volumes:
+      - ${APPDATA_PATH}/qbittorrent:/config
+      - ${DOWNLOADS_PATH}:/data/downloads
+    depends_on:
+      gluetun:
+        condition: service_healthy
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Europe/Berlin
+    volumes:
+      - ${APPDATA_PATH}/prowlarr:/config
+    depends_on:
+      gluetun:
+        condition: service_healthy
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    environment:
+      TZ: Europe/Berlin
+    depends_on:
+      gluetun:
+        condition: service_healthy

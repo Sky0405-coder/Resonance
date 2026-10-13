@@ -1,0 +1,41 @@
+{
+  "data": [
+    {
+      "id": 201,
+      "title": "Test Album",
+      "release_date": "2020-05-03",
+      "record_type": "album",
+      "cover_medium": "https://example.test/medium.jpg",
+      "cover_big": "https://example.test/big.jpg",
+      "fans": 100
+    },
+    {
+      "id": 202,
+      "title": "TEST ALBUM",
+      "release_date": "2021-01-01",
+      "record_type": "album",
+      "fans": 10
+    },
+    {
+      "id": 203,
+      "title": "Compilation",
+      "release_date": "2026-01-01",
+      "record_type": "compile",
+      "fans": 1000
+    },
+    {
+      "id": 204,
+      "title": "Zulu",
+      "release_date": "2022-01-01",
+      "record_type": "ep",
+      "fans": 30
+    },
+    {
+      "id": 205,
+      "title": "Alpha",
+      "release_date": "2022-01-01",
+      "record_type": "single",
+      "fans": 20
+    }
+  ]
+}

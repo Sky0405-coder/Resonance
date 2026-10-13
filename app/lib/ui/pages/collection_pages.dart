@@ -1,0 +1,358 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/library.dart';
+import '../../core/models.dart';
+import '../../core/session.dart';
+import '../../core/theme.dart';
+import '../../player/player.dart';
+import '../widgets/collection.dart';
+import '../widgets/common.dart';
+import '../widgets/track_list.dart';
+
+/// Whether [contextId] is what's currently playing (for the play/pause toggle).
+bool _isPlayingContext(WidgetRef ref, String contextId) =>
+    ref.watch(playerProvider.select((p) => p.context == contextId && p.playing));
+
+void _playOrToggle(WidgetRef ref, String contextId, List<Track> tracks, {int index = 0, bool shuffle = false}) {
+  final p = ref.read(playerProvider);
+  final ctrl = ref.read(playerProvider.notifier);
+  if (p.context == contextId && p.current != null && !shuffle) {
+    ctrl.togglePlay();
+  } else {
+    ctrl.playTracks(tracks, index: index, context: contextId, shuffle: shuffle);
+  }
+}
+
+class AlbumPage extends ConsumerWidget {
+  const AlbumPage({super.key, required this.id});
+  final String id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = ref.watch(albumProvider(id));
+    final ctx = 'album:$id';
+    final playing = _isPlayingContext(ref, ctx);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: AsyncBody(
+        value: value,
+        onRetry: () => ref.invalidate(albumProvider(id)),
+        builder: (d) {
+          final multiDisc = d.tracks.map((t) => t.discNo ?? 1).toSet().length > 1;
+          final rows = <Widget>[];
+          int? disc;
+          for (final (i, t) in d.tracks.indexed) {
+            if (multiDisc && t.discNo != disc) {
+              disc = t.discNo;
+              rows.add(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Text('CD ${disc ?? 1}', style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700)),
+                ),
+              );
+            }
+            rows.add(
+              TrackRow(
+                track: t,
+                number: t.trackNo ?? i + 1,
+                showCover: false,
+                showAlbum: false,
+                onPlay: () => ref.read(playerProvider.notifier).playTracks(d.tracks, index: i, context: ctx),
+              ),
+            );
+          }
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: CollectionHeader(
+                  image: CoverImage(albumId: d.album.hasCover ? id : null, size: 600, icon: Icons.album),
+                  kind: 'Album',
+                  title: d.album.title,
+                  meta: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      InkWell(
+                        onTap: () => context.push('/artist/${d.album.artist.id}'),
+                        child: Text(d.album.artist.name, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                      ),
+                      Text(
+                        [
+                          if (d.album.year != null) ' • ${d.album.year}',
+                          ' • ${songs(d.tracks.length)}, ${formatLongDuration(d.duration)}',
+                        ].join(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: ActionBar(
+                  playing: playing,
+                  onPlay: d.tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, d.tracks),
+                  onShuffle: d.tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, d.tracks, shuffle: true),
+                  children: [
+                    IconButton(
+                      tooltip: d.saved ? 'Aus Bibliothek entfernen' : 'In Bibliothek speichern',
+                      iconSize: 30,
+                      color: d.saved ? Theme.of(context).colorScheme.primary : Palette.textMuted,
+                      icon: Icon(d.saved ? Icons.check_circle : Icons.add_circle_outline),
+                      onPressed: () => ref.read(libraryActionsProvider).setAlbumSaved(id, !d.saved),
+                    ),
+                    IconButton(
+                      tooltip: 'Zur Playlist hinzufügen',
+                      iconSize: 28,
+                      color: Palette.textMuted,
+                      icon: const Icon(Icons.playlist_add),
+                      onPressed: () => showAddToPlaylist(context, ref, [for (final t in d.tracks) t.id]),
+                    ),
+                  ],
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                sliver: SliverList.list(children: rows),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ArtistPage extends ConsumerWidget {
+  const ArtistPage({super.key, required this.id});
+  final String id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = ref.watch(artistProvider(id));
+    final ctx = 'artist:$id';
+    final playing = _isPlayingContext(ref, ctx);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: AsyncBody(
+        value: value,
+        onRetry: () => ref.invalidate(artistProvider(id)),
+        builder: (d) => CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: CollectionHeader(
+                circleImage: true,
+                image: CoverImage(albumId: d.artist.coverAlbumId, size: 600, radius: 0, icon: Icons.person),
+                kind: 'Künstler',
+                title: d.artist.name,
+                meta: Text('${d.albums.length} Alben in deiner Bibliothek'),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: ActionBar(
+                playing: playing,
+                onPlay: d.topTracks.isEmpty ? null : () => _playOrToggle(ref, ctx, d.topTracks),
+                onShuffle: d.topTracks.isEmpty ? null : () => _playOrToggle(ref, ctx, d.topTracks, shuffle: true),
+              ),
+            ),
+            if (d.topTracks.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Text('Beliebt', style: Theme.of(context).textTheme.titleLarge),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                sliver: SliverList.list(
+                  children: [
+                    for (final (i, t) in d.topTracks.take(5).indexed)
+                      TrackRow(
+                        track: t,
+                        onPlay: () => ref.read(playerProvider.notifier).playTracks(d.topTracks, index: i, context: ctx),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                child: Text('Diskografie', style: Theme.of(context).textTheme.titleLarge),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              sliver: SliverGrid.extent(
+                maxCrossAxisExtent: 200,
+                childAspectRatio: 0.72,
+                children: [for (final a in d.albums) AlbumCard(album: a)],
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PlaylistPage extends ConsumerWidget {
+  const PlaylistPage({super.key, required this.id});
+  final String id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = ref.watch(playlistDetailProvider(id));
+    final ctx = 'playlist:$id';
+    final playing = _isPlayingContext(ref, ctx);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: AsyncBody(
+        value: value,
+        onRetry: () => ref.invalidate(playlistDetailProvider(id)),
+        builder: (d) {
+          final tracks = [for (final e in d.entries) e.track];
+          final actions = ref.read(libraryActionsProvider);
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: CollectionHeader(
+                  image: PlaylistCover(albumIds: d.playlist.coverAlbumIds),
+                  kind: d.playlist.isPublic ? 'Öffentliche Playlist' : 'Playlist',
+                  title: d.playlist.name,
+                  description: d.playlist.description,
+                  meta: Text(
+                    '${d.playlist.owner.name} • ${songs(d.playlist.trackCount)}'
+                    '${d.playlist.duration > 0 ? ', ${formatLongDuration(d.playlist.duration)}' : ''}',
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: ActionBar(
+                  playing: playing,
+                  onPlay: tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, tracks),
+                  onShuffle: tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, tracks, shuffle: true),
+                  children: [
+                    if (d.editable)
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_horiz, color: Palette.textMuted, size: 28),
+                        onSelected: (v) async {
+                          switch (v) {
+                            case 'rename':
+                              final name = await promptText(context, 'Playlist umbenennen', 'Name', initial: d.playlist.name);
+                              if (name != null && name.isNotEmpty) {
+                                await ref.read(apiProvider).updatePlaylist(id, {'name': name});
+                                ref.invalidate(playlistDetailProvider(id));
+                                ref.invalidate(playlistsProvider);
+                              }
+                            case 'public':
+                              await ref.read(apiProvider).updatePlaylist(id, {'is_public': !d.playlist.isPublic});
+                              ref.invalidate(playlistDetailProvider(id));
+                              ref.invalidate(playlistsProvider);
+                            case 'delete':
+                              await actions.deletePlaylist(id);
+                              if (context.mounted) context.go('/library');
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(value: 'rename', child: Text('Umbenennen')),
+                          PopupMenuItem(
+                            value: 'public',
+                            child: Text(d.playlist.isPublic ? 'Privat machen' : 'Für alle Nutzer freigeben'),
+                          ),
+                          const PopupMenuItem(value: 'delete', child: Text('Löschen')),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              if (tracks.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text(
+                      'Noch keine Songs. Füge welche über das ⋯-Menü eines Songs hinzu.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Palette.textMuted),
+                    ),
+                  ),
+                ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                sliver: SliverList.builder(
+                  itemCount: d.entries.length,
+                  itemBuilder: (_, i) {
+                    final e = d.entries[i];
+                    return TrackRow(
+                      key: ValueKey(e.entryId),
+                      track: e.track,
+                      onPlay: () => ref.read(playerProvider.notifier).playTracks(tracks, index: i, context: ctx),
+                      extraActions: [
+                        if (d.editable)
+                          TrackAction(
+                            'Aus dieser Playlist entfernen',
+                            Icons.remove_circle_outline,
+                            () => actions.removeFromPlaylist(id, e.entryId),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class LikedPage extends ConsumerWidget {
+  const LikedPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = ref.watch(likedTracksProvider);
+    const ctx = 'liked';
+    final playing = _isPlayingContext(ref, ctx);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: AsyncBody(
+        value: value,
+        onRetry: () => ref.invalidate(likedTracksProvider),
+        builder: (tracks) => CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: CollectionHeader(
+                image: const LikedCover(),
+                kind: 'Playlist',
+                title: 'Lieblingssongs',
+                meta: Text(songs(tracks.length)),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: ActionBar(
+                playing: playing,
+                onPlay: tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, tracks),
+                onShuffle: tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, tracks, shuffle: true),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              sliver: SliverList.builder(
+                itemCount: tracks.length,
+                itemBuilder: (_, i) => TrackRow(
+                  track: tracks[i],
+                  onPlay: () => ref.read(playerProvider.notifier).playTracks(tracks, index: i, context: ctx),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+          ],
+        ),
+      ),
+    );
+  }
+}

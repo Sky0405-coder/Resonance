@@ -1,0 +1,26 @@
+{
+  "id": 201,
+  "title": "Test Album",
+  "upc": "001234567890",
+  "label": "Test Label",
+  "nb_tracks": 3,
+  "release_date": "2020-05-03",
+  "record_type": "album",
+  "genres": {
+    "data": [
+      {
+        "name": "Art Rock"
+      },
+      {
+        "name": "Pop"
+      }
+    ]
+  },
+  "artist": {
+    "id": 101,
+    "name": "Test Artist"
+  },
+  "cover_medium": "https://example.test/medium.jpg",
+  "cover_big": "https://example.test/big.jpg",
+  "cover_xl": "https://example.test/xl.jpg"
+}

@@ -1,0 +1,144 @@
+import uuid
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import aliased
+
+from app.deps import DB, AdminUser
+from app.models import Album, Artist, AuthSession, Invite, Job, Role, Track, User
+from app.schemas import InviteCreated, InviteIn, InviteOut, JobOut, UserAdminPatch, UserOut
+from app.security import hash_password, hash_token, new_token
+from app.services import scanner
+from app.services.server_config import ServerConfig, load_config, update_config
+
+router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+# --- server settings --------------------------------------------------------
+
+
+@router.get("/config", response_model=ServerConfig)
+async def get_config(admin: AdminUser, db: DB) -> ServerConfig:
+    return await load_config(db)
+
+
+@router.patch("/config", response_model=ServerConfig)
+async def patch_config(patch: dict, admin: AdminUser, db: DB) -> ServerConfig:
+    try:
+        return await update_config(db, patch)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
+
+
+# --- invites ----------------------------------------------------------------
+
+
+@router.get("/invites", response_model=list[InviteOut])
+async def list_invites(admin: AdminUser, db: DB) -> list[InviteOut]:
+    used_by = aliased(User)
+    rows = await db.execute(
+        select(Invite, used_by.username).outerjoin(used_by, used_by.id == Invite.used_by_id).order_by(Invite.created_at.desc())
+    )
+    out = []
+    for invite, username in rows:
+        item = InviteOut.model_validate(invite)
+        item.used_by_username = username
+        out.append(item)
+    return out
+
+
+@router.post("/invites", response_model=InviteCreated, status_code=status.HTTP_201_CREATED)
+async def create_invite(body: InviteIn, admin: AdminUser, db: DB) -> InviteCreated:
+    token = new_token()
+    invite = Invite(
+        token_hash=hash_token(token),
+        note=body.note,
+        role=body.role,
+        created_by_id=admin.id,
+        expires_at=datetime.now(UTC) + timedelta(hours=body.expires_in_hours) if body.expires_in_hours else None,
+    )
+    db.add(invite)
+    await db.commit()
+    await db.refresh(invite)
+    # The plain token is only ever returned here; the client builds the share link from it.
+    return InviteCreated(**InviteOut.model_validate(invite).model_dump(), token=token)
+
+
+@router.delete("/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_invite(invite_id: uuid.UUID, admin: AdminUser, db: DB) -> None:
+    await db.execute(delete(Invite).where(Invite.id == invite_id))
+    await db.commit()
+
+
+# --- users ------------------------------------------------------------------
+
+
+@router.get("/users", response_model=list[UserOut])
+async def list_users(admin: AdminUser, db: DB) -> list[UserOut]:
+    return [UserOut.model_validate(u) for u in await db.scalars(select(User).order_by(User.created_at))]
+
+
+async def _admin_count(db: DB) -> int:
+    return await db.scalar(select(func.count()).select_from(User).where(User.role == Role.admin, ~User.is_disabled)) or 0
+
+
+@router.patch("/users/{user_id}", response_model=UserOut)
+async def update_user(user_id: uuid.UUID, body: UserAdminPatch, admin: AdminUser, db: DB) -> UserOut:
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    demoting = user.is_admin and (body.role == Role.user or body.is_disabled)
+    if demoting and await _admin_count(db) <= 1:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Es muss mindestens ein aktiver Admin bleiben")
+    if body.role is not None:
+        user.role = body.role
+    if body.is_disabled is not None:
+        user.is_disabled = body.is_disabled
+        if body.is_disabled:
+            await db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
+    if body.new_password is not None:
+        user.password_hash = hash_password(body.new_password)
+        await db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
+    await db.commit()
+    await db.refresh(user)
+    return UserOut.model_validate(user)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(user_id: uuid.UUID, admin: AdminUser, db: DB) -> None:
+    user = await db.get(User, user_id)
+    if user is None:
+        return
+    if user.id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Du kannst dich nicht selbst löschen")
+    if user.is_admin and await _admin_count(db) <= 1:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Es muss mindestens ein aktiver Admin bleiben")
+    await db.delete(user)
+    await db.commit()
+
+
+# --- library ----------------------------------------------------------------
+
+
+@router.get("/library/stats")
+async def library_stats(admin: AdminUser, db: DB) -> dict:
+    return {
+        "artists": await db.scalar(select(func.count()).select_from(Artist)),
+        "albums": await db.scalar(select(func.count()).select_from(Album)),
+        "tracks": await db.scalar(select(func.count()).select_from(Track)),
+        # SUM() returns NUMERIC/Decimal in Postgres, which would serialise as a string.
+        "total_bytes": int(await db.scalar(select(func.coalesce(func.sum(Track.size), 0))) or 0),
+        "total_seconds": float(await db.scalar(select(func.coalesce(func.sum(Track.duration), 0))) or 0),
+    }
+
+
+@router.post("/library/scan", response_model=JobOut, status_code=status.HTTP_202_ACCEPTED)
+async def start_scan(admin: AdminUser, db: DB, full: bool = False) -> JobOut:
+    job = await scanner.start_scan(db, full=full)
+    return JobOut.model_validate(job)
+
+
+@router.get("/jobs", response_model=list[JobOut])
+async def list_jobs(admin: AdminUser, db: DB, limit: int = 50) -> list[JobOut]:
+    return [JobOut.model_validate(j) for j in await db.scalars(select(Job).order_by(Job.created_at.desc()).limit(limit))]

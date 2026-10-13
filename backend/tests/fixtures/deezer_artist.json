@@ -1,0 +1,8 @@
+{
+  "id": 101,
+  "name": "Test Artist",
+  "picture_medium": "https://example.test/artist-medium.jpg",
+  "picture_big": "https://example.test/artist-big.jpg",
+  "nb_album": 5,
+  "nb_fan": 1000
+}

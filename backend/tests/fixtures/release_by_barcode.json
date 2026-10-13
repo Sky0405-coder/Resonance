@@ -1,0 +1,19 @@
+{
+  "releases": [
+    {
+      "id": "wrong",
+      "track-count": 4
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000001",
+      "media": [
+        {
+          "track-count": 2
+        },
+        {
+          "track-count": 1
+        }
+      ]
+    }
+  ]
+}
