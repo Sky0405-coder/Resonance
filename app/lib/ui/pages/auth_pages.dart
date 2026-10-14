@@ -7,6 +7,7 @@ import '../../core/api.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../widgets/logo.dart';
 
 final authStatusProvider = FutureProvider.autoDispose<AuthStatus>((ref) => ref.watch(apiProvider).status());
 
@@ -33,7 +34,7 @@ class _AuthFrame extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.graphic_eq, size: 56, color: Theme.of(context).colorScheme.primary),
+                const Center(child: ResonanceLogo(size: 72)),
                 const SizedBox(height: 16),
                 Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 32),

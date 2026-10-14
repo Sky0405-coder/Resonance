@@ -1,11 +1,11 @@
 {
-    "name": "resonance",
-    "short_name": "resonance",
+    "name": "Resonance",
+    "short_name": "Resonance",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#121212",
+    "theme_color": "#121212",
+    "description": "Deine Musik, selbst gehostet.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
