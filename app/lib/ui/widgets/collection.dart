@@ -84,6 +84,8 @@ class CollectionHeader extends StatelessWidget {
     );
     if (!context.canPop()) return header;
     return Stack(
+      // passthrough: a loose Stack would shrink the header to its content width (visible edge on the right).
+      fit: StackFit.passthrough,
       children: [
         header,
         Positioned(
