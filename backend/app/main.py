@@ -62,7 +62,8 @@ def _mount_web(web_dir: Path) -> None:
             raise HTTPException(404)
         candidate = (web_dir / path).resolve()
         if path and candidate.is_file() and candidate.is_relative_to(web_dir.resolve()):
-            return FileResponse(candidate)
+            # App files keep their names across builds: always revalidate (also stops Cloudflare from caching them).
+            return FileResponse(candidate, headers={"Cache-Control": "no-cache"})
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
