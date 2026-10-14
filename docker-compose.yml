@@ -18,6 +18,7 @@
 # Torrents are off by default; enable them in Admin → Server and enter the Prowlarr API key and the
 # qBittorrent credentials there. qBittorrent only ever talks through the VPN (gluetun kill switch).
 
+# Volumes use the long bind syntax: Coolify turns short "${VAR}:/path" entries into named volumes.
 services:
   resonance:
     build:
@@ -33,10 +34,18 @@ services:
       RESONANCE_QBITTORRENT_URL: http://gluetun:8080
       RESONANCE_PROWLARR_URL: ${PROWLARR_URL:-http://prowlarr:9696}
     volumes:
-      - ${MUSIC_PATH}:/data/music
-      - ${DOWNLOADS_PATH}:/data/downloads
-      - ${IMPORT_PATH}:/data/import
-      - ${APPDATA_PATH}/app:/data/app
+      - type: bind
+        source: ${MUSIC_PATH}
+        target: /data/music
+      - type: bind
+        source: ${DOWNLOADS_PATH}
+        target: /data/downloads
+      - type: bind
+        source: ${IMPORT_PATH}
+        target: /data/import
+      - type: bind
+        source: ${APPDATA_PATH}/app
+        target: /data/app
     ports:
       - "127.0.0.1:${APP_PORT:-8765}:8000"
     networks:
@@ -54,7 +63,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: resonance
     volumes:
-      - ${APPDATA_PATH}/postgres:/var/lib/postgresql/data
+      - type: bind
+        source: ${APPDATA_PATH}/postgres
+        target: /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U resonance"]
       interval: 10s
@@ -85,7 +96,9 @@ services:
         http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
       TZ: Europe/Berlin
     volumes:
-      - ${APPDATA_PATH}/gluetun:/gluetun
+      - type: bind
+        source: ${APPDATA_PATH}/gluetun
+        target: /gluetun
     ports:
       - "127.0.0.1:${QBIT_PORT:-8095}:8080"   # qBittorrent web UI
 
@@ -99,8 +112,12 @@ services:
       TZ: Europe/Berlin
       WEBUI_PORT: "8080"
     volumes:
-      - ${APPDATA_PATH}/qbittorrent:/config
-      - ${DOWNLOADS_PATH}:/data/downloads
+      - type: bind
+        source: ${APPDATA_PATH}/qbittorrent
+        target: /config
+      - type: bind
+        source: ${DOWNLOADS_PATH}
+        target: /data/downloads
     depends_on:
       gluetun:
         condition: service_healthy
