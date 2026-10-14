@@ -123,6 +123,10 @@ class Gateway:
         if path == "/api/v2/auth/login":
             assert parse_qs(request.content.decode()) == {"username": ["admin"], "password": ["secret"]}
             self.logins += 1
+            if self.login_body == "":
+                return httpx.Response(204, headers={"Set-Cookie": "SID=session; Path=/"})
+            if self.login_body == "401":
+                return httpx.Response(401, text="Unauthorized")
             return httpx.Response(200, text=self.login_body, headers={"Set-Cookie": "SID=session; Path=/"})
         assert "SID=session" in request.headers.get("Cookie", "")
         if self.forbid_once or self.forbid_always:
@@ -554,3 +558,15 @@ async def test_prowlarr_transport_error(monkeypatch: pytest.MonkeyPatch, gateway
     monkeypatch.setattr(httpx, "AsyncClient", client)
     with pytest.raises(TorrentError, match="Prowlarr nicht erreichbar"):
         await prowlarr.search(config(), "Test Artist Test Album")
+
+
+@pytest.mark.parametrize(("body", "ok"), [("", True), ("Ok.", True), ("Fails.", False), ("401", False)])
+async def test_qbittorrent_login_variants(gateway: Gateway, body: str, ok: bool) -> None:
+    # qBittorrent >= 5.1 answers a successful login with 204 and no body.
+    gateway.login_body = body
+    async with QBittorrent(config()) as qb:
+        if ok:
+            assert await qb.version() == "v5.0"
+        else:
+            with pytest.raises(TorrentError, match="Anmeldung fehlgeschlagen"):
+                await qb.version()

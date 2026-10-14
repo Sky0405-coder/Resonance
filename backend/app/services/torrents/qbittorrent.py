@@ -27,7 +27,8 @@ class QBittorrent:
                 "password": self._cfg.downloads.qbittorrent_password,
             },
         )
-        if response.text != "Ok.":
+        # qBittorrent < 5.1 answers 200 "Ok.", newer versions 204 without body; failures are 200 "Fails." or 401.
+        if not (response.status_code == 204 or (response.status_code == 200 and response.text == "Ok.")):
             raise TorrentError("qBittorrent-Anmeldung fehlgeschlagen")
         response.raise_for_status()
         self._logged_in = True
