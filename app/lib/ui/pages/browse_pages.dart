@@ -9,7 +9,6 @@ import '../../core/downloads.dart';
 import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
-import '../../player/player.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/track_list.dart';
@@ -108,7 +107,7 @@ class _Results extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: TrackRow(
                     track: t,
-                    onPlay: () => ref.read(playerProvider.notifier).playTracks(r.tracks, index: i, context: 'search'),
+                    onPlay: () => playMusic(context, ref, r.tracks, index: i, contextId: 'search'),
                   ),
                 ),
             ],
@@ -118,7 +117,7 @@ class _Results extends ConsumerWidget {
             ),
             Shelf(
               title: 'Alben',
-              children: [for (final a in r.albums) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id))],
+              children: [for (final a in r.albums) AlbumCard(album: a, onPlay: () => playAlbum(context, ref, a.id))],
             ),
             CatalogSearchSection(query: query),
           ],
@@ -271,7 +270,7 @@ class _AlbumGrid extends ConsumerWidget {
               maxCrossAxisExtent: 200,
               childAspectRatio: 0.72,
               padding: const EdgeInsets.fromLTRB(6, 8, 6, kBottomInset),
-              children: [for (final a in list) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id))],
+              children: [for (final a in list) AlbumCard(album: a, onPlay: () => playAlbum(context, ref, a.id))],
             ),
     );
   }

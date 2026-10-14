@@ -16,13 +16,20 @@ import '../widgets/track_list.dart';
 bool _isPlayingContext(WidgetRef ref, String contextId) =>
     ref.watch(playerProvider.select((p) => p.context == contextId && p.playing));
 
-void _playOrToggle(WidgetRef ref, String contextId, List<Track> tracks, {int index = 0, bool shuffle = false}) {
+void _playOrToggle(
+  BuildContext context,
+  WidgetRef ref,
+  String contextId,
+  List<Track> tracks, {
+  int index = 0,
+  bool shuffle = false,
+}) {
   final p = ref.read(playerProvider);
   final ctrl = ref.read(playerProvider.notifier);
   if (p.context == contextId && p.current != null && !shuffle) {
     ctrl.togglePlay();
   } else {
-    ctrl.playTracks(tracks, index: index, context: contextId, shuffle: shuffle);
+    playMusic(context, ref, tracks, index: index, contextId: contextId, shuffle: shuffle);
   }
 }
 
@@ -63,7 +70,7 @@ class AlbumPage extends ConsumerWidget {
                 number: t.trackNo ?? i + 1,
                 showCover: false,
                 showAlbum: false,
-                onPlay: () => ref.read(playerProvider.notifier).playTracks(d.tracks, index: i, context: ctx),
+                onPlay: () => playMusic(context, ref, d.tracks, index: i, contextId: ctx),
               ),
             );
           }
@@ -97,8 +104,8 @@ class AlbumPage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: ActionBar(
                   playing: playing,
-                  onPlay: d.tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, d.tracks),
-                  onShuffle: d.tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, d.tracks, shuffle: true),
+                  onPlay: d.tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.tracks),
+                  onShuffle: d.tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.tracks, shuffle: true),
                   children: [
                     IconButton(
                       tooltip: d.saved ? 'Aus Bibliothek entfernen' : 'In Bibliothek speichern',
@@ -185,8 +192,10 @@ class ArtistPage extends ConsumerWidget {
             SliverToBoxAdapter(
               child: ActionBar(
                 playing: playing,
-                onPlay: d.topTracks.isEmpty ? null : () => _playOrToggle(ref, ctx, d.topTracks),
-                onShuffle: d.topTracks.isEmpty ? null : () => _playOrToggle(ref, ctx, d.topTracks, shuffle: true),
+                onPlay: d.topTracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.topTracks),
+                onShuffle: d.topTracks.isEmpty
+                    ? null
+                    : () => _playOrToggle(context, ref, ctx, d.topTracks, shuffle: true),
               ),
             ),
             if (d.topTracks.isNotEmpty) ...[
@@ -203,7 +212,7 @@ class ArtistPage extends ConsumerWidget {
                     for (final (i, t) in d.topTracks.take(5).indexed)
                       TrackRow(
                         track: t,
-                        onPlay: () => ref.read(playerProvider.notifier).playTracks(d.topTracks, index: i, context: ctx),
+                        onPlay: () => playMusic(context, ref, d.topTracks, index: i, contextId: ctx),
                       ),
                   ],
                 ),
@@ -265,8 +274,8 @@ class PlaylistPage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: ActionBar(
                   playing: playing,
-                  onPlay: tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, tracks),
-                  onShuffle: tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, tracks, shuffle: true),
+                  onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
+                  onShuffle: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks, shuffle: true),
                   children: [
                     if (d.editable)
                       PopupMenuButton<String>(
@@ -326,7 +335,7 @@ class PlaylistPage extends ConsumerWidget {
                     return TrackRow(
                       key: ValueKey(e.entryId),
                       track: e.track,
-                      onPlay: () => ref.read(playerProvider.notifier).playTracks(tracks, index: i, context: ctx),
+                      onPlay: () => playMusic(context, ref, tracks, index: i, contextId: ctx),
                       extraActions: [
                         if (d.editable)
                           TrackAction(
@@ -374,8 +383,8 @@ class LikedPage extends ConsumerWidget {
             SliverToBoxAdapter(
               child: ActionBar(
                 playing: playing,
-                onPlay: tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, tracks),
-                onShuffle: tracks.isEmpty ? null : () => _playOrToggle(ref, ctx, tracks, shuffle: true),
+                onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
+                onShuffle: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks, shuffle: true),
               ),
             ),
             SliverPadding(
@@ -384,7 +393,7 @@ class LikedPage extends ConsumerWidget {
                 itemCount: tracks.length,
                 itemBuilder: (_, i) => TrackRow(
                   track: tracks[i],
-                  onPlay: () => ref.read(playerProvider.notifier).playTracks(tracks, index: i, context: ctx),
+                  onPlay: () => playMusic(context, ref, tracks, index: i, contextId: ctx),
                 ),
               ),
             ),

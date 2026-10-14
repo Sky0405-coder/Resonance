@@ -6,7 +6,6 @@ import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
-import '../../player/player.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 
@@ -18,9 +17,10 @@ String _greeting() {
   return 'Guten Abend';
 }
 
-Future<void> playAlbum(WidgetRef ref, String albumId, {bool shuffle = false}) async {
+Future<void> playAlbum(BuildContext context, WidgetRef ref, String albumId, {bool shuffle = false}) async {
   final detail = await ref.read(albumProvider(albumId).future);
-  await ref.read(playerProvider.notifier).playTracks(detail.tracks, context: 'album:$albumId', shuffle: shuffle);
+  if (!context.mounted) return;
+  await playMusic(context, ref, detail.tracks, contextId: 'album:$albumId', shuffle: shuffle);
 }
 
 class HomePage extends ConsumerWidget {
@@ -71,7 +71,9 @@ class HomePage extends ConsumerWidget {
               _QuickGrid(home: h),
               Shelf(
                 title: 'Zuletzt gehört',
-                children: [for (final a in h.recentlyPlayed) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id))],
+                children: [
+                  for (final a in h.recentlyPlayed) AlbumCard(album: a, onPlay: () => playAlbum(context, ref, a.id)),
+                ],
               ),
               Shelf(
                 title: 'Deine Playlists',
@@ -79,7 +81,9 @@ class HomePage extends ConsumerWidget {
               ),
               Shelf(
                 title: 'Neu in der Bibliothek',
-                children: [for (final a in h.recentlyAdded) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id))],
+                children: [
+                  for (final a in h.recentlyAdded) AlbumCard(album: a, onPlay: () => playAlbum(context, ref, a.id)),
+                ],
               ),
               if (h.recentlyAdded.isEmpty)
                 const Padding(

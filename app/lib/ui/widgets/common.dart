@@ -8,6 +8,7 @@ import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../player/player.dart';
 
 String formatDuration(Duration d) {
   final h = d.inHours;
@@ -332,4 +333,20 @@ void showError(BuildContext context, Object e) {
 
 void showInfo(BuildContext context, String msg) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+}
+
+/// Music entry points share the same error presentation as audiobook playback.
+Future<void> playMusic(
+  BuildContext context,
+  WidgetRef ref,
+  List<Track> tracks, {
+  int index = 0,
+  String? contextId,
+  bool shuffle = false,
+}) async {
+  try {
+    await ref.read(playerProvider.notifier).playTracks(tracks, index: index, context: contextId, shuffle: shuffle);
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
 }

@@ -90,12 +90,23 @@ class PlayerController extends Notifier<PlayerView> {
   final ValueNotifier<double> userVolume = ValueNotifier(1);
   double _gainFactor = 1;
 
+  bool _switching = false;
+  Future<void> _pendingSwitch = Future.value();
+
+  // Serialize replacements so a late load cannot overwrite another request.
+  Future<void> _switch(Future<void> Function() action) {
+    final result = _pendingSwitch.then((_) => action());
+    _pendingSwitch = result.catchError((Object _) {});
+    return result;
+  }
+
   ApiClient get _api => ref.read(apiProvider);
 
   @override
   PlayerView build() {
     _subs.addAll([
       player.playerStateStream.listen((s) {
+        if (_switching) return;
         // Save the audiobook position right away when pausing.
         if (state.playing && !s.playing && state.book != null) _syncBook().ignore();
         state = _copy(
@@ -104,6 +115,7 @@ class PlayerController extends Notifier<PlayerView> {
         );
       }),
       player.currentIndexStream.listen((i) {
+        if (_switching) return;
         if (state.book != null) {
           state = _copy(index: i);
           return;
@@ -113,8 +125,12 @@ class PlayerController extends Notifier<PlayerView> {
         _applyGain();
         _reportTrackId = state.current?.id;
       }),
-      player.shuffleModeEnabledStream.listen((v) => state = _copy(shuffle: v)),
-      player.loopModeStream.listen((v) => state = _copy(loop: v)),
+      player.shuffleModeEnabledStream.listen((v) {
+        if (!_switching) state = _copy(shuffle: v);
+      }),
+      player.loopModeStream.listen((v) {
+        if (!_switching) state = _copy(loop: v);
+      }),
       player.positionStream.listen(_trackListening),
     ]);
     ref.onDispose(() {
@@ -163,27 +179,98 @@ class PlayerController extends Notifier<PlayerView> {
   );
 
   /// Replace the queue and start playing at [index].
-  Future<void> playTracks(List<Track> tracks, {int index = 0, String? context, bool shuffle = false}) async {
-    if (tracks.isEmpty) return;
+  Future<void> playTracks(List<Track> tracks, {int index = 0, String? context, bool shuffle = false}) =>
+      _switch(() async {
+        if (tracks.isEmpty) return;
+        await _replacePlayback(
+          PlayerView(
+            queue: List.unmodifiable(tracks),
+            shuffle: shuffle,
+            loop: state.book == null ? state.loop : LoopMode.off,
+            context: context,
+            sleepAt: state.sleepAt,
+          ),
+          [for (final t in tracks) _source(t)],
+          index: shuffle ? math.Random().nextInt(tracks.length) : index,
+        );
+      });
+
+  /// Commit metadata only after loading, and reload the previous sources on failure.
+  Future<void> _replacePlayback(
+    PlayerView next,
+    List<AudioSource> sources, {
+    required int index,
+    Duration position = Duration.zero,
+  }) async {
+    final previous = state;
+    final previousSources = List<AudioSource>.of(player.audioSources);
+    final previousIndex = player.currentIndex ?? 0;
+    final previousPosition = player.position;
+    final previousBookPosition = bookPosition;
+    _switching = true;
+    try {
+      await player.pause();
+      // just_audio_web caches the root playlist by ID. setAudioSources reuses
+      // that ID; stopping releases the cached platform playlist before loading.
+      await player.stop();
+      await player.setShuffleModeEnabled(next.shuffle);
+      await player.setLoopMode(next.loop);
+      await player.setSpeed(next.speed);
+      await player.setAudioSources(sources, initialIndex: index, initialPosition: position, preload: true);
+      if (next.shuffle) await player.shuffle();
+    } catch (e, st) {
+      debugPrint('Playback replacement failed: $e\n$st');
+      try {
+        await player.stop();
+        await player.setShuffleModeEnabled(previous.shuffle);
+        await player.setLoopMode(previous.loop);
+        await player.setSpeed(previous.speed);
+        if (previousSources.isNotEmpty) {
+          await player.setAudioSources(
+            previousSources,
+            initialIndex: previousIndex,
+            initialPosition: previousPosition,
+            preload: true,
+          );
+        }
+      } catch (restoreError) {
+        debugPrint('Playback restore failed: $restoreError');
+        await player.stop();
+      }
+      _switching = false;
+      state = _copy(playing: false, buffering: false);
+      _lastPos = player.position;
+      if (previous.playing && player.processingState == ProcessingState.ready) player.play();
+      throw ApiException(
+        next.book == null
+            ? 'Die Musik konnte nicht geladen werden. Bitte erneut versuchen.'
+            : 'Das Hörbuch konnte nicht geladen werden. Bitte erneut versuchen.',
+      );
+    }
+    // Use the old position: the player's sources now belong to the new item.
+    await _closeBook(position: previousBookPosition);
     _flushPlayReport();
-    await _closeBook();
     state = PlayerView(
-      queue: List.unmodifiable(tracks),
-      index: index,
-      shuffle: shuffle,
-      loop: state.loop,
-      context: context,
+      queue: next.queue,
+      index: player.currentIndex,
+      playing: player.playing,
+      shuffle: next.shuffle,
+      loop: next.loop,
+      context: next.context,
+      book: next.book,
+      speed: next.speed,
       sleepAt: state.sleepAt,
     );
-    await player.setSpeed(1);
-    await player.setShuffleModeEnabled(shuffle);
-    await player.setAudioSources(
-      [for (final t in tracks) _source(t)],
-      initialIndex: shuffle ? math.Random().nextInt(tracks.length) : index,
-      preload: true,
-    );
-    if (shuffle) await player.shuffle();
+    _bookListened = 0;
+    _lastPos = player.position;
     _reportTrackId = state.current?.id;
+    _switching = false;
+    _applyGain();
+    if (state.book != null) {
+      _bookSync = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (!_switching && player.playing) _syncBook().ignore();
+      });
+    }
     player.play();
   }
 
@@ -255,9 +342,7 @@ class PlayerController extends Notifier<PlayerView> {
 
   /// Starts an Audiobookshelf playback session and plays it from the saved position
   /// (or from [startAt] seconds, e.g. a chapter).
-  Future<void> playBook(AbsItem item, {double? startAt}) async {
-    _flushPlayReport();
-    await _closeBook();
+  Future<void> playBook(AbsItem item, {double? startAt}) => _switch(() async {
     final s = await _api.absPost('items/${item.id}/play', {
       'deviceInfo': {'clientName': 'Resonance', 'deviceName': 'Resonance'},
       'forceDirectPlay': true,
@@ -286,17 +371,14 @@ class PlayerController extends Notifier<PlayerView> {
     final position = startAt ?? (s['currentTime'] as num?)?.toDouble() ?? 0;
     var index = book.parts.lastIndexWhere((p) => p.start <= position);
     if (index < 0) index = 0;
-    state = PlayerView(
-      loop: LoopMode.off,
-      context: 'book:${item.id}',
-      book: book,
-      speed: state.speed,
-      sleepAt: state.sleepAt,
-    );
-    _bookListened = 0;
-    await player.setShuffleModeEnabled(false);
-    await player.setLoopMode(LoopMode.off);
-    await player.setAudioSources(
+    await _replacePlayback(
+      PlayerView(
+        loop: LoopMode.off,
+        context: 'book:${item.id}',
+        book: book,
+        speed: state.speed,
+        sleepAt: state.sleepAt,
+      ),
       [
         for (final (i, p) in book.parts.indexed)
           AudioSource.uri(
@@ -311,16 +393,10 @@ class PlayerController extends Notifier<PlayerView> {
             ),
           ),
       ],
-      initialIndex: index,
-      initialPosition: Duration(milliseconds: ((position - book.parts[index].start) * 1000).round()),
-      preload: true,
+      index: index,
+      position: Duration(milliseconds: ((position - book.parts[index].start) * 1000).round()),
     );
-    await player.setSpeed(state.speed);
-    _bookSync = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (player.playing) _syncBook().ignore();
-    });
-    player.play();
-  }
+  });
 
   /// Seek within the whole book (across files).
   Future<void> seekBook(double seconds) async {
@@ -334,12 +410,12 @@ class PlayerController extends Notifier<PlayerView> {
 
   Future<void> skipBook(double seconds) => seekBook(bookPosition + seconds);
 
-  Future<void> _syncBook({bool close = false}) async {
+  Future<void> _syncBook({bool close = false, double? position}) async {
     final book = state.book;
     if (book == null) return;
     final listened = _bookListened;
     _bookListened = 0;
-    final body = {'currentTime': bookPosition, 'timeListened': listened, 'duration': book.duration};
+    final body = {'currentTime': position ?? bookPosition, 'timeListened': listened, 'duration': book.duration};
     try {
       await _api.absPost('session/${book.sessionId}/${close ? 'close' : 'sync'}', body);
     } catch (_) {
@@ -348,12 +424,11 @@ class PlayerController extends Notifier<PlayerView> {
     }
   }
 
-  Future<void> _closeBook() async {
+  Future<void> _closeBook({required double position}) async {
     if (state.book == null) return;
     _bookSync?.cancel();
     _bookSync = null;
-    await player.pause();
-    await _syncBook(close: true);
+    await _syncBook(close: true, position: position);
   }
 
   Future<void> setSpeed(double speed) async {
@@ -410,6 +485,7 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   void _trackListening(Duration pos) {
+    if (_switching) return;
     final delta = (pos - _lastPos).inMilliseconds / 1000;
     // Ignore seeks (big jumps or backwards); faster playback still counts as real time listened.
     if (delta > 0 && delta < 2 * state.speed && player.playing) {
