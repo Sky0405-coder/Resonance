@@ -38,7 +38,7 @@ RESONANCE_MUSIC_DIR=~/Musik RESONANCE_DATA_DIR=/tmp/resonance .venv/bin/uvicorn 
 # Client
 cd app
 flutter run -d chrome       # oder: -d linux / Android-Gerät
-flutter build web           # RESONANCE_WEB_DIR=app/build/web liefert die App unter / aus
+flutter build web --wasm    # RESONANCE_WEB_DIR=app/build/web liefert die App unter / aus
 ```
 
 Für Linux-Desktop-Builds werden zusätzlich `clang cmake ninja-build gtk3-devel mpv-devel` benötigt (Fedora/Nobara).

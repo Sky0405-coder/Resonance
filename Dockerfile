@@ -13,7 +13,9 @@ WORKDIR /src/app
 COPY app/pubspec.yaml app/pubspec.lock ./
 RUN flutter pub get
 COPY app/ ./
-RUN flutter build web --release
+# --wasm: the skwasm renderer keeps decoded images across rebuilds; with CanvasKit, covers went blank after
+# navigating back. Browsers without WasmGC fall back to the CanvasKit build automatically.
+RUN flutter build web --release --wasm
 
 # --- Server ------------------------------------------------------------------
 FROM python:3.12-slim
