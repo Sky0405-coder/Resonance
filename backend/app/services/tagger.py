@@ -30,6 +30,16 @@ _MB_NAMES = {
 }
 
 
+def _strip_ogg_id3v1(path: Path) -> None:
+    """Some old tools appended an ID3v1 tag to Ogg files, which breaks mutagen's Ogg writer."""
+    if path.suffix.lower() not in {".ogg", ".oga", ".opus"} or path.stat().st_size < 128:
+        return
+    with path.open("r+b") as f:
+        f.seek(-128, 2)
+        if f.read(3) == b"TAG":
+            f.truncate(path.stat().st_size - 128)
+
+
 def write_tags(path: Path, meta: TrackMeta, cover: bytes | None, clear_missing: bool = False) -> None:
     values = {
         "title": meta.title,
@@ -50,6 +60,7 @@ def write_tags(path: Path, meta: TrackMeta, cover: bytes | None, clear_missing: 
         "musicbrainz_artistid": meta.artist_mbid,
         "musicbrainz_albumartistid": meta.album_artist_mbid,
     }
+    _strip_ogg_id3v1(path)
     audio = mutagen.File(path)
     if audio is None:
         raise ValueError("Audiodatei nicht lesbar")

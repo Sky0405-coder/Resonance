@@ -24,7 +24,7 @@ from app.services.musicbrainz import MusicBrainzClient, MusicBrainzError, TrackM
 from app.services.server_config import LibraryConfig, update_config
 from app.services.tagger import write_tags
 from app.services.tags import TrackTags, embedded_cover, read_tags
-from tests.conftest import auth, register
+from tests.conftest import auth, make_track, register
 
 
 def tags(**updates) -> TrackTags:
@@ -923,3 +923,26 @@ async def test_lone_song_goes_to_original_album(env, monkeypatch):
 def test_album_context_normalizes_various_artists():
     files = [FileInfo([], tags(album_artist="Verschiedene Interpreten", has_album_artist_tag=True)) for _ in range(2)]
     assert {c.album_artist for c in album_context(files).values()} == {"Various Artists"}
+
+
+def _plain_meta(**values: object) -> TrackMeta:
+    data: dict[str, object] = {name: None for name, field in TrackMeta.model_fields.items() if field.is_required()}
+    data.update(values)
+    return TrackMeta(**data)
+
+
+def test_write_tags_damaged_files(tmp_path: Path) -> None:
+    meta = _plain_meta(title="Neu", artist="A", album="B", album_artist="A", track_no=1)
+    # Leading garbage before the first MPEG frame: mutagen only recognises it by the extension.
+    mp3 = make_track("damaged/x.mp3", title="Alt")
+    damaged = tmp_path / ".x.part.mp3"
+    damaged.write_bytes(b"\0" * 4096 + mp3.read_bytes())
+    write_tags(damaged, meta, None, clear_missing=True)
+    assert read_tags(damaged).title == "Neu"
+    # Ogg file with an ID3v1 tag appended.
+    ogg = tmp_path / "y.ogg"
+    shutil.copy(make_track("damaged/y.ogg", title="Alt"), ogg)
+    with ogg.open("ab") as f:
+        f.write(b"TAG" + b"\0" * 125)
+    write_tags(ogg, meta, None, clear_missing=True)
+    assert read_tags(ogg).title == "Neu"

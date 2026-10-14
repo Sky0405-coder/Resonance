@@ -86,7 +86,8 @@ async def _place(db: AsyncSession, batch: ImportBatch, row: ImportFile, tags: Tr
     dest.parent.mkdir(parents=True, exist_ok=True)
     original_cover = folder_cover(source.parent)
     cover = await fetch_cover(meta) if row.method == "release" else None
-    temp = dest.with_name(dest.name + ".part")
+    # Hidden (skipped by the scanner) and keeps the extension, which mutagen needs to sniff damaged files.
+    temp = dest.with_name(f".{dest.stem}.part{dest.suffix}")
     try:
         if batch.mode == "copy":
             await asyncio.to_thread(shutil.copy2, source, temp)
@@ -199,7 +200,9 @@ async def run_batch(batch_id: uuid.UUID) -> None:
                     if info is None:
                         continue
                     try:
-                        meta, method = await identify_file(info, context[info], assigned.get(info), cfg.import_unidentified)
+                        meta, method = await identify_file(
+                            info, context[info], assigned.get(info), cfg.import_unidentified
+                        )
                         row.method = method
                         row.acoustid_score = max((c.score for c in info.candidates), default=None)
                         row.meta = meta.model_dump() if meta else None
