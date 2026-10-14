@@ -34,7 +34,7 @@ from app.services.tagger import fetch_cover, write_tags
 from app.services.tags import TrackTags, read_tags
 from app.services.torrents import TorrentError, prowlarr
 from app.services.torrents.qbittorrent import QBittorrent
-from app.services.torrents.select import choose
+from app.services.torrents.select import choose, search_query
 
 log = logging.getLogger(__name__)
 
@@ -188,7 +188,7 @@ class DownloadManager:
                 cfg = await load_config(db)
                 metas = [TrackMeta.model_validate(item.meta) for item in request.items]
             meta = metas[0]
-            results = await prowlarr.search(cfg, f"{meta.album_artist} {meta.album}")
+            results = await prowlarr.search(cfg, search_query(meta.album_artist, meta.album))
             chosen = choose(
                 results,
                 meta.album_artist,

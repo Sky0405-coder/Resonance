@@ -24,7 +24,7 @@ from app.services.server_config import DownloadConfig, ServerConfig
 from app.services.tags import read_tags
 from app.services.torrents import TorrentError, prowlarr
 from app.services.torrents.qbittorrent import QBittorrent
-from app.services.torrents.select import choose
+from app.services.torrents.select import choose, clean_album, search_query
 from tests.conftest import MUSIC_DIR, auth, register
 from tests.test_downloads import FakeSource
 
@@ -570,3 +570,23 @@ async def test_qbittorrent_login_variants(gateway: Gateway, body: str, ok: bool)
         else:
             with pytest.raises(TorrentError, match="Anmeldung fehlgeschlagen"):
                 await qb.version()
+
+
+def test_clean_album_and_query() -> None:
+    assert clean_album("Radio-Aktivität (2009 Remaster, German Version)") == "Radio-Aktivität"
+    assert clean_album("Abbey Road [Super Deluxe]") == "Abbey Road"
+    assert clean_album("Rumours - 2004 Remaster") == "Rumours"
+    assert clean_album("Live - Bootleg") == "Live - Bootleg"
+    assert clean_album("(What's the Story) Morning Glory?") == "Morning Glory?"
+    assert clean_album("(Untitled)") == "(Untitled)"
+    assert search_query("Kraftwerk", "Radio-Aktivität (2009 Remaster)") == "Kraftwerk Radio-Aktivität"
+    assert search_query("Various Artists", "Trainspotting (Music From the Motion Picture)") == "Trainspotting"
+
+
+def test_choose_edition_and_html_entities() -> None:
+    found = result(title="Kraftwerk - Radio-Aktivit&auml;t / Radio-Activity 1975 / 2004", size=91_000_000, seeders=1)
+    chosen = choose([found], "Kraftwerk", "Radio-Aktivität (2009 Remaster, German Version)", 2300, 1)
+    assert chosen is not None
+    assert chosen["title"] == "Kraftwerk - Radio-Aktivität / Radio-Activity 1975 / 2004"
+    compilation = result(title="Trainspotting Soundtrack FLAC", size=300_000_000)
+    assert choose([compilation], "Various Artists", "Trainspotting (Music From the Motion Picture)", 3600, 1)
