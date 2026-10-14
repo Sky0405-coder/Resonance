@@ -8,11 +8,13 @@
 #   APPDATA_PATH             host path on the SSD for DB + caches, e.g. /mnt/ssd/resonance
 #   WIREGUARD_PRIVATE_KEY    from the ProtonVPN WireGuard config (enable "NAT-PMP / port forwarding" when creating it)
 #   PROTON_SERVER_COUNTRIES  e.g. Netherlands,Switzerland
-# Then assign your domain to the "resonance" service (port 8000).
+#   PROWLARR_NETWORK         Docker network of an existing Prowlarr, e.g. the media stack's Coolify network
+#   PROWLARR_URL             e.g. http://prowlarr-<id>:9696
+#   APP_PORT / QBIT_PORT     host ports bound to 127.0.0.1 (for a reverse proxy / Cloudflare tunnel on the host),
+#                            default 8765 (Resonance) and 8095 (qBittorrent web UI)
 #
-# qBittorrent / Prowlarr are already part of the stack; the app starts using
-# them with the download pipeline (phase 2). Their web UIs are only reachable
-# through gluetun on the internal network unless you publish the ports below.
+# Torrents are off by default; enable them in Admin → Server and enter the Prowlarr API key and the
+# qBittorrent credentials there. qBittorrent only ever talks through the VPN (gluetun kill switch).
 
 services:
   resonance:
@@ -21,14 +23,17 @@ services:
     environment:
       RESONANCE_DATABASE_URL: postgresql+asyncpg://resonance:${POSTGRES_PASSWORD}@postgres:5432/resonance
       RESONANCE_QBITTORRENT_URL: http://gluetun:8080
-      RESONANCE_PROWLARR_URL: http://gluetun:9696
+      RESONANCE_PROWLARR_URL: ${PROWLARR_URL:-http://prowlarr:9696}
     volumes:
       - ${MUSIC_PATH}:/data/music
       - ${DOWNLOADS_PATH}:/data/downloads
       - ${IMPORT_PATH}:/data/import
       - ${APPDATA_PATH}/app:/data/app
-    expose:
-      - "8000"
+    ports:
+      - "127.0.0.1:${APP_PORT:-8765}:8000"
+    networks:
+      - default
+      - prowlarr
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,10 +77,8 @@ services:
       TZ: Europe/Berlin
     volumes:
       - ${APPDATA_PATH}/gluetun:/gluetun
-    # Uncomment to reach the web UIs from your LAN:
-    # ports:
-    #   - "8080:8080"   # qBittorrent
-    #   - "9696:9696"   # Prowlarr
+    ports:
+      - "127.0.0.1:${QBIT_PORT:-8095}:8080"   # qBittorrent web UI
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
@@ -93,26 +96,7 @@ services:
       gluetun:
         condition: service_healthy
 
+networks:
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
-    restart: unless-stopped
-    network_mode: "service:gluetun"
-    environment:
-      PUID: "1000"
-      PGID: "1000"
-      TZ: Europe/Berlin
-    volumes:
-      - ${APPDATA_PATH}/prowlarr:/config
-    depends_on:
-      gluetun:
-        condition: service_healthy
-
-  flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    restart: unless-stopped
-    network_mode: "service:gluetun"
-    environment:
-      TZ: Europe/Berlin
-    depends_on:
-      gluetun:
-        condition: service_healthy
+    external: true
+    name: ${PROWLARR_NETWORK}
