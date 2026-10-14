@@ -206,6 +206,8 @@ async def test_proxy_json_queries_headers_and_isolation(env):
         assert request.headers["authorization"] == "Bearer access-reader"
         assert "cookie" not in request.headers
         assert request.headers["if-none-match"] == '"cached"'
+        # Raw bytes are streamed through without Content-Encoding, so ABS must answer uncompressed.
+        assert request.headers["accept-encoding"] == "identity"
         assert request.extensions["timeout"]["connect"] == 10
         assert request.extensions["timeout"]["read"] is None
         return httpx.Response(

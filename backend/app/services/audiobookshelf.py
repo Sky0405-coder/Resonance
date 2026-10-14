@@ -124,7 +124,8 @@ async def request(
     client = _get_client()
     token = await access_token(db, account)
     for attempt in range(2):
-        outgoing_headers = {**headers, "authorization": f"Bearer {token}"}
+        # The proxy streams raw bytes without Content-Encoding, so ABS must not compress (Cloudflare compresses anyway).
+        outgoing_headers = {**headers, "authorization": f"Bearer {token}", "accept-encoding": "identity"}
         body = {"content": json} if isinstance(json, bytes) else {"json": json}
         outgoing = client.build_request(
             method, f"{cfg.url}/api/{path}", params=params, headers=outgoing_headers, **body
