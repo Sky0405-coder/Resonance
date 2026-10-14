@@ -7,6 +7,7 @@
 #   IMPORT_PATH              drop folder: music copied here is identified, tagged and moved into the library, e.g. /mnt/hdd/import
 #   APPDATA_PATH             host path on the SSD for DB + caches, e.g. /mnt/ssd/resonance
 #   WIREGUARD_PRIVATE_KEY    from the ProtonVPN WireGuard config (enable "NAT-PMP / port forwarding" when creating it)
+#   WIREGUARD_ADDRESSES      "Address" line of that config (default 10.2.0.2/32)
 #   PROTON_SERVER_COUNTRIES  e.g. Netherlands,Switzerland
 #   PROWLARR_NETWORK         Docker network of an existing Prowlarr, e.g. the media stack's Coolify network
 #   PROWLARR_URL             e.g. http://prowlarr-<id>:9696
@@ -70,6 +71,7 @@ services:
       VPN_SERVICE_PROVIDER: protonvpn
       VPN_TYPE: wireguard
       WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:-10.2.0.2/32}
       SERVER_COUNTRIES: ${PROTON_SERVER_COUNTRIES:-Netherlands}
       VPN_PORT_FORWARDING: "on"
       PORT_FORWARD_ONLY: "on"
