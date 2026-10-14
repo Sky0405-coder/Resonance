@@ -51,7 +51,9 @@ class SettingsPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Einstellungen', style: TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+        title: const Text('Einstellungen', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomInset),
         children: [
@@ -88,7 +90,11 @@ class SettingsPage extends ConsumerWidget {
               runSpacing: 12,
               children: [
                 for (final c in accentPresets)
-                  _Swatch(color: c, selected: toHexColor(c) == user.accentColor, onTap: () => _setAccent(context, ref, c)),
+                  _Swatch(
+                    color: c,
+                    selected: toHexColor(c) == user.accentColor,
+                    onTap: () => _setAccent(context, ref, c),
+                  ),
                 _Swatch(
                   color: Colors.transparent,
                   selected: !accentPresets.any((c) => toHexColor(c) == user.accentColor),
@@ -141,7 +147,9 @@ class SettingsPage extends ConsumerWidget {
                 for (final s in list)
                   ListTile(
                     leading: const Icon(Icons.devices),
-                    title: Text('${s['device_name'] ?? 'Unbekanntes Gerät'}${s['current'] == true ? ' (dieses Gerät)' : ''}'),
+                    title: Text(
+                      '${s['device_name'] ?? 'Unbekanntes Gerät'}${s['current'] == true ? ' (dieses Gerät)' : ''}',
+                    ),
                     subtitle: Text('Zuletzt aktiv: ${_date(s['last_used_at'])}'),
                     trailing: s['current'] == true
                         ? null
@@ -186,9 +194,17 @@ class SettingsPage extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: current, obscureText: true, decoration: const InputDecoration(labelText: 'Aktuelles Passwort')),
+            TextField(
+              controller: current,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Aktuelles Passwort'),
+            ),
             const SizedBox(height: 12),
-            TextField(controller: next, obscureText: true, decoration: const InputDecoration(labelText: 'Neues Passwort')),
+            TextField(
+              controller: next,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Neues Passwort'),
+            ),
           ],
         ),
         actions: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/audiobooks.dart';
 import '../core/downloads.dart';
 import '../core/library.dart';
 import '../core/models.dart';
@@ -20,6 +21,7 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
+    final audiobooks = ref.watch(absStatusProvider).value?.enabled ?? false;
     final pendingApproval = isAdmin ? ref.watch(downloadSummaryProvider).value?.pendingApproval ?? 0 : 0;
     // Refresh library views whenever downloads finish.
     ref.listen(downloadSummaryProvider, (prev, next) {
@@ -38,7 +40,10 @@ class AppShell extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
                 child: Row(
                   children: [
-                    SizedBox(width: 300, child: _Sidebar(location: location, isAdmin: isAdmin)),
+                    SizedBox(
+                      width: 300,
+                      child: _Sidebar(location: location, isAdmin: isAdmin),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: ClipRRect(
@@ -60,6 +65,7 @@ class AppShell extends ConsumerWidget {
       ('/', Icons.home_outlined, Icons.home, 'Start'),
       ('/search', Icons.search, Icons.search, 'Suche'),
       ('/library', Icons.library_music_outlined, Icons.library_music, 'Bibliothek'),
+      if (audiobooks) ('/audiobooks', Icons.headphones_outlined, Icons.headphones, 'Hörbücher'),
       if (isAdmin) ('/admin', Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, 'Admin'),
     ];
     var selected = tabs.lastIndexWhere((t) => t.$1 != '/' && location.startsWith(t.$1));
@@ -79,7 +85,11 @@ class AppShell extends ConsumerWidget {
         destinations: [
           for (final t in tabs)
             NavigationDestination(
-              icon: Badge(isLabelVisible: t.$1 == '/admin' && pendingApproval > 0, label: Text('$pendingApproval'), child: Icon(t.$2)),
+              icon: Badge(
+                isLabelVisible: t.$1 == '/admin' && pendingApproval > 0,
+                label: Text('$pendingApproval'),
+                child: Icon(t.$2),
+              ),
               selectedIcon: Icon(t.$3),
               label: t.$4,
             ),
@@ -126,6 +136,8 @@ class _Sidebar extends ConsumerWidget {
               nav('/', Icons.home_outlined, Icons.home, 'Start'),
               nav('/search', Icons.search, Icons.search, 'Suche'),
               nav('/downloads', Icons.download_outlined, Icons.download, 'Downloads', badge: summary.running),
+              if (ref.watch(absStatusProvider).value?.enabled ?? false)
+                nav('/audiobooks', Icons.headphones_outlined, Icons.headphones, 'Hörbücher'),
               if (isAdmin)
                 nav(
                   '/admin',
@@ -145,7 +157,10 @@ class _Sidebar extends ConsumerWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.library_music, color: Palette.textMuted),
-                  title: const Text('Bibliothek', style: TextStyle(fontWeight: FontWeight.w700, color: Palette.textMuted)),
+                  title: const Text(
+                    'Bibliothek',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: Palette.textMuted),
+                  ),
                   onTap: () => context.go('/library'),
                   trailing: IconButton(
                     tooltip: 'Playlist erstellen',

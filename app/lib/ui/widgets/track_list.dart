@@ -7,6 +7,7 @@ import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import '../pages/admin/metadata_editor.dart';
 import 'common.dart';
 
 /// One row in a track list. [number] shows a track number instead of the cover.
@@ -95,7 +96,12 @@ class _TrackRowState extends ConsumerState<TrackRow> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: current ? accent : Colors.white, fontSize: 15),
                     ),
-                    Text(t.artistCredit, maxLines: 1, overflow: TextOverflow.ellipsis, style: muted?.copyWith(fontSize: 13)),
+                    Text(
+                      t.artistCredit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: muted?.copyWith(fontSize: 13),
+                    ),
                   ],
                 ),
               ),
@@ -182,6 +188,12 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
               ),
               for (final a in extra)
                 ListTile(leading: Icon(a.icon), title: Text(a.label), onTap: () => run(a.onSelected)),
+              if (ref.read(sessionProvider).user?.isAdmin ?? false)
+                ListTile(
+                  leading: const Icon(Icons.edit_note),
+                  title: const Text('Metadaten korrigieren'),
+                  onTap: () => run(() => showTrackEditor(context, ref, t)),
+                ),
             ],
           ),
         ),

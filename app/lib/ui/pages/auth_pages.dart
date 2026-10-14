@@ -205,10 +205,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   void initState() {
     super.initState();
     if (widget.invite != null) {
-      ref.read(apiProvider).checkInvite(widget.invite!).then(
-        (v) => mounted ? setState(() => _inviteValid = v) : null,
-        onError: (_) => mounted ? setState(() => _inviteValid = false) : null,
-      );
+      ref
+          .read(apiProvider)
+          .checkInvite(widget.invite!)
+          .then(
+            (v) => mounted ? setState(() => _inviteValid = v) : null,
+            onError: (_) => mounted ? setState(() => _inviteValid = false) : null,
+          );
     }
   }
 

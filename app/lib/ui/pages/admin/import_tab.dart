@@ -161,7 +161,9 @@ class _BatchCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final b = batch;
-    final title = b.kind == 'cleanup' ? 'Bibliothek aufräumen' : 'Import (${b.mode == 'copy' ? 'kopieren' : 'verschieben'})';
+    final title = b.kind == 'cleanup'
+        ? 'Bibliothek aufräumen'
+        : 'Import (${b.mode == 'copy' ? 'kopieren' : 'verschieben'})';
     final started = MaterialLocalizations.of(context).formatShortDate(b.createdAt.toLocal());
     final time = TimeOfDay.fromDateTime(b.createdAt.toLocal()).format(context);
     Widget stat(String label, int value, String? filter) => ActionChip(

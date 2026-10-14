@@ -7,8 +7,41 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
 import '../core/api.dart';
+import '../core/audiobooks.dart';
 import '../core/models.dart';
 import '../core/session.dart';
+
+/// One file of an audiobook; [start] is its offset within the whole book in seconds.
+class BookPart {
+  const BookPart({required this.url, required this.start, required this.duration});
+  final String url;
+  final double start;
+  final double duration;
+}
+
+/// An Audiobookshelf playback session that is currently loaded into the player.
+class BookPlayback {
+  const BookPlayback({
+    required this.itemId,
+    required this.sessionId,
+    required this.title,
+    required this.coverUrl,
+    required this.duration,
+    required this.parts,
+    required this.chapters,
+    this.author,
+  });
+  final String itemId;
+  final String sessionId;
+  final String title;
+  final String? author;
+  final String coverUrl;
+  final double duration;
+  final List<BookPart> parts;
+  final List<AbsChapter> chapters;
+
+  AbsChapter? chapterAt(double seconds) => chapters.where((c) => seconds >= c.start && seconds < c.end).firstOrNull;
+}
 
 /// Snapshot of what the UI needs to render the player.
 class PlayerView {
@@ -20,6 +53,9 @@ class PlayerView {
     this.shuffle = false,
     this.loop = LoopMode.off,
     this.context,
+    this.book,
+    this.speed = 1,
+    this.sleepAt,
   });
 
   final List<Track> queue;
@@ -30,6 +66,11 @@ class PlayerView {
   final LoopMode loop;
   // Where playback was started from, e.g. "album:<id>".
   final String? context;
+  // Set while an audiobook is playing instead of music (queue is empty then).
+  final BookPlayback? book;
+  final double speed;
+  // Sleep timer: pause at this time (null = off).
+  final DateTime? sleepAt;
 
   Track? get current => index != null && index! < queue.length ? queue[index!] : null;
 }
@@ -55,12 +96,18 @@ class PlayerController extends Notifier<PlayerView> {
   PlayerView build() {
     _subs.addAll([
       player.playerStateStream.listen((s) {
+        // Save the audiobook position right away when pausing.
+        if (state.playing && !s.playing && state.book != null) _syncBook().ignore();
         state = _copy(
           playing: s.playing,
           buffering: s.processingState == ProcessingState.loading || s.processingState == ProcessingState.buffering,
         );
       }),
       player.currentIndexStream.listen((i) {
+        if (state.book != null) {
+          state = _copy(index: i);
+          return;
+        }
         _flushPlayReport();
         state = _copy(index: i);
         _applyGain();
@@ -74,19 +121,33 @@ class PlayerController extends Notifier<PlayerView> {
       for (final s in _subs) {
         s.cancel();
       }
+      _bookSync?.cancel();
+      _sleepTimer?.cancel();
       player.dispose();
     });
     return const PlayerView();
   }
 
-  PlayerView _copy({int? index, bool? playing, bool? buffering, bool? shuffle, LoopMode? loop}) => PlayerView(
-    queue: state.queue,
+  PlayerView _copy({
+    List<Track>? queue,
+    int? index,
+    bool? playing,
+    bool? buffering,
+    bool? shuffle,
+    LoopMode? loop,
+    double? speed,
+    DateTime? Function()? sleepAt,
+  }) => PlayerView(
+    queue: queue ?? state.queue,
     index: index ?? state.index,
     playing: playing ?? state.playing,
     buffering: buffering ?? state.buffering,
     shuffle: shuffle ?? state.shuffle,
     loop: loop ?? state.loop,
     context: state.context,
+    book: state.book,
+    speed: speed ?? state.speed,
+    sleepAt: sleepAt == null ? state.sleepAt : sleepAt(),
   );
 
   AudioSource _source(Track t) => AudioSource.uri(
@@ -105,13 +166,16 @@ class PlayerController extends Notifier<PlayerView> {
   Future<void> playTracks(List<Track> tracks, {int index = 0, String? context, bool shuffle = false}) async {
     if (tracks.isEmpty) return;
     _flushPlayReport();
+    await _closeBook();
     state = PlayerView(
       queue: List.unmodifiable(tracks),
       index: index,
       shuffle: shuffle,
       loop: state.loop,
       context: context,
+      sleepAt: state.sleepAt,
     );
+    await player.setSpeed(1);
     await player.setShuffleModeEnabled(shuffle);
     await player.setAudioSources(
       [for (final t in tracks) _source(t)],
@@ -131,29 +195,13 @@ class PlayerController extends Notifier<PlayerView> {
   Future<void> addToQueue(Track t) => _insert(state.queue.length, t);
 
   Future<void> _insert(int at, Track t) async {
-    if (state.queue.isEmpty) return playTracks([t]);
-    state = PlayerView(
-      queue: List.unmodifiable([...state.queue]..insert(at, t)),
-      index: state.index,
-      playing: state.playing,
-      buffering: state.buffering,
-      shuffle: state.shuffle,
-      loop: state.loop,
-      context: state.context,
-    );
+    if (state.queue.isEmpty || state.book != null) return playTracks([t]);
+    state = _copy(queue: List.unmodifiable([...state.queue]..insert(at, t)));
     await player.insertAudioSource(at, _source(t));
   }
 
   Future<void> removeAt(int i) async {
-    state = PlayerView(
-      queue: List.unmodifiable([...state.queue]..removeAt(i)),
-      index: state.index,
-      playing: state.playing,
-      buffering: state.buffering,
-      shuffle: state.shuffle,
-      loop: state.loop,
-      context: state.context,
-    );
+    state = _copy(queue: List.unmodifiable([...state.queue]..removeAt(i)));
     await player.removeAudioSourceAt(i);
   }
 
@@ -187,21 +235,160 @@ class PlayerController extends Notifier<PlayerView> {
   });
 
   void setLikedLocally(String trackId, bool liked) {
-    state = PlayerView(
+    state = _copy(
       queue: List.unmodifiable([for (final t in state.queue) t.id == trackId ? t.copyWith(liked: liked) : t]),
-      index: state.index,
-      playing: state.playing,
-      buffering: state.buffering,
-      shuffle: state.shuffle,
-      loop: state.loop,
-      context: state.context,
     );
+  }
+
+  // --- audiobooks ------------------------------------------------------------
+
+  Timer? _bookSync;
+  double _bookListened = 0;
+
+  /// Position within the whole book in seconds.
+  double get bookPosition {
+    final book = state.book;
+    final i = player.currentIndex;
+    if (book == null || i == null || i >= book.parts.length) return 0;
+    return book.parts[i].start + player.position.inMilliseconds / 1000;
+  }
+
+  /// Starts an Audiobookshelf playback session and plays it from the saved position
+  /// (or from [startAt] seconds, e.g. a chapter).
+  Future<void> playBook(AbsItem item, {double? startAt}) async {
+    _flushPlayReport();
+    await _closeBook();
+    final s = await _api.absPost('items/${item.id}/play', {
+      'deviceInfo': {'clientName': 'Resonance', 'deviceName': 'Resonance'},
+      'forceDirectPlay': true,
+      'forceTranscode': false,
+      'mediaPlayer': 'resonance',
+      'supportedMimeTypes': ['audio/flac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/aac', 'audio/x-m4b'],
+    });
+    final coverUrl = _api.absUrl('items/${item.id}/cover', {'width': '600'});
+    final book = BookPlayback(
+      itemId: item.id,
+      sessionId: s['id'],
+      title: s['displayTitle'] ?? item.title,
+      author: s['displayAuthor'] ?? item.author,
+      coverUrl: coverUrl,
+      duration: (s['duration'] as num?)?.toDouble() ?? item.duration,
+      parts: [
+        for (final t in s['audioTracks'])
+          BookPart(
+            url: _api.absUrl((t['contentUrl'] as String).replaceFirst(RegExp(r'^/api/'), '')),
+            start: (t['startOffset'] as num).toDouble(),
+            duration: (t['duration'] as num).toDouble(),
+          ),
+      ],
+      chapters: [for (final c in (s['chapters'] as List? ?? const [])) AbsChapter.fromJson(c)],
+    );
+    final position = startAt ?? (s['currentTime'] as num?)?.toDouble() ?? 0;
+    var index = book.parts.lastIndexWhere((p) => p.start <= position);
+    if (index < 0) index = 0;
+    state = PlayerView(
+      loop: LoopMode.off,
+      context: 'book:${item.id}',
+      book: book,
+      speed: state.speed,
+      sleepAt: state.sleepAt,
+    );
+    _bookListened = 0;
+    await player.setShuffleModeEnabled(false);
+    await player.setLoopMode(LoopMode.off);
+    await player.setAudioSources(
+      [
+        for (final (i, p) in book.parts.indexed)
+          AudioSource.uri(
+            Uri.parse(p.url),
+            tag: MediaItem(
+              id: '${item.id}:$i',
+              title: book.title,
+              artist: book.author,
+              album: book.parts.length > 1 ? 'Teil ${i + 1} von ${book.parts.length}' : null,
+              duration: Duration(milliseconds: (p.duration * 1000).round()),
+              artUri: Uri.parse(coverUrl),
+            ),
+          ),
+      ],
+      initialIndex: index,
+      initialPosition: Duration(milliseconds: ((position - book.parts[index].start) * 1000).round()),
+      preload: true,
+    );
+    await player.setSpeed(state.speed);
+    _bookSync = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (player.playing) _syncBook().ignore();
+    });
+    player.play();
+  }
+
+  /// Seek within the whole book (across files).
+  Future<void> seekBook(double seconds) async {
+    final book = state.book;
+    if (book == null) return;
+    final target = seconds.clamp(0, book.duration - 1).toDouble();
+    var index = book.parts.lastIndexWhere((p) => p.start <= target);
+    if (index < 0) index = 0;
+    await player.seek(Duration(milliseconds: ((target - book.parts[index].start) * 1000).round()), index: index);
+  }
+
+  Future<void> skipBook(double seconds) => seekBook(bookPosition + seconds);
+
+  Future<void> _syncBook({bool close = false}) async {
+    final book = state.book;
+    if (book == null) return;
+    final listened = _bookListened;
+    _bookListened = 0;
+    final body = {'currentTime': bookPosition, 'timeListened': listened, 'duration': book.duration};
+    try {
+      await _api.absPost('session/${book.sessionId}/${close ? 'close' : 'sync'}', body);
+    } catch (_) {
+      // Offline or session expired: keep the time for the next attempt.
+      _bookListened += listened;
+    }
+  }
+
+  Future<void> _closeBook() async {
+    if (state.book == null) return;
+    _bookSync?.cancel();
+    _bookSync = null;
+    await player.pause();
+    await _syncBook(close: true);
+  }
+
+  Future<void> setSpeed(double speed) async {
+    state = _copy(speed: speed);
+    await player.setSpeed(speed);
+  }
+
+  // --- sleep timer -------------------------------------------------------------
+
+  Timer? _sleepTimer;
+
+  /// Pause after [duration]; null switches the timer off.
+  void setSleepTimer(Duration? duration) {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    if (duration == null) {
+      state = _copy(sleepAt: () => null);
+      return;
+    }
+    state = _copy(sleepAt: () => DateTime.now().add(duration));
+    _sleepTimer = Timer(duration, () {
+      player.pause();
+      state = _copy(sleepAt: () => null);
+    });
   }
 
   /// ReplayGain: attenuate loud tracks towards a common level. We can only
   /// lower volume (max 1.0), so gains are offset by a fixed headroom.
   void _applyGain() {
     final t = state.current;
+    if (state.book != null) {
+      _gainFactor = 1;
+      player.setVolume(userVolume.value);
+      return;
+    }
     if (!normalize || t == null) {
       _gainFactor = 1;
     } else {
@@ -224,8 +411,14 @@ class PlayerController extends Notifier<PlayerView> {
 
   void _trackListening(Duration pos) {
     final delta = (pos - _lastPos).inMilliseconds / 1000;
-    // Ignore seeks (big jumps or backwards).
-    if (delta > 0 && delta < 2 && player.playing) _listened += delta;
+    // Ignore seeks (big jumps or backwards); faster playback still counts as real time listened.
+    if (delta > 0 && delta < 2 * state.speed && player.playing) {
+      if (state.book != null) {
+        _bookListened += delta / state.speed;
+      } else {
+        _listened += delta;
+      }
+    }
     _lastPos = pos;
   }
 
@@ -246,3 +439,10 @@ final playerProvider = NotifierProvider<PlayerController, PlayerView>(PlayerCont
 
 final positionProvider = StreamProvider<Duration>((ref) => ref.read(playerProvider.notifier).player.positionStream);
 final durationProvider = StreamProvider<Duration?>((ref) => ref.read(playerProvider.notifier).player.durationStream);
+
+/// Position within the whole audiobook in seconds (updates with the player position).
+final bookPositionProvider = Provider<double>((ref) {
+  ref.watch(positionProvider);
+  ref.watch(playerProvider.select((p) => p.index));
+  return ref.read(playerProvider.notifier).bookPosition;
+});

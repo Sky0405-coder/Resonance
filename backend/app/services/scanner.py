@@ -199,15 +199,10 @@ async def run_scan(job_id: uuid.UUID, full: bool = False) -> None:
                 # Chunked: Postgres allows at most 32767 bind parameters per statement.
                 for i in range(0, len(gone), 5000):
                     await db.execute(delete(Track).where(Track.id.in_(gone[i : i + 5000])))
-                # Drop albums/artists that no longer have any tracks.
-                await db.execute(delete(Album).where(~Album.id.in_(select(Track.album_id).distinct())))
-                await db.execute(
-                    delete(Artist).where(
-                        ~Artist.id.in_(select(Track.artist_id).distinct()),
-                        ~Artist.id.in_(select(Album.artist_id).distinct()),
-                    )
-                )
                 await db.commit()
+            from app.services.retag import cleanup_orphans
+
+            await cleanup_orphans(db)
         await _set_job(
             job_id,
             status="done",

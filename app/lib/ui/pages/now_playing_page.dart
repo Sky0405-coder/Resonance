@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import 'audiobook_pages.dart';
+import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/player_bar.dart';
@@ -15,6 +17,7 @@ class NowPlayingPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final track = ref.watch(playerProvider.select((p) => p.current));
+    final book = ref.watch(playerProvider.select((p) => p.book));
     final accent = Theme.of(context).colorScheme.primary;
     return Scaffold(
       body: Container(
@@ -26,7 +29,9 @@ class NowPlayingPage extends ConsumerWidget {
           ),
         ),
         child: SafeArea(
-          child: track == null
+          child: book != null
+              ? _BookNowPlaying(book: book)
+              : track == null
               ? const Center(child: Text('Gerade läuft nichts'))
               : Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -78,7 +83,8 @@ class NowPlayingPage extends ConsumerWidget {
                                         track.title,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                                        style: Theme.of(context).textTheme.headlineSmall
+                                            ?.copyWith(fontWeight: FontWeight.w800),
                                       ),
                                       InkWell(
                                         onTap: () {
@@ -105,6 +111,7 @@ class NowPlayingPage extends ConsumerWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
+                                const SleepTimerButton(),
                                 IconButton(
                                   tooltip: 'Warteschlange',
                                   icon: const Icon(Icons.queue_music),
@@ -125,6 +132,88 @@ class NowPlayingPage extends ConsumerWidget {
   }
 }
 
+class _BookNowPlaying extends ConsumerWidget {
+  const _BookNowPlaying({required this.book});
+  final BookPlayback book;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chapter = book.chapterAt(ref.watch(bookPositionProvider));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconButton(icon: const Icon(Icons.keyboard_arrow_down, size: 32), onPressed: () => context.pop()),
+              const Expanded(
+                child: Text(
+                  'Hörbuch',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Zum Hörbuch',
+                icon: const Icon(Icons.info_outline),
+                onPressed: () {
+                  context.pop();
+                  context.push('/audiobooks/item/${book.itemId}');
+                },
+              ),
+            ],
+          ),
+          const Spacer(),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
+            child: Material(
+              elevation: 16,
+              borderRadius: BorderRadius.circular(8),
+              clipBehavior: Clip.antiAlias,
+              child: NetworkCover(url: book.coverUrl, radius: 8, icon: Icons.headphones),
+            ),
+          ),
+          const Spacer(),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  book.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  [?book.author, ?chapter?.title].join(' • '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Palette.textMuted, fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                const SeekBar(),
+                const SizedBox(height: 8),
+                const Center(child: TransportControls(big: true)),
+                if (book.chapters.isNotEmpty)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => showChapterSheet(context, ref, book),
+                      icon: const Icon(Icons.format_list_bulleted),
+                      label: const Text('Kapitel'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
 class QueuePage extends ConsumerWidget {
   const QueuePage({super.key});
 
@@ -139,7 +228,9 @@ class QueuePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Warteschlange')),
       body: p.current == null
-          ? const Center(child: Text('Die Warteschlange ist leer', style: TextStyle(color: Palette.textMuted)))
+          ? const Center(
+              child: Text('Die Warteschlange ist leer', style: TextStyle(color: Palette.textMuted)),
+            )
           : ListView(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, kBottomInset),
               children: [
@@ -171,4 +262,3 @@ class _QueueHeading extends StatelessWidget {
     child: Text(text, style: Theme.of(context).textTheme.titleMedium),
   );
 }
-

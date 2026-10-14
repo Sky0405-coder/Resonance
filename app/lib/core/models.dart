@@ -225,11 +225,9 @@ class PlaylistDetail {
   final List<PlaylistEntry> entries;
   final bool editable;
 
-  factory PlaylistDetail.fromJson(Map<String, dynamic> j) => PlaylistDetail(
-    Playlist.fromJson(j),
-    [for (final e in j['entries']) PlaylistEntry(e['entry_id'], Track.fromJson(e['track']))],
-    j['editable'] ?? false,
-  );
+  factory PlaylistDetail.fromJson(Map<String, dynamic> j) => PlaylistDetail(Playlist.fromJson(j), [
+    for (final e in j['entries']) PlaylistEntry(e['entry_id'], Track.fromJson(e['track'])),
+  ], j['editable'] ?? false);
 }
 
 class Home {
@@ -328,13 +326,8 @@ class LibraryStats {
   final int totalBytes;
   final double totalSeconds;
 
-  factory LibraryStats.fromJson(Map<String, dynamic> j) => LibraryStats(
-    j['artists'],
-    j['albums'],
-    j['tracks'],
-    j['total_bytes'],
-    (j['total_seconds'] as num).toDouble(),
-  );
+  factory LibraryStats.fromJson(Map<String, dynamic> j) =>
+      LibraryStats(j['artists'], j['albums'], j['tracks'], j['total_bytes'], (j['total_seconds'] as num).toDouble());
 }
 
 class AuthStatus {
@@ -702,7 +695,18 @@ class ImportBatch {
 }
 
 class ImportFile {
-  const ImportFile({required this.id, required this.path, required this.status, this.method, this.acoustidScore, this.target, this.error, this.title, this.artist, this.album});
+  const ImportFile({
+    required this.id,
+    required this.path,
+    required this.status,
+    this.method,
+    this.acoustidScore,
+    this.target,
+    this.error,
+    this.title,
+    this.artist,
+    this.album,
+  });
   final String id;
   final String path;
   final String status;
@@ -726,4 +730,140 @@ class ImportFile {
     artist: j['artist'],
     album: j['album'],
   );
+}
+
+// --- metadata editor (admin) -------------------------------------------------
+
+/// Tags as they are currently stored in a library file.
+class TrackFile {
+  const TrackFile({
+    required this.path,
+    required this.query,
+    required this.duration,
+    this.title,
+    this.artist,
+    this.album,
+    this.albumArtist,
+    this.year,
+    this.trackNo,
+    this.discNo,
+    this.genre,
+    this.codec,
+    this.bitrate,
+    this.mbRecordingId,
+    this.mbReleaseId,
+  });
+  final String path;
+  final String query;
+  final double duration;
+  final String? title;
+  final String? artist;
+  final String? album;
+  final String? albumArtist;
+  final int? year;
+  final int? trackNo;
+  final int? discNo;
+  final String? genre;
+  final String? codec;
+  final int? bitrate;
+  final String? mbRecordingId;
+  final String? mbReleaseId;
+
+  factory TrackFile.fromJson(Map<String, dynamic> j) => TrackFile(
+    path: j['path'],
+    query: j['query'],
+    duration: (j['duration'] as num).toDouble(),
+    title: j['title'],
+    artist: j['artist'],
+    album: j['album'],
+    albumArtist: j['album_artist'],
+    year: j['year'],
+    trackNo: j['track_no'],
+    discNo: j['disc_no'],
+    genre: j['genre'],
+    codec: j['codec'],
+    bitrate: j['bitrate'],
+    mbRecordingId: j['mb_recording_id'],
+    mbReleaseId: j['mb_release_id'],
+  );
+}
+
+class FingerprintRelease {
+  const FingerprintRelease({
+    required this.releaseId,
+    this.album,
+    this.year,
+    this.discNo,
+    this.trackNo,
+    this.releaseTracks,
+  });
+  final String releaseId;
+  final String? album;
+  final int? year;
+  final int? discNo;
+  final int? trackNo;
+  final int? releaseTracks;
+
+  factory FingerprintRelease.fromJson(Map<String, dynamic> j) => FingerprintRelease(
+    releaseId: j['release_id'],
+    album: j['album'],
+    year: j['year'],
+    discNo: j['disc_no'],
+    trackNo: j['track_no'],
+    releaseTracks: j['release_tracks'],
+  );
+}
+
+class FingerprintMatch {
+  const FingerprintMatch({
+    required this.recordingId,
+    required this.score,
+    required this.releases,
+    this.title,
+    this.artist,
+  });
+  final String recordingId;
+  final String? title;
+  final String? artist;
+  final double score;
+  final List<FingerprintRelease> releases;
+
+  factory FingerprintMatch.fromJson(Map<String, dynamic> j) => FingerprintMatch(
+    recordingId: j['recording_id'],
+    title: j['title'],
+    artist: j['artist'],
+    score: (j['score'] as num).toDouble(),
+    releases: [for (final r in j['releases']) FingerprintRelease.fromJson(r)],
+  );
+}
+
+class CoverOption {
+  const CoverOption({required this.url, required this.source, required this.label});
+  final String url;
+  final String source;
+  final String label;
+
+  factory CoverOption.fromJson(Map<String, dynamic> j) =>
+      CoverOption(url: j['url'], source: j['source'], label: j['label']);
+}
+
+class AlbumMatchResult {
+  const AlbumMatchResult({required this.matched, required this.unmatched, this.album});
+  final Album? album;
+  final int matched;
+  final List<Track> unmatched;
+
+  factory AlbumMatchResult.fromJson(Map<String, dynamic> j) => AlbumMatchResult(
+    album: j['album'] == null ? null : Album.fromJson(j['album']),
+    matched: j['matched'],
+    unmatched: [for (final t in j['unmatched']) Track.fromJson(t)],
+  );
+}
+
+class ReviewTrack {
+  const ReviewTrack({required this.track, required this.path});
+  final Track track;
+  final String path;
+
+  factory ReviewTrack.fromJson(Map<String, dynamic> j) => ReviewTrack(track: Track.fromJson(j), path: j['path']);
 }

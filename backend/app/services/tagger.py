@@ -93,7 +93,7 @@ def write_tags(path: Path, meta: TrackMeta, cover: bytes | None, clear_missing: 
             if number is not None or total is not None:
                 audio[atom] = [(number or 0, total or 0)]
         if cover:
-            audio["covr"] = [MP4Cover(cover, imageformat=MP4Cover.FORMAT_JPEG)]
+            _set_cover(audio, cover)
     elif isinstance(audio.tags, ID3):
         frames = {
             "title": TIT2,
@@ -129,7 +129,7 @@ def write_tags(path: Path, meta: TrackMeta, cover: bytes | None, clear_missing: 
             if key != "musicbrainz_trackid" and values[key] is not None:
                 audio.tags.add(TXXX(encoding=3, desc=name, text=[values[key]]))
         if cover:
-            audio.tags.add(APIC(encoding=3, mime="image/jpeg", type=3, desc="Cover", data=cover))
+            _set_cover(audio, cover)
         audio.save(v2_version=4)
         return
     elif isinstance(audio.tags, APEv2) or isinstance(audio, ASF):
@@ -156,25 +156,35 @@ def write_tags(path: Path, meta: TrackMeta, cover: bytes | None, clear_missing: 
                 value = f"{number or 0}/{total}" if total else value
             set_value(key, tag, value if ape else [value] if value is not None else None)
         if cover:
-            if ape:
-                audio["Cover Art (Front)"] = APEBinaryValue(b"cover.jpg\0" + cover)
-            else:
-                data = struct.pack("<BI", 3, len(cover)) + "image/jpeg\0".encode("utf-16-le") + b"\0\0" + cover
-                audio["WM/Picture"] = [ASFByteArrayAttribute(data)]
+            _set_cover(audio, cover)
     else:
         for key, value in values.items():
             set_value(key, key, [value] if value is not None else None)
         if cover:
-            picture = Picture()
-            picture.type = 3
-            picture.mime = "image/jpeg"
-            picture.data = cover
-            if isinstance(audio, FLAC):
-                audio.clear_pictures()
-                audio.add_picture(picture)
-            else:
-                audio["METADATA_BLOCK_PICTURE"] = [base64.b64encode(picture.write()).decode("ascii")]
+            _set_cover(audio, cover)
     audio.save()
+
+
+def _set_cover(audio: mutagen.FileType, cover: bytes) -> None:
+    if isinstance(audio, MP4):
+        audio["covr"] = [MP4Cover(cover, imageformat=MP4Cover.FORMAT_JPEG)]
+    elif isinstance(audio.tags, ID3):
+        audio.tags.add(APIC(encoding=3, mime="image/jpeg", type=3, desc="Cover", data=cover))
+    elif isinstance(audio.tags, APEv2):
+        audio["Cover Art (Front)"] = APEBinaryValue(b"cover.jpg\0" + cover)
+    elif isinstance(audio, ASF):
+        data = struct.pack("<BI", 3, len(cover)) + "image/jpeg\0".encode("utf-16-le") + b"\0\0" + cover
+        audio["WM/Picture"] = [ASFByteArrayAttribute(data)]
+    else:
+        picture = Picture()
+        picture.type = 3
+        picture.mime = "image/jpeg"
+        picture.data = cover
+        if isinstance(audio, FLAC):
+            audio.clear_pictures()
+            audio.add_picture(picture)
+        else:
+            audio["METADATA_BLOCK_PICTURE"] = [base64.b64encode(picture.write()).decode("ascii")]
 
 
 async def fetch_cover(meta: TrackMeta) -> bytes | None:

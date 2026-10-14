@@ -7,6 +7,7 @@ import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import 'catalog.dart';
 import 'common.dart';
 
 class SeekBar extends ConsumerStatefulWidget {
@@ -23,9 +24,15 @@ class _SeekBarState extends ConsumerState<SeekBar> {
 
   @override
   Widget build(BuildContext context) {
-    final pos = ref.watch(positionProvider).value ?? Duration.zero;
+    final book = ref.watch(playerProvider.select((p) => p.book));
     final track = ref.watch(playerProvider.select((p) => p.current));
-    final dur = ref.watch(durationProvider).value ?? track?.length ?? Duration.zero;
+    // Audiobooks: the whole book, not the current file.
+    final pos = book != null
+        ? Duration(milliseconds: (ref.watch(bookPositionProvider) * 1000).round())
+        : ref.watch(positionProvider).value ?? Duration.zero;
+    final dur = book != null
+        ? Duration(milliseconds: (book.duration * 1000).round())
+        : ref.watch(durationProvider).value ?? track?.length ?? Duration.zero;
     final max = dur.inMilliseconds.toDouble().clamp(1.0, double.infinity);
     final value = (_dragValue ?? pos.inMilliseconds.toDouble()).clamp(0.0, max);
     final style = Theme.of(context).textTheme.bodySmall?.copyWith(color: Palette.textMuted, fontSize: 11);
@@ -44,7 +51,12 @@ class _SeekBarState extends ConsumerState<SeekBar> {
       max: max,
       onChanged: (v) => setState(() => _dragValue = v),
       onChangeEnd: (v) {
-        ref.read(playerProvider.notifier).seek(Duration(milliseconds: v.round()));
+        final ctrl = ref.read(playerProvider.notifier);
+        if (book != null) {
+          ctrl.seekBook(v / 1000);
+        } else {
+          ctrl.seek(Duration(milliseconds: v.round()));
+        }
         setState(() => _dragValue = null);
       },
     );
@@ -53,7 +65,11 @@ class _SeekBarState extends ConsumerState<SeekBar> {
       children: [
         SizedBox(
           width: 44,
-          child: Text(formatDuration(Duration(milliseconds: value.round())), style: style, textAlign: TextAlign.right),
+          child: Text(
+            formatDuration(Duration(milliseconds: value.round())),
+            style: style,
+            textAlign: TextAlign.right,
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(child: slider),
@@ -74,6 +90,49 @@ class TransportControls extends ConsumerWidget {
     final ctrl = ref.read(playerProvider.notifier);
     final accent = Theme.of(context).colorScheme.primary;
     final iconSize = big ? 36.0 : 24.0;
+    final playButton = Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: ctrl.togglePlay,
+        child: SizedBox(
+          width: big ? 68 : 36,
+          height: big ? 68 : 36,
+          child: p.buffering && !p.playing
+              ? const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                )
+              : Icon(p.playing ? Icons.pause : Icons.play_arrow, color: Colors.black, size: big ? 40 : 24),
+        ),
+      ),
+    );
+    if (p.book != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SpeedButton(),
+          IconButton(
+            tooltip: '30 Sekunden zurück',
+            iconSize: iconSize,
+            icon: const Icon(Icons.replay_30),
+            onPressed: () => ctrl.skipBook(-30),
+          ),
+          SizedBox(width: big ? 12 : 4),
+          playButton,
+          SizedBox(width: big ? 12 : 4),
+          IconButton(
+            tooltip: '30 Sekunden vor',
+            iconSize: iconSize,
+            icon: const Icon(Icons.forward_30),
+            onPressed: () => ctrl.skipBook(30),
+          ),
+          const SleepTimerButton(),
+        ],
+      );
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -91,24 +150,7 @@ class TransportControls extends ConsumerWidget {
           onPressed: ctrl.previous,
         ),
         SizedBox(width: big ? 12 : 4),
-        Material(
-          color: Colors.white,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: ctrl.togglePlay,
-            child: SizedBox(
-              width: big ? 68 : 36,
-              height: big ? 68 : 36,
-              child: p.buffering && !p.playing
-                  ? const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                    )
-                  : Icon(p.playing ? Icons.pause : Icons.play_arrow, color: Colors.black, size: big ? 40 : 24),
-            ),
-          ),
-        ),
+        playButton,
         SizedBox(width: big ? 12 : 4),
         IconButton(tooltip: 'Weiter', iconSize: iconSize, icon: const Icon(Icons.skip_next), onPressed: ctrl.next),
         IconButton(
@@ -118,6 +160,104 @@ class TransportControls extends ConsumerWidget {
           onPressed: ctrl.cycleLoop,
         ),
       ],
+    );
+  }
+}
+
+class SpeedButton extends ConsumerWidget {
+  const SpeedButton({super.key});
+
+  static const speeds = [0.75, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final speed = ref.watch(playerProvider.select((p) => p.speed));
+    String label(double v) => '${v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2).replaceAll('.', ',')}×';
+    return PopupMenuButton<double>(
+      tooltip: 'Geschwindigkeit',
+      initialValue: speed,
+      onSelected: ref.read(playerProvider.notifier).setSpeed,
+      itemBuilder: (_) => [for (final v in speeds) PopupMenuItem(value: v, child: Text(label(v)))],
+      child: SizedBox(
+        width: 48,
+        child: Center(
+          child: Text(
+            label(speed),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: speed == 1 ? Palette.textMuted : Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SleepTimerButton extends ConsumerWidget {
+  const SleepTimerButton({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sleepAt = ref.watch(playerProvider.select((p) => p.sleepAt));
+    final ctrl = ref.read(playerProvider.notifier);
+    return PopupMenuButton<int>(
+      tooltip: sleepAt == null
+          ? 'Sleep-Timer'
+          : 'Sleep-Timer: pausiert um ${TimeOfDay.fromDateTime(sleepAt).format(context)}',
+      icon: Icon(
+        sleepAt == null ? Icons.bedtime_outlined : Icons.bedtime,
+        color: sleepAt == null ? Palette.textMuted : Theme.of(context).colorScheme.primary,
+      ),
+      onSelected: (m) => ctrl.setSleepTimer(m == 0 ? null : Duration(minutes: m)),
+      itemBuilder: (_) => [
+        for (final m in const [5, 10, 15, 30, 45, 60, 90]) PopupMenuItem(value: m, child: Text('$m Minuten')),
+        if (sleepAt != null) const PopupMenuItem(value: 0, child: Text('Timer ausschalten')),
+      ],
+    );
+  }
+}
+
+/// Cover, title and author/chapter of the playing audiobook (player bars).
+class _BookInfo extends ConsumerWidget {
+  const _BookInfo({required this.book, this.coverSize = 56});
+  final BookPlayback book;
+  final double coverSize;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chapter = book.chapterAt(ref.watch(bookPositionProvider));
+    return InkWell(
+      onTap: () => context.push('/audiobooks/item/${book.itemId}'),
+      child: Row(
+        children: [
+          SizedBox(
+            width: coverSize,
+            child: NetworkCover(url: book.coverUrl, icon: Icons.headphones),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  book.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  chapter?.title ?? book.author ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Palette.textMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -148,6 +288,7 @@ class DesktopPlayerBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final track = ref.watch(playerProvider.select((p) => p.current));
+    final book = ref.watch(playerProvider.select((p) => p.book));
     return Container(
       height: 84,
       color: Palette.sidebar,
@@ -156,7 +297,9 @@ class DesktopPlayerBar extends ConsumerWidget {
         children: [
           Expanded(
             flex: 3,
-            child: track == null
+            child: book != null
+                ? _BookInfo(book: book)
+                : track == null
                 ? const SizedBox.shrink()
                 : Row(
                     children: [
@@ -205,28 +348,27 @@ class DesktopPlayerBar extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                IconButton(
-                  tooltip: 'Warteschlange',
-                  icon: const Icon(Icons.queue_music),
-                  color: Palette.textMuted,
-                  onPressed: () => context.push('/queue'),
-                ),
+                if (book == null)
+                  IconButton(
+                    tooltip: 'Warteschlange',
+                    icon: const Icon(Icons.queue_music),
+                    color: Palette.textMuted,
+                    onPressed: () => context.push('/queue'),
+                  ),
                 const Icon(Icons.volume_up, color: Palette.textMuted, size: 20),
                 SizedBox(
                   width: 120,
                   child: ValueListenableBuilder<double>(
                     valueListenable: ref.read(playerProvider.notifier).userVolume,
-                    builder: (_, volume, _) => Slider(
-                      value: volume,
-                      onChanged: ref.read(playerProvider.notifier).setUserVolume,
-                    ),
+                    builder: (_, volume, _) =>
+                        Slider(value: volume, onChanged: ref.read(playerProvider.notifier).setUserVolume),
                   ),
                 ),
                 IconButton(
                   tooltip: 'Vollbild',
                   icon: const Icon(Icons.open_in_full, size: 18),
                   color: Palette.textMuted,
-                  onPressed: track == null ? null : () => context.push('/now-playing'),
+                  onPressed: track == null && book == null ? null : () => context.push('/now-playing'),
                 ),
               ],
             ),
@@ -245,7 +387,7 @@ class MiniPlayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = ref.watch(playerProvider);
     final track = p.current;
-    if (track == null) return const SizedBox.shrink();
+    if (track == null && p.book == null) return const SizedBox.shrink();
     final ctrl = ref.read(playerProvider.notifier);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -262,27 +404,34 @@ class MiniPlayer extends ConsumerWidget {
                 padding: const EdgeInsets.all(6),
                 child: Row(
                   children: [
-                    SizedBox(width: 42, child: CoverImage(albumId: track.album.id, size: 64)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          Text(
-                            track.artistCredit,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Palette.textMuted, fontSize: 12),
-                          ),
-                        ],
+                    if (p.book != null) ...[
+                      Expanded(child: _BookInfo(book: p.book!, coverSize: 42)),
+                      IconButton(icon: const Icon(Icons.replay_30), onPressed: () => ctrl.skipBook(-30)),
+                    ] else ...[
+                      SizedBox(width: 42, child: CoverImage(albumId: track!.album.id, size: 64)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              track.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              track.artistCredit,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Palette.textMuted, fontSize: 12),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    LikeButton(track: track),
-                    IconButton(
-                      icon: Icon(p.playing ? Icons.pause : Icons.play_arrow),
-                      onPressed: ctrl.togglePlay,
-                    ),
+                      LikeButton(track: track),
+                    ],
+                    IconButton(icon: Icon(p.playing ? Icons.pause : Icons.play_arrow), onPressed: ctrl.togglePlay),
                   ],
                 ),
               ),

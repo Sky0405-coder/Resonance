@@ -94,8 +94,9 @@ class ApiClient {
 
   Future<User> updateMe(Map<String, dynamic> patch) async => User.fromJson(await _patch('/api/me', patch));
 
-  Future<List<Map<String, dynamic>>> sessions() async =>
-      [for (final s in await _get('/api/me/sessions')) Map<String, dynamic>.from(s)];
+  Future<List<Map<String, dynamic>>> sessions() async => [
+    for (final s in await _get('/api/me/sessions')) Map<String, dynamic>.from(s),
+  ];
 
   Future<void> revokeSession(String id) => _delete('/api/me/sessions/$id');
 
@@ -198,20 +199,23 @@ class ApiClient {
 
   Future<List<Invite>> invites() async => [for (final i in await _get('/api/admin/invites')) Invite.fromJson(i)];
 
-  Future<Invite> createInvite({String? note, String role = 'user', int? expiresInHours = 72}) async =>
-      Invite.fromJson(await _post('/api/admin/invites', {'note': note, 'role': role, 'expires_in_hours': expiresInHours}));
+  Future<Invite> createInvite({String? note, String role = 'user', int? expiresInHours = 72}) async => Invite.fromJson(
+    await _post('/api/admin/invites', {'note': note, 'role': role, 'expires_in_hours': expiresInHours}),
+  );
 
   Future<void> deleteInvite(String id) => _delete('/api/admin/invites/$id');
 
   Future<LibraryStats> libraryStats() async => LibraryStats.fromJson(await _get('/api/admin/library/stats'));
 
-  Future<Job> startScan({bool full = false}) async =>
-      Job.fromJson(await _call(() async => (await _dio.post('/api/admin/library/scan', queryParameters: {'full': full})).data));
+  Future<Job> startScan({bool full = false}) async => Job.fromJson(
+    await _call(() async => (await _dio.post('/api/admin/library/scan', queryParameters: {'full': full})).data),
+  );
 
   Future<ImportInfo> importInfo() async => ImportInfo.fromJson(await _get('/api/admin/imports/info'));
 
-  Future<List<ImportBatch>> importBatches() async =>
-      [for (final b in await _get('/api/admin/imports')) ImportBatch.fromJson(b)];
+  Future<List<ImportBatch>> importBatches() async => [
+    for (final b in await _get('/api/admin/imports')) ImportBatch.fromJson(b),
+  ];
 
   /// [kind] is `import` (import folder) or `cleanup` (library in place).
   Future<ImportBatch> startImport(String kind) async =>
@@ -226,6 +230,64 @@ class ApiClient {
 
   Future<Map<String, dynamic>> torrentStatus() async =>
       Map<String, dynamic>.from(await _get('/api/admin/torrents/status'));
+
+  // --- Audiobookshelf (proxied by the server, see /api/abs) ---------------
+
+  Future<Map<String, dynamic>> absStatus() async => Map<String, dynamic>.from(await _get('/api/abs/status'));
+
+  Future<void> absLogin(String username, String password) =>
+      _post('/api/abs/login', {'username': username, 'password': password});
+
+  Future<Map<String, dynamic>> absAdminStatus() async => Map<String, dynamic>.from(await _get('/api/admin/abs/status'));
+
+  Future<void> absLogout() => _delete('/api/abs/login');
+
+  /// Raw Audiobookshelf API call; [path] is relative to ABS's `/api/`, e.g. `libraries`.
+  Future<dynamic> absGet(String path, [Map<String, dynamic>? query]) => _get('/api/abs/api/$path', query);
+
+  Future<dynamic> absPost(String path, [Object? body]) => _post('/api/abs/api/$path', body);
+
+  Future<dynamic> absPatch(String path, Object body) => _patch('/api/abs/api/$path', body);
+
+  /// URL for media (covers, audio files) with the token in the query string.
+  String absUrl(String path, [Map<String, String> query = const {}]) {
+    final q = {...query, 'token': ?token};
+    return '$baseUrl/api/abs/api/$path?${Uri(queryParameters: q).query}';
+  }
+
+  // --- metadata editor (admin) -----------------------------------------------
+
+  Future<TrackFile> trackFile(String trackId) async =>
+      TrackFile.fromJson(await _get('/api/admin/library/tracks/$trackId/file'));
+
+  Future<List<FingerprintMatch>> trackFingerprint(String trackId) async => [
+    for (final m in await _get('/api/admin/library/tracks/$trackId/fingerprint')) FingerprintMatch.fromJson(m),
+  ];
+
+  /// [body] is one of `{source: deezer, deezer_id}`, `{source: musicbrainz, recording_id, release_id?}`,
+  /// `{source: manual, meta: {...}}`.
+  Future<Track> matchTrack(String trackId, Map<String, dynamic> body) async =>
+      Track.fromJson(await _post('/api/admin/library/tracks/$trackId/match', body));
+
+  Future<AlbumMatchResult> matchAlbum(String albumId, String source, String id) async =>
+      AlbumMatchResult.fromJson(await _post('/api/admin/library/albums/$albumId/match', {'source': source, 'id': id}));
+
+  Future<List<CoverOption>> coverOptions(String albumId) async => [
+    for (final o in await _get('/api/admin/library/albums/$albumId/cover-options')) CoverOption.fromJson(o),
+  ];
+
+  Future<void> setCoverFromUrl(String albumId, String url) =>
+      _post('/api/admin/library/albums/$albumId/cover', {'url': url});
+
+  Future<void> uploadCover(String albumId, List<int> bytes, String filename) => _post(
+    '/api/admin/library/albums/$albumId/cover',
+    FormData.fromMap({'file': MultipartFile.fromBytes(bytes, filename: filename)}),
+  );
+
+  Future<(List<ReviewTrack>, int)> review({String kind = 'unidentified', int offset = 0, int limit = 50}) async {
+    final j = await _get('/api/admin/library/review', {'kind': kind, 'offset': offset, 'limit': limit});
+    return ([for (final t in j['items']) ReviewTrack.fromJson(t)], j['total'] as int);
+  }
 
   Future<List<Job>> jobs() async => [for (final j in await _get('/api/admin/jobs')) Job.fromJson(j)];
 }

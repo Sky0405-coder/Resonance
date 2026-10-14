@@ -1,0 +1,526 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/audiobooks.dart';
+import '../../core/session.dart';
+import '../../core/theme.dart';
+import '../../player/player.dart';
+import '../widgets/catalog.dart';
+import '../widgets/collection.dart';
+import '../widgets/common.dart';
+
+/// "1 Std. 23 Min." / "45 Min."
+String formatBookDuration(double seconds) {
+  final d = Duration(seconds: seconds.round());
+  final h = d.inHours;
+  final m = d.inMinutes % 60;
+  return h > 0 ? '$h Std. $m Min.' : '$m Min.';
+}
+
+String _remaining(AbsItem item, AbsProgress? p) {
+  if (p == null || p.currentTime <= 0) return formatBookDuration(item.duration);
+  if (p.isFinished) return 'Beendet';
+  return 'Noch ${formatBookDuration((item.duration - p.currentTime).clamp(0, double.infinity))}';
+}
+
+final _selectedLibraryProvider = NotifierProvider<_SelectedLibrary, String?>(_SelectedLibrary.new);
+
+class _SelectedLibrary extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String id) => state = id;
+}
+
+Future<void> _play(BuildContext context, WidgetRef ref, AbsItem item, {double? startAt}) async {
+  try {
+    await ref.read(playerProvider.notifier).playBook(item, startAt: startAt);
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
+}
+
+/// Bottom tab "Hörbücher": Audiobookshelf libraries of the linked account.
+class AudiobooksPage extends ConsumerWidget {
+  const AudiobooksPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(absStatusProvider);
+    return AsyncBody(
+      value: status,
+      onRetry: () => ref.invalidate(absStatusProvider),
+      builder: (s) {
+        if (!s.enabled) {
+          return const Center(
+            child: Text(
+              'Hörbücher sind auf diesem Server nicht eingerichtet.',
+              style: TextStyle(color: Palette.textMuted),
+            ),
+          );
+        }
+        if (!s.linked) return _LoginView(status: s);
+        return const _LibraryView();
+      },
+    );
+  }
+}
+
+class _LoginView extends ConsumerStatefulWidget {
+  const _LoginView({required this.status});
+  final AbsStatus status;
+
+  @override
+  ConsumerState<_LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends ConsumerState<_LoginView> {
+  final _user = TextEditingController();
+  final _password = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _user.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(apiProvider).absLogin(_user.text.trim(), _password.text);
+      ref.invalidate(absStatusProvider);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: AutofillGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.headphones, size: 56),
+                const SizedBox(height: 16),
+                Text(
+                  'Mit Audiobookshelf verbinden',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Melde dich mit deinem Audiobookshelf-Konto an${widget.status.url.isEmpty ? '' : ' (${widget.status.url})'}. '
+                  'Dein Hörfortschritt bleibt mit allen Audiobookshelf-Apps synchron.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Palette.textMuted),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _user,
+                  autofillHints: const [AutofillHints.username],
+                  decoration: const InputDecoration(labelText: 'Benutzername'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _password,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.password],
+                  onSubmitted: (_) => _login(),
+                  decoration: const InputDecoration(labelText: 'Passwort'),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(onPressed: _busy ? null : _login, child: const Text('Anmelden')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LibraryView extends ConsumerStatefulWidget {
+  const _LibraryView();
+
+  @override
+  ConsumerState<_LibraryView> createState() => _LibraryViewState();
+}
+
+class _LibraryViewState extends ConsumerState<_LibraryView> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final libraries = ref.watch(absLibrariesProvider);
+    return AsyncBody(
+      value: libraries,
+      onRetry: () => ref.invalidate(absLibrariesProvider),
+      builder: (libs) {
+        final books = libs.where((l) => l.mediaType == 'book').toList();
+        if (books.isEmpty) {
+          return const Center(
+            child: Text('Keine Hörbuch-Bibliothek gefunden', style: TextStyle(color: Palette.textMuted)),
+          );
+        }
+        final selected = ref.watch(_selectedLibraryProvider);
+        final library = books.firstWhere((l) => l.id == selected, orElse: () => books.first);
+        final progress = ref.watch(absProgressProvider).value ?? const {};
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(absShelvesProvider(library.id));
+            ref.invalidate(absItemsProvider(library.id));
+            ref.invalidate(absProgressProvider);
+          },
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 8, 8),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text('Hörbücher', style: Theme.of(context).textTheme.headlineMedium)),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (_) async {
+                          await ref.read(apiProvider).absLogout();
+                          ref.invalidate(absStatusProvider);
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            value: 'logout',
+                            child: Text('Abmelden (${ref.read(absStatusProvider).value?.username ?? ''})'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (books.length > 1)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final l in books)
+                          ChoiceChip(
+                            label: Text(l.name),
+                            selected: l.id == library.id,
+                            onSelected: (_) => ref.read(_selectedLibraryProvider.notifier).select(l.id),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: TextField(
+                    controller: _search,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (v) => setState(() => _query = v.trim()),
+                    onChanged: (v) {
+                      if (v.isEmpty) setState(() => _query = '');
+                    },
+                    decoration: const InputDecoration(
+                      hintText: 'Titel, Autor oder Serie suchen',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                ),
+              ),
+              if (_query.isNotEmpty)
+                _BookGrid(value: ref.watch(absSearchProvider((library.id, _query))), progress: progress)
+              else ...[
+                SliverToBoxAdapter(
+                  child: ref
+                      .watch(absShelvesProvider(library.id))
+                      .when(
+                        loading: () => const SizedBox(),
+                        error: (_, _) => const SizedBox(),
+                        data: (shelves) => Column(
+                          children: [
+                            for (final s in shelves.where((s) => s.id == 'continue-listening'))
+                              Shelf(
+                                title: 'Weiterhören',
+                                children: [for (final b in s.items) _BookCard(item: b, progress: progress[b.id])],
+                              ),
+                          ],
+                        ),
+                      ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                    child: Text('Alle Hörbücher', style: Theme.of(context).textTheme.titleLarge),
+                  ),
+                ),
+                _BookGrid(value: ref.watch(absItemsProvider(library.id)), progress: progress),
+              ],
+              const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BookGrid extends StatelessWidget {
+  const _BookGrid({required this.value, required this.progress});
+  final AsyncValue<List<AbsItem>> value;
+  final Map<String, AbsProgress> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return value.when(
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+      error: (e, _) => SliverToBoxAdapter(child: Center(child: Text('$e'))),
+      data: (items) => items.isEmpty
+          ? const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: Text('Nichts gefunden', style: TextStyle(color: Palette.textMuted)),
+                ),
+              ),
+            )
+          : SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              sliver: SliverGrid.builder(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 200,
+                  childAspectRatio: 0.68,
+                ),
+                itemCount: items.length,
+                itemBuilder: (_, i) => _BookCard(item: items[i], progress: progress[items[i].id]),
+              ),
+            ),
+    );
+  }
+}
+
+class _BookCard extends ConsumerWidget {
+  const _BookCard({required this.item, this.progress});
+  final AbsItem item;
+  final AbsProgress? progress;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = progress ?? item.progress;
+    return MediaCard(
+      image: Stack(
+        children: [
+          NetworkCover(
+            url: ref.watch(apiProvider).absUrl('items/${item.id}/cover', {'width': '400'}),
+            icon: Icons.headphones,
+          ),
+          if (p != null && p.progress > 0 && !p.isFinished)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: LinearProgressIndicator(value: p.progress, minHeight: 4, backgroundColor: Colors.black54),
+            ),
+        ],
+      ),
+      title: item.title,
+      subtitle: [?item.author, _remaining(item, p)].join(' • '),
+      onTap: () => context.push('/audiobooks/item/${item.id}'),
+      onPlay: () => _play(context, ref, item),
+    );
+  }
+}
+
+/// Book detail: cover, description, resume button and chapters.
+class AudiobookPage extends ConsumerWidget {
+  const AudiobookPage({super.key, required this.id});
+  final String id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = ref.watch(absItemProvider(id));
+    final book = ref.watch(playerProvider.select((p) => p.book));
+    final isCurrent = book?.itemId == id;
+    final playing = ref.watch(playerProvider.select((p) => p.playing)) && isCurrent;
+    final position = isCurrent ? ref.watch(bookPositionProvider) : null;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: AsyncBody(
+        value: value,
+        onRetry: () => ref.invalidate(absItemProvider(id)),
+        builder: (item) {
+          final p = item.progress;
+          final started = (p?.currentTime ?? 0) > 0 && !(p?.isFinished ?? false);
+          final current = position == null
+              ? null
+              : item.chapters.where((c) => position >= c.start && position < c.end).firstOrNull;
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: CollectionHeader(
+                  image: NetworkCover(
+                    url: ref.watch(apiProvider).absUrl('items/$id/cover', {'width': '600'}),
+                    icon: Icons.headphones,
+                  ),
+                  kind: 'Hörbuch',
+                  title: item.title,
+                  description: item.series,
+                  meta: Text(
+                    [
+                      ?item.author,
+                      if (item.narrator != null) 'gelesen von ${item.narrator}',
+                      ?item.year,
+                      _remaining(item, p),
+                    ].join(' • '),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: ActionBar(
+                  playing: playing,
+                  onPlay: () => isCurrent ? ref.read(playerProvider.notifier).togglePlay() : _play(context, ref, item),
+                  children: [
+                    if (!isCurrent && started)
+                      Text('Weiterhören', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
+                      onSelected: (action) async {
+                        try {
+                          if (action == 'restart') {
+                            await _play(context, ref, item, startAt: 0);
+                          } else {
+                            await ref.read(apiProvider).absPatch('me/progress/$id', {
+                              'isFinished': action == 'finished',
+                            });
+                            ref.invalidate(absItemProvider(id));
+                            ref.invalidate(absProgressProvider);
+                          }
+                        } catch (e) {
+                          if (context.mounted) showError(context, e);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'restart', child: Text('Von vorn beginnen')),
+                        if (p?.isFinished ?? false)
+                          const PopupMenuItem(value: 'unfinished', child: Text('Als nicht beendet markieren'))
+                        else
+                          const PopupMenuItem(value: 'finished', child: Text('Als beendet markieren')),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (item.description != null && item.description!.trim().isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                    child: Text(
+                      // ABS stores descriptions as simple HTML.
+                      item.description!
+                          .replaceAll(RegExp(r'<br\s*/?>|</p>'), '\n')
+                          .replaceAll(RegExp(r'<[^>]+>'), '')
+                          .trim(),
+                      style: const TextStyle(color: Palette.textMuted),
+                    ),
+                  ),
+                ),
+              if (item.chapters.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                    child: Text('Kapitel', style: Theme.of(context).textTheme.titleLarge),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  sliver: SliverList.builder(
+                    itemCount: item.chapters.length,
+                    itemBuilder: (_, i) {
+                      final c = item.chapters[i];
+                      final active = identical(c, current) || (current != null && c.start == current.start);
+                      final accent = Theme.of(context).colorScheme.primary;
+                      return ListTile(
+                        leading: SizedBox(
+                          width: 32,
+                          child: Center(
+                            child: Text('${i + 1}', style: TextStyle(color: active ? accent : Palette.textMuted)),
+                          ),
+                        ),
+                        title: Text(c.title, style: TextStyle(color: active ? accent : null)),
+                        trailing: Text(
+                          formatBookDuration(c.end - c.start),
+                          style: const TextStyle(color: Palette.textMuted),
+                        ),
+                        onTap: () => isCurrent
+                            ? ref.read(playerProvider.notifier).seekBook(c.start)
+                            : _play(context, ref, item, startAt: c.start),
+                      );
+                    },
+                  ),
+                ),
+              ],
+              const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Chapter list for the playing book (now playing screen).
+Future<void> showChapterSheet(BuildContext context, WidgetRef ref, BookPlayback book) => showModalBottomSheet(
+  context: context,
+  backgroundColor: const Color(0xFF282828),
+  showDragHandle: true,
+  isScrollControlled: true,
+  builder: (sheet) {
+    final position = ref.read(bookPositionProvider);
+    final accent = Theme.of(context).colorScheme.primary;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: book.chapters.length,
+          itemBuilder: (_, i) {
+            final c = book.chapters[i];
+            final active = position >= c.start && position < c.end;
+            return ListTile(
+              title: Text(c.title, style: TextStyle(color: active ? accent : null)),
+              trailing: Text(formatBookDuration(c.end - c.start), style: const TextStyle(color: Palette.textMuted)),
+              onTap: () {
+                Navigator.pop(sheet);
+                ref.read(playerProvider.notifier).seekBook(c.start);
+              },
+            );
+          },
+        ),
+      ),
+    );
+  },
+);

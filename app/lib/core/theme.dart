@@ -82,10 +82,7 @@ ThemeData buildTheme(Color accent) {
       backgroundColor: Colors.black.withValues(alpha: 0.92),
       indicatorColor: Colors.transparent,
       labelTextStyle: WidgetStateProperty.resolveWith(
-        (s) => TextStyle(
-          fontSize: 11,
-          color: s.contains(WidgetState.selected) ? Colors.white : Palette.textMuted,
-        ),
+        (s) => TextStyle(fontSize: 11, color: s.contains(WidgetState.selected) ? Colors.white : Palette.textMuted),
       ),
       iconTheme: WidgetStateProperty.resolveWith(
         (s) => IconThemeData(color: s.contains(WidgetState.selected) ? Colors.white : Palette.textMuted),

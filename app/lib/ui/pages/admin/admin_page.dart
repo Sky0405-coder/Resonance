@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/audiobooks.dart';
 import '../../../core/models.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../widgets/collection.dart';
 import '../../widgets/common.dart';
 import 'import_tab.dart';
+import 'metadata_editor.dart';
 
 /// Jellyfin-style dashboard; only routed to for admins (and the API enforces it).
 class AdminPage extends StatelessWidget {
@@ -17,7 +19,7 @@ class AdminPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: 5,
+    length: 6,
     child: Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -30,11 +32,14 @@ class AdminPage extends StatelessWidget {
             Tab(icon: Icon(Icons.people_outline), text: 'Benutzer'),
             Tab(icon: Icon(Icons.link), text: 'Einladungen'),
             Tab(icon: Icon(Icons.move_to_inbox), text: 'Import'),
+            Tab(icon: Icon(Icons.rule), text: 'Zu prüfen'),
             Tab(icon: Icon(Icons.tune), text: 'Server'),
           ],
         ),
       ),
-      body: const TabBarView(children: [_OverviewTab(), _UsersTab(), _InvitesTab(), ImportTab(), _ServerTab()]),
+      body: const TabBarView(
+        children: [_OverviewTab(), _UsersTab(), _InvitesTab(), ImportTab(), ReviewTab(), _ServerTab()],
+      ),
     ),
   );
 }
@@ -129,7 +134,11 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
           spacing: 12,
           runSpacing: 8,
           children: [
-            FilledButton.icon(onPressed: () => _scan(false), icon: const Icon(Icons.sync), label: const Text('Schneller Scan')),
+            FilledButton.icon(
+              onPressed: () => _scan(false),
+              icon: const Icon(Icons.sync),
+              label: const Text('Schneller Scan'),
+            ),
             OutlinedButton.icon(
               onPressed: () => _scan(true),
               icon: const Icon(Icons.manage_search),
@@ -164,11 +173,16 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                               if (j.message != null) Text(j.message!),
                               if (j.isActive) ...[
                                 const SizedBox(height: 6),
-                                LinearProgressIndicator(value: j.status == 'running' && j.progress > 0 ? j.progress : null),
+                                LinearProgressIndicator(
+                                  value: j.status == 'running' && j.progress > 0 ? j.progress : null,
+                                ),
                               ],
                             ],
                           ),
-                          trailing: Text(_dateTime(j.createdAt), style: const TextStyle(color: Palette.textMuted, fontSize: 12)),
+                          trailing: Text(
+                            _dateTime(j.createdAt),
+                            style: const TextStyle(color: Palette.textMuted, fontSize: 12),
+                          ),
                         ),
                       ),
                   ],
@@ -238,7 +252,10 @@ class _UsersTab extends ConsumerWidget {
             ListTile(
               leading: CircleAvatar(
                 backgroundColor: parseHexColor(u.accentColor),
-                child: Text(u.displayName.characters.first.toUpperCase(), style: TextStyle(color: onColor(parseHexColor(u.accentColor)))),
+                child: Text(
+                  u.displayName.characters.first.toUpperCase(),
+                  style: TextStyle(color: onColor(parseHexColor(u.accentColor))),
+                ),
               ),
               title: Text('${u.displayName}${u.id == me ? ' (du)' : ''}'),
               subtitle: Text(
@@ -260,7 +277,11 @@ class _UsersTab extends ConsumerWidget {
                         if (context.mounted) showInfo(context, 'Passwort gesetzt, alle Geräte abgemeldet');
                       }
                     case 'delete':
-                      final ok = await _confirm(context, '${u.username} löschen?', 'Playlists und Verlauf werden ebenfalls gelöscht.');
+                      final ok = await _confirm(
+                        context,
+                        '${u.username} löschen?',
+                        'Playlists und Verlauf werden ebenfalls gelöscht.',
+                      );
                       if (ok) await run(() => api.deleteUser(u.id));
                   }
                 },
@@ -284,7 +305,11 @@ Future<String?> _ask(BuildContext context, String title) {
     context: context,
     builder: (d) => AlertDialog(
       title: Text(title),
-      content: TextField(controller: c, obscureText: true, decoration: const InputDecoration(labelText: 'Min. 8 Zeichen')),
+      content: TextField(
+        controller: c,
+        obscureText: true,
+        decoration: const InputDecoration(labelText: 'Min. 8 Zeichen'),
+      ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(d), child: const Text('Abbrechen')),
         FilledButton(onPressed: () => Navigator.pop(d, c.text), child: const Text('Speichern')),
@@ -326,7 +351,10 @@ class _InvitesTab extends ConsumerWidget {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: note, decoration: const InputDecoration(labelText: 'Notiz (z. B. für wen)')),
+              TextField(
+                controller: note,
+                decoration: const InputDecoration(labelText: 'Notiz (z. B. für wen)'),
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int?>(
                 initialValue: hours,
@@ -481,6 +509,7 @@ class _ServerTab extends ConsumerWidget {
         final radio = c['radio'] as Map;
         final dl = c['downloads'] as Map;
         final lib = (c['library'] ?? const {}) as Map;
+        final abs = (c['audiobookshelf'] ?? const {}) as Map;
         return ListView(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
           children: [
@@ -597,7 +626,9 @@ class _ServerTab extends ConsumerWidget {
             const _Group('Song-Radio'),
             SwitchListTile(
               title: const Text('Fehlende Songs automatisch herunterladen'),
-              subtitle: const Text('Ähnliche Songs, die noch nicht in der Bibliothek sind, landen in der Download-Warteschlange'),
+              subtitle: const Text(
+                'Ähnliche Songs, die noch nicht in der Bibliothek sind, landen in der Download-Warteschlange',
+              ),
               value: radio['auto_download_enabled'],
               onChanged: (v) => patch({
                 'radio': {'auto_download_enabled': v},
@@ -621,6 +652,34 @@ class _ServerTab extends ConsumerWidget {
                 'radio': {'temporary_retention_days': v},
               }),
             ),
+            const _Group('Hörbücher'),
+            SwitchListTile(
+              title: const Text('Audiobookshelf einbinden'),
+              subtitle: const Text(
+                'Zeigt den Tab „Hörbücher“. Jeder Benutzer meldet sich dort mit seinem eigenen Audiobookshelf-Konto an.',
+              ),
+              value: abs['enabled'] ?? false,
+              onChanged: (v) async {
+                await patch({
+                  'audiobookshelf': {'enabled': v},
+                });
+                ref.invalidate(absStatusProvider);
+              },
+            ),
+            if (abs['enabled'] ?? false) ...[
+              _TextTile(
+                title: 'Audiobookshelf-Adresse',
+                value: abs['url'] ?? '',
+                hint: 'z. B. https://audio.example.com – auch für externe Apps gedacht',
+                onChanged: (v) async {
+                  await patch({
+                    'audiobookshelf': {'url': v},
+                  });
+                  ref.invalidate(absStatusProvider);
+                },
+              ),
+              const _AbsCheckTile(),
+            ],
             const _Group('Downloads'),
             SwitchListTile(
               title: const Text('Torrents für Alben'),
@@ -684,7 +743,9 @@ class _ServerTab extends ConsumerWidget {
             ),
             SwitchListTile(
               title: const Text('Qualitäts-Upgrades'),
-              subtitle: const Text('Songs in niedriger Qualität (z. B. von YouTube) später durch FLAC/MP3 320 ersetzen'),
+              subtitle: const Text(
+                'Songs in niedriger Qualität (z. B. von YouTube) später durch FLAC/MP3 320 ersetzen',
+              ),
               value: dl['quality_upgrade_enabled'],
               onChanged: (v) => patch({
                 'downloads': {'quality_upgrade_enabled': v},
@@ -728,7 +789,10 @@ class _Group extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
-    child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.primary)),
+    child: Text(
+      title,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.primary),
+    ),
   );
 }
 
@@ -804,6 +868,59 @@ class _TextTile extends StatelessWidget {
 }
 
 /// Checks the Prowlarr / qBittorrent connection with the saved credentials.
+class _AbsCheckTile extends ConsumerStatefulWidget {
+  const _AbsCheckTile();
+
+  @override
+  ConsumerState<_AbsCheckTile> createState() => _AbsCheckTileState();
+}
+
+class _AbsCheckTileState extends ConsumerState<_AbsCheckTile> {
+  Map<String, dynamic>? _result;
+  bool _busy = false;
+
+  Future<void> _check() async {
+    setState(() => _busy = true);
+    try {
+      final r = await ref.read(apiProvider).absAdminStatus();
+      if (mounted) setState(() => _result = r);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = _result?['ok'] == true;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _check,
+            icon: _busy
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.network_check),
+            label: const Text('Verbindung testen'),
+          ),
+          if (_result != null) ...[
+            const SizedBox(width: 12),
+            Icon(
+              ok ? Icons.check_circle : Icons.error_outline,
+              size: 18,
+              color: ok ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text('${_result!['message'] ?? ''}')),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _TorrentCheckTile extends ConsumerStatefulWidget {
   const _TorrentCheckTile();
 
@@ -833,7 +950,11 @@ class _TorrentCheckTileState extends ConsumerState<_TorrentCheckTile> {
       final ok = r?['ok'] == true;
       return Row(
         children: [
-          Icon(ok ? Icons.check_circle : Icons.error_outline, size: 18, color: ok ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error),
+          Icon(
+            ok ? Icons.check_circle : Icons.error_outline,
+            size: 18,
+            color: ok ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error,
+          ),
           const SizedBox(width: 8),
           Expanded(child: Text('$name: ${r?['message'] ?? ''}')),
         ],

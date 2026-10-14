@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api.dart';
+import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
@@ -37,6 +38,7 @@ class CoverImage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final version = albumId == null ? 0 : ref.watch(coverVersionsProvider.select((v) => v[albumId] ?? 0));
     final placeholder = Container(
       color: const Color(0xFF282828),
       alignment: Alignment.center,
@@ -51,9 +53,9 @@ class CoverImage extends ConsumerWidget {
         child: albumId == null
             ? placeholder
             : CachedNetworkImage(
-                imageUrl: ref.watch(apiProvider).coverUrl(albumId!, size: size),
+                imageUrl: '${ref.watch(apiProvider).coverUrl(albumId!, size: size)}${version > 0 ? '&v=$version' : ''}',
                 // Cache key without the token so a re-login keeps the cache.
-                cacheKey: 'cover:$albumId:$size',
+                cacheKey: 'cover:$albumId:$size${version > 0 ? ':$version' : ''}',
                 fit: BoxFit.cover,
                 fadeInDuration: const Duration(milliseconds: 150),
                 placeholder: (_, _) => placeholder,

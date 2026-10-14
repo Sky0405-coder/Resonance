@@ -39,7 +39,10 @@ class CatalogSearchSection extends ConsumerWidget {
       children: [
         heading,
         value.when(
-          loading: () => const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator())),
+          loading: () => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          ),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(16),
             child: Text(ApiException.from(e).message, style: const TextStyle(color: Palette.textMuted)),
@@ -54,9 +57,18 @@ class CatalogSearchSection extends ConsumerWidget {
                   children: [
                     const SizedBox(height: 8),
                     for (final t in r.tracks.take(6))
-                      Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: CatalogTrackRow(track: t)),
-                    Shelf(title: 'Alben', children: [for (final a in r.albums) CatalogAlbumCard(album: a)]),
-                    Shelf(title: 'Künstler', children: [for (final a in r.artists) CatalogArtistCard(artist: a)]),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: CatalogTrackRow(track: t),
+                      ),
+                    Shelf(
+                      title: 'Alben',
+                      children: [for (final a in r.albums) CatalogAlbumCard(album: a)],
+                    ),
+                    Shelf(
+                      title: 'Künstler',
+                      children: [for (final a in r.artists) CatalogArtistCard(artist: a)],
+                    ),
                   ],
                 ),
         ),
@@ -90,7 +102,10 @@ class CatalogAlbumPage extends ConsumerWidget {
               rows.add(
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  child: Text('CD ${disc ?? 1}', style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    'CD ${disc ?? 1}',
+                    style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700),
+                  ),
                 ),
               );
             }
@@ -109,7 +124,10 @@ class CatalogAlbumPage extends ConsumerWidget {
                     children: [
                       InkWell(
                         onTap: a.artistId == null ? null : () => context.push('/catalog/artist/${a.artistId}'),
-                        child: Text(a.artist, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                        child: Text(
+                          a.artist,
+                          style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
                       ),
                       Text(
                         [
@@ -135,7 +153,11 @@ class CatalogAlbumPage extends ConsumerWidget {
                           kind: 'album',
                           catalogId: a.id,
                           inLibrary: false,
-                          label: have == 0 ? 'Album herunterladen' : total - have == 1 ? 'Fehlenden Song herunterladen' : 'Fehlende ${total - have} Songs herunterladen',
+                          label: have == 0
+                              ? 'Album herunterladen'
+                              : total - have == 1
+                              ? 'Fehlenden Song herunterladen'
+                              : 'Fehlende ${total - have} Songs herunterladen',
                         ),
                       if (a.libraryId != null)
                         OutlinedButton.icon(
@@ -281,12 +303,19 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
           bottom: const TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: [Tab(text: 'Offen'), Tab(text: 'Abgeschlossen')],
+            tabs: [
+              Tab(text: 'Offen'),
+              Tab(text: 'Abgeschlossen'),
+            ],
           ),
         ),
         body: TabBarView(
           children: [
-            _RequestList(scope: scope, state: 'open', empty: 'Keine laufenden Downloads.\nSuche nach Musik und tippe auf ⤓.'),
+            _RequestList(
+              scope: scope,
+              state: 'open',
+              empty: 'Keine laufenden Downloads.\nSuche nach Musik und tippe auf ⤓.',
+            ),
             _RequestList(scope: scope, state: 'finished', empty: 'Noch nichts heruntergeladen.'),
           ],
         ),
@@ -309,7 +338,11 @@ class _RequestList extends ConsumerWidget {
       onRetry: () => ref.invalidate(requestsProvider((scope, state))),
       builder: (list) => list.isEmpty
           ? Center(
-              child: Text(empty, textAlign: TextAlign.center, style: const TextStyle(color: Palette.textMuted)),
+              child: Text(
+                empty,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Palette.textMuted),
+              ),
             )
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
@@ -338,7 +371,10 @@ class _RequestTile extends ConsumerWidget {
         padding: const EdgeInsets.all(8),
         child: Row(
           children: [
-            SizedBox(width: 56, child: NetworkCover(url: r.coverUrl, icon: r.kind == 'album' ? Icons.album : Icons.music_note)),
+            SizedBox(
+              width: 56,
+              child: NetworkCover(url: r.coverUrl, icon: r.kind == 'album' ? Icons.album : Icons.music_note),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -368,11 +404,7 @@ class _RequestTile extends ConsumerWidget {
             ),
             if (isAdmin && r.status == 'pending_approval') ...[
               const SizedBox(width: 8),
-              IconButton(
-                tooltip: 'Ablehnen',
-                icon: const Icon(Icons.close),
-                onPressed: () => _reject(context, ref, r),
-              ),
+              IconButton(tooltip: 'Ablehnen', icon: const Icon(Icons.close), onPressed: () => _reject(context, ref, r)),
               IconButton.filled(
                 tooltip: 'Freigeben',
                 icon: const Icon(Icons.check),
@@ -428,15 +460,20 @@ class RequestDetailPage extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(r.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                        Text(
+                          r.title,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                        ),
                         Text(r.artist, style: const TextStyle(color: Palette.textMuted)),
                         const SizedBox(height: 8),
                         Text(
                           '${requestStatusLabel(r.status)} • ${r.doneCount}/${r.itemCount} fertig'
                           '${r.failedCount > 0 ? ' • ${r.failedCount} fehlgeschlagen' : ''}',
                         ),
-                        if (isAdmin) Text('Angefragt von ${r.user.name}', style: const TextStyle(color: Palette.textMuted)),
-                        if (r.note != null) Text('Begründung: ${r.note}', style: const TextStyle(color: Palette.textMuted)),
+                        if (isAdmin)
+                          Text('Angefragt von ${r.user.name}', style: const TextStyle(color: Palette.textMuted)),
+                        if (r.note != null)
+                          Text('Begründung: ${r.note}', style: const TextStyle(color: Palette.textMuted)),
                         if (r.torrentStatus != null) ...[
                           const SizedBox(height: 8),
                           Text(
@@ -542,7 +579,8 @@ class _ItemRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: muted,
                 ),
-                if (item.error != null) Text(item.error!, style: muted.copyWith(color: Theme.of(context).colorScheme.error)),
+                if (item.error != null)
+                  Text(item.error!, style: muted.copyWith(color: Theme.of(context).colorScheme.error)),
                 if (item.status == 'downloading') ...[
                   const SizedBox(height: 4),
                   LinearProgressIndicator(value: item.progress, minHeight: 3, borderRadius: BorderRadius.circular(2)),

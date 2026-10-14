@@ -8,6 +8,7 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
 import '../widgets/collection.dart';
+import 'admin/metadata_editor.dart';
 import '../widgets/common.dart';
 import '../widgets/track_list.dart';
 
@@ -49,7 +50,10 @@ class AlbumPage extends ConsumerWidget {
               rows.add(
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  child: Text('CD ${disc ?? 1}', style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    'CD ${disc ?? 1}',
+                    style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700),
+                  ),
                 ),
               );
             }
@@ -75,7 +79,10 @@ class AlbumPage extends ConsumerWidget {
                     children: [
                       InkWell(
                         onTap: () => context.push('/artist/${d.album.artist.id}'),
-                        child: Text(d.album.artist.name, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white)),
+                        child: Text(
+                          d.album.artist.name,
+                          style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
                       ),
                       Text(
                         [
@@ -107,6 +114,33 @@ class AlbumPage extends ConsumerWidget {
                       icon: const Icon(Icons.playlist_add),
                       onPressed: () => showAddToPlaylist(context, ref, [for (final t in d.tracks) t.id]),
                     ),
+                    if (ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false)))
+                      PopupMenuButton<String>(
+                        tooltip: 'Album korrigieren',
+                        iconSize: 28,
+                        icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
+                        onSelected: (action) async {
+                          if (action == 'cover') {
+                            await showCoverPicker(context, ref, id);
+                            return;
+                          }
+                          final album = await showAlbumMatcher(context, ref, d);
+                          // The songs may now live in another (new or existing) album.
+                          if (album != null && album.id != id && context.mounted) {
+                            context.pushReplacement('/album/${album.id}');
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'match',
+                            child: ListTile(leading: Icon(Icons.manage_search), title: Text('Album zuordnen')),
+                          ),
+                          PopupMenuItem(
+                            value: 'cover',
+                            child: ListTile(leading: Icon(Icons.image_search), title: Text('Cover ändern')),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -240,7 +274,12 @@ class PlaylistPage extends ConsumerWidget {
                         onSelected: (v) async {
                           switch (v) {
                             case 'rename':
-                              final name = await promptText(context, 'Playlist umbenennen', 'Name', initial: d.playlist.name);
+                              final name = await promptText(
+                                context,
+                                'Playlist umbenennen',
+                                'Name',
+                                initial: d.playlist.name,
+                              );
                               if (name != null && name.isNotEmpty) {
                                 await ref.read(apiProvider).updatePlaylist(id, {'name': name});
                                 ref.invalidate(playlistDetailProvider(id));

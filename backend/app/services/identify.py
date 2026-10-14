@@ -26,6 +26,7 @@ class Candidate:
     release_tracks: int | None
     year: int | None
     title: str | None = None  # recording title as known to AcoustID
+    artist: str | None = None
 
 
 @dataclass(eq=False)
@@ -59,10 +60,15 @@ def candidates(results: list[dict]) -> list[Candidate]:
         for recording in result.get("recordings", []) or []:
             if not recording.get("id"):
                 continue
+            artist = (
+                "".join(a.get("name", "") + a.get("joinphrase", "") for a in recording.get("artists", []) or []) or None
+            )
             groups = recording.get("releasegroups", []) or []
             if not groups:
                 out.append(
-                    Candidate(score, recording["id"], None, None, None, None, None, None, None, recording.get("title"))
+                    Candidate(
+                        score, recording["id"], None, None, None, None, None, None, None, recording.get("title"), artist
+                    )
                 )
             for group in groups:
                 for release in group.get("releases", []) or []:
@@ -80,6 +86,7 @@ def candidates(results: list[dict]) -> list[Candidate]:
                                     release.get("track_count"),
                                     (release.get("date") or {}).get("year"),
                                     recording.get("title"),
+                                    artist,
                                 )
                             )
     return out

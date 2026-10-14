@@ -112,7 +112,10 @@ class _Results extends ConsumerWidget {
                   ),
                 ),
             ],
-            Shelf(title: 'Künstler', children: [for (final a in r.artists) ArtistCard(artist: a)]),
+            Shelf(
+              title: 'Künstler',
+              children: [for (final a in r.artists) ArtistCard(artist: a)],
+            ),
             Shelf(
               title: 'Alben',
               children: [for (final a in r.albums) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id))],
@@ -190,7 +193,12 @@ class LibraryPage extends ConsumerWidget {
           bottom: const TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            tabs: [Tab(text: 'Playlists'), Tab(text: 'Gespeicherte Alben'), Tab(text: 'Alle Alben'), Tab(text: 'Künstler')],
+            tabs: [
+              Tab(text: 'Playlists'),
+              Tab(text: 'Gespeicherte Alben'),
+              Tab(text: 'Alle Alben'),
+              Tab(text: 'Künstler'),
+            ],
           ),
         ),
         body: const TabBarView(children: [_PlaylistsTab(), _SavedAlbumsTab(), _AllAlbumsTab(), _ArtistsTab()]),
@@ -256,7 +264,9 @@ class _AlbumGrid extends ConsumerWidget {
     return AsyncBody(
       value: value,
       builder: (list) => list.isEmpty
-          ? Center(child: Text(empty, style: const TextStyle(color: Palette.textMuted)))
+          ? Center(
+              child: Text(empty, style: const TextStyle(color: Palette.textMuted)),
+            )
           : GridView.extent(
               maxCrossAxisExtent: 200,
               childAspectRatio: 0.72,

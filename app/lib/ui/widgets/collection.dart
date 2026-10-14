@@ -56,7 +56,10 @@ class CollectionHeader extends StatelessWidget {
           Text(description!, style: const TextStyle(color: Palette.textMuted)),
         ],
         const SizedBox(height: 8),
-        DefaultTextStyle.merge(style: const TextStyle(fontSize: 13, color: Colors.white70), child: meta),
+        DefaultTextStyle.merge(
+          style: const TextStyle(fontSize: 13, color: Colors.white70),
+          child: meta,
+        ),
       ],
     );
     final header = Container(

@@ -403,3 +403,81 @@ class ImportFileOut(ORM):
     title: str | None = None
     artist: str | None = None
     album: str | None = None
+
+
+# --- metadata editor --------------------------------------------------------
+
+
+class ManualMetaIn(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=512)
+    artist: str | None = Field(None, min_length=1, max_length=512)
+    album: str | None = Field(None, min_length=1, max_length=512)
+    album_artist: str | None = Field(None, min_length=1, max_length=512)
+    year: int | None = Field(None, ge=1000, le=2100)
+    track_no: int | None = Field(None, ge=1, le=999)
+    disc_no: int | None = Field(None, ge=1, le=99)
+    genre: str | None = Field(None, max_length=256)
+
+
+class TrackFileOut(BaseModel):
+    path: str
+    title: str | None
+    artist: str | None
+    album: str | None
+    album_artist: str | None
+    year: int | None
+    track_no: int | None
+    disc_no: int | None
+    genre: str | None
+    duration: float
+    codec: str | None
+    bitrate: int | None
+    mb_recording_id: str | None
+    mb_release_id: str | None
+    query: str
+
+
+class FingerprintReleaseOut(BaseModel):
+    release_id: str
+    album: str | None
+    year: int | None
+    disc_no: int | None
+    track_no: int | None
+    release_tracks: int | None
+
+
+class FingerprintMatchOut(BaseModel):
+    recording_id: str
+    title: str | None
+    artist: str | None
+    score: float
+    releases: list[FingerprintReleaseOut]
+
+
+class TrackMatchIn(BaseModel):
+    source: Literal["deezer", "musicbrainz", "manual"]
+    deezer_id: str | None = None
+    recording_id: str | None = None
+    release_id: str | None = None
+    meta: ManualMetaIn | None = None
+
+
+class AlbumMatchIn(BaseModel):
+    source: Literal["deezer", "musicbrainz"]
+    id: str
+
+
+class AlbumMatchOut(BaseModel):
+    album: AlbumOut | None
+    matched: int
+    unmatched: list[TrackOut]
+
+
+class CoverOptionOut(BaseModel):
+    url: str
+    source: Literal["musicbrainz", "deezer"]
+    label: str
+
+
+class ReviewTrackOut(TrackOut):
+    path: str

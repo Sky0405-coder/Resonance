@@ -6,7 +6,7 @@ default here — no migration required.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ServerSetting
@@ -58,12 +58,28 @@ class LibraryConfig(BaseModel):
     auto_import: bool = True
 
 
+class AudiobookshelfConfig(BaseModel):
+    # Show the "Hörbücher" tab and allow users to link their Audiobookshelf account.
+    enabled: bool = False
+    # Base URL of the Audiobookshelf server as reachable from the Resonance server, e.g. https://audio.k-node.de
+    url: str = ""
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        value = value.rstrip("/")
+        if value and not value.startswith(("http://", "https://")):
+            raise ValueError("Ungültige Adresse")
+        return value
+
+
 class ServerConfig(BaseModel):
     server_name: str = "Resonance"
     registration: RegistrationConfig = RegistrationConfig()
     radio: RadioConfig = RadioConfig()
     downloads: DownloadConfig = DownloadConfig()
     library: LibraryConfig = LibraryConfig()
+    audiobookshelf: AudiobookshelfConfig = AudiobookshelfConfig()
 
 
 def _deep_merge(base: dict, patch: dict) -> dict:

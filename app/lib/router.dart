@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/session.dart';
 import 'ui/pages/admin/admin_page.dart';
+import 'ui/pages/audiobook_pages.dart';
 import 'ui/pages/auth_pages.dart';
 import 'ui/pages/browse_pages.dart';
 import 'ui/pages/collection_pages.dart';
@@ -28,7 +29,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final s = ref.read(sessionProvider);
       final loc = state.matchedLocation;
       // Remember where the user wanted to go (deep link / page reload) across splash and login.
-      final from = loc == '/splash' || _publicRoutes.contains(loc) ? state.uri.queryParameters['from'] : state.uri.toString();
+      final from = loc == '/splash' || _publicRoutes.contains(loc)
+          ? state.uri.queryParameters['from']
+          : state.uri.toString();
       String withFrom(String path) => from == null || from == '/' ? path : '$path?from=${Uri.encodeComponent(from)}';
 
       if (s.loading) return loc == '/splash' ? null : withFrom('/splash');
@@ -41,7 +44,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (_, _) => const Scaffold(body: Center(child: CircularProgressIndicator()))),
+      GoRoute(
+        path: '/splash',
+        builder: (_, _) => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      ),
       GoRoute(path: '/server', builder: (_, _) => const ServerPage()),
       GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
       GoRoute(
@@ -53,7 +59,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, _) => CustomTransitionPage(
           child: const NowPlayingPage(),
           transitionsBuilder: (_, animation, _, child) => SlideTransition(
-            position: Tween(begin: const Offset(0, 1), end: Offset.zero).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
+            position: Tween(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
             child: child,
           ),
         ),
@@ -61,20 +70,61 @@ final routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.matchedLocation, child: child),
         routes: [
-          GoRoute(path: '/', pageBuilder: (_, _) => const NoTransitionPage(child: HomePage())),
-          GoRoute(path: '/search', pageBuilder: (_, _) => const NoTransitionPage(child: SearchPage())),
-          GoRoute(path: '/library', pageBuilder: (_, _) => const NoTransitionPage(child: LibraryPage())),
+          GoRoute(
+            path: '/',
+            pageBuilder: (_, _) => const NoTransitionPage(child: HomePage()),
+          ),
+          GoRoute(
+            path: '/search',
+            pageBuilder: (_, _) => const NoTransitionPage(child: SearchPage()),
+          ),
+          GoRoute(
+            path: '/library',
+            pageBuilder: (_, _) => const NoTransitionPage(child: LibraryPage()),
+          ),
           GoRoute(path: '/liked', builder: (_, _) => const LikedPage()),
-          GoRoute(path: '/album/:id', builder: (_, s) => AlbumPage(id: s.pathParameters['id']!)),
-          GoRoute(path: '/artist/:id', builder: (_, s) => ArtistPage(id: s.pathParameters['id']!)),
-          GoRoute(path: '/playlist/:id', builder: (_, s) => PlaylistPage(id: s.pathParameters['id']!)),
-          GoRoute(path: '/catalog/album/:id', builder: (_, s) => CatalogAlbumPage(id: s.pathParameters['id']!)),
-          GoRoute(path: '/catalog/artist/:id', builder: (_, s) => CatalogArtistPage(id: s.pathParameters['id']!)),
-          GoRoute(path: '/downloads', pageBuilder: (_, _) => const NoTransitionPage(child: DownloadsPage())),
-          GoRoute(path: '/downloads/:id', builder: (_, s) => RequestDetailPage(id: s.pathParameters['id']!)),
+          GoRoute(
+            path: '/album/:id',
+            builder: (_, s) => AlbumPage(id: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/artist/:id',
+            builder: (_, s) => ArtistPage(id: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/playlist/:id',
+            builder: (_, s) => PlaylistPage(id: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/catalog/album/:id',
+            builder: (_, s) => CatalogAlbumPage(id: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/catalog/artist/:id',
+            builder: (_, s) => CatalogArtistPage(id: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/downloads',
+            pageBuilder: (_, _) => const NoTransitionPage(child: DownloadsPage()),
+          ),
+          GoRoute(
+            path: '/downloads/:id',
+            builder: (_, s) => RequestDetailPage(id: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/audiobooks',
+            pageBuilder: (_, _) => const NoTransitionPage(child: AudiobooksPage()),
+          ),
+          GoRoute(
+            path: '/audiobooks/item/:id',
+            builder: (_, s) => AudiobookPage(id: s.pathParameters['id']!),
+          ),
           GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
           GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
-          GoRoute(path: '/admin', pageBuilder: (_, _) => const NoTransitionPage(child: AdminPage())),
+          GoRoute(
+            path: '/admin',
+            pageBuilder: (_, _) => const NoTransitionPage(child: AdminPage()),
+          ),
         ],
       ),
     ],

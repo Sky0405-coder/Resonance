@@ -71,9 +71,7 @@ class HomePage extends ConsumerWidget {
               _QuickGrid(home: h),
               Shelf(
                 title: 'Zuletzt gehört',
-                children: [
-                  for (final a in h.recentlyPlayed) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id)),
-                ],
+                children: [for (final a in h.recentlyPlayed) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id))],
               ),
               Shelf(
                 title: 'Deine Playlists',
@@ -81,9 +79,7 @@ class HomePage extends ConsumerWidget {
               ),
               Shelf(
                 title: 'Neu in der Bibliothek',
-                children: [
-                  for (final a in h.recentlyAdded) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id)),
-                ],
+                children: [for (final a in h.recentlyAdded) AlbumCard(album: a, onPlay: () => playAlbum(ref, a.id))],
               ),
               if (h.recentlyAdded.isEmpty)
                 const Padding(

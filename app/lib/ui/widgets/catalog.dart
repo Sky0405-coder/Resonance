@@ -64,14 +64,11 @@ class _RequestButtonState extends ConsumerState<RequestButton> {
     try {
       final r = await ref.read(downloadActionsProvider).request(widget.kind, widget.catalogId);
       if (!mounted) return;
-      showInfo(
-        context,
-        switch (r.status) {
-          'pending_approval' => '„${r.title}“ wartet auf Freigabe durch einen Admin',
-          'done' => '„${r.title}“ ist schon in deiner Bibliothek',
-          _ => '„${r.title}“ wird heruntergeladen',
-        },
-      );
+      showInfo(context, switch (r.status) {
+        'pending_approval' => '„${r.title}“ wartet auf Freigabe durch einen Admin',
+        'done' => '„${r.title}“ ist schon in deiner Bibliothek',
+        _ => '„${r.title}“ wird heruntergeladen',
+      });
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -87,7 +84,10 @@ class _RequestButtonState extends ConsumerState<RequestButton> {
 
     if (widget.inLibrary) {
       return label == null
-          ? Tooltip(message: 'In deiner Bibliothek', child: Icon(Icons.check_circle, color: accent, size: 22))
+          ? Tooltip(
+              message: 'In deiner Bibliothek',
+              child: Icon(Icons.check_circle, color: accent, size: 22),
+            )
           : const SizedBox.shrink();
     }
     if (requested) {
@@ -99,7 +99,11 @@ class _RequestButtonState extends ConsumerState<RequestButton> {
           : const OutlinedButton(onPressed: null, child: Text('Angefragt'));
     }
     if (_busy) {
-      return const SizedBox(width: 40, height: 40, child: Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2)));
+      return const SizedBox(
+        width: 40,
+        height: 40,
+        child: Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(strokeWidth: 2)),
+      );
     }
     return label == null
         ? IconButton(
@@ -129,9 +133,15 @@ class CatalogTrackRow extends StatelessWidget {
       child: Row(
         children: [
           if (showCover)
-            SizedBox(width: 44, child: NetworkCover(url: t.coverUrl, icon: Icons.music_note))
+            SizedBox(
+              width: 44,
+              child: NetworkCover(url: t.coverUrl, icon: Icons.music_note),
+            )
           else
-            SizedBox(width: 32, child: Center(child: Text('${number ?? ''}', style: muted))),
+            SizedBox(
+              width: 32,
+              child: Center(child: Text('${number ?? ''}', style: muted)),
+            ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -159,7 +169,9 @@ class CatalogTrackRow extends StatelessWidget {
             ),
           SizedBox(
             width: 48,
-            child: Center(child: RequestButton(kind: 'track', catalogId: t.id, inLibrary: inLibrary)),
+            child: Center(
+              child: RequestButton(kind: 'track', catalogId: t.id, inLibrary: inLibrary),
+            ),
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../player/player.dart';
@@ -36,6 +37,22 @@ final searchProvider = FutureProvider.autoDispose.family<SearchResult, String>(
   (ref, q) => ref.watch(apiProvider).search(q),
 );
 
+/// Per-album counter bumped when an admin replaces a cover, so cached images are fetched again.
+final coverVersionsProvider = NotifierProvider<CoverVersions, Map<String, int>>(CoverVersions.new);
+
+class CoverVersions extends Notifier<Map<String, int>> {
+  @override
+  Map<String, int> build() => {};
+
+  Future<void> bump(String albumId) async {
+    // Same cache keys as CoverImage, so the next app start does not show the old cover either.
+    for (final size in const [64, 128, 150, 300, 600]) {
+      await CachedNetworkImage.evictFromCache('', cacheKey: 'cover:$albumId:$size');
+    }
+    state = {...state, albumId: (state[albumId] ?? 0) + 1};
+  }
+}
+
 /// Library mutations that need to refresh several views.
 class LibraryActions {
   LibraryActions(this.ref);
@@ -49,6 +66,24 @@ class LibraryActions {
     ref.invalidate(playlistDetailProvider);
     ref.invalidate(artistProvider);
     ref.invalidate(searchProvider);
+  }
+
+  /// After an admin changed tags or files, every view showing library metadata may be stale.
+  void libraryChanged() {
+    for (final p in [
+      homeProvider,
+      albumProvider,
+      artistProvider,
+      playlistDetailProvider,
+      playlistsProvider,
+      likedTracksProvider,
+      savedAlbumsProvider,
+      allAlbumsProvider,
+      allArtistsProvider,
+      searchProvider,
+    ]) {
+      ref.invalidate(p);
+    }
   }
 
   Future<void> setAlbumSaved(String albumId, bool saved) async {
