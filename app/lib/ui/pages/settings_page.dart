@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../player/player.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
+import '../widgets/update.dart';
 import '../widgets/track_list.dart';
 
 const _kNormalize = 'normalize_volume';
@@ -138,6 +139,7 @@ class SettingsPage extends ConsumerWidget {
               },
             ),
           ),
+          const AppVersionTile(),
           _Section('Angemeldete Geräte'),
           sessions.when(
             loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),

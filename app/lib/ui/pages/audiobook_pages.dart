@@ -192,7 +192,7 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 8, 8),
+                  padding: EdgeInsets.fromLTRB(16, 24 + MediaQuery.paddingOf(context).top, 8, 8),
                   child: Row(
                     children: [
                       Expanded(child: Text('Hörbücher', style: Theme.of(context).textTheme.headlineMedium)),

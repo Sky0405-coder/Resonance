@@ -255,6 +255,21 @@ class ApiClient {
     return '$baseUrl/api/abs/api/$path?${Uri(queryParameters: q).query}';
   }
 
+  // --- app updates (Android) ------------------------------------------------
+
+  /// Latest APK uploaded to the server, or null if there is none.
+  Future<({String versionName, int versionCode})?> androidRelease() async {
+    try {
+      final j = await _get('/api/app/android');
+      return (versionName: j['version_name'] as String, versionCode: j['version_code'] as int);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  String get androidApkUrl => '$baseUrl/api/app/android/apk?token=$token';
+
   // --- metadata editor (admin) -----------------------------------------------
 
   Future<TrackFile> trackFile(String trackId) async =>

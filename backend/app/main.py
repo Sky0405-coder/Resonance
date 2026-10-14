@@ -8,7 +8,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import admin, audiobookshelf, auth, catalog, editor, imports, library, me, playlists, requests, torrents
+from app.api import (
+    admin,
+    app_updates,
+    audiobookshelf,
+    auth,
+    catalog,
+    editor,
+    imports,
+    library,
+    me,
+    playlists,
+    requests,
+    torrents,
+)
 from app.config import get_settings
 from app.services import audiobookshelf as abs_service
 from app.services import importer
@@ -41,7 +54,20 @@ app.add_middleware(
     expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
 )
 
-for module in (auth, me, library, playlists, admin, catalog, requests, imports, torrents, editor, audiobookshelf):
+for module in (
+    app_updates,
+    auth,
+    me,
+    library,
+    playlists,
+    admin,
+    catalog,
+    requests,
+    imports,
+    torrents,
+    editor,
+    audiobookshelf,
+):
     app.include_router(module.router)
 app.include_router(audiobookshelf.admin_router)
 

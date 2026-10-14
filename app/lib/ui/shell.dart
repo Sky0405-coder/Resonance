@@ -10,6 +10,7 @@ import '../core/session.dart';
 import '../core/theme.dart';
 import 'widgets/common.dart';
 import 'widgets/player_bar.dart';
+import 'widgets/update.dart';
 import 'widgets/track_list.dart';
 
 /// App frame: Spotify-style sidebar + player bar on desktop, bottom nav + mini player on mobile.
@@ -74,8 +75,7 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       body: Stack(
         children: [
-          // Keep page content below the Android status bar (pages without an AppBar draw from the top).
-          Positioned.fill(child: SafeArea(bottom: false, child: child)),
+          Positioned.fill(child: UpdateNotifier(child: child)),
           const Positioned(left: 0, right: 0, bottom: 4, child: MiniPlayer()),
         ],
       ),

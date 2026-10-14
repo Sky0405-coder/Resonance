@@ -49,7 +49,8 @@ class HomePage extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: kBottomInset),
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                // The gradient runs behind the Android status bar; only the content moves below it.
+                padding: EdgeInsets.fromLTRB(16, 24 + MediaQuery.paddingOf(context).top, 16, 8),
                 child: Row(
                   children: [
                     Expanded(child: Text(_greeting(), style: Theme.of(context).textTheme.headlineMedium)),

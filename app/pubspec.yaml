@@ -49,6 +49,8 @@ dependencies:
   intl: ^0.20.3
   just_audio_background: ^0.0.1-beta.17
   file_picker: ^13.1.0
+  package_info_plus: ^10.2.2
+  ota_update: ^7.1.0
 
 dev_dependencies:
   flutter_test:
