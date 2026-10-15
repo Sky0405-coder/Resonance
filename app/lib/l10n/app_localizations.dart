@@ -1421,8 +1421,8 @@ abstract class AppLocalizations {
   /// No description provided for @updateInstalledVersion.
   ///
   /// In de, this message translates to:
-  /// **'App-Version {version} ({code})'**
-  String updateInstalledVersion(String version, int code);
+  /// **'App-Version {version}'**
+  String updateInstalledVersion(String version);
 
   /// No description provided for @updateAvailableVersion.
   ///
@@ -2755,6 +2755,12 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Geteilt mit {names}'**
   String librarySharedWith(String names);
+
+  /// No description provided for @albumMissingTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Song nicht in deiner Bibliothek} other{{count} Songs nicht in deiner Bibliothek}}'**
+  String albumMissingTitle(int count);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -759,8 +759,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get updateInstall => 'Installieren';
 
   @override
-  String updateInstalledVersion(String version, int code) {
-    return 'App-Version $version ($code)';
+  String updateInstalledVersion(String version) {
+    return 'App-Version $version';
   }
 
   @override
@@ -1532,5 +1532,16 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String librarySharedWith(String names) {
     return 'Geteilt mit $names';
+  }
+
+  @override
+  String albumMissingTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Songs nicht in deiner Bibliothek',
+      one: '1 Song nicht in deiner Bibliothek',
+    );
+    return '$_temp0';
   }
 }

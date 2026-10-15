@@ -221,7 +221,7 @@
   "commonClose": "Close",
   "updateAvailableTitle": "New app version {version} available",
   "updateInstall": "Install",
-  "updateInstalledVersion": "App version {version} ({code})",
+  "updateInstalledVersion": "App version {version}",
   "updateAvailableVersion": "Version {version} is available",
   "updateCurrent": "Up to date",
   "updateAction": "Update",
@@ -443,5 +443,6 @@
   "adminDeleted": "Deleted",
   "libraryShareWithUsers": "Share with specific users",
   "libraryNoOtherUsers": "There are no other users yet.",
-  "librarySharedWith": "Shared with {names}"
+  "librarySharedWith": "Shared with {names}",
+  "albumMissingTitle": "{count, plural, =1{1 song not in your library} other{{count} songs not in your library}}"
 }

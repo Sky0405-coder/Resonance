@@ -123,7 +123,7 @@ class AppVersionTile extends ConsumerWidget {
     if (u == null) return const SizedBox.shrink();
     return ListTile(
       leading: const Icon(Icons.system_update),
-      title: Text(context.l10n.updateInstalledVersion((u.installed).toString(), u.installedCode)),
+      title: Text(context.l10n.updateInstalledVersion(u.installed)),
       subtitle: Text(
         u.available ? context.l10n.updateAvailableVersion((u.availableName).toString()) : context.l10n.updateCurrent,
       ),

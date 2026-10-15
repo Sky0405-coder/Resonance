@@ -403,6 +403,43 @@ async def test_library_album_catalog_error_and_unknown(env: SimpleNamespace, mon
     assert (await env.client.get(f"/api/library/albums/{rows.album}/catalog")).status_code == 401
 
 
+async def test_library_album_missing_tracks(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = await library(env)
+    async with SessionLocal() as db:
+        # "02" carries a tag variant of the catalog title but sits at the same position.
+        track = await db.get(Track, rows.tracks[1])
+        track.track_no = 2
+        await db.commit()
+
+    def entry(id: int, title: str, position: int) -> dict:
+        return {
+            "id": id,
+            "title": title,
+            "artist": {"id": 1, "name": "Artist"},
+            "track_position": position,
+            "disk_number": 1,
+        }
+
+    async def search_albums(query: str, limit: int) -> list[dict]:
+        return [{"id": 99, "title": "Album", "artist": {"name": "Artist"}}]
+
+    async def album(id: str) -> dict:
+        assert id == "99"
+        return {"id": 99, "title": "Album", "cover_medium": "https://cover"}
+
+    async def album_tracks(id: str) -> list[dict]:
+        return [entry(10, "01", 1), entry(11, "02 (Remastered)", 2), entry(12, "New Song", 3)]
+
+    monkeypatch.setattr(deezer, "search_albums", search_albums)
+    monkeypatch.setattr(deezer, "album", album)
+    monkeypatch.setattr(deezer, "album_tracks", album_tracks)
+    response = await env.client.get(f"/api/library/albums/{rows.album}/missing", headers=env.headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["catalog_id"] == "99"
+    assert [(t["id"], t["title"], t["track_no"]) for t in body["tracks"]] == [("12", "New Song", 3)]
+
+
 async def create_playlist(env: SimpleNamespace, *, is_public: bool = False) -> str:
     response = await env.client.post(
         "/api/playlists", json={"name": "Shared", "is_public": is_public}, headers=env.headers

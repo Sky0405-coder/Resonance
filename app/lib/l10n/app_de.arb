@@ -514,14 +514,11 @@
     }
   },
   "updateInstall": "Installieren",
-  "updateInstalledVersion": "App-Version {version} ({code})",
+  "updateInstalledVersion": "App-Version {version}",
   "@updateInstalledVersion": {
     "placeholders": {
       "version": {
         "type": "String"
-      },
-      "code": {
-        "type": "int"
       }
     }
   },
@@ -997,6 +994,14 @@
     "placeholders": {
       "names": {
         "type": "String"
+      }
+    }
+  },
+  "albumMissingTitle": "{count, plural, =1{1 Song nicht in deiner Bibliothek} other{{count} Songs nicht in deiner Bibliothek}}",
+  "@albumMissingTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
       }
     }
   }

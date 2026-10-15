@@ -291,6 +291,11 @@ class CatalogTrack(BaseModel):
     library_id: uuid.UUID | None = None
 
 
+class MissingTracksOut(BaseModel):
+    catalog_id: str
+    tracks: list[CatalogTrack]
+
+
 class CatalogArtistDetail(BaseModel):
     artist: CatalogArtist
     top_tracks: list[CatalogTrack]

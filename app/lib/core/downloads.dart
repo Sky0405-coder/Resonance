@@ -21,6 +21,15 @@ final catalogAlbumProvider = FutureProvider.autoDispose.family<CatalogAlbumDetai
   (ref, id) => ref.watch(apiProvider).catalogAlbum(id),
 );
 
+/// Missing songs of a library album; null if the album is not in the catalog or the catalog is unreachable.
+final albumMissingProvider = FutureProvider.autoDispose.family<(String, List<CatalogTrack>)?, String>((ref, id) async {
+  try {
+    return await ref.watch(apiProvider).albumMissing(id);
+  } catch (_) {
+    return null;
+  }
+});
+
 final catalogArtistProvider = FutureProvider.autoDispose.family<CatalogArtistDetail, String>(
   (ref, id) => ref.watch(apiProvider).catalogArtist(id),
 );

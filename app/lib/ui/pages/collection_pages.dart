@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/downloads.dart';
 import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import 'admin/metadata_editor.dart';
 import '../widgets/common.dart';
@@ -57,6 +59,47 @@ Future<void> _deleteAlbum(BuildContext context, WidgetRef ref, AlbumDetail d) as
   if (!context.mounted) return;
   showInfo(context, l10n.adminDeleted);
   context.canPop() ? context.pop() : context.go('/library');
+}
+
+/// Songs of the album that are not downloaded yet, greyed out below the album's songs.
+class _MissingSongs extends ConsumerWidget {
+  const _MissingSongs({required this.albumId});
+  final String albumId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final missing = ref.watch(albumMissingProvider(albumId)).value;
+    if (missing == null || missing.$2.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    final (catalogId, tracks) = missing;
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      sliver: SliverList.list(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 24, 12, 4),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(context.l10n.albumMissingTitle(tracks.length), style: Theme.of(context).textTheme.titleMedium),
+                RequestButton(
+                  kind: 'album',
+                  catalogId: catalogId,
+                  inLibrary: false,
+                  label: tracks.length == 1
+                      ? context.l10n.catalogDownloadMissingSong
+                      : context.l10n.catalogDownloadMissingSongs(tracks.length),
+                ),
+              ],
+            ),
+          ),
+          for (final t in tracks)
+            Opacity(opacity: 0.5, child: CatalogTrackRow(track: t, number: t.trackNo, showCover: false)),
+        ],
+      ),
+    );
+  }
 }
 
 class AlbumPage extends ConsumerWidget {
@@ -207,6 +250,7 @@ class AlbumPage extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 sliver: SliverList.list(children: rows),
               ),
+              _MissingSongs(albumId: id),
               const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
             ],
           );

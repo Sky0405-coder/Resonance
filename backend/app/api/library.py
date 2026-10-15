@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
@@ -6,13 +7,31 @@ from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy import func, or_, select
 
+from app.api.catalog import _track as catalog_track
 from app.deps import DB, CurrentUser
 from app.models import Album, Artist, PlayEvent, Playlist, SavedAlbum, Track
-from app.schemas import AlbumDetail, AlbumOut, ArtistDetail, ArtistOut, HomeOut, Page, SearchResult, TrackOut
+from app.schemas import (
+    AlbumDetail,
+    AlbumOut,
+    ArtistDetail,
+    ArtistOut,
+    HomeOut,
+    MissingTracksOut,
+    Page,
+    SearchResult,
+    TrackOut,
+)
 from app.services import covers, transcode
 from app.services.deezer import DeezerError, deezer
-from app.services.matching import name_key
-from app.services.views import album_options, albums_out, artists_out, playlists_out, track_options, tracks_out
+from app.services.matching import match_tracks, name_key
+from app.services.views import (
+    album_options,
+    albums_out,
+    artists_out,
+    playlists_out,
+    track_options,
+    tracks_out,
+)
 
 router = APIRouter(prefix="/api", tags=["library"])
 
@@ -170,8 +189,8 @@ async def get_album(album_id: uuid.UUID, user: CurrentUser, db: DB) -> AlbumDeta
     return detail
 
 
-@router.get("/library/albums/{album_id}/catalog")
-async def album_catalog(album_id: uuid.UUID, user: CurrentUser, db: DB) -> dict[str, str]:
+async def _catalog_album_id(db: DB, album_id: uuid.UUID) -> tuple[Album, str]:
+    """Find the catalog (Deezer) album matching a library album."""
     album = await db.scalar(select(Album).options(*album_options()).where(Album.id == album_id))
     if album is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Nicht gefunden")
@@ -182,12 +201,40 @@ async def album_catalog(album_id: uuid.UUID, user: CurrentUser, db: DB) -> dict[
     candidates = [result for result in results if name_key(result["artist"]["name"]) == album.artist.name_key]
     for result in candidates:
         if name_key(result["title"]) == album.title_key:
-            return {"catalog_id": str(result["id"])}
+            return album, str(result["id"])
     for result in candidates:
         title_key = name_key(result["title"])
         if title_key.startswith(album.title_key) or album.title_key.startswith(title_key):
-            return {"catalog_id": str(result["id"])}
+            return album, str(result["id"])
     raise HTTPException(status.HTTP_404_NOT_FOUND, "Album nicht im Katalog gefunden")
+
+
+@router.get("/library/albums/{album_id}/catalog")
+async def album_catalog(album_id: uuid.UUID, user: CurrentUser, db: DB) -> dict[str, str]:
+    _, catalog_id = await _catalog_album_id(db, album_id)
+    return {"catalog_id": catalog_id}
+
+
+@router.get("/library/albums/{album_id}/missing", response_model=MissingTracksOut)
+async def album_missing(album_id: uuid.UUID, user: CurrentUser, db: DB) -> MissingTracksOut:
+    """Songs of the matching catalog album that are not in the library (shown greyed out on the album page).
+
+    A catalog song counts as present if it matches any library track (ISRC / artist + title) or if the library
+    album already has a song at the same disc/track position (tag variants like "Remastered")."""
+    album, catalog_id = await _catalog_album_id(db, album_id)
+    try:
+        data, raw = await asyncio.gather(deezer.album(catalog_id), deezer.album_tracks(catalog_id))
+    except DeezerError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Katalog nicht erreichbar") from e
+    tracks = [catalog_track(t, data) for t in raw]
+    await match_tracks(db, tracks)
+    taken = set((await db.execute(select(Track.disc_no, Track.track_no).where(Track.album_id == album.id))).all())
+    missing = [
+        t
+        for t in tracks
+        if t.library_id is None and (t.disc_no or 1, t.track_no) not in {(d or 1, n) for d, n in taken}
+    ]
+    return MissingTracksOut(catalog_id=catalog_id, tracks=missing)
 
 
 @router.get("/albums/{album_id}/cover")

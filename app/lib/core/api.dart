@@ -163,6 +163,12 @@ class ApiClient {
   Future<String> albumCatalogId(String albumId) async =>
       (await _get('/api/library/albums/$albumId/catalog'))['catalog_id'] as String;
 
+  /// Catalog songs of a library album that are not in the library: (catalog album id, songs).
+  Future<(String, List<CatalogTrack>)> albumMissing(String albumId) async {
+    final j = await _get('/api/library/albums/$albumId/missing');
+    return (j['catalog_id'] as String, [for (final t in j['tracks']) CatalogTrack.fromJson(t)]);
+  }
+
   Future<void> deleteLibraryTrack(String id) => _delete('/api/admin/library/tracks/$id');
 
   Future<void> deleteLibraryAlbum(String id) => _delete('/api/admin/library/albums/$id');
