@@ -13,6 +13,7 @@ import 'ui/pages/download_pages.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/pages/now_playing_page.dart';
 import 'ui/pages/settings_page.dart';
+import 'ui/pages/spotify_page.dart';
 import 'ui/shell.dart';
 
 const _publicRoutes = {'/login', '/register', '/server'};
@@ -121,6 +122,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
           GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+          GoRoute(path: '/spotify', builder: (_, _) => const SpotifyImportPage()),
           GoRoute(
             path: '/admin',
             pageBuilder: (_, _) => const NoTransitionPage(child: AdminPage()),

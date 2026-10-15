@@ -1403,4 +1403,109 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authServerAddressExample => 'music.example.com';
+
+  @override
+  String get spotifyTitle => 'Import from Spotify';
+
+  @override
+  String get spotifyNotConfigured =>
+      'Spotify isn\'t set up on this server yet. An admin can do that in the Admin Dashboard under “Server”.';
+
+  @override
+  String get spotifyConnectHint =>
+      'Connect your Spotify account to bring your Liked Songs and your own playlists into Resonance.';
+
+  @override
+  String get spotifyConnect => 'Connect Spotify';
+
+  @override
+  String get spotifyWaiting => 'Log in to Spotify in the window that opened, then come back here.';
+
+  @override
+  String spotifyConnectedAs(String name) {
+    return 'Connected as $name';
+  }
+
+  @override
+  String get spotifyDisconnect => 'Disconnect';
+
+  @override
+  String get spotifyLikedSongs => 'Liked Songs';
+
+  @override
+  String spotifyLikedHint(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count songs', one: '1 song');
+    return '$_temp0 · will be liked in Resonance';
+  }
+
+  @override
+  String get spotifyPlaylistsHeading => 'Your playlists';
+
+  @override
+  String get spotifyPlaylistsNote => 'Spotify only shares playlists you own or collaborate on.';
+
+  @override
+  String spotifyPlaylistSubtitle(int count, String owner) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count songs', one: '1 song');
+    return '$_temp0 · $owner';
+  }
+
+  @override
+  String get spotifyAlreadyImported => 'already imported – will be synced';
+
+  @override
+  String get spotifyDownloadMissing => 'Download missing songs';
+
+  @override
+  String get spotifyDownloadMissingHint =>
+      'Songs that aren\'t in the library yet are requested and added automatically once downloaded.';
+
+  @override
+  String get spotifyStart => 'Start import';
+
+  @override
+  String get spotifyNothingSelected => 'Select Liked Songs or at least one playlist.';
+
+  @override
+  String get spotifyStarted => 'Import started';
+
+  @override
+  String get spotifyHistory => 'Previous imports';
+
+  @override
+  String get spotifyStatusQueued => 'Queued';
+
+  @override
+  String get spotifyStatusRunning => 'Running';
+
+  @override
+  String get spotifyStatusDone => 'Done';
+
+  @override
+  String get spotifyStatusFailed => 'Failed';
+
+  @override
+  String spotifyImportCounts(int matched, int total, int missing, int requested) {
+    return '$matched of $total found · $missing missing · $requested requested';
+  }
+
+  @override
+  String get spotifyShowMissing => 'Show missing';
+
+  @override
+  String get spotifyMissingTitle => 'Not in the library';
+
+  @override
+  String get adminSpotifyGroup => 'Spotify import';
+
+  @override
+  String get adminSpotifyClientId => 'Spotify Client ID';
+
+  @override
+  String get adminSpotifyClientSecret => 'Spotify Client Secret';
+
+  @override
+  String adminSpotifyHint(String uri) {
+    return 'developer.spotify.com/dashboard → create an app, Redirect URI: $uri';
+  }
 }

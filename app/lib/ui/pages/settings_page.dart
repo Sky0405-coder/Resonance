@@ -3,6 +3,7 @@ import '../../l10n/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/session.dart';
 import '../../core/theme.dart';
@@ -145,6 +146,12 @@ class SettingsPage extends ConsumerWidget {
                 setState(() {});
               },
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.queue_music),
+            title: Text(context.l10n.spotifyTitle),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/spotify'),
           ),
           const AppVersionTile(),
           _Section(context.l10n.settingsSignedInDevices),

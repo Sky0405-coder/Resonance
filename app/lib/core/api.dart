@@ -279,6 +279,36 @@ class ApiClient {
 
   String get androidApkUrl => '$baseUrl/api/app/android/apk?token=$token';
 
+  // --- Spotify import ----------------------------------------------------------
+
+  Future<Map<String, dynamic>> spotifyStatus() async => Map<String, dynamic>.from(await _get('/api/spotify/status'));
+
+  Future<String> spotifyLoginUrl() async => (await _get('/api/spotify/login'))['url'] as String;
+
+  Future<void> spotifyDisconnect() => _delete('/api/spotify/login');
+
+  Future<Map<String, dynamic>> spotifyPlaylists() async =>
+      Map<String, dynamic>.from(await _get('/api/spotify/playlists'));
+
+  Future<Map<String, dynamic>> startSpotifyImport({
+    required bool liked,
+    required List<String> playlistIds,
+    required bool downloadMissing,
+  }) async => Map<String, dynamic>.from(
+    await _post('/api/spotify/imports', {
+      'liked': liked,
+      'playlist_ids': playlistIds,
+      'download_missing': downloadMissing,
+    }),
+  );
+
+  Future<List<Map<String, dynamic>>> spotifyImports() async => [
+    for (final i in await _get('/api/spotify/imports')) Map<String, dynamic>.from(i),
+  ];
+
+  Future<Map<String, dynamic>> spotifyImport(String id) async =>
+      Map<String, dynamic>.from(await _get('/api/spotify/imports/$id'));
+
   // --- metadata editor (admin) -----------------------------------------------
 
   Future<TrackFile> trackFile(String trackId) async =>

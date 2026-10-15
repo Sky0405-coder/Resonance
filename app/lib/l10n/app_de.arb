@@ -880,5 +880,82 @@
   },
   "commonArtists": "Künstler",
   "adminUserRole": "Benutzer",
-  "authServerAddressExample": "musik.example.com"
+  "authServerAddressExample": "musik.example.com",
+  "spotifyTitle": "Von Spotify importieren",
+  "spotifyNotConfigured": "Spotify ist auf diesem Server noch nicht eingerichtet. Ein Admin kann das im Admin-Dashboard unter „Server“ erledigen.",
+  "spotifyConnectHint": "Verbinde dein Spotify-Konto, um deine Lieblingssongs und eigenen Playlists in Resonance zu übernehmen.",
+  "spotifyConnect": "Mit Spotify verbinden",
+  "spotifyWaiting": "Melde dich im geöffneten Fenster bei Spotify an und komm danach hierher zurück.",
+  "spotifyConnectedAs": "Verbunden als {name}",
+  "@spotifyConnectedAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "spotifyDisconnect": "Trennen",
+  "spotifyLikedSongs": "Lieblingssongs",
+  "spotifyLikedHint": "{count, plural, =1{1 Song} other{{count} Songs}} · werden in Resonance geliked",
+  "@spotifyLikedHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "spotifyPlaylistsHeading": "Deine Playlists",
+  "spotifyPlaylistsNote": "Spotify gibt nur deine eigenen Playlists und solche frei, an denen du mitarbeitest.",
+  "spotifyPlaylistSubtitle": "{count, plural, =1{1 Song} other{{count} Songs}} · {owner}",
+  "@spotifyPlaylistSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "owner": {
+        "type": "String"
+      }
+    }
+  },
+  "spotifyAlreadyImported": "bereits importiert – wird abgeglichen",
+  "spotifyDownloadMissing": "Fehlende Songs herunterladen",
+  "spotifyDownloadMissingHint": "Songs, die noch nicht in der Bibliothek sind, werden angefragt und nach dem Download automatisch einsortiert.",
+  "spotifyStart": "Import starten",
+  "spotifyNothingSelected": "Wähle die Lieblingssongs oder mindestens eine Playlist aus.",
+  "spotifyStarted": "Import gestartet",
+  "spotifyHistory": "Bisherige Importe",
+  "spotifyStatusQueued": "Wartet",
+  "spotifyStatusRunning": "Läuft",
+  "spotifyStatusDone": "Fertig",
+  "spotifyStatusFailed": "Fehlgeschlagen",
+  "spotifyImportCounts": "{matched} von {total} gefunden · {missing} fehlen · {requested} angefragt",
+  "@spotifyImportCounts": {
+    "placeholders": {
+      "matched": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      },
+      "requested": {
+        "type": "int"
+      }
+    }
+  },
+  "spotifyShowMissing": "Fehlende anzeigen",
+  "spotifyMissingTitle": "Nicht in der Bibliothek",
+  "adminSpotifyGroup": "Spotify-Import",
+  "adminSpotifyClientId": "Spotify Client ID",
+  "adminSpotifyClientSecret": "Spotify Client Secret",
+  "adminSpotifyHint": "developer.spotify.com/dashboard → App anlegen, Redirect URI: {uri}",
+  "@adminSpotifyHint": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  }
 }

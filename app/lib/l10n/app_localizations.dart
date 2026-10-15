@@ -2491,6 +2491,186 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'musik.example.com'**
   String get authServerAddressExample;
+
+  /// No description provided for @spotifyTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Von Spotify importieren'**
+  String get spotifyTitle;
+
+  /// No description provided for @spotifyNotConfigured.
+  ///
+  /// In de, this message translates to:
+  /// **'Spotify ist auf diesem Server noch nicht eingerichtet. Ein Admin kann das im Admin-Dashboard unter „Server“ erledigen.'**
+  String get spotifyNotConfigured;
+
+  /// No description provided for @spotifyConnectHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Verbinde dein Spotify-Konto, um deine Lieblingssongs und eigenen Playlists in Resonance zu übernehmen.'**
+  String get spotifyConnectHint;
+
+  /// No description provided for @spotifyConnect.
+  ///
+  /// In de, this message translates to:
+  /// **'Mit Spotify verbinden'**
+  String get spotifyConnect;
+
+  /// No description provided for @spotifyWaiting.
+  ///
+  /// In de, this message translates to:
+  /// **'Melde dich im geöffneten Fenster bei Spotify an und komm danach hierher zurück.'**
+  String get spotifyWaiting;
+
+  /// No description provided for @spotifyConnectedAs.
+  ///
+  /// In de, this message translates to:
+  /// **'Verbunden als {name}'**
+  String spotifyConnectedAs(String name);
+
+  /// No description provided for @spotifyDisconnect.
+  ///
+  /// In de, this message translates to:
+  /// **'Trennen'**
+  String get spotifyDisconnect;
+
+  /// No description provided for @spotifyLikedSongs.
+  ///
+  /// In de, this message translates to:
+  /// **'Lieblingssongs'**
+  String get spotifyLikedSongs;
+
+  /// No description provided for @spotifyLikedHint.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Song} other{{count} Songs}} · werden in Resonance geliked'**
+  String spotifyLikedHint(int count);
+
+  /// No description provided for @spotifyPlaylistsHeading.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Playlists'**
+  String get spotifyPlaylistsHeading;
+
+  /// No description provided for @spotifyPlaylistsNote.
+  ///
+  /// In de, this message translates to:
+  /// **'Spotify gibt nur deine eigenen Playlists und solche frei, an denen du mitarbeitest.'**
+  String get spotifyPlaylistsNote;
+
+  /// No description provided for @spotifyPlaylistSubtitle.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Song} other{{count} Songs}} · {owner}'**
+  String spotifyPlaylistSubtitle(int count, String owner);
+
+  /// No description provided for @spotifyAlreadyImported.
+  ///
+  /// In de, this message translates to:
+  /// **'bereits importiert – wird abgeglichen'**
+  String get spotifyAlreadyImported;
+
+  /// No description provided for @spotifyDownloadMissing.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlende Songs herunterladen'**
+  String get spotifyDownloadMissing;
+
+  /// No description provided for @spotifyDownloadMissingHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Songs, die noch nicht in der Bibliothek sind, werden angefragt und nach dem Download automatisch einsortiert.'**
+  String get spotifyDownloadMissingHint;
+
+  /// No description provided for @spotifyStart.
+  ///
+  /// In de, this message translates to:
+  /// **'Import starten'**
+  String get spotifyStart;
+
+  /// No description provided for @spotifyNothingSelected.
+  ///
+  /// In de, this message translates to:
+  /// **'Wähle die Lieblingssongs oder mindestens eine Playlist aus.'**
+  String get spotifyNothingSelected;
+
+  /// No description provided for @spotifyStarted.
+  ///
+  /// In de, this message translates to:
+  /// **'Import gestartet'**
+  String get spotifyStarted;
+
+  /// No description provided for @spotifyHistory.
+  ///
+  /// In de, this message translates to:
+  /// **'Bisherige Importe'**
+  String get spotifyHistory;
+
+  /// No description provided for @spotifyStatusQueued.
+  ///
+  /// In de, this message translates to:
+  /// **'Wartet'**
+  String get spotifyStatusQueued;
+
+  /// No description provided for @spotifyStatusRunning.
+  ///
+  /// In de, this message translates to:
+  /// **'Läuft'**
+  String get spotifyStatusRunning;
+
+  /// No description provided for @spotifyStatusDone.
+  ///
+  /// In de, this message translates to:
+  /// **'Fertig'**
+  String get spotifyStatusDone;
+
+  /// No description provided for @spotifyStatusFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlgeschlagen'**
+  String get spotifyStatusFailed;
+
+  /// No description provided for @spotifyImportCounts.
+  ///
+  /// In de, this message translates to:
+  /// **'{matched} von {total} gefunden · {missing} fehlen · {requested} angefragt'**
+  String spotifyImportCounts(int matched, int total, int missing, int requested);
+
+  /// No description provided for @spotifyShowMissing.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlende anzeigen'**
+  String get spotifyShowMissing;
+
+  /// No description provided for @spotifyMissingTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Nicht in der Bibliothek'**
+  String get spotifyMissingTitle;
+
+  /// No description provided for @adminSpotifyGroup.
+  ///
+  /// In de, this message translates to:
+  /// **'Spotify-Import'**
+  String get adminSpotifyGroup;
+
+  /// No description provided for @adminSpotifyClientId.
+  ///
+  /// In de, this message translates to:
+  /// **'Spotify Client ID'**
+  String get adminSpotifyClientId;
+
+  /// No description provided for @adminSpotifyClientSecret.
+  ///
+  /// In de, this message translates to:
+  /// **'Spotify Client Secret'**
+  String get adminSpotifyClientSecret;
+
+  /// No description provided for @adminSpotifyHint.
+  ///
+  /// In de, this message translates to:
+  /// **'developer.spotify.com/dashboard → App anlegen, Redirect URI: {uri}'**
+  String adminSpotifyHint(String uri);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

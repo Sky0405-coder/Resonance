@@ -524,6 +524,7 @@ class _ServerTab extends ConsumerWidget {
         final dl = c['downloads'] as Map;
         final lib = (c['library'] ?? const {}) as Map;
         final abs = (c['audiobookshelf'] ?? const {}) as Map;
+        final spotify = (c['spotify'] ?? const {}) as Map;
         return ListView(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
           children: [
@@ -694,6 +695,23 @@ class _ServerTab extends ConsumerWidget {
               ),
               const _AbsCheckTile(),
             ],
+            _Group(context.l10n.adminSpotifyGroup),
+            _TextTile(
+              title: context.l10n.adminSpotifyClientId,
+              value: spotify['client_id'] ?? '',
+              hint: context.l10n.adminSpotifyHint('${Uri.base.origin}/api/spotify/callback'),
+              onChanged: (v) => patch({
+                'spotify': {'client_id': v},
+              }),
+            ),
+            _TextTile(
+              title: context.l10n.adminSpotifyClientSecret,
+              value: spotify['client_secret'] ?? '',
+              secret: true,
+              onChanged: (v) => patch({
+                'spotify': {'client_secret': v},
+              }),
+            ),
             _Group(context.l10n.navDownloads),
             SwitchListTile(
               title: Text(context.l10n.adminAlbumTorrents),
