@@ -31,6 +31,7 @@ Future<void> main() async {
       androidNotificationChannelId: 'de.knode.resonance.playback',
       androidNotificationChannelName: initialL10n.settingsPlayback,
       androidNotificationOngoing: true,
+      androidNotificationIcon: 'drawable/ic_stat_resonance',
     );
   }
 

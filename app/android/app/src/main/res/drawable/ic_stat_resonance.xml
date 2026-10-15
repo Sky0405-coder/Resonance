@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome Resonance mark for the status bar / media notification (see branding/monochrome.svg). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="108" android:viewportHeight="108">
+  <group android:translateX="-2" android:translateY="-2" android:scaleX="1.04" android:scaleY="1.04">
+    <path android:pathData="M54,46a8,8 0,1 1,0 16a8,8 0,1 1,0 -16z" android:fillColor="#FFFFFFFF"/>
+    <path android:pathData="M66.63,42.62A17,17 0,0 1 66.63,65.38" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000"/>
+    <path android:pathData="M41.37,42.62A17,17 0,0 0 41.37,65.38" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000"/>
+    <path android:pathData="M74.06,35.93A27,27 0,0 1 74.06,72.07" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000"/>
+    <path android:pathData="M33.94,35.93A27,27 0,0 0 33.94,72.07" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000"/>
+    <path android:pathData="M81.50,29.24A37,37 0,0 1 81.50,78.76" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000"/>
+    <path android:pathData="M26.50,29.24A37,37 0,0 0 26.50,78.76" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000"/>
+  </group>
+</vector>

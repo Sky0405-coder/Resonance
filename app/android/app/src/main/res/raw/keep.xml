@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- audio_service looks up its notification button icons by name; without this, resource shrinking in
+     release builds removes them and the media notification / lock screen controls fail to build. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/audio_service_*,@drawable/ic_stat_resonance,@mipmap/ic_launcher" />
