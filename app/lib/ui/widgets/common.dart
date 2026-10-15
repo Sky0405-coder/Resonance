@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+
 import '../../l10n/l10n.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -11,6 +15,7 @@ import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import '../../offline/offline_store.dart';
 
 String formatDuration(Duration d) {
   final h = d.inHours;
@@ -43,6 +48,9 @@ class CoverImage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localCover = kIsWeb || albumId == null
+        ? null
+        : ref.watch(offlineProvider.select((s) => s.coverPath(albumId!)));
     final version = albumId == null ? 0 : ref.watch(coverVersionsProvider.select((v) => v[albumId] ?? 0));
     final placeholder = Container(
       color: const Color(0xFF282828),
@@ -57,6 +65,8 @@ class CoverImage extends ConsumerWidget {
         aspectRatio: 1,
         child: albumId == null
             ? placeholder
+            : localCover != null
+            ? Image.file(File(localCover), fit: BoxFit.cover, errorBuilder: (_, _, _) => placeholder)
             : CachedNetworkImage(
                 imageUrl: '${ref.watch(apiProvider).coverUrl(albumId!, size: size)}${version > 0 ? '&v=$version' : ''}',
                 // Cache key without the token so a re-login keeps the cache.
@@ -264,7 +274,9 @@ class PlaylistCard extends StatelessWidget {
   Widget build(BuildContext context) => MediaCard(
     image: PlaylistCover(albumIds: playlist.coverAlbumIds),
     title: playlist.name,
-    subtitle: context.l10n.libraryPlaylistBy((playlist.owner.name).toString()),
+    subtitle: playlist.isMix && playlist.description != null
+        ? playlist.description!
+        : context.l10n.libraryPlaylistBy((playlist.owner.name).toString()),
     onTap: () => context.push('/playlist/${playlist.id}'),
   );
 }
@@ -340,13 +352,7 @@ void showInfo(BuildContext context, String msg) {
 }
 
 /// Music entry points share the same error presentation as audiobook playback.
-Future<void> playMusic(
-  BuildContext context,
-  WidgetRef ref,
-  List<Track> tracks, {
-  int? index,
-  String? contextId,
-}) async {
+Future<void> playMusic(BuildContext context, WidgetRef ref, List<Track> tracks, {int? index, String? contextId}) async {
   try {
     await ref.read(playerProvider.notifier).playTracks(tracks, index: index, context: contextId);
   } catch (e) {

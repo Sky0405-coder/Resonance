@@ -14,19 +14,14 @@ import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import 'admin/metadata_editor.dart';
 import '../widgets/common.dart';
+import '../widgets/offline.dart';
 import '../widgets/track_list.dart';
 
 /// Whether [contextId] is what's currently playing (for the play/pause toggle).
 bool _isPlayingContext(WidgetRef ref, String contextId) =>
     ref.watch(playerProvider.select((p) => p.context == contextId && p.playing));
 
-void _playOrToggle(
-  BuildContext context,
-  WidgetRef ref,
-  String contextId,
-  List<Track> tracks, {
-  int? index,
-}) {
+void _playOrToggle(BuildContext context, WidgetRef ref, String contextId, List<Track> tracks, {int? index}) {
   final p = ref.read(playerProvider);
   final ctrl = ref.read(playerProvider.notifier);
   if (p.context == contextId && p.current != null) {
@@ -95,7 +90,10 @@ class _MissingSongs extends ConsumerWidget {
             ),
           ),
           for (final t in tracks)
-            Opacity(opacity: 0.5, child: CatalogTrackRow(track: t, number: t.trackNo, showCover: false)),
+            Opacity(
+              opacity: 0.5,
+              child: CatalogTrackRow(track: t, number: t.trackNo, showCover: false),
+            ),
         ],
       ),
     );
@@ -113,154 +111,163 @@ class AlbumPage extends ConsumerWidget {
     final playing = _isPlayingContext(ref, ctx);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: AsyncBody(
-        value: value,
-        onRetry: () => ref.invalidate(albumProvider(id)),
-        builder: (d) {
-          final multiDisc = d.tracks.map((t) => t.discNo ?? 1).toSet().length > 1;
-          final rows = <Widget>[];
-          int? disc;
-          for (final (i, t) in d.tracks.indexed) {
-            if (multiDisc && t.discNo != disc) {
-              disc = t.discNo;
-              rows.add(
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  child: Text(
-                    context.l10n.commonDiscNumber(disc ?? 1),
-                    style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700),
+      body: OfflineCollectionRefresh(
+        collectionKey: ctx,
+        onRefresh: () => ref.refresh(albumProvider(id).future).then<void>((_) {}),
+        child: AsyncBody(
+          value: value,
+          onRetry: () => ref.invalidate(albumProvider(id)),
+          builder: (d) {
+            final multiDisc = d.tracks.map((t) => t.discNo ?? 1).toSet().length > 1;
+            final rows = <Widget>[];
+            int? disc;
+            for (final (i, t) in d.tracks.indexed) {
+              if (multiDisc && t.discNo != disc) {
+                disc = t.discNo;
+                rows.add(
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                    child: Text(
+                      context.l10n.commonDiscNumber(disc ?? 1),
+                      style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700),
+                    ),
                   ),
+                );
+              }
+              rows.add(
+                TrackRow(
+                  track: t,
+                  number: t.trackNo ?? i + 1,
+                  showCover: false,
+                  showAlbum: false,
+                  onPlay: () => playMusic(context, ref, d.tracks, index: i, contextId: ctx),
                 ),
               );
             }
-            rows.add(
-              TrackRow(
-                track: t,
-                number: t.trackNo ?? i + 1,
-                showCover: false,
-                showAlbum: false,
-                onPlay: () => playMusic(context, ref, d.tracks, index: i, contextId: ctx),
-              ),
-            );
-          }
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: CollectionHeader(
-                  image: CoverImage(albumId: d.album.hasCover ? id : null, size: 600, icon: Icons.album),
-                  kind: context.l10n.commonAlbum,
-                  title: d.album.title,
-                  meta: Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      InkWell(
-                        onTap: () => context.push('/artist/${d.album.artist.id}'),
-                        child: Text(
-                          d.album.artist.name,
-                          style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+            return CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: CollectionHeader(
+                    image: CoverImage(albumId: d.album.hasCover ? id : null, size: 600, icon: Icons.album),
+                    kind: context.l10n.commonAlbum,
+                    title: d.album.title,
+                    meta: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        InkWell(
+                          onTap: () => context.push('/artist/${d.album.artist.id}'),
+                          child: Text(
+                            d.album.artist.name,
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+                          ),
                         ),
+                        Text(
+                          [
+                            if (d.album.year != null) ' • ${d.album.year}',
+                            ' • ${songs(context.l10n, d.tracks.length)}, ${formatLongDuration(context.l10n, d.duration)}',
+                          ].join(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: ActionBar(
+                    playing: playing,
+                    onPlay: d.tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.tracks),
+                    canShuffle: d.tracks.isNotEmpty,
+                    children: [
+                      OfflineDownloadButton(kind: 'album', id: id),
+                      IconButton(
+                        tooltip: d.saved ? context.l10n.libraryRemoveAlbum : context.l10n.librarySaveAlbum,
+                        iconSize: 30,
+                        color: d.saved ? Theme.of(context).colorScheme.primary : Palette.textMuted,
+                        icon: Icon(d.saved ? Icons.check_circle : Icons.add_circle_outline),
+                        onPressed: () => ref.read(libraryActionsProvider).setAlbumSaved(id, !d.saved),
                       ),
-                      Text(
-                        [
-                          if (d.album.year != null) ' • ${d.album.year}',
-                          ' • ${songs(context.l10n, d.tracks.length)}, ${formatLongDuration(context.l10n, d.duration)}',
-                        ].join(),
+                      IconButton(
+                        tooltip: context.l10n.playerAddToPlaylist,
+                        iconSize: 28,
+                        color: Palette.textMuted,
+                        icon: const Icon(Icons.playlist_add),
+                        onPressed: () => showAddToPlaylist(context, ref, [for (final t in d.tracks) t.id]),
+                      ),
+                      PopupMenuButton<String>(
+                        useRootNavigator: true,
+                        iconSize: 28,
+                        icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
+                        onSelected: (action) async {
+                          switch (action) {
+                            case 'missing':
+                              await _openInCatalog(context, ref, id);
+                            case 'radio':
+                              await startRadio(context, ref, 'album', id);
+                            case 'cover':
+                              await showCoverPicker(context, ref, id);
+                            case 'delete':
+                              await _deleteAlbum(context, ref, d);
+                            case 'match':
+                              final album = await showAlbumMatcher(context, ref, d);
+                              // The songs may now live in another (new or existing) album.
+                              if (album != null && album.id != id && context.mounted) {
+                                context.pushReplacement('/album/${album.id}');
+                              }
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            value: 'radio',
+                            child: ListTile(
+                              leading: const Icon(Icons.radio),
+                              title: Text(context.l10n.radioStartAlbum),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'missing',
+                            child: ListTile(
+                              leading: const Icon(Icons.download),
+                              title: Text(context.l10n.albumFindMissing),
+                            ),
+                          ),
+                          if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
+                            PopupMenuItem(
+                              value: 'match',
+                              child: ListTile(
+                                leading: const Icon(Icons.manage_search),
+                                title: Text(context.l10n.editorMatchAlbum),
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'cover',
+                              child: ListTile(
+                                leading: const Icon(Icons.image_search),
+                                title: Text(context.l10n.editorChangeCover),
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: ListTile(
+                                leading: const Icon(Icons.delete_outline),
+                                title: Text(context.l10n.adminDeleteAlbum),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: ActionBar(
-                  playing: playing,
-                  onPlay: d.tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.tracks),
-                  canShuffle: d.tracks.isNotEmpty,
-                  children: [
-                    IconButton(
-                      tooltip: d.saved ? context.l10n.libraryRemoveAlbum : context.l10n.librarySaveAlbum,
-                      iconSize: 30,
-                      color: d.saved ? Theme.of(context).colorScheme.primary : Palette.textMuted,
-                      icon: Icon(d.saved ? Icons.check_circle : Icons.add_circle_outline),
-                      onPressed: () => ref.read(libraryActionsProvider).setAlbumSaved(id, !d.saved),
-                    ),
-                    IconButton(
-                      tooltip: context.l10n.playerAddToPlaylist,
-                      iconSize: 28,
-                      color: Palette.textMuted,
-                      icon: const Icon(Icons.playlist_add),
-                      onPressed: () => showAddToPlaylist(context, ref, [for (final t in d.tracks) t.id]),
-                    ),
-                    PopupMenuButton<String>(
-                      useRootNavigator: true,
-                      iconSize: 28,
-                      icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
-                      onSelected: (action) async {
-                        switch (action) {
-                          case 'missing':
-                            await _openInCatalog(context, ref, id);
-                          case 'radio':
-                            await startRadio(context, ref, 'album', id);
-                          case 'cover':
-                            await showCoverPicker(context, ref, id);
-                          case 'delete':
-                            await _deleteAlbum(context, ref, d);
-                          case 'match':
-                            final album = await showAlbumMatcher(context, ref, d);
-                            // The songs may now live in another (new or existing) album.
-                            if (album != null && album.id != id && context.mounted) {
-                              context.pushReplacement('/album/${album.id}');
-                            }
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        PopupMenuItem(
-                          value: 'radio',
-                          child: ListTile(leading: const Icon(Icons.radio), title: Text(context.l10n.radioStartAlbum)),
-                        ),
-                        PopupMenuItem(
-                          value: 'missing',
-                          child: ListTile(
-                            leading: const Icon(Icons.download),
-                            title: Text(context.l10n.albumFindMissing),
-                          ),
-                        ),
-                        if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
-                          PopupMenuItem(
-                            value: 'match',
-                            child: ListTile(
-                              leading: const Icon(Icons.manage_search),
-                              title: Text(context.l10n.editorMatchAlbum),
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'cover',
-                            child: ListTile(
-                              leading: const Icon(Icons.image_search),
-                              title: Text(context.l10n.editorChangeCover),
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: ListTile(
-                              leading: const Icon(Icons.delete_outline),
-                              title: Text(context.l10n.adminDeleteAlbum),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  sliver: SliverList.list(children: rows),
                 ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                sliver: SliverList.list(children: rows),
-              ),
-              _MissingSongs(albumId: id),
-              const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
-            ],
-          );
-        },
+                _MissingSongs(albumId: id),
+                const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -351,128 +358,139 @@ class PlaylistPage extends ConsumerWidget {
     final playing = _isPlayingContext(ref, ctx);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: AsyncBody(
-        value: value,
-        onRetry: () => ref.invalidate(playlistDetailProvider(id)),
-        builder: (d) {
-          final tracks = [for (final e in d.entries) e.track];
-          final actions = ref.read(libraryActionsProvider);
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: CollectionHeader(
-                  image: PlaylistCover(albumIds: d.playlist.coverAlbumIds),
-                  kind: d.playlist.isRadio
-                      ? context.l10n.radioKind
-                      : d.playlist.isPublic
-                      ? context.l10n.libraryPublicPlaylist
-                      : context.l10n.commonPlaylist,
-                  title: d.playlist.name,
-                  description: d.playlist.description,
-                  meta: Text(
-                    '${d.playlist.owner.name} • ${songs(context.l10n, d.playlist.trackCount)}'
-                    '${d.playlist.duration > 0 ? ', ${formatLongDuration(context.l10n, d.playlist.duration)}' : ''}'
-                    '${d.playlist.sharedWith.isEmpty ? '' : '\n${context.l10n.librarySharedWith(d.playlist.sharedWith.map((u) => u.name).join(', '))}'}',
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: ActionBar(
-                  playing: playing,
-                  onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
-                  canShuffle: tracks.isNotEmpty,
-                  children: [
-                    if (d.editable)
-                      PopupMenuButton<String>(
-                        useRootNavigator: true,
-                        icon: const Icon(Icons.more_horiz, color: Palette.textMuted, size: 28),
-                        onSelected: (v) async {
-                          switch (v) {
-                            case 'rename':
-                              final name = await promptText(
-                                context,
-                                context.l10n.libraryRenamePlaylist,
-                                context.l10n.commonName,
-                                initial: d.playlist.name,
-                              );
-                              if (name != null && name.isNotEmpty) {
-                                await ref.read(apiProvider).updatePlaylist(id, {'name': name});
-                                ref.invalidate(playlistDetailProvider(id));
-                                ref.invalidate(playlistsProvider);
-                              }
-                            case 'keep':
-                              await ref.read(apiProvider).keepRadio(id);
-                              ref.invalidate(playlistDetailProvider(id));
-                              ref.invalidate(playlistsProvider);
-                            case 'share':
-                              await showShareWithUsers(context, ref, d.playlist);
-                            case 'public':
-                              await ref.read(apiProvider).updatePlaylist(id, {'is_public': !d.playlist.isPublic});
-                              ref.invalidate(playlistDetailProvider(id));
-                              ref.invalidate(playlistsProvider);
-                            case 'delete':
-                              await actions.deletePlaylist(id);
-                              if (context.mounted) context.go('/library');
-                          }
-                        },
-                        itemBuilder: (_) => [
-                          if (d.playlist.isRadio)
-                            PopupMenuItem(value: 'keep', child: Text(context.l10n.radioKeep))
-                          else ...[
-                            PopupMenuItem(value: 'rename', child: Text(context.l10n.commonRename)),
-                            PopupMenuItem(
-                              value: 'public',
-                              child: Text(
-                                d.playlist.isPublic
-                                    ? context.l10n.libraryMakePrivate
-                                    : context.l10n.librarySharePlaylist,
-                              ),
-                            ),
-                            PopupMenuItem(value: 'share', child: Text(context.l10n.libraryShareWithUsers)),
-                          ],
-                          PopupMenuItem(value: 'delete', child: Text(context.l10n.commonDelete)),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              if (tracks.isEmpty)
+      body: OfflineCollectionRefresh(
+        collectionKey: ctx,
+        onRefresh: () => ref.refresh(playlistDetailProvider(id).future).then<void>((_) {}),
+        child: AsyncBody(
+          value: value,
+          onRetry: () => ref.invalidate(playlistDetailProvider(id)),
+          builder: (d) {
+            final tracks = [for (final e in d.entries) e.track];
+            final actions = ref.read(libraryActionsProvider);
+            return CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Text(
-                      context.l10n.libraryEmptyPlaylist,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Palette.textMuted),
+                  child: CollectionHeader(
+                    image: PlaylistCover(albumIds: d.playlist.coverAlbumIds),
+                    kind: d.playlist.isRadio
+                        ? context.l10n.radioKind
+                        : d.playlist.isMix
+                        ? context.l10n.mixKind
+                        : d.playlist.isPublic
+                        ? context.l10n.libraryPublicPlaylist
+                        : context.l10n.commonPlaylist,
+                    title: d.playlist.name,
+                    description: d.playlist.description,
+                    meta: Text(
+                      '${d.playlist.owner.name} • ${songs(context.l10n, d.playlist.trackCount)}'
+                      '${d.playlist.duration > 0 ? ', ${formatLongDuration(context.l10n, d.playlist.duration)}' : ''}'
+                      '${d.playlist.sharedWith.isEmpty ? '' : '\n${context.l10n.librarySharedWith(d.playlist.sharedWith.map((u) => u.name).join(', '))}'}',
                     ),
                   ),
                 ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                sliver: SliverList.builder(
-                  itemCount: d.entries.length,
-                  itemBuilder: (_, i) {
-                    final e = d.entries[i];
-                    return TrackRow(
-                      key: ValueKey(e.entryId),
-                      track: e.track,
-                      onPlay: () => playMusic(context, ref, tracks, index: i, contextId: ctx),
-                      extraActions: [
-                        if (d.editable)
-                          TrackAction(
-                            context.l10n.libraryRemoveFromPlaylist,
-                            Icons.remove_circle_outline,
-                            () => actions.removeFromPlaylist(id, e.entryId),
-                          ),
-                      ],
-                    );
-                  },
+                SliverToBoxAdapter(
+                  child: ActionBar(
+                    playing: playing,
+                    onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
+                    canShuffle: tracks.isNotEmpty,
+                    children: [
+                      OfflineDownloadButton(kind: 'playlist', id: id),
+                      if (d.editable)
+                        PopupMenuButton<String>(
+                          useRootNavigator: true,
+                          icon: const Icon(Icons.more_horiz, color: Palette.textMuted, size: 28),
+                          onSelected: (v) async {
+                            switch (v) {
+                              case 'rename':
+                                final name = await promptText(
+                                  context,
+                                  context.l10n.libraryRenamePlaylist,
+                                  context.l10n.commonName,
+                                  initial: d.playlist.name,
+                                );
+                                if (name != null && name.isNotEmpty) {
+                                  await ref.read(apiProvider).updatePlaylist(id, {'name': name});
+                                  ref.invalidate(playlistDetailProvider(id));
+                                  ref.invalidate(playlistsProvider);
+                                }
+                              case 'keep':
+                                final kept = await ref.read(apiProvider).keepPlaylist(id);
+                                ref.invalidate(playlistDetailProvider(id));
+                                ref.invalidate(playlistsProvider);
+                                if (kept.id != id && context.mounted) context.push('/playlist/${kept.id}');
+                              case 'share':
+                                await showShareWithUsers(context, ref, d.playlist);
+                              case 'public':
+                                await ref.read(apiProvider).updatePlaylist(id, {'is_public': !d.playlist.isPublic});
+                                ref.invalidate(playlistDetailProvider(id));
+                                ref.invalidate(playlistsProvider);
+                              case 'delete':
+                                await actions.deletePlaylist(id);
+                                if (context.mounted) context.go('/library');
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            if (d.playlist.isMix)
+                              PopupMenuItem(value: 'keep', child: Text(context.l10n.mixSave))
+                            else if (d.playlist.isRadio)
+                              PopupMenuItem(value: 'keep', child: Text(context.l10n.radioKeep))
+                            else ...[
+                              PopupMenuItem(value: 'rename', child: Text(context.l10n.commonRename)),
+                              PopupMenuItem(
+                                value: 'public',
+                                child: Text(
+                                  d.playlist.isPublic
+                                      ? context.l10n.libraryMakePrivate
+                                      : context.l10n.librarySharePlaylist,
+                                ),
+                              ),
+                              PopupMenuItem(value: 'share', child: Text(context.l10n.libraryShareWithUsers)),
+                            ],
+                            if (!d.playlist.isMix) PopupMenuItem(value: 'delete', child: Text(context.l10n.commonDelete)),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
-            ],
-          );
-        },
+                if (tracks.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text(
+                        context.l10n.libraryEmptyPlaylist,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Palette.textMuted),
+                      ),
+                    ),
+                  ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  sliver: SliverList.builder(
+                    itemCount: d.entries.length,
+                    itemBuilder: (_, i) {
+                      final e = d.entries[i];
+                      return TrackRow(
+                        key: ValueKey(e.entryId),
+                        track: e.track,
+                        onPlay: () => playMusic(context, ref, tracks, index: i, contextId: ctx),
+                        extraActions: [
+                          if (d.editable && !d.playlist.isMix)
+                            TrackAction(
+                              context.l10n.libraryRemoveFromPlaylist,
+                              Icons.remove_circle_outline,
+                              () => actions.removeFromPlaylist(id, e.entryId),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -488,38 +506,44 @@ class LikedPage extends ConsumerWidget {
     final playing = _isPlayingContext(ref, ctx);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: AsyncBody(
-        value: value,
-        onRetry: () => ref.invalidate(likedTracksProvider),
-        builder: (tracks) => CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: CollectionHeader(
-                image: const LikedCover(),
-                kind: context.l10n.commonPlaylist,
-                title: context.l10n.libraryLikedSongs,
-                meta: Text(songs(context.l10n, tracks.length)),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: ActionBar(
-                playing: playing,
-                onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
-                canShuffle: tracks.isNotEmpty,
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              sliver: SliverList.builder(
-                itemCount: tracks.length,
-                itemBuilder: (_, i) => TrackRow(
-                  track: tracks[i],
-                  onPlay: () => playMusic(context, ref, tracks, index: i, contextId: ctx),
+      body: OfflineCollectionRefresh(
+        collectionKey: ctx,
+        onRefresh: () => ref.refresh(likedTracksProvider.future).then<void>((_) {}),
+        child: AsyncBody(
+          value: value,
+          onRetry: () => ref.invalidate(likedTracksProvider),
+          builder: (tracks) => CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: CollectionHeader(
+                  image: const LikedCover(),
+                  kind: context.l10n.commonPlaylist,
+                  title: context.l10n.libraryLikedSongs,
+                  meta: Text(songs(context.l10n, tracks.length)),
                 ),
               ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
-          ],
+              SliverToBoxAdapter(
+                child: ActionBar(
+                  playing: playing,
+                  onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
+                  canShuffle: tracks.isNotEmpty,
+                  children: [OfflineDownloadButton(kind: 'liked', id: "liked")],
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                sliver: SliverList.builder(
+                  itemCount: tracks.length,
+                  itemBuilder: (_, i) => TrackRow(
+                    track: tracks[i],
+                    onPlay: () => playMusic(context, ref, tracks, index: i, contextId: ctx),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+            ],
+          ),
         ),
       ),
     );

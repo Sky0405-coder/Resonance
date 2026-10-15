@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
+
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
@@ -8,8 +11,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import '../../offline/offline_store.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
+import '../widgets/offline.dart';
 import '../widgets/update.dart';
 import '../widgets/track_list.dart';
 
@@ -153,6 +158,7 @@ class SettingsPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/spotify'),
           ),
+          if (!kIsWeb) const _OfflineSettings(),
           const AppVersionTile(),
           _Section(context.l10n.settingsSignedInDevices),
           sessions.when(
@@ -282,4 +288,76 @@ class _Swatch extends StatelessWidget {
           : null,
     ),
   );
+}
+
+class _OfflineSettings extends ConsumerWidget {
+  const _OfflineSettings();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (kIsWeb) return const SizedBox.shrink();
+    final settings = ref.watch(offlineSettingsProvider);
+    final offline = ref.watch(offlineProvider);
+    final controller = ref.read(offlineSettingsProvider.notifier);
+    final bytes = offline.totalBytes;
+    final gigabytes = bytes >= 1024 * 1024 * 1024;
+    final value = NumberFormat(
+      '0.0',
+      Localizations.localeOf(context).toLanguageTag(),
+    ).format(bytes / (gigabytes ? 1024 * 1024 * 1024 : 1024 * 1024));
+    final size = gigabytes ? context.l10n.offlineGigabytes(value) : context.l10n.offlineMegabytes(value);
+    final count = offline.tracks.keys.where(offline.isDownloaded).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Section(context.l10n.navDownloads),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Text(context.l10n.offlineQuality, style: const TextStyle(color: Palette.textMuted)),
+        ),
+        RadioGroup<String>(
+          groupValue: settings.quality,
+          onChanged: (value) {
+            if (value != null) controller.setQuality(value);
+          },
+          child: Column(
+            children: [
+              RadioListTile<String>(value: 'normal', title: Text(context.l10n.offlineQualityNormal)),
+              RadioListTile<String>(value: 'high', title: Text(context.l10n.offlineQualityHigh)),
+              RadioListTile<String>(value: 'original', title: Text(context.l10n.offlineQualityOriginal)),
+            ],
+          ),
+        ),
+        SwitchListTile(
+          title: Text(context.l10n.offlineWifiOnly),
+          value: settings.wifiOnly,
+          onChanged: controller.setWifiOnly,
+        ),
+        ListTile(
+          leading: const Icon(Icons.storage),
+          title: Text(context.l10n.offlineStorage),
+          subtitle: Text(
+            [
+              context.l10n.offlineStorageUsed(size, count),
+              if (offline.queued > 0) context.l10n.offlineDownloading(offline.queued),
+            ].join('\n'),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: OutlinedButton(
+            onPressed: () async {
+              if (!await confirmOfflineDelete(context, context.l10n.offlineClearConfirm)) return;
+              try {
+                await ref.read(offlineProvider.notifier).clearAll();
+              } catch (e) {
+                if (context.mounted) showError(context, e);
+              }
+            },
+            child: Text(context.l10n.offlineClearAll),
+          ),
+        ),
+      ],
+    );
+  }
 }

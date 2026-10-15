@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
@@ -23,6 +25,7 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final offline = !kIsWeb && ref.watch(sessionProvider.select((s) => s.offline));
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
     final audiobooks = ref.watch(absStatusProvider).value?.enabled ?? false;
     final pendingApproval = isAdmin ? ref.watch(downloadSummaryProvider).value?.pendingApproval ?? 0 : 0;
@@ -58,6 +61,7 @@ class AppShell extends ConsumerWidget {
                 ),
               ),
             ),
+            if (offline) const _OfflineBanner(),
             const DesktopPlayerBar(),
           ],
         ),
@@ -78,7 +82,15 @@ class AppShell extends ConsumerWidget {
       body: Stack(
         children: [
           Positioned.fill(child: UpdateNotifier(child: child)),
-          const Positioned(left: 0, right: 0, bottom: 4, child: MiniPlayer()),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 4,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [if (offline) const _OfflineBanner(), const MiniPlayer()],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -260,6 +272,28 @@ class _SidebarItem extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    ),
+  );
+}
+
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner();
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Palette.surface,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.cloud_off, size: 16, color: Palette.textMuted),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(context.l10n.offlineBanner, style: const TextStyle(fontSize: 12, color: Palette.textMuted)),
+          ),
+        ],
       ),
     ),
   );

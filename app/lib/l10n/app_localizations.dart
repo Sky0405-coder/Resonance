@@ -2809,6 +2809,138 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Radios aufbewahren (Tage seit letzter Nutzung, 0 = immer)'**
   String get adminRadioPlaylistRetention;
+
+  /// No description provided for @offlineBanner.
+  ///
+  /// In de, this message translates to:
+  /// **'Offline – nur heruntergeladene Musik'**
+  String get offlineBanner;
+
+  /// No description provided for @offlineEmptyHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Lade Alben und Playlists herunter, um sie offline zu hören.'**
+  String get offlineEmptyHint;
+
+  /// No description provided for @offlineDownloaded.
+  ///
+  /// In de, this message translates to:
+  /// **'Heruntergeladen'**
+  String get offlineDownloaded;
+
+  /// No description provided for @offlineDownload.
+  ///
+  /// In de, this message translates to:
+  /// **'Herunterladen'**
+  String get offlineDownload;
+
+  /// No description provided for @offlineRemoveTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Download entfernen?'**
+  String get offlineRemoveTitle;
+
+  /// No description provided for @offlineQuality.
+  ///
+  /// In de, this message translates to:
+  /// **'Downloadqualität'**
+  String get offlineQuality;
+
+  /// No description provided for @offlineQualityNormal.
+  ///
+  /// In de, this message translates to:
+  /// **'Normal (Opus 160 kbit/s)'**
+  String get offlineQualityNormal;
+
+  /// No description provided for @offlineQualityHigh.
+  ///
+  /// In de, this message translates to:
+  /// **'Hoch (Opus 256 kbit/s)'**
+  String get offlineQualityHigh;
+
+  /// No description provided for @offlineQualityOriginal.
+  ///
+  /// In de, this message translates to:
+  /// **'Original (verlustfrei, braucht viel Speicher)'**
+  String get offlineQualityOriginal;
+
+  /// No description provided for @offlineWifiOnly.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur über WLAN herunterladen'**
+  String get offlineWifiOnly;
+
+  /// No description provided for @offlineStorage.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicherbelegung'**
+  String get offlineStorage;
+
+  /// No description provided for @offlineStorageUsed.
+  ///
+  /// In de, this message translates to:
+  /// **'{size} • {count} Songs'**
+  String offlineStorageUsed(String size, int count);
+
+  /// No description provided for @offlineMegabytes.
+  ///
+  /// In de, this message translates to:
+  /// **'{value} MB'**
+  String offlineMegabytes(String value);
+
+  /// No description provided for @offlineGigabytes.
+  ///
+  /// In de, this message translates to:
+  /// **'{value} GB'**
+  String offlineGigabytes(String value);
+
+  /// No description provided for @offlineDownloading.
+  ///
+  /// In de, this message translates to:
+  /// **'{count} Songs werden heruntergeladen'**
+  String offlineDownloading(int count);
+
+  /// No description provided for @offlineProgress.
+  ///
+  /// In de, this message translates to:
+  /// **'{done} von {total} heruntergeladen'**
+  String offlineProgress(int done, int total);
+
+  /// No description provided for @offlineClearAll.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Downloads löschen'**
+  String get offlineClearAll;
+
+  /// No description provided for @offlineClearConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Downloads löschen?'**
+  String get offlineClearConfirm;
+
+  /// No description provided for @mixKind.
+  ///
+  /// In de, this message translates to:
+  /// **'Mix'**
+  String get mixKind;
+
+  /// No description provided for @mixSave.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Playlist speichern'**
+  String get mixSave;
+
+  /// No description provided for @homeMadeForYou.
+  ///
+  /// In de, this message translates to:
+  /// **'Für dich erstellt'**
+  String get homeMadeForYou;
+
+  /// No description provided for @homeGenreMixes.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Genres'**
+  String get homeGenreMixes;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -452,5 +452,68 @@
   "radioDownloading": "{count, plural, =1{1 missing song is being downloaded and will then be added to the radio} other{{count} missing songs are being downloaded and will then be added to the radio}}",
   "libraryRadios": "Radios",
   "adminRadioMaxDownloads": "Max. downloads per radio start",
-  "adminRadioPlaylistRetention": "Keep radios (days since last use, 0 = forever)"
+  "adminRadioPlaylistRetention": "Keep radios (days since last use, 0 = forever)",
+  "offlineBanner": "Offline – downloaded music only",
+  "offlineEmptyHint": "Download albums and playlists to listen offline.",
+  "offlineDownloaded": "Downloaded",
+  "offlineDownload": "Download",
+  "offlineRemoveTitle": "Remove download?",
+  "offlineQuality": "Download quality",
+  "offlineQualityNormal": "Normal (Opus 160 kbit/s)",
+  "offlineQualityHigh": "High (Opus 256 kbit/s)",
+  "offlineQualityOriginal": "Original (lossless, uses a lot of storage)",
+  "offlineWifiOnly": "Download over Wi-Fi only",
+  "offlineStorage": "Storage used",
+  "offlineStorageUsed": "{size} • {count} songs",
+  "@offlineStorageUsed": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineMegabytes": "{value} MB",
+  "@offlineMegabytes": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineGigabytes": "{value} GB",
+  "@offlineGigabytes": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "offlineDownloading": "{count} songs downloading",
+  "@offlineDownloading": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineProgress": "{done} of {total} downloaded",
+  "@offlineProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "offlineClearAll": "Delete all downloads",
+  "offlineClearConfirm": "Delete all downloads?",
+  "mixKind": "Mix",
+  "mixSave": "Save as playlist",
+  "homeMadeForYou": "Made for you",
+  "homeGenreMixes": "Your genres"
 }

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import '../l10n/locale.dart';
 
 import 'package:flutter/foundation.dart';
@@ -11,20 +14,22 @@ const _kServer = 'server_url';
 const _kToken = 'token';
 
 class SessionState {
-  const SessionState({this.serverUrl, this.token, this.user, this.loading = false});
+  const SessionState({this.serverUrl, this.token, this.user, this.loading = false, this.offline = false});
 
   final String? serverUrl;
   final String? token;
   final User? user;
   final bool loading;
+  final bool offline;
 
   bool get loggedIn => token != null && user != null;
 
-  SessionState copyWith({String? serverUrl, String? token, User? user, bool? loading}) => SessionState(
+  SessionState copyWith({String? serverUrl, String? token, User? user, bool? loading, bool? offline}) => SessionState(
     serverUrl: serverUrl ?? this.serverUrl,
     token: token ?? this.token,
     user: user ?? this.user,
     loading: loading ?? this.loading,
+    offline: offline ?? this.offline,
   );
 }
 
@@ -44,10 +49,14 @@ String normalizeServerUrl(String input) {
 }
 
 class SessionNotifier extends Notifier<SessionState> {
+  Timer? _retry;
+  bool _restoring = false;
+
   SharedPreferences get _prefs => ref.read(prefsProvider);
 
   @override
   SessionState build() {
+    ref.onDispose(() => _retry?.cancel());
     // The web build is served by the server itself, so default to the page origin.
     final server = _prefs.getString(_kServer) ?? (kIsWeb ? Uri.base.origin : null);
     final token = _prefs.getString(_kToken);
@@ -59,44 +68,83 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 
   Future<void> _restore() async {
+    if (_restoring || state.serverUrl == null || state.token == null) return;
+    _restoring = true;
+    final server = state.serverUrl!;
+    final token = state.token;
+    bool stillCurrent() => ref.mounted && state.serverUrl == server && state.token == token;
     try {
-      final user = await ApiClient(
-        state.serverUrl!,
-        state.token,
-        languageCode: ref.read(appLocaleProvider).languageCode,
-      ).me();
-      state = state.copyWith(user: user, loading: false);
+      final user = await ApiClient(server, token, languageCode: ref.read(appLocaleProvider).languageCode).me();
+      if (!stillCurrent()) return;
+      await _prefs.setString('session.user', jsonEncode(user.toJson()));
+      if (!stillCurrent()) return;
+      _retry?.cancel();
+      _retry = null;
+      state = state.copyWith(user: user, loading: false, offline: false);
     } on ApiException catch (e) {
+      if (!stillCurrent()) return;
       if (e.statusCode == 401) {
+        _retry?.cancel();
+        _retry = null;
         await _prefs.remove(_kToken);
-        state = SessionState(serverUrl: state.serverUrl);
+        await _prefs.remove('session.user');
+        if (stillCurrent()) state = SessionState(serverUrl: server);
       } else {
-        // Server unreachable: keep the token, show the login screen with the error.
-        state = SessionState(serverUrl: state.serverUrl);
+        User? cached;
+        final json = _prefs.getString('session.user');
+        if (!kIsWeb && json != null) {
+          try {
+            cached = User.fromJson(jsonDecode(json));
+          } on FormatException {
+            // A damaged cache cannot restore a session.
+          } on TypeError {
+            // A cache from an incompatible version cannot restore a session.
+          }
+        }
+        if (cached != null) {
+          state = state.copyWith(user: cached, loading: false, offline: true);
+          _retry ??= Timer.periodic(const Duration(seconds: 30), (_) => _restore());
+        } else {
+          state = SessionState(serverUrl: server);
+        }
       }
+    } finally {
+      _restoring = false;
     }
   }
 
   Future<void> setServer(String url) async {
+    _retry?.cancel();
+    _retry = null;
     final normalized = normalizeServerUrl(url);
+    if (normalized != state.serverUrl) await _prefs.remove('session.user');
     await _prefs.setString(_kServer, normalized);
     state = SessionState(serverUrl: normalized);
   }
 
   Future<void> signedIn(String token, User user) async {
+    _retry?.cancel();
+    _retry = null;
     await _prefs.setString(_kToken, token);
+    await _prefs.setString('session.user', jsonEncode(user.toJson()));
     state = SessionState(serverUrl: state.serverUrl, token: token, user: user);
   }
 
-  void updateUser(User user) => state = state.copyWith(user: user);
+  void updateUser(User user) {
+    state = state.copyWith(user: user);
+    _prefs.setString('session.user', jsonEncode(user.toJson())).ignore();
+  }
 
   Future<void> logout() async {
+    _retry?.cancel();
+    _retry = null;
     try {
       await ref.read(apiProvider).logout();
     } catch (_) {
       // Logging out locally is enough if the server is unreachable.
     }
     await _prefs.remove(_kToken);
+    await _prefs.remove('session.user');
     state = SessionState(serverUrl: state.serverUrl);
   }
 }

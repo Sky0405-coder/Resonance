@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
@@ -9,6 +11,7 @@ import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import '../../offline/offline_store.dart';
 import '../pages/admin/metadata_editor.dart';
 import 'common.dart';
 
@@ -48,6 +51,8 @@ class _TrackRowState extends ConsumerState<TrackRow> {
   @override
   Widget build(BuildContext context) {
     final t = widget.track;
+    final downloaded = !kIsWeb && ref.watch(offlineProvider.select((s) => s.isDownloaded(t.id)));
+    final offline = !kIsWeb && ref.watch(sessionProvider.select((s) => s.offline));
     final current = ref.watch(playerProvider.select((p) => p.current?.id == t.id));
     final playing = current && ref.watch(playerProvider.select((p) => p.playing));
     final accent = Theme.of(context).colorScheme.primary;
@@ -70,64 +75,77 @@ class _TrackRowState extends ConsumerState<TrackRow> {
       leading = SizedBox(width: 44, child: CoverImage(albumId: t.album.id, size: 64));
     }
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(4),
-        onTap: widget.onPlay,
-        onLongPress: () => showTrackMenu(context, ref, t, widget.extraActions),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: _hover ? Colors.white10 : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            children: [
-              leading,
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: current ? accent : Colors.white, fontSize: 15),
-                    ),
-                    Text(
-                      t.artistCredit,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: muted?.copyWith(fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              if (wide && widget.showAlbum)
+    return Opacity(
+      opacity: offline && !downloaded ? 0.4 : 1,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: widget.onPlay,
+          onLongPress: () => showTrackMenu(context, ref, t, widget.extraActions),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _hover ? Colors.white10 : Colors.transparent,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                leading,
+                const SizedBox(width: 12),
                 Expanded(
-                  flex: 3,
-                  child: Text(t.album.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: muted),
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: current ? accent : Colors.white, fontSize: 15),
+                      ),
+                      Row(
+                        children: [
+                          if (downloaded) ...[
+                            Icon(Icons.arrow_circle_down, size: 14, color: accent),
+                            const SizedBox(width: 4),
+                          ],
+                          Expanded(
+                            child: Text(
+                              t.artistCredit,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: muted?.copyWith(fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              if (wide || t.liked)
+                if (wide && widget.showAlbum)
+                  Expanded(
+                    flex: 3,
+                    child: Text(t.album.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: muted),
+                  ),
+                if (wide || t.liked)
+                  IconButton(
+                    tooltip: t.liked ? context.l10n.playerRemoveLiked : context.l10n.playerAddLiked,
+                    icon: Icon(t.liked ? Icons.favorite : Icons.favorite_border, size: 18),
+                    color: t.liked ? accent : Palette.textMuted,
+                    onPressed: () => ref.read(libraryActionsProvider).setLiked(t, !t.liked).catchError((e) {
+                      if (context.mounted) showError(context, e);
+                    }),
+                  ),
+                if (wide) SizedBox(width: 48, child: Text(formatDuration(t.length), style: muted)),
                 IconButton(
-                  tooltip: t.liked ? context.l10n.playerRemoveLiked : context.l10n.playerAddLiked,
-                  icon: Icon(t.liked ? Icons.favorite : Icons.favorite_border, size: 18),
-                  color: t.liked ? accent : Palette.textMuted,
-                  onPressed: () => ref.read(libraryActionsProvider).setLiked(t, !t.liked).catchError((e) {
-                    if (context.mounted) showError(context, e);
-                  }),
+                  icon: const Icon(Icons.more_horiz, size: 20),
+                  color: Palette.textMuted,
+                  onPressed: () => showTrackMenu(context, ref, t, widget.extraActions),
                 ),
-              if (wide) SizedBox(width: 48, child: Text(formatDuration(t.length), style: muted)),
-              IconButton(
-                icon: const Icon(Icons.more_horiz, size: 20),
-                color: Palette.textMuted,
-                onPressed: () => showTrackMenu(context, ref, t, widget.extraActions),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -242,7 +260,7 @@ Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String>
               if (context.mounted) showInfo(context, context.l10n.libraryAddedToPlaylist((p.name).toString()));
             },
           ),
-          for (final p in playlists.where((p) => p.owner.id == ref.read(currentUserIdProvider) && !p.isRadio))
+          for (final p in playlists.where((p) => p.owner.id == ref.read(currentUserIdProvider) && !p.isRadio && !p.isMix))
             ListTile(
               leading: SizedBox(width: 40, child: PlaylistCover(albumIds: p.coverAlbumIds)),
               title: Text(p.name),

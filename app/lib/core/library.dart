@@ -1,14 +1,27 @@
+import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../player/player.dart';
+import '../offline/offline_store.dart';
+import 'api.dart';
 import 'models.dart';
 import 'session.dart';
+
+/// Generated playlists; null when unavailable (offline, server error) – home simply hides them then.
+final mixesProvider = FutureProvider.autoDispose<(List<Playlist>, List<Playlist>)?>((ref) async {
+  try {
+    return await ref.watch(apiProvider).mixes();
+  } catch (_) {
+    return null;
+  }
+});
 
 final homeProvider = FutureProvider.autoDispose<Home>((ref) => ref.watch(apiProvider).home());
 
 final albumProvider = FutureProvider.autoDispose.family<AlbumDetail, String>(
-  (ref, id) => ref.watch(apiProvider).album(id),
+  (ref, id) =>
+      _withOffline(ref, 'album:$id', () => ref.watch(apiProvider).album(id), (data) => AlbumDetail.fromJson(data)),
 );
 
 final artistProvider = FutureProvider.autoDispose.family<ArtistDetail, String>(
@@ -16,12 +29,47 @@ final artistProvider = FutureProvider.autoDispose.family<ArtistDetail, String>(
 );
 
 final playlistDetailProvider = FutureProvider.autoDispose.family<PlaylistDetail, String>(
-  (ref, id) => ref.watch(apiProvider).playlist(id),
+  (ref, id) => _withOffline(
+    ref,
+    'playlist:$id',
+    () => ref.watch(apiProvider).playlist(id),
+    (data) => PlaylistDetail.fromJson(data),
+  ),
 );
 
-final playlistsProvider = FutureProvider<List<Playlist>>((ref) => ref.watch(apiProvider).playlists());
+final playlistsProvider = FutureProvider<List<Playlist>>((ref) async {
+  ref.watch(sessionProvider.select((s) => s.offline));
+  final cached = kIsWeb ? null : ref.watch(offlineProvider.select((s) => s.collections));
+  try {
+    return await ref.watch(apiProvider).playlists();
+  } on ApiException catch (e) {
+    if (e.statusCode != null || cached == null) rethrow;
+    return [
+      for (final collection in cached.values)
+        if (collection.kind == 'playlist') Playlist.fromJson(collection.data),
+    ];
+  }
+});
 
-final likedTracksProvider = FutureProvider<List<Track>>((ref) => ref.watch(apiProvider).likedTracks());
+final likedTracksProvider = FutureProvider<List<Track>>(
+  (ref) => _withOffline(
+    ref,
+    'liked',
+    () => ref.watch(apiProvider).likedTracks(),
+    (data) => [for (final track in data) Track.fromJson(track)],
+  ),
+);
+
+Future<T> _withOffline<T>(Ref ref, String key, Future<T> Function() fetch, T Function(dynamic) parse) async {
+  ref.watch(sessionProvider.select((s) => s.offline));
+  final cached = kIsWeb ? null : ref.watch(offlineProvider.select((s) => s.collections[key]));
+  try {
+    return await fetch();
+  } on ApiException catch (e) {
+    if (e.statusCode != null || cached == null) rethrow;
+    return parse(cached.data);
+  }
+}
 
 final savedAlbumsProvider = FutureProvider.autoDispose<List<Album>>(
   (ref) => ref.watch(apiProvider).albums(saved: true),

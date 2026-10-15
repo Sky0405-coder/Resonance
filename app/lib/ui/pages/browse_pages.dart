@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../l10n/l10n.dart';
 
 import 'dart:async';
@@ -13,6 +15,7 @@ import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
+import '../widgets/offline.dart';
 import '../widgets/track_list.dart';
 import 'download_pages.dart';
 import 'home_page.dart';
@@ -173,7 +176,7 @@ class LibraryPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 4,
+      length: kIsWeb ? 4 : 5,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -195,6 +198,7 @@ class LibraryPage extends ConsumerWidget {
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
+              if (!kIsWeb) Tab(text: context.l10n.offlineDownloaded),
               Tab(text: context.l10n.libraryPlaylists),
               Tab(text: context.l10n.librarySavedAlbums),
               Tab(text: context.l10n.libraryAllAlbums),
@@ -202,7 +206,15 @@ class LibraryPage extends ConsumerWidget {
             ],
           ),
         ),
-        body: const TabBarView(children: [_PlaylistsTab(), _SavedAlbumsTab(), _AllAlbumsTab(), _ArtistsTab()]),
+        body: const TabBarView(
+          children: [
+            if (!kIsWeb) OfflineCollections(),
+            _PlaylistsTab(),
+            _SavedAlbumsTab(),
+            _AllAlbumsTab(),
+            _ArtistsTab(),
+          ],
+        ),
       ),
     );
   }
@@ -246,7 +258,7 @@ class _PlaylistsTab extends ConsumerWidget {
             ),
             onTap: () => context.push('/liked'),
           ),
-          for (final p in list.where((p) => !p.isRadio))
+          for (final p in list.where((p) => !p.isRadio && !p.isMix))
             ListTile(
               leading: SizedBox(width: 56, child: PlaylistCover(albumIds: p.coverAlbumIds)),
               title: Text(p.name),
@@ -260,7 +272,10 @@ class _PlaylistsTab extends ConsumerWidget {
             ),
             for (final p in list.where((p) => p.isRadio))
               ListTile(
-                leading: SizedBox(width: 56, child: PlaylistCover(albumIds: p.coverAlbumIds, icon: Icons.radio)),
+                leading: SizedBox(
+                  width: 56,
+                  child: PlaylistCover(albumIds: p.coverAlbumIds, icon: Icons.radio),
+                ),
                 title: Text(p.name),
                 subtitle: Text(songs(context.l10n, p.trackCount)),
                 onTap: () => context.push('/playlist/${p.id}'),

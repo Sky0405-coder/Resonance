@@ -66,6 +66,28 @@ class ApiClient {
   Future<dynamic> _put(String path, [Object? body]) => _call(() async => (await _dio.put(path, data: body)).data);
   Future<dynamic> _delete(String path) => _call(() async => (await _dio.delete(path)).data);
 
+  /// Keep the server response intact for the on-device collection cache.
+  Future<dynamic> offlineCollection(String kind, String id) => _get(switch (kind) {
+    'album' => '/api/albums/$id',
+    'playlist' => '/api/playlists/$id',
+    'liked' => '/api/me/likes/tracks',
+    _ => throw ArgumentError.value(kind, 'kind'),
+  });
+
+  /// Uses the authenticated client, streaming directly to disk rather than buffering audio in memory.
+  Future<void> downloadMedia(
+    String url,
+    String Function(String? contentType) destination, {
+    CancelToken? cancelToken,
+  }) => _call(() async {
+    await _dio.download(
+      url,
+      (Headers headers) => destination(headers.value('content-type')),
+      cancelToken: cancelToken,
+      options: Options(receiveTimeout: const Duration(minutes: 10)),
+    );
+  });
+
   // --- media URLs (token in query so players/images work without headers) ---
 
   /// `auto` lets the server pass through natively playable files and transcode the rest.
@@ -175,7 +197,18 @@ class ApiClient {
     return (Playlist.fromJson(j['playlist']), j['requested'] as int);
   }
 
-  Future<void> keepRadio(String playlistId) => _post('/api/playlists/$playlistId/keep');
+  /// Radio: turns it into a normal playlist. Mix: creates a dated normal copy. Returns the normal playlist.
+  Future<Playlist> keepPlaylist(String playlistId) async =>
+      Playlist.fromJson(await _post('/api/playlists/$playlistId/keep'));
+
+  /// Generated playlists of the current user: (made for you, genre mixes).
+  Future<(List<Playlist>, List<Playlist>)> mixes() async {
+    final j = await _get('/api/mixes');
+    return (
+      [for (final p in j['made_for_you']) Playlist.fromJson(p)],
+      [for (final p in j['genres']) Playlist.fromJson(p)],
+    );
+  }
 
   Future<void> deleteLibraryTrack(String id) => _delete('/api/admin/library/tracks/$id');
 

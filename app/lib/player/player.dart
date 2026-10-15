@@ -10,6 +10,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
 import '../core/api.dart';
+import '../offline/offline_store.dart';
 import '../core/audiobooks.dart';
 import '../core/models.dart';
 import '../core/session.dart';
@@ -171,36 +172,38 @@ class PlayerController extends Notifier<PlayerView> {
     sleepAt: sleepAt == null ? state.sleepAt : sleepAt(),
   );
 
-  AudioSource _source(Track t) => AudioSource.uri(
-    Uri.parse(_api.streamUrl(t.id)),
-    tag: MediaItem(
+  AudioSource _source(Track t) {
+    final offline = kIsWeb ? null : ref.read(offlineProvider);
+    final file = offline?.filePath(t.id);
+    final cover = file == null ? null : offline?.coverPath(t.album.id);
+    final tag = MediaItem(
       id: t.id,
       title: t.title,
       artist: t.artistCredit,
       album: t.album.name,
       duration: t.length,
-      artUri: Uri.parse(_api.coverUrl(t.album.id, size: 600)),
-    ),
-  );
+      artUri: cover == null ? Uri.parse(_api.coverUrl(t.album.id, size: 600)) : Uri.file(cover),
+    );
+    return file == null ? AudioSource.uri(Uri.parse(_api.streamUrl(t.id)), tag: tag) : AudioSource.file(file, tag: tag);
+  }
 
   /// Replace the queue and start playing at [index]. Shuffle is a global toggle (like Spotify): when it is on,
   /// the queue is shuffled around the start track, which is random if no [index] is given.
-  Future<void> playTracks(List<Track> tracks, {int? index, String? context}) =>
-      _switch(() async {
-        if (tracks.isEmpty) return;
-        final shuffle = state.shuffle;
-        await _replacePlayback(
-          PlayerView(
-            queue: List.unmodifiable(tracks),
-            shuffle: shuffle,
-            loop: state.book == null ? state.loop : LoopMode.off,
-            context: context,
-            sleepAt: state.sleepAt,
-          ),
-          [for (final t in tracks) _source(t)],
-          index: index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0),
-        );
-      });
+  Future<void> playTracks(List<Track> tracks, {int? index, String? context}) => _switch(() async {
+    if (tracks.isEmpty) return;
+    final shuffle = state.shuffle;
+    await _replacePlayback(
+      PlayerView(
+        queue: List.unmodifiable(tracks),
+        shuffle: shuffle,
+        loop: state.book == null ? state.loop : LoopMode.off,
+        context: context,
+        sleepAt: state.sleepAt,
+      ),
+      [for (final t in tracks) _source(t)],
+      index: index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0),
+    );
+  });
 
   /// Commit metadata only after loading, and reload the previous sources on failure.
   Future<void> _replacePlayback(

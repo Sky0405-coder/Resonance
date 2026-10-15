@@ -1602,4 +1602,80 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminRadioPlaylistRetention => 'Keep radios (days since last use, 0 = forever)';
+
+  @override
+  String get offlineBanner => 'Offline – downloaded music only';
+
+  @override
+  String get offlineEmptyHint => 'Download albums and playlists to listen offline.';
+
+  @override
+  String get offlineDownloaded => 'Downloaded';
+
+  @override
+  String get offlineDownload => 'Download';
+
+  @override
+  String get offlineRemoveTitle => 'Remove download?';
+
+  @override
+  String get offlineQuality => 'Download quality';
+
+  @override
+  String get offlineQualityNormal => 'Normal (Opus 160 kbit/s)';
+
+  @override
+  String get offlineQualityHigh => 'High (Opus 256 kbit/s)';
+
+  @override
+  String get offlineQualityOriginal => 'Original (lossless, uses a lot of storage)';
+
+  @override
+  String get offlineWifiOnly => 'Download over Wi-Fi only';
+
+  @override
+  String get offlineStorage => 'Storage used';
+
+  @override
+  String offlineStorageUsed(String size, int count) {
+    return '$size • $count songs';
+  }
+
+  @override
+  String offlineMegabytes(String value) {
+    return '$value MB';
+  }
+
+  @override
+  String offlineGigabytes(String value) {
+    return '$value GB';
+  }
+
+  @override
+  String offlineDownloading(int count) {
+    return '$count songs downloading';
+  }
+
+  @override
+  String offlineProgress(int done, int total) {
+    return '$done of $total downloaded';
+  }
+
+  @override
+  String get offlineClearAll => 'Delete all downloads';
+
+  @override
+  String get offlineClearConfirm => 'Delete all downloads?';
+
+  @override
+  String get mixKind => 'Mix';
+
+  @override
+  String get mixSave => 'Save as playlist';
+
+  @override
+  String get homeMadeForYou => 'Made for you';
+
+  @override
+  String get homeGenreMixes => 'Your genres';
 }

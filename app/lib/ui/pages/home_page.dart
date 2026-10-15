@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
@@ -10,6 +12,7 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
+import '../widgets/offline.dart';
 
 String _greeting(AppLocalizations l10n) {
   final h = DateTime.now().hour;
@@ -30,9 +33,35 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final home = ref.watch(homeProvider);
     final user = ref.watch(sessionProvider).user;
     final accent = Theme.of(context).colorScheme.primary;
+
+    final heading = Padding(
+      // The gradient runs behind the Android status bar; only the content moves below it.
+      padding: EdgeInsets.fromLTRB(16, 24 + MediaQuery.paddingOf(context).top, 16, 8),
+      child: Row(
+        children: [
+          Expanded(child: Text(_greeting(context.l10n), style: Theme.of(context).textTheme.headlineMedium)),
+          if (!isWide(context))
+            IconButton(
+              icon: CircleAvatar(
+                radius: 16,
+                backgroundColor: accent,
+                child: Text(
+                  (user?.displayName ?? '?').characters.first.toUpperCase(),
+                  style: TextStyle(color: onColor(accent), fontWeight: FontWeight.bold),
+                ),
+              ),
+              onPressed: () => context.push('/settings'),
+            ),
+        ],
+      ),
+    );
+    if (!kIsWeb && ref.watch(sessionProvider.select((s) => s.offline))) {
+      return OfflineCollections(heading: heading);
+    }
+    final home = ref.watch(homeProvider);
+    final mixes = ref.watch(mixesProvider).value;
 
     return Container(
       decoration: BoxDecoration(
@@ -43,35 +72,23 @@ class HomePage extends ConsumerWidget {
         ),
       ),
       child: RefreshIndicator(
-        onRefresh: () => ref.refresh(homeProvider.future),
+        onRefresh: () {
+          ref.invalidate(mixesProvider);
+          return ref.refresh(homeProvider.future);
+        },
         child: AsyncBody(
           value: home,
           onRetry: () => ref.invalidate(homeProvider),
           builder: (h) => ListView(
             padding: const EdgeInsets.only(bottom: kBottomInset),
             children: [
-              Padding(
-                // The gradient runs behind the Android status bar; only the content moves below it.
-                padding: EdgeInsets.fromLTRB(16, 24 + MediaQuery.paddingOf(context).top, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(_greeting(context.l10n), style: Theme.of(context).textTheme.headlineMedium)),
-                    if (!isWide(context))
-                      IconButton(
-                        icon: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: accent,
-                          child: Text(
-                            (user?.displayName ?? '?').characters.first.toUpperCase(),
-                            style: TextStyle(color: onColor(accent), fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        onPressed: () => context.push('/settings'),
-                      ),
-                  ],
-                ),
-              ),
+              heading,
               _QuickGrid(home: h),
+              if (mixes != null)
+                Shelf(
+                  title: context.l10n.homeMadeForYou,
+                  children: [for (final p in mixes.$1) PlaylistCard(playlist: p)],
+                ),
               Shelf(
                 title: context.l10n.homeRecentlyPlayed,
                 children: [
@@ -82,6 +99,11 @@ class HomePage extends ConsumerWidget {
                 title: context.l10n.homeYourPlaylists,
                 children: [for (final p in h.playlists) PlaylistCard(playlist: p)],
               ),
+              if (mixes != null)
+                Shelf(
+                  title: context.l10n.homeGenreMixes,
+                  children: [for (final p in mixes.$2) PlaylistCard(playlist: p)],
+                ),
               Shelf(
                 title: context.l10n.homeRecentlyAdded,
                 children: [

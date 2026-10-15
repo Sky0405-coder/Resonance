@@ -11,6 +11,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/session.dart';
+import 'offline/offline_store.dart';
 import 'core/theme.dart';
 import 'router.dart';
 import 'ui/pages/settings_page.dart';
@@ -36,7 +37,9 @@ Future<void> main() async {
   }
 
   final prefs = await SharedPreferences.getInstance();
-  runApp(ProviderScope(overrides: [prefsProvider.overrideWithValue(prefs)], child: const ResonanceApp()));
+  final container = ProviderContainer(overrides: [prefsProvider.overrideWithValue(prefs)]);
+  if (!kIsWeb) await container.read(offlineProvider.notifier).load();
+  runApp(UncontrolledProviderScope(container: container, child: const ResonanceApp()));
 }
 
 class ResonanceApp extends ConsumerStatefulWidget {
