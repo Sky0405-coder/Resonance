@@ -38,10 +38,6 @@ _loop_task: asyncio.Task | None = None
 
 
 async def _candidates(artist_id: str) -> list[dict]:
-    radio: list[dict] = []
-    own: list[dict] = []
-    related_tops: list[list[dict]] = []
-
     # The Deezer requests run concurrently; a failing one only drops its own list.
     async def safe(coro) -> list:
         try:
@@ -50,12 +46,13 @@ async def _candidates(artist_id: str) -> list[dict]:
             log.debug("Radio candidate request failed", exc_info=True)
             return []
 
-    radio, related, own = await asyncio.gather(
-        safe(deezer.artist_radio(artist_id)),
-        safe(deezer.artist_related(artist_id, 10)),
-        safe(deezer.artist_top(artist_id, 10)),
+    async def fetch_related_tops() -> list[list[dict]]:
+        related = await safe(deezer.artist_related(artist_id, 10))
+        return list(await asyncio.gather(*(safe(deezer.artist_top(str(a["id"]), 5)) for a in related[:8])))
+
+    radio, own, related_tops = await asyncio.gather(
+        safe(deezer.artist_radio(artist_id)), safe(deezer.artist_top(artist_id, 10)), fetch_related_tops()
     )
-    related_tops = list(await asyncio.gather(*(safe(deezer.artist_top(str(a["id"]), 5)) for a in related[:8])))
     candidates: list[dict] = []
     ids: set[str] = set()
     names: set[tuple[str, str]] = set()

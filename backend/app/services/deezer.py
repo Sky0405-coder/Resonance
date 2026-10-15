@@ -1,5 +1,6 @@
 import asyncio
 import time
+from collections import deque
 from typing import Any
 
 import httpx
@@ -28,7 +29,8 @@ class DeezerClient:
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
         self._lock = asyncio.Lock()
-        self._last_started = 0.0
+        # Start times of the most recent requests (rate limit window).
+        self._starts: deque[float] = deque(maxlen=45)
         self._cache: dict[tuple, tuple[float, dict]] = {}
 
     async def _get(self, path: str, **params: Any) -> dict:
@@ -40,10 +42,11 @@ class DeezerClient:
             self._client = httpx.AsyncClient(base_url="https://api.deezer.com/", timeout=15)
         try:
             for attempt in range(4):
-                # Only the start of requests is spaced (Deezer allows ~50 requests / 5 s); they may overlap.
+                # Deezer allows 50 requests per 5 s: start at most 45 in any 5 s window; requests may overlap.
                 async with self._lock:
-                    await asyncio.sleep(max(0, 0.1 - (time.monotonic() - self._last_started)))
-                    self._last_started = time.monotonic()
+                    while len(self._starts) >= 45 and time.monotonic() - self._starts[0] < 5:
+                        await asyncio.sleep(5 - (time.monotonic() - self._starts[0]))
+                    self._starts.append(time.monotonic())
                 response = await self._client.get(path, params=params)
                 response.raise_for_status()
                 data = response.json()

@@ -1,6 +1,7 @@
 import asyncio
 import time
 import uuid
+from collections import deque
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
@@ -143,7 +144,7 @@ async def env(client, monkeypatch):
     )
     monkeypatch.setattr(deezer, "_client", mock_deezer)
     monkeypatch.setattr(deezer, "_cache", {})
-    monkeypatch.setattr(deezer, "_last_started", 0.0)
+    monkeypatch.setattr(deezer, "_starts", deque(maxlen=45))
 
     async def create_request(db, user, kind, catalog_id, temporary):
         env.requests.append((user.id, kind, catalog_id, temporary))

@@ -1178,7 +1178,6 @@ async def test_deezer_transport(monkeypatch: pytest.MonkeyPatch) -> None:
         await instance._get("retry", limit=10, q="test")
         assert len(seen) == 4
         await instance._get("other", a=1, b=2)
-        assert sleeps[-1] == pytest.approx(0.1)
         await instance._get("other", b=2, a=1)
         assert len(seen) == 5
         clock.now += 3601
@@ -1195,7 +1194,8 @@ async def test_deezer_transport(monkeypatch: pytest.MonkeyPatch) -> None:
             await instance._get("cache", index=index)
         assert len(instance._cache) == 2000
         assert ("cache", (("index", 0),)) not in instance._cache
-        assert all(b - a >= 0.1 - 1e-9 for a, b in zip(starts, starts[1:]))
+        # At most 45 request starts in any 5 s window.
+        assert all(starts[i + 45] - starts[i] >= 5 - 1e-9 for i in range(len(starts) - 45))
     finally:
         await instance._client.aclose()
 
