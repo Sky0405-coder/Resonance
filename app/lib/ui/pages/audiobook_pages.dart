@@ -201,6 +201,7 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                         child: Text(context.l10n.navAudiobooks, style: Theme.of(context).textTheme.headlineMedium),
                       ),
                       PopupMenuButton<String>(
+                        useRootNavigator: true,
                         icon: const Icon(Icons.more_vert),
                         onSelected: (_) async {
                           await ref.read(apiProvider).absLogout();
@@ -418,6 +419,7 @@ class AudiobookPage extends ConsumerWidget {
                         style: TextStyle(color: Theme.of(context).colorScheme.primary),
                       ),
                     PopupMenuButton<String>(
+                      useRootNavigator: true,
                       icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
                       onSelected: (action) async {
                         try {
@@ -506,6 +508,7 @@ class AudiobookPage extends ConsumerWidget {
 /// Chapter list for the playing book (now playing screen).
 Future<void> showChapterSheet(BuildContext context, WidgetRef ref, BookPlayback book) => showModalBottomSheet(
   context: context,
+  useRootNavigator: true,
   backgroundColor: const Color(0xFF282828),
   showDragHandle: true,
   isScrollControlled: true,

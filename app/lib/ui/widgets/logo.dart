@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// The Resonance mark (dot with sound waves, see branding/logo.svg), drawn in [color] – by default the
-/// user's accent color.
+/// The Resonance mark (filled circle with a dot and sound waves, see branding/logo.svg). The circle is drawn
+/// in [color] – by default the user's accent color – and the symbol in the dark background color.
 class ResonanceLogo extends StatelessWidget {
   const ResonanceLogo({super.key, this.size = 56, this.color});
   final double size;
@@ -20,21 +20,22 @@ class _LogoPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Same geometry as the SVG (108 units, artwork spans 22..86 around the centre 54).
-    final scale = size.width / 64;
+    // Same geometry as the SVG: 108 units, circle r=54, dot r=8, arcs r=17/27/37 at ±42° around the horizontal.
     canvas.translate(size.width / 2, size.height / 2);
-    canvas.scale(scale);
-    canvas.drawCircle(Offset.zero, 7, Paint()..color = color);
-    // Arcs of ±45° around the horizontal axis on both sides (SVG endpoints at 14/23/32 units diagonally).
-    for (final (offset, opacity) in const [(14.0, 1.0), (23.0, 0.7), (32.0, 0.4)]) {
-      final paint = Paint()
-        ..color = color.withValues(alpha: opacity)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 5
-        ..strokeCap = StrokeCap.round;
-      final rect = Rect.fromCircle(center: Offset.zero, radius: offset * math.sqrt2);
-      canvas.drawArc(rect, math.pi * 3 / 4, math.pi / 2, false, paint);
-      canvas.drawArc(rect, -math.pi / 4, math.pi / 2, false, paint);
+    canvas.scale(size.width / 108);
+    canvas.drawCircle(Offset.zero, 54, Paint()..color = color);
+    const symbol = Color(0xFF121212);
+    canvas.drawCircle(Offset.zero, 8, Paint()..color = symbol);
+    final paint = Paint()
+      ..color = symbol
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.5
+      ..strokeCap = StrokeCap.round;
+    const sweep = 84 * math.pi / 180;
+    for (final r in const [17.0, 27.0, 37.0]) {
+      final rect = Rect.fromCircle(center: Offset.zero, radius: r);
+      canvas.drawArc(rect, -sweep / 2, sweep, false, paint);
+      canvas.drawArc(rect, math.pi - sweep / 2, sweep, false, paint);
     }
   }
 

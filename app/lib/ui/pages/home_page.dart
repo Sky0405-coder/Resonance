@@ -19,10 +19,10 @@ String _greeting(AppLocalizations l10n) {
   return l10n.homeGreetingEvening;
 }
 
-Future<void> playAlbum(BuildContext context, WidgetRef ref, String albumId, {bool shuffle = false}) async {
+Future<void> playAlbum(BuildContext context, WidgetRef ref, String albumId) async {
   final detail = await ref.read(albumProvider(albumId).future);
   if (!context.mounted) return;
-  await playMusic(context, ref, detail.tracks, contextId: 'album:$albumId', shuffle: shuffle);
+  await playMusic(context, ref, detail.tracks, contextId: 'album:$albumId');
 }
 
 class HomePage extends ConsumerWidget {

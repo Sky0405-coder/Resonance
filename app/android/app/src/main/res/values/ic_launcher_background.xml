@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#121212</color>
+    <color name="ic_launcher_background">#1DB954</color>
+    <!-- Dark app/splash background (matches the Flutter theme). -->
+    <color name="app_background">#121212</color>
 </resources>

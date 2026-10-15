@@ -184,6 +184,7 @@ class SpeedButton extends ConsumerWidget {
     String label(double v) =>
         '${NumberFormat(v == v.roundToDouble() ? '0' : '0.00', context.l10n.localeName).format(v)}×';
     return PopupMenuButton<double>(
+      useRootNavigator: true,
       tooltip: context.l10n.playerSpeed,
       initialValue: speed,
       onSelected: ref.read(playerProvider.notifier).setSpeed,
@@ -212,6 +213,7 @@ class SleepTimerButton extends ConsumerWidget {
     final sleepAt = ref.watch(playerProvider.select((p) => p.sleepAt));
     final ctrl = ref.read(playerProvider.notifier);
     return PopupMenuButton<int>(
+      useRootNavigator: true,
       tooltip: sleepAt == null
           ? context.l10n.playerSleepTimer
           : context.l10n.playerSleepTimerTime((TimeOfDay.fromDateTime(sleepAt).format(context)).toString()),

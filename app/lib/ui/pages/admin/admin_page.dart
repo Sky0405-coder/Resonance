@@ -265,6 +265,7 @@ class _UsersTab extends ConsumerWidget {
                 '@${u.username} • ${u.isAdmin ? context.l10n.navAdmin : context.l10n.adminUserRole}${u.isDisabled ? context.l10n.adminUserDisabledSuffix : ''}${u.lastSeenAt != null ? context.l10n.adminUserLastSeenSuffix((_dateTime(context, u.lastSeenAt!)).toString()) : ''}',
               ),
               trailing: PopupMenuButton<String>(
+                useRootNavigator: true,
                 onSelected: (v) async {
                   switch (v) {
                     case 'role':
@@ -699,7 +700,7 @@ class _ServerTab extends ConsumerWidget {
             _TextTile(
               title: context.l10n.adminSpotifyClientId,
               value: spotify['client_id'] ?? '',
-              hint: context.l10n.adminSpotifyHint('${Uri.base.origin}/api/spotify/callback'),
+              hint: context.l10n.adminSpotifyHint('${ref.read(sessionProvider).serverUrl}/api/spotify/callback'),
               onChanged: (v) => patch({
                 'spotify': {'client_id': v},
               }),

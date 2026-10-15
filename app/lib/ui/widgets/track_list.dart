@@ -139,6 +139,8 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
   final player = ref.read(playerProvider.notifier);
   return showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
     backgroundColor: const Color(0xFF282828),
     showDragHandle: true,
     builder: (sheet) {
@@ -210,6 +212,7 @@ Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String>
   final actions = ref.read(libraryActionsProvider);
   await showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     backgroundColor: const Color(0xFF282828),
     showDragHandle: true,
     builder: (sheet) => SafeArea(

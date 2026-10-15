@@ -23,15 +23,14 @@ void _playOrToggle(
   WidgetRef ref,
   String contextId,
   List<Track> tracks, {
-  int index = 0,
-  bool shuffle = false,
+  int? index,
 }) {
   final p = ref.read(playerProvider);
   final ctrl = ref.read(playerProvider.notifier);
-  if (p.context == contextId && p.current != null && !shuffle) {
+  if (p.context == contextId && p.current != null) {
     ctrl.togglePlay();
   } else {
-    playMusic(context, ref, tracks, index: index, contextId: contextId, shuffle: shuffle);
+    playMusic(context, ref, tracks, index: index, contextId: contextId);
   }
 }
 
@@ -107,7 +106,7 @@ class AlbumPage extends ConsumerWidget {
                 child: ActionBar(
                   playing: playing,
                   onPlay: d.tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.tracks),
-                  onShuffle: d.tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.tracks, shuffle: true),
+                  canShuffle: d.tracks.isNotEmpty,
                   children: [
                     IconButton(
                       tooltip: d.saved ? context.l10n.libraryRemoveAlbum : context.l10n.librarySaveAlbum,
@@ -125,6 +124,7 @@ class AlbumPage extends ConsumerWidget {
                     ),
                     if (ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false)))
                       PopupMenuButton<String>(
+                        useRootNavigator: true,
                         tooltip: context.l10n.editorCorrectAlbum,
                         iconSize: 28,
                         icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
@@ -201,9 +201,7 @@ class ArtistPage extends ConsumerWidget {
               child: ActionBar(
                 playing: playing,
                 onPlay: d.topTracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.topTracks),
-                onShuffle: d.topTracks.isEmpty
-                    ? null
-                    : () => _playOrToggle(context, ref, ctx, d.topTracks, shuffle: true),
+                canShuffle: d.topTracks.isNotEmpty,
               ),
             ),
             if (d.topTracks.isNotEmpty) ...[
@@ -283,10 +281,11 @@ class PlaylistPage extends ConsumerWidget {
                 child: ActionBar(
                   playing: playing,
                   onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
-                  onShuffle: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks, shuffle: true),
+                  canShuffle: tracks.isNotEmpty,
                   children: [
                     if (d.editable)
                       PopupMenuButton<String>(
+                        useRootNavigator: true,
                         icon: const Icon(Icons.more_horiz, color: Palette.textMuted, size: 28),
                         onSelected: (v) async {
                           switch (v) {
@@ -394,7 +393,7 @@ class LikedPage extends ConsumerWidget {
               child: ActionBar(
                 playing: playing,
                 onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
-                onShuffle: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks, shuffle: true),
+                canShuffle: tracks.isNotEmpty,
               ),
             ),
             SliverPadding(

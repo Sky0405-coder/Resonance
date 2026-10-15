@@ -344,12 +344,11 @@ Future<void> playMusic(
   BuildContext context,
   WidgetRef ref,
   List<Track> tracks, {
-  int index = 0,
+  int? index,
   String? contextId,
-  bool shuffle = false,
 }) async {
   try {
-    await ref.read(playerProvider.notifier).playTracks(tracks, index: index, context: contextId, shuffle: shuffle);
+    await ref.read(playerProvider.notifier).playTracks(tracks, index: index, context: contextId);
   } catch (e) {
     if (context.mounted) showError(context, e);
   }

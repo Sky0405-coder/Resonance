@@ -183,10 +183,12 @@ class PlayerController extends Notifier<PlayerView> {
     ),
   );
 
-  /// Replace the queue and start playing at [index].
-  Future<void> playTracks(List<Track> tracks, {int index = 0, String? context, bool shuffle = false}) =>
+  /// Replace the queue and start playing at [index]. Shuffle is a global toggle (like Spotify): when it is on,
+  /// the queue is shuffled around the start track, which is random if no [index] is given.
+  Future<void> playTracks(List<Track> tracks, {int? index, String? context}) =>
       _switch(() async {
         if (tracks.isEmpty) return;
+        final shuffle = state.shuffle;
         await _replacePlayback(
           PlayerView(
             queue: List.unmodifiable(tracks),
@@ -196,7 +198,7 @@ class PlayerController extends Notifier<PlayerView> {
             sleepAt: state.sleepAt,
           ),
           [for (final t in tracks) _source(t)],
-          index: shuffle ? math.Random().nextInt(tracks.length) : index,
+          index: index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0),
         );
       });
 

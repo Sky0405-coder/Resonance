@@ -68,6 +68,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
+      // Outside the shell so it opens above the now-playing page and the mini player.
+      GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.matchedLocation, child: child),
         routes: [
@@ -120,7 +122,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/audiobooks/item/:id',
             builder: (_, s) => AudiobookPage(id: s.pathParameters['id']!),
           ),
-          GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
           GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
           GoRoute(path: '/spotify', builder: (_, _) => const SpotifyImportPage()),
           GoRoute(
