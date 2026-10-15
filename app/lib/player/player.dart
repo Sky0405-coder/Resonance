@@ -219,7 +219,9 @@ class PlayerController extends Notifier<PlayerView> {
       await player.pause();
       // just_audio_web caches the root playlist by ID. setAudioSources reuses
       // that ID; stopping releases the cached platform playlist before loading.
-      await player.stop();
+      // Web only: on Android stop() ends the media session, and the playback
+      // notification / lock screen controls would not come back.
+      if (kIsWeb) await player.stop();
       await player.setShuffleModeEnabled(next.shuffle);
       await player.setLoopMode(next.loop);
       await player.setSpeed(next.speed);
