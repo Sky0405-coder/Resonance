@@ -2,6 +2,7 @@ from app.models.collection import PlayEvent, Playlist, PlaylistEntry, SavedAlbum
 from app.models.downloads import DownloadItem, DownloadRequest
 from app.models.imports import ImportBatch, ImportFile
 from app.models.library import Album, Artist, Track
+from app.models.spotify import SpotifyAccount, SpotifyImport, SpotifyPending, SpotifyPlaylistLink
 from app.models.system import Job, ServerSetting
 from app.models.user import DEFAULT_ACCENT, AudiobookshelfAccount, AuthSession, Invite, Role, User
 
@@ -23,6 +24,10 @@ __all__ = [
     "Role",
     "SavedAlbum",
     "ServerSetting",
+    "SpotifyAccount",
+    "SpotifyImport",
+    "SpotifyPending",
+    "SpotifyPlaylistLink",
     "Track",
     "TrackLike",
     "User",

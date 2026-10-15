@@ -20,11 +20,13 @@ from app.api import (
     me,
     playlists,
     requests,
+    spotify,
     torrents,
 )
 from app.config import get_settings
 from app.services import audiobookshelf as abs_service
 from app.services import importer
+from app.services import spotify as spotify_service
 from app.services.downloads import manager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -37,11 +39,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.download_workers > 0:
         await manager.start()
     await importer.start()
+    await spotify_service.start()
     try:
         yield
     finally:
         await importer.stop()
         await manager.stop()
+        await spotify_service.stop()
         await abs_service.close()
 
 
@@ -63,6 +67,7 @@ for module in (
     admin,
     catalog,
     requests,
+    spotify,
     imports,
     torrents,
     editor,

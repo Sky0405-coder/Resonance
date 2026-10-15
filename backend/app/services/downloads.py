@@ -410,6 +410,10 @@ class DownloadManager:
                 setattr(item, key, value)
             await recompute_request(db, request)
             await db.commit()
+        if values.get("status") == "done":
+            from app.services.spotify import resolve_after_download
+
+            resolve_after_download()
 
     async def _write_progress(self, item_id: uuid.UUID, finished: asyncio.Event) -> None:
         while not finished.is_set():

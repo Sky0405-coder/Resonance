@@ -73,6 +73,12 @@ class AudiobookshelfConfig(BaseModel):
         return value
 
 
+class SpotifyConfig(BaseModel):
+    # From https://developer.spotify.com/dashboard – Redirect URI: <server>/api/spotify/callback
+    client_id: str = ""
+    client_secret: str = ""
+
+
 class ServerConfig(BaseModel):
     server_name: str = "Resonance"
     registration: RegistrationConfig = RegistrationConfig()
@@ -80,6 +86,7 @@ class ServerConfig(BaseModel):
     downloads: DownloadConfig = DownloadConfig()
     library: LibraryConfig = LibraryConfig()
     audiobookshelf: AudiobookshelfConfig = AudiobookshelfConfig()
+    spotify: SpotifyConfig = SpotifyConfig()
 
 
 def _deep_merge(base: dict, patch: dict) -> dict:

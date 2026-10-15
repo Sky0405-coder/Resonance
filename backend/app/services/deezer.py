@@ -78,6 +78,12 @@ class DeezerClient:
     async def track(self, id: str) -> dict:
         return await self._get(f"track/{id}")
 
+    async def track_by_isrc(self, isrc: str) -> dict | None:
+        try:
+            return await self._get(f"track/isrc:{isrc}")
+        except NotFound:
+            return None
+
     async def album(self, id: str) -> dict:
         return await self._get(f"album/{id}")
 
