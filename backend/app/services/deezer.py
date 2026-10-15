@@ -36,35 +36,33 @@ class DeezerClient:
         cached = self._cache.get(key)
         if cached and time.monotonic() - cached[0] < 3600:
             return cached[1]
-        async with self._lock:
-            cached = self._cache.get(key)
-            if cached and time.monotonic() - cached[0] < 3600:
-                return cached[1]
-            if self._client is None:
-                self._client = httpx.AsyncClient(base_url="https://api.deezer.com/", timeout=15)
-            try:
-                for attempt in range(4):
+        if self._client is None:
+            self._client = httpx.AsyncClient(base_url="https://api.deezer.com/", timeout=15)
+        try:
+            for attempt in range(4):
+                # Only the start of requests is spaced (Deezer allows ~50 requests / 5 s); they may overlap.
+                async with self._lock:
                     await asyncio.sleep(max(0, 0.1 - (time.monotonic() - self._last_started)))
                     self._last_started = time.monotonic()
-                    response = await self._client.get(path, params=params)
-                    response.raise_for_status()
-                    data = response.json()
-                    if "error" in data:
-                        error = data["error"]
-                        if error.get("code") == 800:
-                            raise NotFound(str(error))
-                        if error.get("code") == 4 and attempt < 3:
-                            await asyncio.sleep(1)
-                            continue
-                        raise DeezerError(str(error))
-                    break
-            except (httpx.HTTPError, ValueError) as e:
-                raise DeezerError(str(e)) from e
-            self._cache.pop(key, None)
-            self._cache[key] = (time.monotonic(), data)
-            if len(self._cache) > 2000:
-                del self._cache[next(iter(self._cache))]
-            return data
+                response = await self._client.get(path, params=params)
+                response.raise_for_status()
+                data = response.json()
+                if "error" in data:
+                    error = data["error"]
+                    if error.get("code") == 800:
+                        raise NotFound(str(error))
+                    if error.get("code") == 4 and attempt < 3:
+                        await asyncio.sleep(1)
+                        continue
+                    raise DeezerError(str(error))
+                break
+        except (httpx.HTTPError, ValueError) as e:
+            raise DeezerError(str(e)) from e
+        self._cache.pop(key, None)
+        self._cache[key] = (time.monotonic(), data)
+        if len(self._cache) > 2000:
+            del self._cache[next(iter(self._cache))]
+        return data
 
     async def search_tracks(self, q: str, limit: int) -> list[dict]:
         return (await self._get("search/track", q=q, limit=limit)).get("data", [])

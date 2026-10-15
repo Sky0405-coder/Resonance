@@ -14,7 +14,17 @@ from sqlalchemy.orm import joinedload
 
 from app.api.catalog import _track
 from app.db import SessionLocal
-from app.models import Album, Artist, DownloadItem, Playlist, PlaylistEntry, RadioPending, Track, TrackLike, User
+from app.models import (
+    Album,
+    Artist,
+    DownloadItem,
+    Playlist,
+    PlaylistEntry,
+    RadioPending,
+    Track,
+    TrackLike,
+    User,
+)
 from app.services.deezer import DeezerError, artist_string, deezer
 from app.services.deletion import delete_tracks
 from app.services.downloads import create_request
@@ -31,14 +41,21 @@ async def _candidates(artist_id: str) -> list[dict]:
     radio: list[dict] = []
     own: list[dict] = []
     related_tops: list[list[dict]] = []
-    try:
-        radio = await deezer.artist_radio(artist_id)
-        related = (await deezer.artist_related(artist_id, 10))[:8]
-        for artist in related:
-            related_tops.append(await deezer.artist_top(str(artist["id"]), 5))
-        own = await deezer.artist_top(artist_id, 10)
-    except DeezerError:
-        log.debug("Radio candidate collection interrupted", exc_info=True)
+
+    # The Deezer requests run concurrently; a failing one only drops its own list.
+    async def safe(coro) -> list:
+        try:
+            return await coro
+        except DeezerError:
+            log.debug("Radio candidate request failed", exc_info=True)
+            return []
+
+    radio, related, own = await asyncio.gather(
+        safe(deezer.artist_radio(artist_id)),
+        safe(deezer.artist_related(artist_id, 10)),
+        safe(deezer.artist_top(artist_id, 10)),
+    )
+    related_tops = list(await asyncio.gather(*(safe(deezer.artist_top(str(a["id"]), 5)) for a in related[:8])))
     candidates: list[dict] = []
     ids: set[str] = set()
     names: set[tuple[str, str]] = set()
