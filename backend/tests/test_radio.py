@@ -514,7 +514,9 @@ async def test_radio_visibility_sharing_home_and_track_permanence(env: SimpleNam
         response = await getattr(env.client, method)(
             f"/api/playlists/{playlist.id}{suffix}", json=body, headers=env.headers
         )
-        assert response.status_code == 400 and response.json()["detail"] == "Radios können nicht geteilt werden"
+        assert (
+            response.status_code == 400 and response.json()["detail"] == "Radios und Mixe können nicht geteilt werden"
+        )
     response = await env.client.patch(
         f"/api/playlists/{playlist.id}", json={"name": "Renamed", "is_public": False}, headers=env.headers
     )

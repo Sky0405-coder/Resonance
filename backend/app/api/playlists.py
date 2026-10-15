@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import delete, func, or_, select, update
@@ -25,7 +26,7 @@ async def _get_visible(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
     playlist = await db.scalar(
         select(Playlist).where(
             Playlist.id == playlist_id,
-            or_(Playlist.owner_id == user.id, Playlist.kind != "radio"),
+            or_(Playlist.owner_id == user.id, Playlist.kind == "user"),
             or_(
                 Playlist.owner_id == user.id,
                 Playlist.is_public,
@@ -73,7 +74,7 @@ async def list_playlists(user: CurrentUser, db: DB) -> list[PlaylistOut]:
     rows = await db.scalars(
         select(Playlist)
         .where(
-            or_(Playlist.owner_id == user.id, Playlist.kind != "radio"),
+            or_(Playlist.owner_id == user.id, Playlist.kind == "user"),
             or_(
                 Playlist.owner_id == user.id,
                 Playlist.is_public,
@@ -115,15 +116,15 @@ async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> Pla
     detail.entries = [
         PlaylistEntryOut(entry_id=e.id, added_at=e.added_at, track=t) for e, t in zip(entries, tracks, strict=True)
     ]
-    detail.editable = playlist.owner_id == user.id
+    detail.editable = playlist.owner_id == user.id and playlist.kind != "mix"
     return detail
 
 
 @router.patch("/{playlist_id}", response_model=PlaylistOut)
 async def update_playlist(playlist_id: uuid.UUID, body: PlaylistPatch, user: CurrentUser, db: DB) -> PlaylistOut:
     playlist = await _get_owned(db, user, playlist_id)
-    if playlist.kind == "radio" and body.is_public is True:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Radios können nicht geteilt werden")
+    if playlist.kind != "user" and body.is_public is True:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Radios und Mixe können nicht geteilt werden")
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(playlist, key, value)
     await db.commit()
@@ -134,8 +135,8 @@ async def update_playlist(playlist_id: uuid.UUID, body: PlaylistPatch, user: Cur
 @router.put("/{playlist_id}/shares", response_model=PlaylistOut)
 async def replace_shares(playlist_id: uuid.UUID, body: PlaylistSharesIn, user: CurrentUser, db: DB) -> PlaylistOut:
     playlist = await _get_owned(db, user, playlist_id)
-    if playlist.kind == "radio":
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Radios können nicht geteilt werden")
+    if playlist.kind != "user":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Radios und Mixe können nicht geteilt werden")
     user_ids = set(body.user_ids)
     known_ids = set(
         await db.scalars(select(User.id).where(User.id.in_(user_ids), ~User.is_disabled, User.id != user.id))
@@ -160,6 +161,24 @@ async def delete_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> 
 @router.post("/{playlist_id}/keep", response_model=PlaylistOut)
 async def keep_radio(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> PlaylistOut:
     playlist = await _get_owned(db, user, playlist_id)
+    if playlist.kind == "mix":
+        track_ids = await db.scalars(
+            select(PlaylistEntry.track_id)
+            .where(PlaylistEntry.playlist_id == playlist_id)
+            .order_by(PlaylistEntry.position)
+        )
+        copy = Playlist(
+            owner_id=user.id,
+            kind="user",
+            name=f"{playlist.name} ({date.today():%d.%m.%Y})",
+            description=playlist.description,
+            is_public=False,
+            entries=[PlaylistEntry(track_id=track_id, position=i) for i, track_id in enumerate(track_ids, 1)],
+        )
+        db.add(copy)
+        await db.commit()
+        await db.refresh(copy)
+        return (await playlists_out(db, [copy], user.id))[0]
     if playlist.kind != "radio":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Keine Radio-Playlist")
     playlist.kind = "user"
@@ -181,6 +200,8 @@ async def keep_radio(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> Playl
 @router.post("/{playlist_id}/tracks", status_code=status.HTTP_204_NO_CONTENT)
 async def add_tracks(playlist_id: uuid.UUID, body: AddTracksIn, user: CurrentUser, db: DB) -> None:
     playlist = await _get_owned(db, user, playlist_id)
+    if playlist.kind == "mix":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mixe werden automatisch erstellt")
     tracks = {t.id: t for t in await db.scalars(select(Track).where(Track.id.in_(body.track_ids)))}
     if len(tracks) != len(set(body.track_ids)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown track id")
@@ -196,6 +217,8 @@ async def add_tracks(playlist_id: uuid.UUID, body: AddTracksIn, user: CurrentUse
 @router.post("/{playlist_id}/move", status_code=status.HTTP_204_NO_CONTENT)
 async def move_entry(playlist_id: uuid.UUID, body: MoveEntryIn, user: CurrentUser, db: DB) -> None:
     playlist = await _get_owned(db, user, playlist_id)
+    if playlist.kind == "mix":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mixe werden automatisch erstellt")
     entry = await db.get(PlaylistEntry, body.entry_id)
     if entry is None or entry.playlist_id != playlist_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Entry not found")
@@ -209,6 +232,8 @@ async def move_entry(playlist_id: uuid.UUID, body: MoveEntryIn, user: CurrentUse
 @router.delete("/{playlist_id}/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_entry(playlist_id: uuid.UUID, entry_id: uuid.UUID, user: CurrentUser, db: DB) -> None:
     playlist = await _get_owned(db, user, playlist_id)
+    if playlist.kind == "mix":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mixe werden automatisch erstellt")
     entry = await db.get(PlaylistEntry, entry_id)
     if entry is None or entry.playlist_id != playlist_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Entry not found")

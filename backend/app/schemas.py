@@ -229,6 +229,11 @@ class RadioOut(BaseModel):
     requested: int
 
 
+class MixesOut(BaseModel):
+    made_for_you: list[PlaylistOut]
+    genres: list[PlaylistOut]
+
+
 class PlaylistEntryOut(BaseModel):
     entry_id: uuid.UUID
     added_at: datetime
