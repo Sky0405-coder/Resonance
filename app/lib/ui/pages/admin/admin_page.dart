@@ -1,3 +1,5 @@
+import '../../../l10n/l10n.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -23,17 +25,17 @@ class AdminPage extends StatelessWidget {
     child: Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Admin-Dashboard', style: TextStyle(fontWeight: FontWeight.w800)),
-        bottom: const TabBar(
+        title: Text(context.l10n.adminDashboard, style: TextStyle(fontWeight: FontWeight.w800)),
+        bottom: TabBar(
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           tabs: [
-            Tab(icon: Icon(Icons.dashboard_outlined), text: 'Übersicht'),
-            Tab(icon: Icon(Icons.people_outline), text: 'Benutzer'),
-            Tab(icon: Icon(Icons.link), text: 'Einladungen'),
-            Tab(icon: Icon(Icons.move_to_inbox), text: 'Import'),
-            Tab(icon: Icon(Icons.rule), text: 'Zu prüfen'),
-            Tab(icon: Icon(Icons.tune), text: 'Server'),
+            Tab(icon: Icon(Icons.dashboard_outlined), text: context.l10n.adminTabOverview),
+            Tab(icon: Icon(Icons.people_outline), text: context.l10n.adminTabUsers),
+            Tab(icon: Icon(Icons.link), text: context.l10n.adminTabInvites),
+            Tab(icon: Icon(Icons.move_to_inbox), text: context.l10n.adminTabImport),
+            Tab(icon: Icon(Icons.rule), text: context.l10n.adminTabReview),
+            Tab(icon: Icon(Icons.tune), text: context.l10n.adminTabServer),
           ],
         ),
       ),
@@ -114,21 +116,22 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _StatCard('Songs', '${s.tracks}', Icons.music_note),
-              _StatCard('Alben', '${s.albums}', Icons.album),
-              _StatCard('Künstler', '${s.artists}', Icons.person),
-              _StatCard('Speicher', _bytes(s.totalBytes), Icons.storage),
-              _StatCard('Spielzeit', '${(s.totalSeconds / 3600).toStringAsFixed(0)} Std.', Icons.schedule),
+              _StatCard(context.l10n.commonSongsTitle, '${s.tracks}', Icons.music_note),
+              _StatCard(context.l10n.commonAlbums, '${s.albums}', Icons.album),
+              _StatCard(context.l10n.commonArtists, '${s.artists}', Icons.person),
+              _StatCard(context.l10n.adminStorage, _bytes(s.totalBytes), Icons.storage),
+              _StatCard(
+                context.l10n.adminPlaytime,
+                context.l10n.commonDurationHours(((s.totalSeconds / 3600).toStringAsFixed(0)).toString()),
+                Icons.schedule,
+              ),
             ],
           ),
         ),
         const SizedBox(height: 24),
-        Text('Bibliothek', style: Theme.of(context).textTheme.titleLarge),
+        Text(context.l10n.adminLibrary, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        const Text(
-          'Der schnelle Scan liest nur neue und geänderte Dateien ein. Der vollständige Scan liest alle Tags und Cover neu.',
-          style: TextStyle(color: Palette.textMuted),
-        ),
+        Text(context.l10n.adminScanHint, style: TextStyle(color: Palette.textMuted)),
         const SizedBox(height: 12),
         Wrap(
           spacing: 12,
@@ -137,23 +140,23 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
             FilledButton.icon(
               onPressed: () => _scan(false),
               icon: const Icon(Icons.sync),
-              label: const Text('Schneller Scan'),
+              label: Text(context.l10n.adminQuickScan),
             ),
             OutlinedButton.icon(
               onPressed: () => _scan(true),
               icon: const Icon(Icons.manage_search),
-              label: const Text('Vollständiger Scan'),
+              label: Text(context.l10n.adminFullScan),
             ),
           ],
         ),
         const SizedBox(height: 24),
-        Text('Aufgaben', style: Theme.of(context).textTheme.titleLarge),
+        Text(context.l10n.adminJobs, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         jobs.when(
           loading: () => const LinearProgressIndicator(),
           error: (e, _) => Text('$e'),
           data: (list) => list.isEmpty
-              ? const Text('Noch keine Aufgaben', style: TextStyle(color: Palette.textMuted))
+              ? Text(context.l10n.adminNoJobs, style: TextStyle(color: Palette.textMuted))
               : Column(
                   children: [
                     for (final j in list.take(20))
@@ -166,7 +169,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                             'running' => Icons.autorenew,
                             _ => Icons.hourglass_empty,
                           }, color: j.status == 'failed' ? Theme.of(context).colorScheme.error : null),
-                          title: Text(j.kind == 'library_scan' ? 'Bibliotheks-Scan' : j.kind),
+                          title: Text(j.kind == 'library_scan' ? context.l10n.adminLibraryScan : j.kind),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -180,7 +183,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                             ],
                           ),
                           trailing: Text(
-                            _dateTime(j.createdAt),
+                            _dateTime(context, j.createdAt),
                             style: const TextStyle(color: Palette.textMuted, fontSize: 12),
                           ),
                         ),
@@ -193,9 +196,9 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
   }
 }
 
-String _dateTime(DateTime d) {
+String _dateTime(BuildContext context, DateTime d) {
   final l = d.toLocal();
-  return '${l.day}.${l.month}. ${l.hour}:${l.minute.toString().padLeft(2, '0')}';
+  return '${MaterialLocalizations.of(context).formatShortDate(l)} ${TimeOfDay.fromDateTime(l).format(context)}';
 }
 
 class _StatCard extends StatelessWidget {
@@ -257,11 +260,9 @@ class _UsersTab extends ConsumerWidget {
                   style: TextStyle(color: onColor(parseHexColor(u.accentColor))),
                 ),
               ),
-              title: Text('${u.displayName}${u.id == me ? ' (du)' : ''}'),
+              title: Text('${u.displayName}${u.id == me ? context.l10n.adminUserYouSuffix : ''}'),
               subtitle: Text(
-                '@${u.username} • ${u.isAdmin ? 'Admin' : 'Benutzer'}'
-                '${u.isDisabled ? ' • deaktiviert' : ''}'
-                '${u.lastSeenAt != null ? ' • zuletzt ${_dateTime(u.lastSeenAt!)}' : ''}',
+                '@${u.username} • ${u.isAdmin ? context.l10n.navAdmin : context.l10n.adminUserRole}${u.isDisabled ? context.l10n.adminUserDisabledSuffix : ''}${u.lastSeenAt != null ? context.l10n.adminUserLastSeenSuffix((_dateTime(context, u.lastSeenAt!)).toString()) : ''}',
               ),
               trailing: PopupMenuButton<String>(
                 onSelected: (v) async {
@@ -271,25 +272,31 @@ class _UsersTab extends ConsumerWidget {
                     case 'disable':
                       await run(() => api.updateUser(u.id, {'is_disabled': !u.isDisabled}));
                     case 'password':
-                      final pw = await _ask(context, 'Neues Passwort für ${u.username}');
+                      final pw = await _ask(context, context.l10n.adminNewPasswordFor((u.username).toString()));
                       if (pw != null && pw.length >= 8) {
                         await run(() => api.updateUser(u.id, {'new_password': pw}));
-                        if (context.mounted) showInfo(context, 'Passwort gesetzt, alle Geräte abgemeldet');
+                        if (context.mounted) showInfo(context, context.l10n.adminPasswordSet);
                       }
                     case 'delete':
                       final ok = await _confirm(
                         context,
-                        '${u.username} löschen?',
-                        'Playlists und Verlauf werden ebenfalls gelöscht.',
+                        context.l10n.adminDeleteUserTitle((u.username).toString()),
+                        context.l10n.adminDeleteUserHint,
                       );
                       if (ok) await run(() => api.deleteUser(u.id));
                   }
                 },
                 itemBuilder: (_) => [
-                  PopupMenuItem(value: 'role', child: Text(u.isAdmin ? 'Admin-Rechte entziehen' : 'Zum Admin machen')),
-                  PopupMenuItem(value: 'disable', child: Text(u.isDisabled ? 'Aktivieren' : 'Deaktivieren')),
-                  const PopupMenuItem(value: 'password', child: Text('Passwort zurücksetzen')),
-                  if (u.id != me) const PopupMenuItem(value: 'delete', child: Text('Löschen')),
+                  PopupMenuItem(
+                    value: 'role',
+                    child: Text(u.isAdmin ? context.l10n.adminRemoveAdmin : context.l10n.adminMakeAdmin),
+                  ),
+                  PopupMenuItem(
+                    value: 'disable',
+                    child: Text(u.isDisabled ? context.l10n.adminEnableUser : context.l10n.adminDisableUser),
+                  ),
+                  PopupMenuItem(value: 'password', child: Text(context.l10n.adminResetPassword)),
+                  if (u.id != me) PopupMenuItem(value: 'delete', child: Text(context.l10n.commonDelete)),
                 ],
               ),
             ),
@@ -308,11 +315,11 @@ Future<String?> _ask(BuildContext context, String title) {
       content: TextField(
         controller: c,
         obscureText: true,
-        decoration: const InputDecoration(labelText: 'Min. 8 Zeichen'),
+        decoration: InputDecoration(labelText: context.l10n.adminPasswordMinimum),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(d), child: const Text('Abbrechen')),
-        FilledButton(onPressed: () => Navigator.pop(d, c.text), child: const Text('Speichern')),
+        TextButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonCancel)),
+        FilledButton(onPressed: () => Navigator.pop(d, c.text), child: Text(context.l10n.commonSave)),
       ],
     ),
   );
@@ -325,8 +332,8 @@ Future<bool> _confirm(BuildContext context, String title, String body) async =>
         title: Text(title),
         content: Text(body),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Löschen')),
+          TextButton(onPressed: () => Navigator.pop(d, false), child: Text(context.l10n.commonCancel)),
+          FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(context.l10n.commonDelete)),
         ],
       ),
     ) ??
@@ -347,39 +354,39 @@ class _InvitesTab extends ConsumerWidget {
       context: context,
       builder: (d) => StatefulBuilder(
         builder: (d, setState) => AlertDialog(
-          title: const Text('Einladungslink erstellen'),
+          title: Text(context.l10n.adminCreateInviteTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: note,
-                decoration: const InputDecoration(labelText: 'Notiz (z. B. für wen)'),
+                decoration: InputDecoration(labelText: context.l10n.adminInviteNote),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int?>(
                 initialValue: hours,
-                decoration: const InputDecoration(labelText: 'Gültig für'),
-                items: const [
-                  DropdownMenuItem(value: 24, child: Text('1 Tag')),
-                  DropdownMenuItem(value: 72, child: Text('3 Tage')),
-                  DropdownMenuItem(value: 168, child: Text('7 Tage')),
-                  DropdownMenuItem(value: 720, child: Text('30 Tage')),
-                  DropdownMenuItem(value: null, child: Text('Unbegrenzt')),
+                decoration: InputDecoration(labelText: context.l10n.adminInviteValidity),
+                items: [
+                  DropdownMenuItem(value: 24, child: Text(context.l10n.adminInviteOneDay)),
+                  DropdownMenuItem(value: 72, child: Text(context.l10n.adminInviteThreeDays)),
+                  DropdownMenuItem(value: 168, child: Text(context.l10n.adminInviteSevenDays)),
+                  DropdownMenuItem(value: 720, child: Text(context.l10n.adminInviteThirtyDays)),
+                  DropdownMenuItem(value: null, child: Text(context.l10n.adminInviteUnlimited)),
                 ],
                 onChanged: (v) => setState(() => hours = v),
               ),
               const SizedBox(height: 12),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Als Admin registrieren'),
+                title: Text(context.l10n.adminInviteAsAdmin),
                 value: role == 'admin',
                 onChanged: (v) => setState(() => role = v ? 'admin' : 'user'),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Abbrechen')),
-            FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Erstellen')),
+            TextButton(onPressed: () => Navigator.pop(d, false), child: Text(context.l10n.commonCancel)),
+            FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(context.l10n.commonCreate)),
           ],
         ),
       ),
@@ -395,15 +402,12 @@ class _InvitesTab extends ConsumerWidget {
       await showDialog<void>(
         context: context,
         builder: (d) => AlertDialog(
-          title: const Text('Einladungslink'),
+          title: Text(context.l10n.adminInviteLink),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Der Link kann genau einmal benutzt werden. Er wird nur jetzt angezeigt.',
-                style: TextStyle(color: Palette.textMuted),
-              ),
+              Text(context.l10n.adminInviteLinkHint, style: TextStyle(color: Palette.textMuted)),
               const SizedBox(height: 12),
               SelectableText(link),
             ],
@@ -412,11 +416,11 @@ class _InvitesTab extends ConsumerWidget {
             TextButton(
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: link));
-                showInfo(context, 'Link kopiert');
+                showInfo(context, context.l10n.adminLinkCopied);
               },
-              child: const Text('Kopieren'),
+              child: Text(context.l10n.commonCopy),
             ),
-            FilledButton(onPressed: () => Navigator.pop(d), child: const Text('Fertig')),
+            FilledButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonDone)),
           ],
         ),
       );
@@ -435,15 +439,15 @@ class _InvitesTab extends ConsumerWidget {
         child: FloatingActionButton.extended(
           onPressed: () => _create(context, ref),
           icon: const Icon(Icons.add_link),
-          label: const Text('Neuer Link'),
+          label: Text(context.l10n.adminNewInvite),
         ),
       ),
       body: AsyncBody(
         value: invites,
         builder: (list) => list.isEmpty
-            ? const Center(
+            ? Center(
                 child: Text(
-                  'Noch keine Einladungen.\nErstelle einen Link, um jemanden einzuladen.',
+                  context.l10n.adminNoInvites,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Palette.textMuted),
                 ),
@@ -457,17 +461,27 @@ class _InvitesTab extends ConsumerWidget {
                         i.isUsed ? Icons.how_to_reg : (i.isExpired ? Icons.timer_off : Icons.link),
                         color: i.isUsed || i.isExpired ? Palette.textMuted : Theme.of(context).colorScheme.primary,
                       ),
-                      title: Text(i.note ?? 'Einladung'),
+                      title: Text(i.note ?? context.l10n.adminInvitation),
                       subtitle: Text(
                         i.isUsed
-                            ? 'Benutzt von ${i.usedBy ?? '?'} am ${_dateTime(i.usedAt!)}'
+                            ? context.l10n.adminInviteUsed(
+                                (i.usedBy ?? '?').toString(),
+                                (_dateTime(context, i.usedAt!)).toString(),
+                              )
                             : i.isExpired
-                            ? 'Abgelaufen'
-                            : 'Offen • ${i.expiresAt == null ? 'läuft nicht ab' : 'gültig bis ${_dateTime(i.expiresAt!)}'}'
-                                  '${i.role == 'admin' ? ' • Admin' : ''}',
+                            ? context.l10n.adminInviteExpired
+                            : context.l10n.adminInviteOpen(
+                                (i.expiresAt == null
+                                        ? context.l10n.adminInviteNoExpiry
+                                        : context.l10n.adminInviteExpires(
+                                            (_dateTime(context, i.expiresAt!)).toString(),
+                                          ))
+                                    .toString(),
+                                (i.role == 'admin' ? context.l10n.adminInviteAdminSuffix : '').toString(),
+                              ),
                       ),
                       trailing: IconButton(
-                        tooltip: 'Löschen',
+                        tooltip: context.l10n.commonDelete,
                         icon: const Icon(Icons.delete_outline),
                         onPressed: () async {
                           await ref.read(apiProvider).deleteInvite(i.id);
@@ -514,7 +528,7 @@ class _ServerTab extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
           children: [
             ListTile(
-              title: const Text('Servername'),
+              title: Text(context.l10n.adminServerName),
               subtitle: Text(c['server_name']),
               trailing: const Icon(Icons.edit),
               onTap: () async {
@@ -522,45 +536,48 @@ class _ServerTab extends ConsumerWidget {
                 final name = await showDialog<String>(
                   context: context,
                   builder: (d) => AlertDialog(
-                    title: const Text('Servername'),
+                    title: Text(context.l10n.adminServerName),
                     content: TextField(controller: ctrl, autofocus: true),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(d), child: const Text('Abbrechen')),
-                      FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: const Text('Speichern')),
+                      TextButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonCancel)),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(d, ctrl.text.trim()),
+                        child: Text(context.l10n.commonSave),
+                      ),
                     ],
                   ),
                 );
                 if (name != null && name.isNotEmpty) await patch({'server_name': name});
               },
             ),
-            const _Group('Registrierung'),
+            _Group(context.l10n.adminRegistration),
             RadioGroup<String>(
               groupValue: reg['mode'],
               onChanged: (v) => patch({
                 'registration': {'mode': v},
               }),
-              child: const Column(
+              child: Column(
                 children: [
                   RadioListTile(
                     value: 'invite',
-                    title: Text('Nur mit Einladungslink'),
-                    subtitle: Text('Admins erstellen einmalig nutzbare Links (empfohlen)'),
+                    title: Text(context.l10n.adminRegistrationInviteOnly),
+                    subtitle: Text(context.l10n.adminRegistrationInviteHint),
                   ),
                   RadioListTile(
                     value: 'public',
-                    title: Text('Öffentliche Registrierung'),
-                    subtitle: Text('Jeder, der den Server erreicht, kann ein Konto anlegen'),
+                    title: Text(context.l10n.adminRegistrationPublic),
+                    subtitle: Text(context.l10n.adminRegistrationPublicHint),
                   ),
                 ],
               ),
             ),
-            const _Group('Bibliothek & Import'),
+            _Group(context.l10n.adminLibraryImport),
             ListTile(
-              title: const Text('AcoustID-Schlüssel'),
+              title: Text(context.l10n.adminAcoustIdKey),
               subtitle: Text(
                 (lib['acoustid_api_key'] ?? '').isEmpty
-                    ? 'Nicht gesetzt – kostenlos auf acoustid.org/new-application'
-                    : 'Gesetzt',
+                    ? context.l10n.adminAcoustIdNotSet
+                    : context.l10n.adminConfigured,
               ),
               trailing: const Icon(Icons.edit),
               onTap: () async {
@@ -568,15 +585,18 @@ class _ServerTab extends ConsumerWidget {
                 final key = await showDialog<String>(
                   context: context,
                   builder: (d) => AlertDialog(
-                    title: const Text('AcoustID-Schlüssel'),
+                    title: Text(context.l10n.adminAcoustIdKey),
                     content: TextField(
                       controller: ctrl,
                       autofocus: true,
-                      decoration: const InputDecoration(helperText: 'Für die Erkennung per Audio-Fingerabdruck'),
+                      decoration: InputDecoration(helperText: context.l10n.adminAcoustIdHint),
                     ),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(d), child: const Text('Abbrechen')),
-                      FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: const Text('Speichern')),
+                      TextButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonCancel)),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(d, ctrl.text.trim()),
+                        child: Text(context.l10n.commonSave),
+                      ),
                     ],
                   ),
                 );
@@ -592,72 +612,66 @@ class _ServerTab extends ConsumerWidget {
               onChanged: (v) => patch({
                 'library': {'import_mode': v},
               }),
-              child: const Column(
+              child: Column(
                 children: [
                   RadioListTile(
                     value: 'move',
-                    title: Text('Importierte Dateien verschieben'),
-                    subtitle: Text('Der Import-Ordner wird danach geleert'),
+                    title: Text(context.l10n.adminMoveImportedFiles),
+                    subtitle: Text(context.l10n.adminMoveImportedFilesHint),
                   ),
                   RadioListTile(
                     value: 'copy',
-                    title: Text('Importierte Dateien kopieren'),
-                    subtitle: Text('Originale bleiben unverändert im Import-Ordner'),
+                    title: Text(context.l10n.adminCopyImportedFiles),
+                    subtitle: Text(context.l10n.adminCopyImportedFilesHint),
                   ),
                 ],
               ),
             ),
             SwitchListTile(
-              title: const Text('Nicht erkannte Dateien trotzdem importieren'),
-              subtitle: const Text('Mit ihren vorhandenen Tags; sonst bleiben sie im Import-Ordner liegen'),
+              title: Text(context.l10n.adminImportUnidentifiedFiles),
+              subtitle: Text(context.l10n.adminImportUnidentifiedFilesHint),
               value: lib['import_unidentified'] ?? true,
               onChanged: (v) => patch({
                 'library': {'import_unidentified': v},
               }),
             ),
             SwitchListTile(
-              title: const Text('Import-Ordner automatisch importieren'),
-              subtitle: const Text('Prüft alle 5 Minuten auf neue Dateien (nur im Modus „Verschieben“)'),
+              title: Text(context.l10n.adminAutoImport),
+              subtitle: Text(context.l10n.adminAutoImportHint),
               value: lib['auto_import'] ?? true,
               onChanged: (v) => patch({
                 'library': {'auto_import': v},
               }),
             ),
-            const _Group('Song-Radio'),
+            _Group(context.l10n.adminSongRadio),
             SwitchListTile(
-              title: const Text('Fehlende Songs automatisch herunterladen'),
-              subtitle: const Text(
-                'Ähnliche Songs, die noch nicht in der Bibliothek sind, landen in der Download-Warteschlange',
-              ),
+              title: Text(context.l10n.adminRadioAutoDownload),
+              subtitle: Text(context.l10n.adminRadioAutoDownloadHint),
               value: radio['auto_download_enabled'],
               onChanged: (v) => patch({
                 'radio': {'auto_download_enabled': v},
               }),
             ),
             SwitchListTile(
-              title: const Text('Radio-Downloads sind temporär'),
-              subtitle: Text(
-                'Werden nach ${radio['temporary_retention_days']} Tagen gelöscht, außer jemand liked sie oder fügt sie einer Playlist hinzu',
-              ),
+              title: Text(context.l10n.adminRadioTemporary),
+              subtitle: Text(context.l10n.adminRadioTemporaryHint(radio['temporary_retention_days'])),
               value: radio['temporary_tracks_enabled'],
               onChanged: (v) => patch({
                 'radio': {'temporary_tracks_enabled': v},
               }),
             ),
             _NumberTile(
-              title: 'Aufbewahrung temporärer Songs (Tage)',
+              title: context.l10n.adminRadioRetention,
               value: radio['temporary_retention_days'],
               enabled: radio['temporary_tracks_enabled'],
               onChanged: (v) => patch({
                 'radio': {'temporary_retention_days': v},
               }),
             ),
-            const _Group('Hörbücher'),
+            _Group(context.l10n.navAudiobooks),
             SwitchListTile(
-              title: const Text('Audiobookshelf einbinden'),
-              subtitle: const Text(
-                'Zeigt den Tab „Hörbücher“. Jeder Benutzer meldet sich dort mit seinem eigenen Audiobookshelf-Konto an.',
-              ),
+              title: Text(context.l10n.adminEnableAudiobookshelf),
+              subtitle: Text(context.l10n.adminEnableAudiobookshelfHint),
               value: abs['enabled'] ?? false,
               onChanged: (v) async {
                 await patch({
@@ -668,9 +682,9 @@ class _ServerTab extends ConsumerWidget {
             ),
             if (abs['enabled'] ?? false) ...[
               _TextTile(
-                title: 'Audiobookshelf-Adresse',
+                title: context.l10n.adminAudiobookshelfAddress,
                 value: abs['url'] ?? '',
-                hint: 'z. B. https://audio.example.com – auch für externe Apps gedacht',
+                hint: context.l10n.adminAudiobookshelfAddressHint,
                 onChanged: (v) async {
                   await patch({
                     'audiobookshelf': {'url': v},
@@ -680,13 +694,10 @@ class _ServerTab extends ConsumerWidget {
               ),
               const _AbsCheckTile(),
             ],
-            const _Group('Downloads'),
+            _Group(context.l10n.navDownloads),
             SwitchListTile(
-              title: const Text('Torrents für Alben'),
-              subtitle: const Text(
-                'Sucht Alben zuerst über Prowlarr (öffentliche Tracker) und lädt sie mit qBittorrent über das VPN. '
-                'Was dort fehlt, kommt von YouTube Music.',
-              ),
+              title: Text(context.l10n.adminAlbumTorrents),
+              subtitle: Text(context.l10n.adminAlbumTorrentsHint),
               value: dl['torrent_enabled'] ?? false,
               onChanged: (v) => patch({
                 'downloads': {'torrent_enabled': v},
@@ -694,23 +705,23 @@ class _ServerTab extends ConsumerWidget {
             ),
             if (dl['torrent_enabled'] ?? false) ...[
               _TextTile(
-                title: 'Prowlarr-API-Schlüssel',
+                title: context.l10n.adminProwlarrApiKey,
                 value: dl['prowlarr_api_key'] ?? '',
                 secret: true,
-                hint: 'Prowlarr → Settings → General → API Key',
+                hint: context.l10n.adminProwlarrApiKeyHint,
                 onChanged: (v) => patch({
                   'downloads': {'prowlarr_api_key': v},
                 }),
               ),
               _TextTile(
-                title: 'qBittorrent-Benutzer',
+                title: context.l10n.adminQbittorrentUsername,
                 value: dl['qbittorrent_username'] ?? '',
                 onChanged: (v) => patch({
                   'downloads': {'qbittorrent_username': v},
                 }),
               ),
               _TextTile(
-                title: 'qBittorrent-Passwort',
+                title: context.l10n.adminQbittorrentPassword,
                 value: dl['qbittorrent_password'] ?? '',
                 secret: true,
                 onChanged: (v) => patch({
@@ -718,14 +729,14 @@ class _ServerTab extends ConsumerWidget {
                 }),
               ),
               _NumberTile(
-                title: 'Mindestanzahl Seeder',
+                title: context.l10n.adminMinimumSeeders,
                 value: dl['torrent_min_seeders'] ?? 1,
                 onChanged: (v) => patch({
                   'downloads': {'torrent_min_seeders': v},
                 }),
               ),
               _NumberTile(
-                title: 'Aufgeben nach … Minuten ohne Fortschritt',
+                title: context.l10n.adminTorrentTimeout,
                 value: dl['torrent_timeout_minutes'] ?? 60,
                 onChanged: (v) => patch({
                   'downloads': {'torrent_timeout_minutes': v},
@@ -734,41 +745,39 @@ class _ServerTab extends ConsumerWidget {
               const _TorrentCheckTile(),
             ],
             SwitchListTile(
-              title: const Text('YouTube Music als Quelle'),
-              subtitle: const Text('Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)'),
+              title: Text(context.l10n.adminYouTubeSource),
+              subtitle: Text(context.l10n.adminYouTubeSourceHint),
               value: dl['youtube_enabled'] ?? true,
               onChanged: (v) => patch({
                 'downloads': {'youtube_enabled': v},
               }),
             ),
             SwitchListTile(
-              title: const Text('Qualitäts-Upgrades'),
-              subtitle: const Text(
-                'Songs in niedriger Qualität (z. B. von YouTube) später durch FLAC/MP3 320 ersetzen',
-              ),
+              title: Text(context.l10n.adminQualityUpgrades),
+              subtitle: Text(context.l10n.adminQualityUpgradesHint),
               value: dl['quality_upgrade_enabled'],
               onChanged: (v) => patch({
                 'downloads': {'quality_upgrade_enabled': v},
               }),
             ),
             SwitchListTile(
-              title: const Text('Anfragen automatisch genehmigen'),
-              subtitle: const Text('Sonst muss ein Admin Anfragen von Benutzern freigeben'),
+              title: Text(context.l10n.adminAutoApprove),
+              subtitle: Text(context.l10n.adminAutoApproveHint),
               value: dl['auto_approve_requests'],
               onChanged: (v) => patch({
                 'downloads': {'auto_approve_requests': v},
               }),
             ),
             SwitchListTile(
-              title: const Text('Tageslimit pro Benutzer'),
-              subtitle: Text('Max. ${dl['daily_limit_per_user']} automatische Downloads pro Tag'),
+              title: Text(context.l10n.adminDailyLimit),
+              subtitle: Text(context.l10n.adminDailyLimitHint(dl['daily_limit_per_user'])),
               value: dl['daily_limit_enabled'],
               onChanged: (v) => patch({
                 'downloads': {'daily_limit_enabled': v},
               }),
             ),
             _NumberTile(
-              title: 'Downloads pro Benutzer und Tag',
+              title: context.l10n.adminDownloadsPerDay,
               value: dl['daily_limit_per_user'],
               enabled: dl['daily_limit_enabled'],
               onChanged: (v) => patch({
@@ -821,8 +830,11 @@ class _NumberTile extends StatelessWidget {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(d), child: const Text('Abbrechen')),
-            FilledButton(onPressed: () => Navigator.pop(d, int.tryParse(ctrl.text)), child: const Text('Speichern')),
+            TextButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonCancel)),
+            FilledButton(
+              onPressed: () => Navigator.pop(d, int.tryParse(ctrl.text)),
+              child: Text(context.l10n.commonSave),
+            ),
           ],
         ),
       );
@@ -842,7 +854,7 @@ class _TextTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     title: Text(title),
-    subtitle: Text(value.isEmpty ? 'Nicht gesetzt' : (secret ? '••••••••' : value)),
+    subtitle: Text(value.isEmpty ? context.l10n.adminNotConfigured : (secret ? '••••••••' : value)),
     trailing: const Icon(Icons.edit),
     onTap: () async {
       final ctrl = TextEditingController(text: value);
@@ -857,8 +869,8 @@ class _TextTile extends StatelessWidget {
             decoration: InputDecoration(helperText: hint),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(d), child: const Text('Abbrechen')),
-            FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: const Text('Speichern')),
+            TextButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonCancel)),
+            FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: Text(context.l10n.commonSave)),
           ],
         ),
       );
@@ -903,7 +915,7 @@ class _AbsCheckTileState extends ConsumerState<_AbsCheckTile> {
             icon: _busy
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.network_check),
-            label: const Text('Verbindung testen'),
+            label: Text(context.l10n.adminTestConnection),
           ),
           if (_result != null) ...[
             const SizedBox(width: 12),
@@ -971,13 +983,13 @@ class _TorrentCheckTileState extends ConsumerState<_TorrentCheckTile> {
             icon: _busy
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.network_check),
-            label: const Text('Verbindung testen'),
+            label: Text(context.l10n.adminTestConnection),
           ),
           if (_result != null) ...[
             const SizedBox(height: 8),
-            line('Prowlarr', _result!['prowlarr'] as Map?),
+            line(context.l10n.adminProwlarr, _result!['prowlarr'] as Map?),
             const SizedBox(height: 4),
-            line('qBittorrent', _result!['qbittorrent'] as Map?),
+            line(context.l10n.adminQbittorrent, _result!['qbittorrent'] as Map?),
           ],
         ],
       ),

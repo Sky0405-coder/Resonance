@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,22 +55,27 @@ class SettingsPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Einstellungen', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(context.l10n.navSettings, style: TextStyle(fontWeight: FontWeight.w800)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomInset),
         children: [
-          _Section('Konto'),
+          _Section(context.l10n.settingsAccount),
           ListTile(
             leading: CircleAvatar(
               backgroundColor: accent,
               child: Text(user.displayName.characters.first.toUpperCase(), style: TextStyle(color: onColor(accent))),
             ),
             title: Text(user.displayName),
-            subtitle: Text('@${user.username}${user.isAdmin ? ' • Administrator' : ''}'),
+            subtitle: Text('@${user.username}${user.isAdmin ? context.l10n.settingsAdministratorSuffix : ''}'),
             trailing: const Icon(Icons.edit),
             onTap: () async {
-              final name = await promptText(context, 'Anzeigename', 'Name', initial: user.displayName);
+              final name = await promptText(
+                context,
+                context.l10n.settingsDisplayName,
+                context.l10n.commonName,
+                initial: user.displayName,
+              );
               if (name == null || name.isEmpty) return;
               final updated = await ref.read(apiProvider).updateMe({'display_name': name});
               ref.read(sessionProvider.notifier).updateUser(updated);
@@ -76,13 +83,13 @@ class SettingsPage extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.lock_outline),
-            title: const Text('Passwort ändern'),
+            title: Text(context.l10n.settingsChangePassword),
             onTap: () => _changePassword(context, ref),
           ),
-          _Section('Darstellung'),
-          const Padding(
+          _Section(context.l10n.settingsAppearance),
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Text('Akzentfarbe', style: TextStyle(color: Palette.textMuted)),
+            child: Text(context.l10n.settingsAccentColor, style: TextStyle(color: Palette.textMuted)),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -105,7 +112,7 @@ class SettingsPage extends ConsumerWidget {
                     final ok = await showDialog<bool>(
                       context: context,
                       builder: (d) => AlertDialog(
-                        title: const Text('Eigene Farbe'),
+                        title: Text(context.l10n.settingsCustomColor),
                         content: SingleChildScrollView(
                           child: ColorPicker(
                             pickerColor: accent,
@@ -115,8 +122,8 @@ class SettingsPage extends ConsumerWidget {
                           ),
                         ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Abbrechen')),
-                          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Übernehmen')),
+                          TextButton(onPressed: () => Navigator.pop(d, false), child: Text(context.l10n.commonCancel)),
+                          FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(context.l10n.commonApply)),
                         ],
                       ),
                     );
@@ -126,11 +133,11 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
-          _Section('Wiedergabe'),
+          _Section(context.l10n.settingsPlayback),
           StatefulBuilder(
             builder: (context, setState) => SwitchListTile(
-              title: const Text('Lautstärke angleichen'),
-              subtitle: const Text('Nutzt ReplayGain, damit alle Songs ähnlich laut sind'),
+              title: Text(context.l10n.settingsNormalizeVolume),
+              subtitle: Text(context.l10n.settingsNormalizeVolumeHint),
               value: prefs.getBool(_kNormalize) ?? true,
               onChanged: (v) {
                 prefs.setBool(_kNormalize, v);
@@ -140,7 +147,7 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
           const AppVersionTile(),
-          _Section('Angemeldete Geräte'),
+          _Section(context.l10n.settingsSignedInDevices),
           sessions.when(
             loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
             error: (e, _) => ListTile(title: Text('$e')),
@@ -150,13 +157,13 @@ class SettingsPage extends ConsumerWidget {
                   ListTile(
                     leading: const Icon(Icons.devices),
                     title: Text(
-                      '${s['device_name'] ?? 'Unbekanntes Gerät'}${s['current'] == true ? ' (dieses Gerät)' : ''}',
+                      '${s['device_name'] ?? context.l10n.settingsUnknownDevice}${s['current'] == true ? context.l10n.settingsCurrentDeviceSuffix : ''}',
                     ),
-                    subtitle: Text('Zuletzt aktiv: ${_date(s['last_used_at'])}'),
+                    subtitle: Text(context.l10n.settingsLastActive((_date(context, s['last_used_at'])).toString())),
                     trailing: s['current'] == true
                         ? null
                         : IconButton(
-                            tooltip: 'Abmelden',
+                            tooltip: context.l10n.commonSignOut,
                             icon: const Icon(Icons.logout),
                             onPressed: () async {
                               await ref.read(apiProvider).revokeSession(s['id']);
@@ -171,7 +178,7 @@ class SettingsPage extends ConsumerWidget {
           Center(
             child: OutlinedButton.icon(
               icon: const Icon(Icons.logout),
-              label: const Text('Abmelden'),
+              label: Text(context.l10n.commonSignOut),
               onPressed: () => ref.read(sessionProvider.notifier).logout(),
             ),
           ),
@@ -180,10 +187,10 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  static String _date(dynamic iso) {
+  static String _date(BuildContext context, dynamic iso) {
     final d = DateTime.tryParse('$iso')?.toLocal();
     if (d == null) return '-';
-    return '${d.day}.${d.month}.${d.year} ${d.hour}:${d.minute.toString().padLeft(2, '0')}';
+    return '${MaterialLocalizations.of(context).formatShortDate(d)} ${TimeOfDay.fromDateTime(d).format(context)}';
   }
 
   Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
@@ -192,33 +199,33 @@ class SettingsPage extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (d) => AlertDialog(
-        title: const Text('Passwort ändern'),
+        title: Text(context.l10n.settingsChangePassword),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: current,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Aktuelles Passwort'),
+              decoration: InputDecoration(labelText: context.l10n.settingsCurrentPassword),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: next,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Neues Passwort'),
+              decoration: InputDecoration(labelText: context.l10n.settingsNewPassword),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Ändern')),
+          TextButton(onPressed: () => Navigator.pop(d, false), child: Text(context.l10n.commonCancel)),
+          FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(context.l10n.commonChange)),
         ],
       ),
     );
     if (ok != true) return;
     try {
       await ref.read(apiProvider).updateMe({'current_password': current.text, 'new_password': next.text});
-      if (context.mounted) showInfo(context, 'Passwort geändert');
+      if (context.mounted) showInfo(context, context.l10n.settingsPasswordChanged);
     } catch (e) {
       if (context.mounted) showError(context, e);
     }

@@ -1,3 +1,5 @@
+import '../../../l10n/l10n.dart';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,7 +52,14 @@ Future<void> showTrackEditor(BuildContext context, WidgetRef ref, Track track) a
   ref.read(libraryActionsProvider).libraryChanged();
   await ref.read(coverVersionsProvider.notifier).bump(updated.album.id);
   if (context.mounted) {
-    showInfo(context, 'Gespeichert: ${updated.title} – ${updated.artistCredit} (${updated.album.name})');
+    showInfo(
+      context,
+      context.l10n.editorSavedTrack(
+        (updated.title).toString(),
+        (updated.artistCredit).toString(),
+        (updated.album.name).toString(),
+      ),
+    );
   }
 }
 
@@ -83,7 +92,7 @@ class _TrackEditorState extends ConsumerState<_TrackEditor> {
   Widget build(BuildContext context) {
     return _dialogFrame(
       context,
-      'Metadaten korrigieren',
+      context.l10n.editorCorrectMetadata,
       FutureBuilder<TrackFile>(
         future: _file,
         builder: (context, snap) {
@@ -104,15 +113,15 @@ class _TrackEditorState extends ConsumerState<_TrackEditor> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
                       child: SelectableText(
-                        '${f.path}\n${[f.codec?.toUpperCase(), if (f.bitrate != null) '${f.bitrate} kbit/s', _durationLabel(f.duration)].whereType<String>().join(' • ')}',
+                        '${f.path}\n${[f.codec?.toUpperCase(), if (f.bitrate != null) context.l10n.editorBitrate(f.bitrate!), _durationLabel(f.duration)].whereType<String>().join(' • ')}',
                         style: const TextStyle(color: Palette.textMuted, fontSize: 12),
                       ),
                     ),
-                    const TabBar(
+                    TabBar(
                       tabs: [
-                        Tab(text: 'Suchen'),
-                        Tab(text: 'Fingerabdruck'),
-                        Tab(text: 'Bearbeiten'),
+                        Tab(text: context.l10n.editorTabSearch),
+                        Tab(text: context.l10n.editorTabFingerprint),
+                        Tab(text: context.l10n.editorTabEdit),
                       ],
                     ),
                     Expanded(
@@ -194,18 +203,15 @@ class _SearchTabState extends ConsumerState<_SearchTab> with AutomaticKeepAliveC
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => _search(),
             decoration: InputDecoration(
-              hintText: 'Künstler und Titel',
+              hintText: context.l10n.editorSearchTrackHint,
               prefixIcon: const Icon(Icons.search),
               suffixIcon: IconButton(icon: const Icon(Icons.arrow_forward), onPressed: _search),
             ),
           ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Text(
-            'Tippe auf den richtigen Song – Tags, Cover und Dateiname werden übernommen.',
-            style: TextStyle(color: Palette.textMuted, fontSize: 12),
-          ),
+          child: Text(context.l10n.editorChooseTrackHint, style: TextStyle(color: Palette.textMuted, fontSize: 12)),
         ),
         Expanded(
           child: _results == null
@@ -217,8 +223,8 @@ class _SearchTabState extends ConsumerState<_SearchTab> with AutomaticKeepAliveC
                     if (!snap.hasData) return const Center(child: CircularProgressIndicator());
                     final tracks = snap.data!.tracks;
                     if (tracks.isEmpty) {
-                      return const Center(
-                        child: Text('Nichts gefunden', style: TextStyle(color: Palette.textMuted)),
+                      return Center(
+                        child: Text(context.l10n.commonNothingFound, style: TextStyle(color: Palette.textMuted)),
                       );
                     }
                     return ListView.builder(
@@ -285,24 +291,24 @@ class _FingerprintTabState extends ConsumerState<_FingerprintTab> with Automatic
           );
         }
         if (!snap.hasData) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 12),
-                Text('Audio-Fingerabdruck wird abgeglichen …', style: TextStyle(color: Palette.textMuted)),
+                Text(context.l10n.editorFingerprintSearching, style: TextStyle(color: Palette.textMuted)),
               ],
             ),
           );
         }
         final matches = snap.data!;
         if (matches.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
               padding: EdgeInsets.all(24),
               child: Text(
-                'AcoustID kennt diese Aufnahme nicht. Versuche es über „Suchen“ oder „Bearbeiten“.',
+                context.l10n.editorFingerprintUnknown,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Palette.textMuted),
               ),
@@ -320,11 +326,11 @@ class _FingerprintTabState extends ConsumerState<_FingerprintTab> with Automatic
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: [m.title ?? 'Unbekannter Titel', ?m.artist].join(' – '),
+                        text: [m.title ?? context.l10n.editorUnknownTitle, ?m.artist].join(' – '),
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       TextSpan(
-                        text: '   ${(m.score * 100).round()} % Übereinstimmung',
+                        text: context.l10n.editorFingerprintScore((m.score * 100).round()),
                         style: const TextStyle(color: Palette.textMuted, fontSize: 12),
                       ),
                     ],
@@ -334,19 +340,23 @@ class _FingerprintTabState extends ConsumerState<_FingerprintTab> with Automatic
               ListTile(
                 dense: true,
                 leading: Icon(Icons.auto_awesome, color: accent),
-                title: const Text('Originalalbum automatisch wählen'),
+                title: Text(context.l10n.editorAutoSelectAlbum),
                 onTap: () => widget.onPick(m.recordingId, null),
               ),
               for (final r in m.releases)
                 ListTile(
                   dense: true,
                   leading: const Icon(Icons.album_outlined),
-                  title: Text('${r.album ?? 'Unbekanntes Album'}${r.year != null ? ' (${r.year})' : ''}'),
+                  title: Text('${r.album ?? context.l10n.editorUnknownAlbum}${r.year != null ? ' (${r.year})' : ''}'),
                   subtitle: Text(
                     [
-                      if (r.discNo != null && r.discNo! > 1) 'CD ${r.discNo}',
+                      if (r.discNo != null && r.discNo! > 1) context.l10n.commonDiscNumber(r.discNo!),
                       if (r.trackNo != null)
-                        'Nr. ${r.trackNo}${r.releaseTracks != null ? ' von ${r.releaseTracks}' : ''}',
+                        context.l10n.editorTrackNumberWithTotal(
+                          r.trackNo!,
+                          (r.releaseTracks != null ? context.l10n.editorTrackTotalSuffix(r.releaseTracks!) : '')
+                              .toString(),
+                        ),
                     ].join(' • '),
                     style: const TextStyle(color: Palette.textMuted),
                   ),
@@ -411,7 +421,7 @@ class _EditTabState extends State<_EditTab> with AutomaticKeepAliveClientMixin {
       if (_numeric.contains(e.key)) {
         final n = int.tryParse(value);
         if (n == null) {
-          showError(context, 'Bitte nur Zahlen bei Jahr, Nr. und CD eingeben');
+          showError(context, context.l10n.editorNumbersOnly);
           return;
         }
         meta[e.key] = n;
@@ -420,7 +430,7 @@ class _EditTabState extends State<_EditTab> with AutomaticKeepAliveClientMixin {
       }
     }
     if (meta.isEmpty) {
-      showInfo(context, 'Keine Änderungen');
+      showInfo(context, context.l10n.editorNoChanges);
       return;
     }
     widget.onSave(meta);
@@ -443,17 +453,21 @@ class _EditTabState extends State<_EditTab> with AutomaticKeepAliveClientMixin {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Expanded(child: field('title', 'Titel')),
-            IconButton(tooltip: 'Titel und Künstler tauschen', icon: const Icon(Icons.swap_horiz), onPressed: _swap),
-            Expanded(child: field('artist', 'Künstler')),
+            Expanded(child: field('title', context.l10n.editorTitle)),
+            IconButton(
+              tooltip: context.l10n.editorSwapTitleArtist,
+              icon: const Icon(Icons.swap_horiz),
+              onPressed: _swap,
+            ),
+            Expanded(child: field('artist', context.l10n.commonArtist)),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: field('album', 'Album')),
+            Expanded(child: field('album', context.l10n.commonAlbum)),
             const SizedBox(width: 16),
-            Expanded(child: field('album_artist', 'Album-Künstler')),
+            Expanded(child: field('album_artist', context.l10n.editorAlbumArtist)),
           ],
         ),
         const SizedBox(height: 12),
@@ -461,21 +475,22 @@ class _EditTabState extends State<_EditTab> with AutomaticKeepAliveClientMixin {
           spacing: 16,
           runSpacing: 12,
           children: [
-            field('year', 'Jahr', width: 100, number: true),
-            field('track_no', 'Nr.', width: 80, number: true),
-            field('disc_no', 'CD', width: 80, number: true),
-            field('genre', 'Genre', width: 220),
+            field('year', context.l10n.editorYear, width: 100, number: true),
+            field('track_no', context.l10n.editorTrackNumber, width: 80, number: true),
+            field('disc_no', context.l10n.editorDisc, width: 80, number: true),
+            field('genre', context.l10n.editorGenre, width: 220),
           ],
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Leere Felder bleiben unverändert. Die Datei wird danach nach „Album-Künstler/Album (Jahr)/Nr - Titel“ umbenannt.',
-          style: TextStyle(color: Palette.textMuted, fontSize: 12),
-        ),
+        Text(context.l10n.editorManualHint, style: TextStyle(color: Palette.textMuted, fontSize: 12)),
         const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerRight,
-          child: FilledButton.icon(onPressed: _save, icon: const Icon(Icons.save), label: const Text('Speichern')),
+          child: FilledButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.save),
+            label: Text(context.l10n.commonSave),
+          ),
         ),
       ],
     );
@@ -498,7 +513,7 @@ Future<Album?> showAlbumMatcher(BuildContext context, WidgetRef ref, AlbumDetail
   await showDialog<void>(
     context: context,
     builder: (d) => AlertDialog(
-      title: Text('${result.matched} von ${result.matched + result.unmatched.length} Songs zugeordnet'),
+      title: Text(context.l10n.editorMatchedSongs(result.matched, result.matched + result.unmatched.length)),
       content: result.unmatched.isEmpty
           ? null
           : SizedBox(
@@ -507,14 +522,14 @@ Future<Album?> showAlbumMatcher(BuildContext context, WidgetRef ref, AlbumDetail
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Nicht zugeordnet (unverändert):'),
+                  Text(context.l10n.editorUnmatchedSongs),
                   const SizedBox(height: 8),
                   for (final t in result.unmatched)
                     Text('• ${t.title} – ${t.artistCredit}', style: const TextStyle(color: Palette.textMuted)),
                 ],
               ),
             ),
-      actions: [FilledButton(onPressed: () => Navigator.pop(d), child: const Text('OK'))],
+      actions: [FilledButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonOk))],
     ),
   );
   return result.album;
@@ -575,7 +590,7 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
     final count = widget.album.tracks.length;
     return _dialogFrame(
       context,
-      'Album zuordnen',
+      context.l10n.editorMatchAlbum,
       Stack(
         children: [
           Column(
@@ -589,7 +604,7 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _search(),
                   decoration: InputDecoration(
-                    hintText: 'Künstler und Album oder MusicBrainz-Link',
+                    hintText: context.l10n.editorSearchAlbumHint,
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: IconButton(icon: const Icon(Icons.arrow_forward), onPressed: _search),
                   ),
@@ -598,8 +613,7 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Text(
-                  'Die $count Songs dieses Albums werden per Titel, Position und Länge den Songs der gewählten '
-                  'Veröffentlichung zugeordnet. Was nicht passt, bleibt unverändert.',
+                  context.l10n.editorMatchAlbumHint(count),
                   style: const TextStyle(color: Palette.textMuted, fontSize: 12),
                 ),
               ),
@@ -609,7 +623,7 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
                         children: [
                           ListTile(
                             leading: const Icon(Icons.album),
-                            title: const Text('MusicBrainz-Veröffentlichung verwenden'),
+                            title: Text(context.l10n.editorUseMusicBrainzRelease),
                             subtitle: Text(_mbid!, style: const TextStyle(color: Palette.textMuted)),
                             onTap: () => _apply('musicbrainz', _mbid!),
                           ),
@@ -624,8 +638,8 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
                           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
                           final albums = snap.data!.albums;
                           if (albums.isEmpty) {
-                            return const Center(
-                              child: Text('Nichts gefunden', style: TextStyle(color: Palette.textMuted)),
+                            return Center(
+                              child: Text(context.l10n.commonNothingFound, style: TextStyle(color: Palette.textMuted)),
                             );
                           }
                           return ListView.builder(
@@ -653,13 +667,13 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
             ],
           ),
           if (_busy)
-            const Positioned.fill(
+            Positioned.fill(
               child: ColoredBox(
                 color: Colors.black54,
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Songs werden neu getaggt …')],
+                    children: [CircularProgressIndicator(), SizedBox(height: 12), Text(context.l10n.editorRetagging)],
                   ),
                 ),
               ),
@@ -681,7 +695,7 @@ Future<void> showCoverPicker(BuildContext context, WidgetRef ref, String albumId
   if (changed != true || !context.mounted) return;
   await ref.read(coverVersionsProvider.notifier).bump(albumId);
   ref.read(libraryActionsProvider).libraryChanged();
-  if (context.mounted) showInfo(context, 'Cover gespeichert');
+  if (context.mounted) showInfo(context, context.l10n.editorCoverSaved);
 }
 
 class _CoverPicker extends ConsumerStatefulWidget {
@@ -720,7 +734,7 @@ class _CoverPickerState extends ConsumerState<_CoverPicker> {
   Widget build(BuildContext context) {
     return _dialogFrame(
       context,
-      'Cover ändern',
+      context.l10n.editorChangeCover,
       Stack(
         children: [
           Column(
@@ -730,9 +744,9 @@ class _CoverPickerState extends ConsumerState<_CoverPicker> {
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                 child: Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Vorschläge von MusicBrainz und Deezer. Das Cover wird in alle Songs des Albums eingebettet.',
+                        context.l10n.editorCoverSuggestionsHint,
                         style: TextStyle(color: Palette.textMuted, fontSize: 12),
                       ),
                     ),
@@ -740,7 +754,7 @@ class _CoverPickerState extends ConsumerState<_CoverPicker> {
                     OutlinedButton.icon(
                       onPressed: _busy ? null : _upload,
                       icon: const Icon(Icons.upload),
-                      label: const Text('Bild hochladen'),
+                      label: Text(context.l10n.editorUploadImage),
                     ),
                   ],
                 ),
@@ -753,8 +767,8 @@ class _CoverPickerState extends ConsumerState<_CoverPicker> {
                     if (!snap.hasData) return const Center(child: CircularProgressIndicator());
                     final options = snap.data!;
                     if (options.isEmpty) {
-                      return const Center(
-                        child: Text('Keine Vorschläge gefunden', style: TextStyle(color: Palette.textMuted)),
+                      return Center(
+                        child: Text(context.l10n.editorNoCoverSuggestions, style: TextStyle(color: Palette.textMuted)),
                       );
                     }
                     return GridView.builder(
@@ -881,9 +895,17 @@ class _ReviewTabState extends ConsumerState<ReviewTab> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'unidentified', label: Text('Nicht erkannt'), icon: Icon(Icons.help_outline)),
-                    ButtonSegment(value: 'no_cover', label: Text('Ohne Cover'), icon: Icon(Icons.hide_image_outlined)),
+                  segments: [
+                    ButtonSegment(
+                      value: 'unidentified',
+                      label: Text(context.l10n.adminImportUnidentified),
+                      icon: Icon(Icons.help_outline),
+                    ),
+                    ButtonSegment(
+                      value: 'no_cover',
+                      label: Text(context.l10n.editorNoCover),
+                      icon: Icon(Icons.hide_image_outlined),
+                    ),
                   ],
                   selected: {_kind},
                   onSelectionChanged: (s) {
@@ -892,7 +914,10 @@ class _ReviewTabState extends ConsumerState<ReviewTab> {
                   },
                 ),
                 if (_total != null)
-                  Text(noCover ? '$_total Alben' : songs(_total!), style: const TextStyle(color: Palette.textMuted)),
+                  Text(
+                    noCover ? context.l10n.editorAlbumCount(_total!) : songs(context.l10n, _total!),
+                    style: const TextStyle(color: Palette.textMuted),
+                  ),
               ],
             ),
           );
@@ -907,14 +932,14 @@ class _ReviewTabState extends ConsumerState<ReviewTab> {
           }
           if (_total != null && _items.length < _total!) {
             return Center(
-              child: TextButton(onPressed: _load, child: const Text('Mehr laden')),
+              child: TextButton(onPressed: _load, child: Text(context.l10n.editorLoadMore)),
             );
           }
           if (_items.isEmpty) {
-            return const Padding(
+            return Padding(
               padding: EdgeInsets.all(24),
               child: Center(
-                child: Text('Alles erledigt 🎉', style: TextStyle(color: Palette.textMuted)),
+                child: Text(context.l10n.editorAllDone, style: TextStyle(color: Palette.textMuted)),
               ),
             );
           }

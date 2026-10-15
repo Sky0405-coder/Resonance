@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,17 +13,19 @@ import '../widgets/collection.dart';
 import '../widgets/common.dart';
 
 /// "1 Std. 23 Min." / "45 Min."
-String formatBookDuration(double seconds) {
+String formatBookDuration(AppLocalizations l10n, double seconds) {
   final d = Duration(seconds: seconds.round());
   final h = d.inHours;
   final m = d.inMinutes % 60;
-  return h > 0 ? '$h Std. $m Min.' : '$m Min.';
+  return h > 0 ? l10n.commonDurationHoursMinutes(h, m) : l10n.commonDurationMinutes(m);
 }
 
-String _remaining(AbsItem item, AbsProgress? p) {
-  if (p == null || p.currentTime <= 0) return formatBookDuration(item.duration);
-  if (p.isFinished) return 'Beendet';
-  return 'Noch ${formatBookDuration((item.duration - p.currentTime).clamp(0, double.infinity))}';
+String _remaining(AppLocalizations l10n, AbsItem item, AbsProgress? p) {
+  if (p == null || p.currentTime <= 0) return formatBookDuration(l10n, item.duration);
+  if (p.isFinished) return l10n.audiobooksFinished;
+  return l10n.audiobooksTimeRemaining(
+    (formatBookDuration(l10n, (item.duration - p.currentTime).clamp(0, double.infinity))).toString(),
+  );
 }
 
 final _selectedLibraryProvider = NotifierProvider<_SelectedLibrary, String?>(_SelectedLibrary.new);
@@ -53,11 +57,8 @@ class AudiobooksPage extends ConsumerWidget {
       onRetry: () => ref.invalidate(absStatusProvider),
       builder: (s) {
         if (!s.enabled) {
-          return const Center(
-            child: Text(
-              'Hörbücher sind auf diesem Server nicht eingerichtet.',
-              style: TextStyle(color: Palette.textMuted),
-            ),
+          return Center(
+            child: Text(context.l10n.audiobooksNotConfigured, style: TextStyle(color: Palette.textMuted)),
           );
         }
         if (!s.linked) return _LoginView(status: s);
@@ -113,14 +114,15 @@ class _LoginViewState extends ConsumerState<_LoginView> {
                 const Icon(Icons.headphones, size: 56),
                 const SizedBox(height: 16),
                 Text(
-                  'Mit Audiobookshelf verbinden',
+                  context.l10n.audiobooksLoginTitle,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Melde dich mit deinem Audiobookshelf-Konto an${widget.status.url.isEmpty ? '' : ' (${widget.status.url})'}. '
-                  'Dein Hörfortschritt bleibt mit allen Audiobookshelf-Apps synchron.',
+                  context.l10n.audiobooksLoginHint(
+                    (widget.status.url.isEmpty ? '' : ' (${widget.status.url})').toString(),
+                  ),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Palette.textMuted),
                 ),
@@ -128,7 +130,7 @@ class _LoginViewState extends ConsumerState<_LoginView> {
                 TextField(
                   controller: _user,
                   autofillHints: const [AutofillHints.username],
-                  decoration: const InputDecoration(labelText: 'Benutzername'),
+                  decoration: InputDecoration(labelText: context.l10n.authUsername),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -136,10 +138,10 @@ class _LoginViewState extends ConsumerState<_LoginView> {
                   obscureText: true,
                   autofillHints: const [AutofillHints.password],
                   onSubmitted: (_) => _login(),
-                  decoration: const InputDecoration(labelText: 'Passwort'),
+                  decoration: InputDecoration(labelText: context.l10n.authPassword),
                 ),
                 const SizedBox(height: 20),
-                FilledButton(onPressed: _busy ? null : _login, child: const Text('Anmelden')),
+                FilledButton(onPressed: _busy ? null : _login, child: Text(context.l10n.authSignIn)),
               ],
             ),
           ),
@@ -175,8 +177,8 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
       builder: (libs) {
         final books = libs.where((l) => l.mediaType == 'book').toList();
         if (books.isEmpty) {
-          return const Center(
-            child: Text('Keine Hörbuch-Bibliothek gefunden', style: TextStyle(color: Palette.textMuted)),
+          return Center(
+            child: Text(context.l10n.audiobooksNoLibrary, style: TextStyle(color: Palette.textMuted)),
           );
         }
         final selected = ref.watch(_selectedLibraryProvider);
@@ -195,7 +197,9 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                   padding: EdgeInsets.fromLTRB(16, 24 + MediaQuery.paddingOf(context).top, 8, 8),
                   child: Row(
                     children: [
-                      Expanded(child: Text('Hörbücher', style: Theme.of(context).textTheme.headlineMedium)),
+                      Expanded(
+                        child: Text(context.l10n.navAudiobooks, style: Theme.of(context).textTheme.headlineMedium),
+                      ),
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert),
                         onSelected: (_) async {
@@ -205,7 +209,11 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                         itemBuilder: (_) => [
                           PopupMenuItem(
                             value: 'logout',
-                            child: Text('Abmelden (${ref.read(absStatusProvider).value?.username ?? ''})'),
+                            child: Text(
+                              context.l10n.audiobooksSignOutUser(
+                                (ref.read(absStatusProvider).value?.username ?? '').toString(),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -240,8 +248,8 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                     onChanged: (v) {
                       if (v.isEmpty) setState(() => _query = '');
                     },
-                    decoration: const InputDecoration(
-                      hintText: 'Titel, Autor oder Serie suchen',
+                    decoration: InputDecoration(
+                      hintText: context.l10n.audiobooksSearchHint,
                       prefixIcon: Icon(Icons.search),
                     ),
                   ),
@@ -260,7 +268,7 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                           children: [
                             for (final s in shelves.where((s) => s.id == 'continue-listening'))
                               Shelf(
-                                title: 'Weiterhören',
+                                title: context.l10n.audiobooksContinueListening,
                                 children: [for (final b in s.items) _BookCard(item: b, progress: progress[b.id])],
                               ),
                           ],
@@ -270,7 +278,7 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                    child: Text('Alle Hörbücher', style: Theme.of(context).textTheme.titleLarge),
+                    child: Text(context.l10n.audiobooksAllBooks, style: Theme.of(context).textTheme.titleLarge),
                   ),
                 ),
                 _BookGrid(value: ref.watch(absItemsProvider(library.id)), progress: progress),
@@ -300,11 +308,11 @@ class _BookGrid extends StatelessWidget {
       ),
       error: (e, _) => SliverToBoxAdapter(child: Center(child: Text('$e'))),
       data: (items) => items.isEmpty
-          ? const SliverToBoxAdapter(
+          ? SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Center(
-                  child: Text('Nichts gefunden', style: TextStyle(color: Palette.textMuted)),
+                  child: Text(context.l10n.commonNothingFound, style: TextStyle(color: Palette.textMuted)),
                 ),
               ),
             )
@@ -348,7 +356,7 @@ class _BookCard extends ConsumerWidget {
         ],
       ),
       title: item.title,
-      subtitle: [?item.author, _remaining(item, p)].join(' • '),
+      subtitle: [?item.author, _remaining(context.l10n, item, p)].join(' • '),
       onTap: () => context.push('/audiobooks/item/${item.id}'),
       onPlay: () => _play(context, ref, item),
     );
@@ -386,15 +394,15 @@ class AudiobookPage extends ConsumerWidget {
                     url: ref.watch(apiProvider).absUrl('items/$id/cover', {'width': '600'}),
                     icon: Icons.headphones,
                   ),
-                  kind: 'Hörbuch',
+                  kind: context.l10n.audiobooksBook,
                   title: item.title,
                   description: item.series,
                   meta: Text(
                     [
                       ?item.author,
-                      if (item.narrator != null) 'gelesen von ${item.narrator}',
+                      if (item.narrator != null) context.l10n.audiobooksNarrator((item.narrator).toString()),
                       ?item.year,
-                      _remaining(item, p),
+                      _remaining(context.l10n, item, p),
                     ].join(' • '),
                   ),
                 ),
@@ -405,7 +413,10 @@ class AudiobookPage extends ConsumerWidget {
                   onPlay: () => isCurrent ? ref.read(playerProvider.notifier).togglePlay() : _play(context, ref, item),
                   children: [
                     if (!isCurrent && started)
-                      Text('Weiterhören', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+                      Text(
+                        context.l10n.audiobooksContinueListening,
+                        style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                      ),
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
                       onSelected: (action) async {
@@ -424,11 +435,11 @@ class AudiobookPage extends ConsumerWidget {
                         }
                       },
                       itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'restart', child: Text('Von vorn beginnen')),
+                        PopupMenuItem(value: 'restart', child: Text(context.l10n.audiobooksStartOver)),
                         if (p?.isFinished ?? false)
-                          const PopupMenuItem(value: 'unfinished', child: Text('Als nicht beendet markieren'))
+                          PopupMenuItem(value: 'unfinished', child: Text(context.l10n.audiobooksMarkUnfinished))
                         else
-                          const PopupMenuItem(value: 'finished', child: Text('Als beendet markieren')),
+                          PopupMenuItem(value: 'finished', child: Text(context.l10n.audiobooksMarkFinished)),
                       ],
                     ),
                   ],
@@ -452,7 +463,7 @@ class AudiobookPage extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                    child: Text('Kapitel', style: Theme.of(context).textTheme.titleLarge),
+                    child: Text(context.l10n.audiobooksChapters, style: Theme.of(context).textTheme.titleLarge),
                   ),
                 ),
                 SliverPadding(
@@ -472,7 +483,7 @@ class AudiobookPage extends ConsumerWidget {
                         ),
                         title: Text(c.title, style: TextStyle(color: active ? accent : null)),
                         trailing: Text(
-                          formatBookDuration(c.end - c.start),
+                          formatBookDuration(context.l10n, c.end - c.start),
                           style: const TextStyle(color: Palette.textMuted),
                         ),
                         onTap: () => isCurrent
@@ -512,7 +523,10 @@ Future<void> showChapterSheet(BuildContext context, WidgetRef ref, BookPlayback 
             final active = position >= c.start && position < c.end;
             return ListTile(
               title: Text(c.title, style: TextStyle(color: active ? accent : null)),
-              trailing: Text(formatBookDuration(c.end - c.start), style: const TextStyle(color: Palette.textMuted)),
+              trailing: Text(
+                formatBookDuration(context.l10n, c.end - c.start),
+                style: const TextStyle(color: Palette.textMuted),
+              ),
               onTap: () {
                 Navigator.pop(sheet);
                 ref.read(playerProvider.notifier).seekBook(c.start);

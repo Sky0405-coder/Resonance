@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -32,7 +34,7 @@ class NowPlayingPage extends ConsumerWidget {
           child: book != null
               ? _BookNowPlaying(book: book)
               : track == null
-              ? const Center(child: Text('Gerade läuft nichts'))
+              ? Center(child: Text(context.l10n.playerNothingPlaying))
               : Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
@@ -113,7 +115,7 @@ class NowPlayingPage extends ConsumerWidget {
                               children: [
                                 const SleepTimerButton(),
                                 IconButton(
-                                  tooltip: 'Warteschlange',
+                                  tooltip: context.l10n.playerQueue,
                                   icon: const Icon(Icons.queue_music),
                                   onPressed: () => context.push('/queue'),
                                 ),
@@ -146,15 +148,15 @@ class _BookNowPlaying extends ConsumerWidget {
           Row(
             children: [
               IconButton(icon: const Icon(Icons.keyboard_arrow_down, size: 32), onPressed: () => context.pop()),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Hörbuch',
+                  context.l10n.audiobooksBook,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
               IconButton(
-                tooltip: 'Zum Hörbuch',
+                tooltip: context.l10n.playerGoToAudiobook,
                 icon: const Icon(Icons.info_outline),
                 onPressed: () {
                   context.pop();
@@ -201,7 +203,7 @@ class _BookNowPlaying extends ConsumerWidget {
                     child: TextButton.icon(
                       onPressed: () => showChapterSheet(context, ref, book),
                       icon: const Icon(Icons.format_list_bulleted),
-                      label: const Text('Kapitel'),
+                      label: Text(context.l10n.audiobooksChapters),
                     ),
                   ),
               ],
@@ -226,24 +228,28 @@ class QueuePage extends ConsumerWidget {
     final upcoming = pos < 0 ? <int>[] : order.sublist(pos + 1);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Warteschlange')),
+      appBar: AppBar(title: Text(context.l10n.playerQueue)),
       body: p.current == null
-          ? const Center(
-              child: Text('Die Warteschlange ist leer', style: TextStyle(color: Palette.textMuted)),
+          ? Center(
+              child: Text(context.l10n.playerEmptyQueue, style: TextStyle(color: Palette.textMuted)),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, kBottomInset),
               children: [
-                const _QueueHeading('Läuft gerade'),
+                _QueueHeading(context.l10n.playerNowPlaying),
                 TrackRow(track: p.current!, onPlay: ctrl.togglePlay),
-                if (upcoming.isNotEmpty) const _QueueHeading('Als Nächstes'),
+                if (upcoming.isNotEmpty) _QueueHeading(context.l10n.playerNextUp),
                 for (final i in upcoming)
                   TrackRow(
                     key: ValueKey('q$i-${p.queue[i].id}'),
                     track: p.queue[i],
                     onPlay: () => ctrl.jumpTo(i),
                     extraActions: [
-                      TrackAction('Aus Warteschlange entfernen', Icons.remove_circle_outline, () => ctrl.removeAt(i)),
+                      TrackAction(
+                        context.l10n.playerRemoveFromQueue,
+                        Icons.remove_circle_outline,
+                        () => ctrl.removeAt(i),
+                      ),
                     ],
                   ),
               ],

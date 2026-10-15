@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -56,7 +58,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   onChanged: _onChanged,
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search),
-                    hintText: 'Was möchtest du hören?',
+                    hintText: context.l10n.searchHint,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
                     suffixIcon: _query.isEmpty
                         ? null
@@ -96,12 +98,12 @@ class _Results extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: Text(
-                  'Keine Treffer für „$query“ in deiner Bibliothek.',
+                  context.l10n.searchNoLibraryResults((query).toString()),
                   style: const TextStyle(color: Palette.textMuted),
                 ),
               ),
             if (r.tracks.isNotEmpty) ...[
-              const _Heading('Songs'),
+              _Heading(context.l10n.commonSongsTitle),
               for (final (i, t) in r.tracks.take(8).indexed)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -112,11 +114,11 @@ class _Results extends ConsumerWidget {
                 ),
             ],
             Shelf(
-              title: 'Künstler',
+              title: context.l10n.commonArtists,
               children: [for (final a in r.artists) ArtistCard(artist: a)],
             ),
             Shelf(
-              title: 'Alben',
+              title: context.l10n.commonAlbums,
               children: [for (final a in r.albums) AlbumCard(album: a, onPlay: () => playAlbum(context, ref, a.id))],
             ),
             CatalogSearchSection(query: query),
@@ -149,7 +151,7 @@ class _BrowseAll extends ConsumerWidget {
       value: artists,
       builder: (list) => CustomScrollView(
         slivers: [
-          const SliverToBoxAdapter(child: _Heading('Alle Künstler')),
+          SliverToBoxAdapter(child: _Heading(context.l10n.libraryAllArtists)),
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
             sliver: SliverGrid.extent(
@@ -175,28 +177,28 @@ class LibraryPage extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('Deine Bibliothek', style: TextStyle(fontWeight: FontWeight.w800)),
+          title: Text(context.l10n.libraryTitle, style: TextStyle(fontWeight: FontWeight.w800)),
           actions: [
             const _DownloadsButton(),
             IconButton(
-              tooltip: 'Playlist erstellen',
+              tooltip: context.l10n.libraryCreatePlaylist,
               icon: const Icon(Icons.add),
               onPressed: () async {
-                final name = await promptText(context, 'Neue Playlist', 'Name');
+                final name = await promptText(context, context.l10n.libraryNewPlaylist, context.l10n.commonName);
                 if (name == null || name.isEmpty) return;
                 final p = await ref.read(libraryActionsProvider).createPlaylist(name);
                 if (context.mounted) context.push('/playlist/${p.id}');
               },
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
-              Tab(text: 'Playlists'),
-              Tab(text: 'Gespeicherte Alben'),
-              Tab(text: 'Alle Alben'),
-              Tab(text: 'Künstler'),
+              Tab(text: context.l10n.libraryPlaylists),
+              Tab(text: context.l10n.librarySavedAlbums),
+              Tab(text: context.l10n.libraryAllAlbums),
+              Tab(text: context.l10n.commonArtists),
             ],
           ),
         ),
@@ -214,7 +216,7 @@ class _DownloadsButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final running = ref.watch(downloadSummaryProvider).value?.running ?? 0;
     return IconButton(
-      tooltip: 'Downloads',
+      tooltip: context.l10n.navDownloads,
       icon: Badge(isLabelVisible: running > 0, label: Text('$running'), child: const Icon(Icons.download_outlined)),
       onPressed: () => context.push('/downloads'),
     );
@@ -235,15 +237,20 @@ class _PlaylistsTab extends ConsumerWidget {
         children: [
           ListTile(
             leading: const SizedBox(width: 56, child: LikedCover()),
-            title: const Text('Lieblingssongs'),
-            subtitle: Text('Playlist • ${liked.value == null ? '… Songs' : songs(liked.value!.length)}'),
+            title: Text(context.l10n.libraryLikedSongs),
+            subtitle: Text(
+              context.l10n.libraryPlaylistBy(
+                (liked.value == null ? context.l10n.libraryLoadingSongs : songs(context.l10n, liked.value!.length))
+                    .toString(),
+              ),
+            ),
             onTap: () => context.push('/liked'),
           ),
           for (final p in list)
             ListTile(
               leading: SizedBox(width: 56, child: PlaylistCover(albumIds: p.coverAlbumIds)),
               title: Text(p.name),
-              subtitle: Text('Playlist • ${p.owner.name}'),
+              subtitle: Text(context.l10n.libraryPlaylistBy((p.owner.name).toString())),
               onTap: () => context.push('/playlist/${p.id}'),
             ),
         ],
@@ -253,9 +260,9 @@ class _PlaylistsTab extends ConsumerWidget {
 }
 
 class _AlbumGrid extends ConsumerWidget {
-  const _AlbumGrid(this.provider, {this.empty = 'Keine Alben'});
+  const _AlbumGrid(this.provider, {this.empty});
   final ProviderListenable<AsyncValue<List<Album>>> provider;
-  final String empty;
+  final String? empty;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -264,7 +271,7 @@ class _AlbumGrid extends ConsumerWidget {
       value: value,
       builder: (list) => list.isEmpty
           ? Center(
-              child: Text(empty, style: const TextStyle(color: Palette.textMuted)),
+              child: Text(empty ?? context.l10n.libraryNoAlbums, style: const TextStyle(color: Palette.textMuted)),
             )
           : GridView.extent(
               maxCrossAxisExtent: 200,
@@ -279,8 +286,7 @@ class _AlbumGrid extends ConsumerWidget {
 class _SavedAlbumsTab extends StatelessWidget {
   const _SavedAlbumsTab();
   @override
-  Widget build(BuildContext context) =>
-      _AlbumGrid(savedAlbumsProvider, empty: 'Speichere Alben mit ⊕, um sie hier zu sehen.');
+  Widget build(BuildContext context) => _AlbumGrid(savedAlbumsProvider, empty: context.l10n.librarySaveAlbumsHint);
 }
 
 class _AllAlbumsTab extends StatelessWidget {

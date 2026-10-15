@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -119,7 +121,7 @@ class ActionBar extends StatelessWidget {
         const SizedBox(width: 8),
         if (onShuffle != null)
           IconButton(
-            tooltip: 'Zufallswiedergabe',
+            tooltip: context.l10n.playerShuffle,
             iconSize: 30,
             color: Palette.textMuted,
             icon: const Icon(Icons.shuffle),

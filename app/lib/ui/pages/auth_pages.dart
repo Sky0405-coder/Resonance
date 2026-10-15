@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,7 +75,7 @@ class _ServerPageState extends ConsumerState<ServerPage> {
       await ref.read(sessionProvider.notifier).setServer(url);
       if (mounted) context.go('/login');
     } on ApiException catch (e) {
-      setState(() => _error = '${e.message}\nIst die Adresse richtig?');
+      setState(() => _error = context.l10n.authCheckAddress((e.message).toString()));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -81,13 +83,16 @@ class _ServerPageState extends ConsumerState<ServerPage> {
 
   @override
   Widget build(BuildContext context) => _AuthFrame(
-    title: 'Mit Server verbinden',
+    title: context.l10n.authConnectTitle,
     children: [
       TextField(
         controller: _url,
         keyboardType: TextInputType.url,
         autofocus: true,
-        decoration: const InputDecoration(labelText: 'Server-Adresse', hintText: 'musik.example.com'),
+        decoration: InputDecoration(
+          labelText: context.l10n.authServerAddress,
+          hintText: context.l10n.authServerAddressExample,
+        ),
         onSubmitted: (_) => _connect(),
       ),
       if (_error != null) ...[
@@ -95,7 +100,7 @@ class _ServerPageState extends ConsumerState<ServerPage> {
         Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ],
       const SizedBox(height: 24),
-      FilledButton(onPressed: _busy ? null : _connect, child: const Text('Verbinden')),
+      FilledButton(onPressed: _busy ? null : _connect, child: Text(context.l10n.authConnect)),
     ],
   );
 }
@@ -135,12 +140,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return status.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => _AuthFrame(
-        title: 'Server nicht erreichbar',
+        title: context.l10n.errorServerUnreachable,
         children: [
-          Text('$server\n${ApiException.from(e).message}', textAlign: TextAlign.center),
+          Text('$server\n${ApiException.from(e, context.l10n).message}', textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          FilledButton(onPressed: () => ref.invalidate(authStatusProvider), child: const Text('Erneut versuchen')),
-          if (!kIsWeb) TextButton(onPressed: () => context.go('/server'), child: const Text('Anderer Server')),
+          FilledButton(onPressed: () => ref.invalidate(authStatusProvider), child: Text(context.l10n.commonRetry)),
+          if (!kIsWeb) TextButton(onPressed: () => context.go('/server'), child: Text(context.l10n.authOtherServer)),
         ],
       ),
       data: (s) {
@@ -148,13 +153,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           return const RegisterPage(firstSetup: true);
         }
         return _AuthFrame(
-          title: 'Bei ${s.serverName} anmelden',
+          title: context.l10n.authSignInTo((s.serverName).toString()),
           children: [
             TextField(
               controller: _user,
               autofocus: true,
               autofillHints: const [AutofillHints.username],
-              decoration: const InputDecoration(labelText: 'Benutzername'),
+              decoration: InputDecoration(labelText: context.l10n.authUsername),
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 12),
@@ -162,7 +167,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               controller: _pass,
               obscureText: true,
               autofillHints: const [AutofillHints.password],
-              decoration: const InputDecoration(labelText: 'Passwort'),
+              decoration: InputDecoration(labelText: context.l10n.authPassword),
               onSubmitted: (_) => _login(),
             ),
             if (_error != null) ...[
@@ -170,13 +175,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
             const SizedBox(height: 24),
-            FilledButton(onPressed: _busy ? null : _login, child: const Text('Anmelden')),
+            FilledButton(onPressed: _busy ? null : _login, child: Text(context.l10n.authSignIn)),
             if (s.registrationMode == 'public')
-              TextButton(onPressed: () => context.go('/register'), child: const Text('Konto erstellen')),
+              TextButton(onPressed: () => context.go('/register'), child: Text(context.l10n.authCreateAccount)),
             if (!kIsWeb)
               TextButton(
                 onPressed: () => context.go('/server'),
-                child: Text('Server: $server', style: const TextStyle(color: Palette.textMuted)),
+                child: Text(
+                  context.l10n.authServer((server).toString()),
+                  style: const TextStyle(color: Palette.textMuted),
+                ),
               ),
           ],
         );
@@ -218,7 +226,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   Future<void> _register() async {
     if (_pass.text != _pass2.text) {
-      setState(() => _error = 'Passwörter stimmen nicht überein');
+      setState(() => _error = context.l10n.authPasswordsMismatch);
       return;
     }
     setState(() {
@@ -242,25 +250,22 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   Widget build(BuildContext context) {
     if (widget.invite != null && _inviteValid == false) {
       return _AuthFrame(
-        title: 'Einladung ungültig',
+        title: context.l10n.authInvalidInvite,
         children: [
-          const Text(
-            'Dieser Einladungslink wurde bereits benutzt oder ist abgelaufen. Bitte frag einen Admin nach einem neuen Link.',
-            textAlign: TextAlign.center,
-          ),
+          Text(context.l10n.authInvalidInviteHint, textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          OutlinedButton(onPressed: () => context.go('/login'), child: const Text('Zur Anmeldung')),
+          OutlinedButton(onPressed: () => context.go('/login'), child: Text(context.l10n.authBackToLogin)),
         ],
       );
     }
     return _AuthFrame(
-      title: widget.firstSetup ? 'Willkommen! Admin-Konto anlegen' : 'Konto erstellen',
+      title: widget.firstSetup ? context.l10n.authWelcomeAdmin : context.l10n.authCreateAccount,
       children: [
         if (widget.firstSetup)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(bottom: 16),
             child: Text(
-              'Das erste Konto auf diesem Server wird automatisch Administrator.',
+              context.l10n.authFirstAccountHint,
               textAlign: TextAlign.center,
               style: TextStyle(color: Palette.textMuted),
             ),
@@ -268,21 +273,21 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         TextField(
           controller: _user,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Benutzername'),
+          decoration: InputDecoration(labelText: context.l10n.authUsername),
           textInputAction: TextInputAction.next,
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _pass,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Passwort (min. 8 Zeichen)'),
+          decoration: InputDecoration(labelText: context.l10n.authPasswordMinimum),
           textInputAction: TextInputAction.next,
         ),
         const SizedBox(height: 12),
         TextField(
           controller: _pass2,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Passwort wiederholen'),
+          decoration: InputDecoration(labelText: context.l10n.authRepeatPassword),
           onSubmitted: (_) => _register(),
         ),
         if (_error != null) ...[
@@ -290,9 +295,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ],
         const SizedBox(height: 24),
-        FilledButton(onPressed: _busy ? null : _register, child: const Text('Registrieren')),
+        FilledButton(onPressed: _busy ? null : _register, child: Text(context.l10n.authRegister)),
         if (!widget.firstSetup)
-          TextButton(onPressed: () => context.go('/login'), child: const Text('Ich habe schon ein Konto')),
+          TextButton(onPressed: () => context.go('/login'), child: Text(context.l10n.authAlreadyHaveAccount)),
       ],
     );
   }

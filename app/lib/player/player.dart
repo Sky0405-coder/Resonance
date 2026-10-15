@@ -1,3 +1,6 @@
+import '../l10n/locale.dart';
+import '../l10n/l10n.dart';
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -99,6 +102,8 @@ class PlayerController extends Notifier<PlayerView> {
     _pendingSwitch = result.catchError((Object _) {});
     return result;
   }
+
+  AppLocalizations get _l10n => lookupAppLocalizations(ref.read(appLocaleProvider));
 
   ApiClient get _api => ref.read(apiProvider);
 
@@ -241,11 +246,7 @@ class PlayerController extends Notifier<PlayerView> {
       state = _copy(playing: false, buffering: false);
       _lastPos = player.position;
       if (previous.playing && player.processingState == ProcessingState.ready) player.play();
-      throw ApiException(
-        next.book == null
-            ? 'Die Musik konnte nicht geladen werden. Bitte erneut versuchen.'
-            : 'Das Hörbuch konnte nicht geladen werden. Bitte erneut versuchen.',
-      );
+      throw ApiException(next.book == null ? _l10n.playerMusicLoadError : _l10n.playerAudiobookLoadError);
     }
     // Use the old position: the player's sources now belong to the new item.
     await _closeBook(position: previousBookPosition);
@@ -387,7 +388,7 @@ class PlayerController extends Notifier<PlayerView> {
               id: '${item.id}:$i',
               title: book.title,
               artist: book.author,
-              album: book.parts.length > 1 ? 'Teil ${i + 1} von ${book.parts.length}' : null,
+              album: book.parts.length > 1 ? _l10n.playerBookPart(i + 1, book.parts.length) : null,
               duration: Duration(milliseconds: (p.duration * 1000).round()),
               artUri: Uri.parse(coverUrl),
             ),

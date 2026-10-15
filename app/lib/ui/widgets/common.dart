@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,14 +19,16 @@ String formatDuration(Duration d) {
   return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$s' : '$m:$s';
 }
 
-String formatLongDuration(double seconds) {
+String formatLongDuration(AppLocalizations l10n, double seconds) {
   final d = Duration(seconds: seconds.round());
-  if (d.inHours > 0) return '${d.inHours} Std. ${d.inMinutes.remainder(60)} Min.';
-  return '${d.inMinutes} Min. ${d.inSeconds.remainder(60)} Sek.';
+  if (d.inHours > 0) {
+    return l10n.commonDurationHoursMinutes(d.inHours, d.inMinutes.remainder(60));
+  }
+  return l10n.commonDurationMinutesSeconds(d.inMinutes, d.inSeconds.remainder(60));
 }
 
 /// "1 Song" / "3 Songs".
-String songs(int n) => n == 1 ? '1 Song' : '$n Songs';
+String songs(AppLocalizations l10n, int n) => l10n.commonSongs(n);
 
 bool isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= 900;
 
@@ -247,7 +251,7 @@ class ArtistCard extends StatelessWidget {
     circle: true,
     image: CoverImage(albumId: artist.coverAlbumId, radius: 0, icon: Icons.person),
     title: artist.name,
-    subtitle: 'Künstler',
+    subtitle: context.l10n.commonArtist,
     onTap: () => context.push('/artist/${artist.id}'),
   );
 }
@@ -260,7 +264,7 @@ class PlaylistCard extends StatelessWidget {
   Widget build(BuildContext context) => MediaCard(
     image: PlaylistCover(albumIds: playlist.coverAlbumIds),
     title: playlist.name,
-    subtitle: 'Playlist • ${playlist.owner.name}',
+    subtitle: context.l10n.libraryPlaylistBy((playlist.owner.name).toString()),
     onTap: () => context.push('/playlist/${playlist.id}'),
   );
 }
@@ -315,10 +319,10 @@ class AsyncBody<T> extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Palette.textMuted),
             const SizedBox(height: 12),
-            Text(ApiException.from(e).message, textAlign: TextAlign.center),
+            Text(ApiException.from(e, context.l10n).message, textAlign: TextAlign.center),
             if (onRetry != null) ...[
               const SizedBox(height: 12),
-              OutlinedButton(onPressed: onRetry, child: const Text('Erneut versuchen')),
+              OutlinedButton(onPressed: onRetry, child: Text(context.l10n.commonRetry)),
             ],
           ],
         ),
@@ -328,7 +332,7 @@ class AsyncBody<T> extends StatelessWidget {
 }
 
 void showError(BuildContext context, Object e) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ApiException.from(e).message)));
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ApiException.from(e, context.l10n).message)));
 }
 
 void showInfo(BuildContext context, String msg) {

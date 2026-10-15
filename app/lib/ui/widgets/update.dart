@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ota_update/ota_update.dart';
@@ -43,22 +45,22 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                 // The system installer takes over from here.
                 Navigator.pop(context);
               case OtaStatus.PERMISSION_NOT_GRANTED_ERROR:
-                setState(() => _error = 'Bitte erlaube Resonance in den Android-Einstellungen, Apps zu installieren.');
+                setState(() => _error = context.l10n.updateAllowInstall);
               case OtaStatus.CANCELED:
                 Navigator.pop(context);
               default:
-                setState(() => _error = 'Update fehlgeschlagen (${event.status.name}). Bitte erneut versuchen.');
+                setState(() => _error = context.l10n.updateFailedCode((event.status.name).toString()));
             }
           },
           onError: (Object e) {
-            if (mounted) setState(() => _error = 'Update fehlgeschlagen: $e');
+            if (mounted) setState(() => _error = context.l10n.updateFailedMessage((e).toString()));
           },
         );
   }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('App wird aktualisiert'),
+    title: Text(context.l10n.updateInProgress),
     content: _error != null
         ? Text(_error!)
         : Column(
@@ -67,10 +69,16 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             children: [
               LinearProgressIndicator(value: _progress),
               const SizedBox(height: 8),
-              Text(_progress == null ? 'Download startet …' : 'Download ${(_progress! * 100).round()} %'),
+              Text(
+                _progress == null
+                    ? context.l10n.updateDownloadStarting
+                    : context.l10n.updateDownloadProgress((_progress! * 100).round()),
+              ),
             ],
           ),
-    actions: [if (_error != null) TextButton(onPressed: () => Navigator.pop(context), child: const Text('Schließen'))],
+    actions: [
+      if (_error != null) TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.commonClose)),
+    ],
   );
 }
 
@@ -95,8 +103,8 @@ class _UpdateNotifierState extends ConsumerState<UpdateNotifier> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           duration: const Duration(seconds: 10),
-          content: Text('Neue App-Version ${update.availableName} verfügbar'),
-          action: SnackBarAction(label: 'Installieren', onPressed: () => installAppUpdate(context, ref)),
+          content: Text(context.l10n.updateAvailableTitle((update.availableName).toString())),
+          action: SnackBarAction(label: context.l10n.updateInstall, onPressed: () => installAppUpdate(context, ref)),
         ),
       );
     });
@@ -115,18 +123,22 @@ class AppVersionTile extends ConsumerWidget {
     if (u == null) return const SizedBox.shrink();
     return ListTile(
       leading: const Icon(Icons.system_update),
-      title: Text('App-Version ${u.installed} (${u.installedCode})'),
-      subtitle: Text(u.available ? 'Version ${u.availableName} ist verfügbar' : 'Aktuell'),
+      title: Text(context.l10n.updateInstalledVersion((u.installed).toString(), u.installedCode)),
+      subtitle: Text(
+        u.available ? context.l10n.updateAvailableVersion((u.availableName).toString()) : context.l10n.updateCurrent,
+      ),
       trailing: u.available
-          ? FilledButton(onPressed: () => installAppUpdate(context, ref), child: const Text('Aktualisieren'))
+          ? FilledButton(onPressed: () => installAppUpdate(context, ref), child: Text(context.l10n.updateAction))
           : IconButton(
-              tooltip: 'Nach Updates suchen',
+              tooltip: context.l10n.updateCheck,
               icon: const Icon(Icons.refresh),
               onPressed: () async {
                 ref.invalidate(appUpdateProvider);
                 try {
                   final next = await ref.read(appUpdateProvider.future);
-                  if (context.mounted && !(next?.available ?? false)) showInfo(context, 'Die App ist aktuell');
+                  if (context.mounted && !(next?.available ?? false)) {
+                    showInfo(context, context.l10n.updateAlreadyCurrent);
+                  }
                 } catch (e) {
                   if (context.mounted) showError(context, e);
                 }

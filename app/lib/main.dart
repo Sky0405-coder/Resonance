@@ -1,3 +1,7 @@
+import 'l10n/l10n.dart';
+import 'l10n/locale.dart';
+
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +17,7 @@ import 'ui/pages/settings_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final initialL10n = lookupAppLocalizations(resolveAppLocale(WidgetsBinding.instance.platformDispatcher.locales));
   // Clean URLs (/register?invite=…) so invite links work in the browser.
   usePathUrlStrategy();
 
@@ -24,7 +29,7 @@ Future<void> main() async {
     // Media notification, lock screen controls and background playback.
     await JustAudioBackground.init(
       androidNotificationChannelId: 'de.knode.resonance.playback',
-      androidNotificationChannelName: 'Wiedergabe',
+      androidNotificationChannelName: initialL10n.settingsPlayback,
       androidNotificationOngoing: true,
     );
   }
@@ -51,7 +56,24 @@ class _ResonanceAppState extends ConsumerState<ResonanceApp> {
   Widget build(BuildContext context) {
     final accent = parseHexColor(ref.watch(sessionProvider.select((s) => s.user?.accentColor)));
     return MaterialApp.router(
-      title: 'Resonance',
+      onGenerateTitle: (context) => context.l10n.commonProductName,
+      supportedLocales: const [Locale('de'), Locale('en')],
+      localeListResolutionCallback: (locales, supportedLocales) => resolveAppLocale(locales),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      builder: (context, child) {
+        final locale = Localizations.localeOf(context);
+        if (ref.read(appLocaleProvider) != locale) {
+          Future.microtask(() {
+            if (mounted) ref.read(appLocaleProvider.notifier).setLocale(locale);
+          });
+        }
+        return child!;
+      },
       debugShowCheckedModeBanner: false,
       theme: buildTheme(accent),
       routerConfig: ref.watch(routerProvider),

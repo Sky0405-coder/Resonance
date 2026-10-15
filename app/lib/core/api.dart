@@ -1,3 +1,8 @@
+import 'package:flutter/widgets.dart';
+
+import '../l10n/locale.dart';
+import '../l10n/l10n.dart';
+
 import 'package:dio/dio.dart';
 
 import 'models.dart';
@@ -10,15 +15,18 @@ class ApiException implements Exception {
   @override
   String toString() => message;
 
-  static ApiException from(Object e) {
+  static ApiException from(Object e, [AppLocalizations? localizations]) {
+    final l10n =
+        localizations ?? lookupAppLocalizations(resolveAppLocale(WidgetsBinding.instance.platformDispatcher.locales));
     if (e is ApiException) return e;
     if (e is DioException) {
       final data = e.response?.data;
       final detail = data is Map ? data['detail'] : null;
       final msg = switch (detail) {
         String s => s,
-        List l when l.isNotEmpty => (l.first as Map)['msg']?.toString() ?? 'Ungültige Eingabe',
-        _ => e.response == null ? 'Server nicht erreichbar' : 'Fehler ${e.response!.statusCode}',
+        List l when l.isNotEmpty => (l.first as Map)['msg']?.toString() ?? l10n.errorInvalidInput,
+        _ =>
+          e.response == null ? l10n.errorServerUnreachable : l10n.errorHttpStatus((e.response!.statusCode).toString()),
       };
       return ApiException(msg, e.response?.statusCode);
     }
@@ -28,17 +36,18 @@ class ApiException implements Exception {
 
 /// Thin typed wrapper around the server's REST API.
 class ApiClient {
-  ApiClient(this.baseUrl, this.token)
+  ApiClient(this.baseUrl, this.token, {this.languageCode = 'en'})
     : _dio = Dio(
         BaseOptions(
           baseUrl: baseUrl,
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 30),
-          headers: {if (token != null) 'Authorization': 'Bearer $token'},
+          headers: {'Accept-Language': languageCode, if (token != null) 'Authorization': 'Bearer $token'},
         ),
       );
 
   final String baseUrl;
+  final String languageCode;
   final String? token;
   final Dio _dio;
 
@@ -46,7 +55,7 @@ class ApiClient {
     try {
       return await fn();
     } catch (e) {
-      throw ApiException.from(e);
+      throw ApiException.from(e, lookupAppLocalizations(Locale(languageCode)));
     }
   }
 

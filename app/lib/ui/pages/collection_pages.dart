@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -58,7 +60,7 @@ class AlbumPage extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                   child: Text(
-                    'CD ${disc ?? 1}',
+                    context.l10n.commonDiscNumber(disc ?? 1),
                     style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -79,7 +81,7 @@ class AlbumPage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: CollectionHeader(
                   image: CoverImage(albumId: d.album.hasCover ? id : null, size: 600, icon: Icons.album),
-                  kind: 'Album',
+                  kind: context.l10n.commonAlbum,
                   title: d.album.title,
                   meta: Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
@@ -94,7 +96,7 @@ class AlbumPage extends ConsumerWidget {
                       Text(
                         [
                           if (d.album.year != null) ' • ${d.album.year}',
-                          ' • ${songs(d.tracks.length)}, ${formatLongDuration(d.duration)}',
+                          ' • ${songs(context.l10n, d.tracks.length)}, ${formatLongDuration(context.l10n, d.duration)}',
                         ].join(),
                       ),
                     ],
@@ -108,14 +110,14 @@ class AlbumPage extends ConsumerWidget {
                   onShuffle: d.tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, d.tracks, shuffle: true),
                   children: [
                     IconButton(
-                      tooltip: d.saved ? 'Aus Bibliothek entfernen' : 'In Bibliothek speichern',
+                      tooltip: d.saved ? context.l10n.libraryRemoveAlbum : context.l10n.librarySaveAlbum,
                       iconSize: 30,
                       color: d.saved ? Theme.of(context).colorScheme.primary : Palette.textMuted,
                       icon: Icon(d.saved ? Icons.check_circle : Icons.add_circle_outline),
                       onPressed: () => ref.read(libraryActionsProvider).setAlbumSaved(id, !d.saved),
                     ),
                     IconButton(
-                      tooltip: 'Zur Playlist hinzufügen',
+                      tooltip: context.l10n.playerAddToPlaylist,
                       iconSize: 28,
                       color: Palette.textMuted,
                       icon: const Icon(Icons.playlist_add),
@@ -123,7 +125,7 @@ class AlbumPage extends ConsumerWidget {
                     ),
                     if (ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false)))
                       PopupMenuButton<String>(
-                        tooltip: 'Album korrigieren',
+                        tooltip: context.l10n.editorCorrectAlbum,
                         iconSize: 28,
                         icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
                         onSelected: (action) async {
@@ -137,14 +139,20 @@ class AlbumPage extends ConsumerWidget {
                             context.pushReplacement('/album/${album.id}');
                           }
                         },
-                        itemBuilder: (_) => const [
+                        itemBuilder: (_) => [
                           PopupMenuItem(
                             value: 'match',
-                            child: ListTile(leading: Icon(Icons.manage_search), title: Text('Album zuordnen')),
+                            child: ListTile(
+                              leading: Icon(Icons.manage_search),
+                              title: Text(context.l10n.editorMatchAlbum),
+                            ),
                           ),
                           PopupMenuItem(
                             value: 'cover',
-                            child: ListTile(leading: Icon(Icons.image_search), title: Text('Cover ändern')),
+                            child: ListTile(
+                              leading: Icon(Icons.image_search),
+                              title: Text(context.l10n.editorChangeCover),
+                            ),
                           ),
                         ],
                       ),
@@ -184,9 +192,9 @@ class ArtistPage extends ConsumerWidget {
               child: CollectionHeader(
                 circleImage: true,
                 image: CoverImage(albumId: d.artist.coverAlbumId, size: 600, radius: 0, icon: Icons.person),
-                kind: 'Künstler',
+                kind: context.l10n.commonArtist,
                 title: d.artist.name,
-                meta: Text('${d.albums.length} Alben in deiner Bibliothek'),
+                meta: Text(context.l10n.artistLibraryAlbums(d.albums.length)),
               ),
             ),
             SliverToBoxAdapter(
@@ -202,7 +210,7 @@ class ArtistPage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: Text('Beliebt', style: Theme.of(context).textTheme.titleLarge),
+                  child: Text(context.l10n.artistPopular, style: Theme.of(context).textTheme.titleLarge),
                 ),
               ),
               SliverPadding(
@@ -221,7 +229,7 @@ class ArtistPage extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                child: Text('Diskografie', style: Theme.of(context).textTheme.titleLarge),
+                child: Text(context.l10n.artistDiscography, style: Theme.of(context).textTheme.titleLarge),
               ),
             ),
             SliverPadding(
@@ -262,12 +270,12 @@ class PlaylistPage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: CollectionHeader(
                   image: PlaylistCover(albumIds: d.playlist.coverAlbumIds),
-                  kind: d.playlist.isPublic ? 'Öffentliche Playlist' : 'Playlist',
+                  kind: d.playlist.isPublic ? context.l10n.libraryPublicPlaylist : context.l10n.commonPlaylist,
                   title: d.playlist.name,
                   description: d.playlist.description,
                   meta: Text(
-                    '${d.playlist.owner.name} • ${songs(d.playlist.trackCount)}'
-                    '${d.playlist.duration > 0 ? ', ${formatLongDuration(d.playlist.duration)}' : ''}',
+                    '${d.playlist.owner.name} • ${songs(context.l10n, d.playlist.trackCount)}'
+                    '${d.playlist.duration > 0 ? ', ${formatLongDuration(context.l10n, d.playlist.duration)}' : ''}',
                   ),
                 ),
               ),
@@ -285,8 +293,8 @@ class PlaylistPage extends ConsumerWidget {
                             case 'rename':
                               final name = await promptText(
                                 context,
-                                'Playlist umbenennen',
-                                'Name',
+                                context.l10n.libraryRenamePlaylist,
+                                context.l10n.commonName,
                                 initial: d.playlist.name,
                               );
                               if (name != null && name.isNotEmpty) {
@@ -304,23 +312,25 @@ class PlaylistPage extends ConsumerWidget {
                           }
                         },
                         itemBuilder: (_) => [
-                          const PopupMenuItem(value: 'rename', child: Text('Umbenennen')),
+                          PopupMenuItem(value: 'rename', child: Text(context.l10n.commonRename)),
                           PopupMenuItem(
                             value: 'public',
-                            child: Text(d.playlist.isPublic ? 'Privat machen' : 'Für alle Nutzer freigeben'),
+                            child: Text(
+                              d.playlist.isPublic ? context.l10n.libraryMakePrivate : context.l10n.librarySharePlaylist,
+                            ),
                           ),
-                          const PopupMenuItem(value: 'delete', child: Text('Löschen')),
+                          PopupMenuItem(value: 'delete', child: Text(context.l10n.commonDelete)),
                         ],
                       ),
                   ],
                 ),
               ),
               if (tracks.isEmpty)
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.all(32),
                     child: Text(
-                      'Noch keine Songs. Füge welche über das ⋯-Menü eines Songs hinzu.',
+                      context.l10n.libraryEmptyPlaylist,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Palette.textMuted),
                     ),
@@ -339,7 +349,7 @@ class PlaylistPage extends ConsumerWidget {
                       extraActions: [
                         if (d.editable)
                           TrackAction(
-                            'Aus dieser Playlist entfernen',
+                            context.l10n.libraryRemoveFromPlaylist,
                             Icons.remove_circle_outline,
                             () => actions.removeFromPlaylist(id, e.entryId),
                           ),
@@ -375,9 +385,9 @@ class LikedPage extends ConsumerWidget {
             SliverToBoxAdapter(
               child: CollectionHeader(
                 image: const LikedCover(),
-                kind: 'Playlist',
-                title: 'Lieblingssongs',
-                meta: Text(songs(tracks.length)),
+                kind: context.l10n.commonPlaylist,
+                title: context.l10n.libraryLikedSongs,
+                meta: Text(songs(context.l10n, tracks.length)),
               ),
             ),
             SliverToBoxAdapter(

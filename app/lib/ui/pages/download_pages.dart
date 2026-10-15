@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,12 +27,9 @@ class CatalogSearchSection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Mehr entdecken', style: Theme.of(context).textTheme.titleLarge),
+          Text(context.l10n.catalogDiscoverMore, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 2),
-          const Text(
-            'Was noch nicht in der Bibliothek ist, kannst du hier herunterladen.',
-            style: TextStyle(color: Palette.textMuted, fontSize: 13),
-          ),
+          Text(context.l10n.catalogDownloadHint, style: TextStyle(color: Palette.textMuted, fontSize: 13)),
         ],
       ),
     );
@@ -45,12 +44,12 @@ class CatalogSearchSection extends ConsumerWidget {
           ),
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(ApiException.from(e).message, style: const TextStyle(color: Palette.textMuted)),
+            child: Text(ApiException.from(e, context.l10n).message, style: const TextStyle(color: Palette.textMuted)),
           ),
           data: (r) => r.isEmpty
-              ? const Padding(
+              ? Padding(
                   padding: EdgeInsets.all(16),
-                  child: Text('Auch im Katalog nichts gefunden.', style: TextStyle(color: Palette.textMuted)),
+                  child: Text(context.l10n.catalogNoResults, style: TextStyle(color: Palette.textMuted)),
                 )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -62,11 +61,11 @@ class CatalogSearchSection extends ConsumerWidget {
                         child: CatalogTrackRow(track: t),
                       ),
                     Shelf(
-                      title: 'Alben',
+                      title: context.l10n.commonAlbums,
                       children: [for (final a in r.albums) CatalogAlbumCard(album: a)],
                     ),
                     Shelf(
-                      title: 'Künstler',
+                      title: context.l10n.commonArtists,
                       children: [for (final a in r.artists) CatalogArtistCard(artist: a)],
                     ),
                   ],
@@ -103,7 +102,7 @@ class CatalogAlbumPage extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                   child: Text(
-                    'CD ${disc ?? 1}',
+                    context.l10n.commonDiscNumber(disc ?? 1),
                     style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -117,7 +116,7 @@ class CatalogAlbumPage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: CollectionHeader(
                   image: NetworkCover(url: a.coverBigUrl ?? a.coverUrl),
-                  kind: a.typeLabel,
+                  kind: a.typeLabel(context.l10n),
                   title: a.title,
                   meta: Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
@@ -132,9 +131,9 @@ class CatalogAlbumPage extends ConsumerWidget {
                       Text(
                         [
                           if (a.year != null) ' • ${a.year}',
-                          ' • ${songs(total)}',
-                          if (duration > 0) ', ${formatLongDuration(duration)}',
-                          ' • ${have == total ? 'Komplett in der Bibliothek' : '$have von $total in der Bibliothek'}',
+                          ' • ${songs(context.l10n, total)}',
+                          if (duration > 0) ', ${formatLongDuration(context.l10n, duration)}',
+                          ' • ${have == total ? context.l10n.catalogAllInLibrary : context.l10n.catalogLibraryCount(have, total)}',
                         ].join(),
                       ),
                     ],
@@ -154,16 +153,16 @@ class CatalogAlbumPage extends ConsumerWidget {
                           catalogId: a.id,
                           inLibrary: false,
                           label: have == 0
-                              ? 'Album herunterladen'
+                              ? context.l10n.catalogDownloadAlbum
                               : total - have == 1
-                              ? 'Fehlenden Song herunterladen'
-                              : 'Fehlende ${total - have} Songs herunterladen',
+                              ? context.l10n.catalogDownloadMissingSong
+                              : context.l10n.catalogDownloadMissingSongs(total - have),
                         ),
                       if (a.libraryId != null)
                         OutlinedButton.icon(
                           onPressed: () => context.push('/album/${a.libraryId}'),
                           icon: const Icon(Icons.library_music_outlined),
-                          label: const Text('In Bibliothek öffnen'),
+                          label: Text(context.l10n.catalogOpenInLibrary),
                         ),
                     ],
                   ),
@@ -196,9 +195,9 @@ class CatalogArtistPage extends ConsumerWidget {
         onRetry: () => ref.invalidate(catalogArtistProvider(id)),
         builder: (d) {
           final groups = [
-            ('Alben', d.albums.where((a) => a.recordType == 'album').toList()),
-            ('EPs', d.albums.where((a) => a.recordType == 'ep').toList()),
-            ('Singles', d.albums.where((a) => a.recordType == 'single').toList()),
+            (context.l10n.commonAlbums, d.albums.where((a) => a.recordType == 'album').toList()),
+            (context.l10n.catalogEps, d.albums.where((a) => a.recordType == 'ep').toList()),
+            (context.l10n.catalogSingles, d.albums.where((a) => a.recordType == 'single').toList()),
           ];
           final have = d.albums.where((a) => a.libraryId != null).length;
           return CustomScrollView(
@@ -207,9 +206,9 @@ class CatalogArtistPage extends ConsumerWidget {
                 child: CollectionHeader(
                   circleImage: true,
                   image: NetworkCover(url: d.artist.pictureUrl, radius: 0, icon: Icons.person),
-                  kind: 'Künstler',
+                  kind: context.l10n.commonArtist,
                   title: d.artist.name,
-                  meta: Text('${d.albums.length} Veröffentlichungen • $have in der Bibliothek'),
+                  meta: Text(context.l10n.catalogArtistReleases(d.albums.length, have)),
                 ),
               ),
               if (d.artist.libraryId != null)
@@ -221,7 +220,7 @@ class CatalogArtistPage extends ConsumerWidget {
                       child: OutlinedButton.icon(
                         onPressed: () => context.push('/artist/${d.artist.libraryId}'),
                         icon: const Icon(Icons.library_music_outlined),
-                        label: const Text('In Bibliothek öffnen'),
+                        label: Text(context.l10n.catalogOpenInLibrary),
                       ),
                     ),
                   ),
@@ -230,7 +229,7 @@ class CatalogArtistPage extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                    child: Text('Beliebt', style: Theme.of(context).textTheme.titleLarge),
+                    child: Text(context.l10n.artistPopular, style: Theme.of(context).textTheme.titleLarge),
                   ),
                 ),
                 SliverPadding(
@@ -284,39 +283,35 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('Downloads', style: TextStyle(fontWeight: FontWeight.w800)),
+          title: Text(context.l10n.navDownloads, style: TextStyle(fontWeight: FontWeight.w800)),
           actions: [
             if (isAdmin)
               Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: SegmentedButton<String>(
                   showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 'mine', label: Text('Meine')),
-                    ButtonSegment(value: 'all', label: Text('Alle Nutzer')),
+                  segments: [
+                    ButtonSegment(value: 'mine', label: Text(context.l10n.downloadsMine)),
+                    ButtonSegment(value: 'all', label: Text(context.l10n.downloadsAllUsers)),
                   ],
                   selected: {scope},
                   onSelectionChanged: (s) => setState(() => _scope = s.first),
                 ),
               ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
-              Tab(text: 'Offen'),
-              Tab(text: 'Abgeschlossen'),
+              Tab(text: context.l10n.downloadsOpen),
+              Tab(text: context.l10n.downloadsCompleted),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            _RequestList(
-              scope: scope,
-              state: 'open',
-              empty: 'Keine laufenden Downloads.\nSuche nach Musik und tippe auf ⤓.',
-            ),
-            _RequestList(scope: scope, state: 'finished', empty: 'Noch nichts heruntergeladen.'),
+            _RequestList(scope: scope, state: 'open', empty: context.l10n.downloadsEmptyActive),
+            _RequestList(scope: scope, state: 'finished', empty: context.l10n.downloadsEmptyCompleted),
           ],
         ),
       ),
@@ -363,7 +358,7 @@ class _RequestTile extends ConsumerWidget {
     final r = request;
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
     const muted = TextStyle(color: Palette.textMuted, fontSize: 13);
-    final counts = r.kind == 'album' ? ' • ${r.doneCount}/${songs(r.itemCount)}' : '';
+    final counts = r.kind == 'album' ? ' • ${r.doneCount}/${songs(context.l10n, r.itemCount)}' : '';
     return InkWell(
       borderRadius: BorderRadius.circular(6),
       onTap: () => context.push('/downloads/${r.id}'),
@@ -382,7 +377,11 @@ class _RequestTile extends ConsumerWidget {
                 children: [
                   Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(
-                    [r.kind == 'album' ? 'Album' : 'Song', r.artist, if (showUser) 'von ${r.user.name}'].join(' • '),
+                    [
+                      r.kind == 'album' ? context.l10n.commonAlbum : context.l10n.commonSong,
+                      r.artist,
+                      if (showUser) context.l10n.downloadsRequestedBySuffix((r.user.name).toString()),
+                    ].join(' • '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: muted,
@@ -392,7 +391,7 @@ class _RequestTile extends ConsumerWidget {
                     children: [
                       Icon(requestStatusIcon(r.status), size: 14, color: requestStatusColor(context, r.status)),
                       const SizedBox(width: 4),
-                      Text('${requestStatusLabel(r.status)}$counts', style: muted.copyWith(fontSize: 12)),
+                      Text('${requestStatusLabel(context.l10n, r.status)}$counts', style: muted.copyWith(fontSize: 12)),
                     ],
                   ),
                   if (r.status == 'active') ...[
@@ -404,9 +403,13 @@ class _RequestTile extends ConsumerWidget {
             ),
             if (isAdmin && r.status == 'pending_approval') ...[
               const SizedBox(width: 8),
-              IconButton(tooltip: 'Ablehnen', icon: const Icon(Icons.close), onPressed: () => _reject(context, ref, r)),
+              IconButton(
+                tooltip: context.l10n.downloadsReject,
+                icon: const Icon(Icons.close),
+                onPressed: () => _reject(context, ref, r),
+              ),
               IconButton.filled(
-                tooltip: 'Freigeben',
+                tooltip: context.l10n.downloadsApprove,
                 icon: const Icon(Icons.check),
                 onPressed: () => _run(context, () => ref.read(downloadActionsProvider).action(r.id, 'approve')),
               ),
@@ -427,7 +430,7 @@ Future<void> _run(BuildContext context, Future<void> Function() fn) async {
 }
 
 Future<void> _reject(BuildContext context, WidgetRef ref, DownloadRequest r) async {
-  final note = await promptText(context, 'Anfrage ablehnen', 'Begründung (optional)');
+  final note = await promptText(context, context.l10n.downloadsRejectRequest, context.l10n.downloadsReasonOptional);
   if (note == null || !context.mounted) return;
   await _run(context, () => ref.read(downloadActionsProvider).reject(r.id, note: note.isEmpty ? null : note));
 }
@@ -442,7 +445,7 @@ class RequestDetailPage extends ConsumerWidget {
     final user = ref.watch(sessionProvider.select((s) => s.user));
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Download')),
+      appBar: AppBar(title: Text(context.l10n.downloadsDownload)),
       body: AsyncBody(
         value: value,
         onRetry: () => ref.invalidate(requestDetailProvider(id)),
@@ -467,17 +470,27 @@ class RequestDetailPage extends ConsumerWidget {
                         Text(r.artist, style: const TextStyle(color: Palette.textMuted)),
                         const SizedBox(height: 8),
                         Text(
-                          '${requestStatusLabel(r.status)} • ${r.doneCount}/${r.itemCount} fertig'
-                          '${r.failedCount > 0 ? ' • ${r.failedCount} fehlgeschlagen' : ''}',
+                          context.l10n.downloadsProgress(
+                            (requestStatusLabel(context.l10n, r.status)).toString(),
+                            r.doneCount,
+                            r.itemCount,
+                            (r.failedCount > 0 ? context.l10n.downloadsFailedSuffix(r.failedCount) : '').toString(),
+                          ),
                         ),
                         if (isAdmin)
-                          Text('Angefragt von ${r.user.name}', style: const TextStyle(color: Palette.textMuted)),
+                          Text(
+                            context.l10n.downloadsRequestedBy((r.user.name).toString()),
+                            style: const TextStyle(color: Palette.textMuted),
+                          ),
                         if (r.note != null)
-                          Text('Begründung: ${r.note}', style: const TextStyle(color: Palette.textMuted)),
+                          Text(
+                            context.l10n.downloadsReason((r.note).toString()),
+                            style: const TextStyle(color: Palette.textMuted),
+                          ),
                         if (r.torrentStatus != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            _torrentLabel(r),
+                            _torrentLabel(context.l10n, r),
                             style: const TextStyle(color: Palette.textMuted),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -505,25 +518,25 @@ class RequestDetailPage extends ConsumerWidget {
                     FilledButton.icon(
                       onPressed: () => _run(context, () => actions.action(r.id, 'approve')),
                       icon: const Icon(Icons.check),
-                      label: const Text('Freigeben'),
+                      label: Text(context.l10n.downloadsApprove),
                     ),
                     OutlinedButton.icon(
                       onPressed: () => _reject(context, ref, r),
                       icon: const Icon(Icons.close),
-                      label: const Text('Ablehnen'),
+                      label: Text(context.l10n.downloadsReject),
                     ),
                   ],
                   if (r.failedCount > 0 && r.status != 'rejected')
                     FilledButton.tonalIcon(
                       onPressed: () => _run(context, () => actions.action(r.id, 'retry')),
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Fehlgeschlagene erneut versuchen'),
+                      label: Text(context.l10n.downloadsRetryFailed),
                     ),
                   if (r.isOpen)
                     OutlinedButton.icon(
                       onPressed: () => _run(context, () => actions.action(r.id, 'cancel')),
                       icon: const Icon(Icons.stop_circle_outlined),
-                      label: const Text('Abbrechen'),
+                      label: Text(context.l10n.commonCancel),
                     ),
                   if (isAdmin && !r.isOpen)
                     TextButton.icon(
@@ -532,7 +545,7 @@ class RequestDetailPage extends ConsumerWidget {
                         if (context.mounted) context.pop();
                       }),
                       icon: const Icon(Icons.delete_outline),
-                      label: const Text('Eintrag löschen'),
+                      label: Text(context.l10n.downloadsDeleteEntry),
                     ),
                 ],
               ),
@@ -571,9 +584,9 @@ class _ItemRow extends StatelessWidget {
                 Text(
                   [
                     item.artist,
-                    requestStatusLabel(item.status),
-                    if (item.source == 'youtube') 'YouTube Music',
-                    if (item.source == 'torrent') 'Torrent',
+                    requestStatusLabel(context.l10n, item.status),
+                    if (item.source == 'youtube') context.l10n.catalogYouTubeMusic,
+                    if (item.source == 'torrent') context.l10n.downloadsTorrent,
                   ].join(' • '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -599,11 +612,11 @@ class _ItemRow extends StatelessWidget {
   }
 }
 
-String _torrentLabel(DownloadRequest r) => switch (r.torrentStatus) {
-  'searching' => 'Suche Torrent …',
-  'downloading' => 'Torrent: ${r.torrentName ?? ''} (${(r.torrentProgress * 100).round()} %)',
-  'importing' => 'Torrent wird importiert …',
-  'done' => 'Torrent: ${r.torrentName ?? ''}',
-  'failed' => 'Kein Torrent – lade über YouTube Music${r.torrentError == null ? '' : ' (${r.torrentError})'}',
+String _torrentLabel(AppLocalizations l10n, DownloadRequest r) => switch (r.torrentStatus) {
+  'searching' => l10n.downloadsSearchingTorrent,
+  'downloading' => l10n.downloadsTorrentProgress((r.torrentName ?? '').toString(), (r.torrentProgress * 100).round()),
+  'importing' => l10n.downloadsImportingTorrent,
+  'done' => l10n.downloadsTorrentName((r.torrentName ?? '').toString()),
+  'failed' => l10n.downloadsTorrentFallback((r.torrentError == null ? '' : ' (${r.torrentError})').toString()),
   _ => '',
 };

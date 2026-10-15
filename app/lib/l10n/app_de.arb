@@ -1,0 +1,884 @@
+{
+  "@@locale": "de",
+  "settingsPlayback": "Wiedergabe",
+  "commonProductName": "Resonance",
+  "errorInvalidInput": "Ungültige Eingabe",
+  "errorServerUnreachable": "Server nicht erreichbar",
+  "errorHttpStatus": "Fehler {statusCode}",
+  "@errorHttpStatus": {
+    "placeholders": {
+      "statusCode": {
+        "type": "String"
+      }
+    }
+  },
+  "catalogSingle": "Single",
+  "catalogCompilation": "Compilation",
+  "commonAlbum": "Album",
+  "commonUnknown": "Unbekannt",
+  "playerMusicLoadError": "Die Musik konnte nicht geladen werden. Bitte erneut versuchen.",
+  "playerAudiobookLoadError": "Das Hörbuch konnte nicht geladen werden. Bitte erneut versuchen.",
+  "playerBookPart": "Teil {part} von {total}",
+  "@playerBookPart": {
+    "placeholders": {
+      "part": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "navHome": "Start",
+  "navSearch": "Suche",
+  "navLibrary": "Bibliothek",
+  "navAudiobooks": "Hörbücher",
+  "navAdmin": "Admin",
+  "navDownloads": "Downloads",
+  "adminDashboard": "Admin-Dashboard",
+  "libraryCreatePlaylist": "Playlist erstellen",
+  "libraryNewPlaylist": "Neue Playlist",
+  "commonName": "Name",
+  "libraryLikedSongs": "Lieblingssongs",
+  "commonPlaylist": "Playlist",
+  "libraryPlaylistBy": "Playlist • {name}",
+  "@libraryPlaylistBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "navSettings": "Einstellungen",
+  "searchHint": "Was möchtest du hören?",
+  "searchNoLibraryResults": "Keine Treffer für „{query}“ in deiner Bibliothek.",
+  "@searchNoLibraryResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "commonSongsTitle": "Songs",
+  "commonArtist": "Künstler",
+  "commonAlbums": "Alben",
+  "libraryAllArtists": "Alle Künstler",
+  "libraryTitle": "Deine Bibliothek",
+  "libraryPlaylists": "Playlists",
+  "librarySavedAlbums": "Gespeicherte Alben",
+  "libraryAllAlbums": "Alle Alben",
+  "libraryLoadingSongs": "… Songs",
+  "libraryNoAlbums": "Keine Alben",
+  "librarySaveAlbumsHint": "Speichere Alben mit ⊕, um sie hier zu sehen.",
+  "commonDiscNumber": "CD {number}",
+  "@commonDiscNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryRemoveAlbum": "Aus Bibliothek entfernen",
+  "librarySaveAlbum": "In Bibliothek speichern",
+  "playerAddToPlaylist": "Zur Playlist hinzufügen",
+  "editorCorrectAlbum": "Album korrigieren",
+  "editorMatchAlbum": "Album zuordnen",
+  "editorChangeCover": "Cover ändern",
+  "artistLibraryAlbums": "{count, plural, other{{count} Alben in deiner Bibliothek}}",
+  "@artistLibraryAlbums": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "artistPopular": "Beliebt",
+  "artistDiscography": "Diskografie",
+  "libraryPublicPlaylist": "Öffentliche Playlist",
+  "libraryRenamePlaylist": "Playlist umbenennen",
+  "commonRename": "Umbenennen",
+  "libraryMakePrivate": "Privat machen",
+  "librarySharePlaylist": "Für alle Nutzer freigeben",
+  "commonDelete": "Löschen",
+  "libraryEmptyPlaylist": "Noch keine Songs. Füge welche über das ⋯-Menü eines Songs hinzu.",
+  "libraryRemoveFromPlaylist": "Aus dieser Playlist entfernen",
+  "homeGreetingNight": "Gute Nacht",
+  "homeGreetingMorning": "Guten Morgen",
+  "homeGreetingAfternoon": "Guten Tag",
+  "homeGreetingEvening": "Guten Abend",
+  "homeRecentlyPlayed": "Zuletzt gehört",
+  "homeYourPlaylists": "Deine Playlists",
+  "homeRecentlyAdded": "Neu in der Bibliothek",
+  "homeEmptyLibrary": "Deine Bibliothek ist noch leer.\nEin Admin kann im Dashboard einen Bibliotheks-Scan starten.",
+  "playerNothingPlaying": "Gerade läuft nichts",
+  "playerQueue": "Warteschlange",
+  "audiobooksBook": "Hörbuch",
+  "playerGoToAudiobook": "Zum Hörbuch",
+  "audiobooksChapters": "Kapitel",
+  "playerEmptyQueue": "Die Warteschlange ist leer",
+  "playerNowPlaying": "Läuft gerade",
+  "playerNextUp": "Als Nächstes",
+  "playerRemoveFromQueue": "Aus Warteschlange entfernen",
+  "settingsAccount": "Konto",
+  "settingsAdministratorSuffix": " • Administrator",
+  "settingsDisplayName": "Anzeigename",
+  "settingsChangePassword": "Passwort ändern",
+  "settingsAppearance": "Darstellung",
+  "settingsAccentColor": "Akzentfarbe",
+  "settingsCustomColor": "Eigene Farbe",
+  "commonCancel": "Abbrechen",
+  "commonApply": "Übernehmen",
+  "settingsNormalizeVolume": "Lautstärke angleichen",
+  "settingsNormalizeVolumeHint": "Nutzt ReplayGain, damit alle Songs ähnlich laut sind",
+  "settingsSignedInDevices": "Angemeldete Geräte",
+  "settingsUnknownDevice": "Unbekanntes Gerät",
+  "settingsCurrentDeviceSuffix": " (dieses Gerät)",
+  "settingsLastActive": "Zuletzt aktiv: {date}",
+  "@settingsLastActive": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "commonSignOut": "Abmelden",
+  "settingsCurrentPassword": "Aktuelles Passwort",
+  "settingsNewPassword": "Neues Passwort",
+  "commonChange": "Ändern",
+  "settingsPasswordChanged": "Passwort geändert",
+  "catalogDiscoverMore": "Mehr entdecken",
+  "catalogDownloadHint": "Was noch nicht in der Bibliothek ist, kannst du hier herunterladen.",
+  "catalogNoResults": "Auch im Katalog nichts gefunden.",
+  "catalogAllInLibrary": "Komplett in der Bibliothek",
+  "catalogLibraryCount": "{count} von {total} in der Bibliothek",
+  "@catalogLibraryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "catalogDownloadAlbum": "Album herunterladen",
+  "catalogDownloadMissingSong": "Fehlenden Song herunterladen",
+  "catalogDownloadMissingSongs": "{count, plural, other{Fehlende {count} Songs herunterladen}}",
+  "@catalogDownloadMissingSongs": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "catalogOpenInLibrary": "In Bibliothek öffnen",
+  "catalogEps": "EPs",
+  "catalogSingles": "Singles",
+  "catalogArtistReleases": "{count, plural, other{{count} Veröffentlichungen • {inLibrary} in der Bibliothek}}",
+  "@catalogArtistReleases": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "inLibrary": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadsMine": "Meine",
+  "downloadsAllUsers": "Alle Nutzer",
+  "downloadsOpen": "Offen",
+  "downloadsCompleted": "Abgeschlossen",
+  "downloadsEmptyActive": "Keine laufenden Downloads.\nSuche nach Musik und tippe auf ⤓.",
+  "downloadsEmptyCompleted": "Noch nichts heruntergeladen.",
+  "commonSong": "Song",
+  "downloadsRequestedBySuffix": "von {name}",
+  "@downloadsRequestedBySuffix": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsReject": "Ablehnen",
+  "downloadsApprove": "Freigeben",
+  "downloadsRejectRequest": "Anfrage ablehnen",
+  "downloadsReasonOptional": "Begründung (optional)",
+  "downloadsDownload": "Download",
+  "downloadsProgress": "{status} • {done}/{total} fertig{failed}",
+  "@downloadsProgress": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsFailedSuffix": " • {count} fehlgeschlagen",
+  "@downloadsFailedSuffix": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadsRequestedBy": "Angefragt von {name}",
+  "@downloadsRequestedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsReason": "Begründung: {reason}",
+  "@downloadsReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsRetryFailed": "Fehlgeschlagene erneut versuchen",
+  "downloadsDeleteEntry": "Eintrag löschen",
+  "catalogYouTubeMusic": "YouTube Music",
+  "downloadsTorrent": "Torrent",
+  "downloadsSearchingTorrent": "Suche Torrent …",
+  "downloadsTorrentProgress": "Torrent: {name} ({progress} %)",
+  "@downloadsTorrentProgress": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "progress": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadsImportingTorrent": "Torrent wird importiert …",
+  "downloadsTorrentName": "Torrent: {name}",
+  "@downloadsTorrentName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsTorrentFallback": "Kein Torrent – lade über YouTube Music{error}",
+  "@downloadsTorrentFallback": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "commonDurationHoursMinutes": "{hours} Std. {minutes} Min.",
+  "@commonDurationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "commonDurationMinutes": "{minutes} Min.",
+  "@commonDurationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "audiobooksFinished": "Beendet",
+  "audiobooksTimeRemaining": "Noch {duration}",
+  "@audiobooksTimeRemaining": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "audiobooksNotConfigured": "Hörbücher sind auf diesem Server nicht eingerichtet.",
+  "audiobooksLoginTitle": "Mit Audiobookshelf verbinden",
+  "audiobooksLoginHint": "Melde dich mit deinem Audiobookshelf-Konto an{address}. Dein Hörfortschritt bleibt mit allen Audiobookshelf-Apps synchron.",
+  "@audiobooksLoginHint": {
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "authUsername": "Benutzername",
+  "authPassword": "Passwort",
+  "authSignIn": "Anmelden",
+  "audiobooksNoLibrary": "Keine Hörbuch-Bibliothek gefunden",
+  "audiobooksSignOutUser": "Abmelden ({name})",
+  "@audiobooksSignOutUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "audiobooksSearchHint": "Titel, Autor oder Serie suchen",
+  "audiobooksContinueListening": "Weiterhören",
+  "audiobooksAllBooks": "Alle Hörbücher",
+  "commonNothingFound": "Nichts gefunden",
+  "audiobooksNarrator": "gelesen von {name}",
+  "@audiobooksNarrator": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "audiobooksStartOver": "Von vorn beginnen",
+  "audiobooksMarkUnfinished": "Als nicht beendet markieren",
+  "audiobooksMarkFinished": "Als beendet markieren",
+  "authCheckAddress": "{error}\nIst die Adresse richtig?",
+  "@authCheckAddress": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "authConnectTitle": "Mit Server verbinden",
+  "authServerAddress": "Server-Adresse",
+  "authConnect": "Verbinden",
+  "commonRetry": "Erneut versuchen",
+  "authOtherServer": "Anderer Server",
+  "authSignInTo": "Bei {name} anmelden",
+  "@authSignInTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "authCreateAccount": "Konto erstellen",
+  "authServer": "Server: {address}",
+  "@authServer": {
+    "placeholders": {
+      "address": {
+        "type": "String"
+      }
+    }
+  },
+  "authPasswordsMismatch": "Passwörter stimmen nicht überein",
+  "authInvalidInvite": "Einladung ungültig",
+  "authInvalidInviteHint": "Dieser Einladungslink wurde bereits benutzt oder ist abgelaufen. Bitte frag einen Admin nach einem neuen Link.",
+  "authBackToLogin": "Zur Anmeldung",
+  "authWelcomeAdmin": "Willkommen! Admin-Konto anlegen",
+  "authFirstAccountHint": "Das erste Konto auf diesem Server wird automatisch Administrator.",
+  "authPasswordMinimum": "Passwort (min. 8 Zeichen)",
+  "authRepeatPassword": "Passwort wiederholen",
+  "authRegister": "Registrieren",
+  "authAlreadyHaveAccount": "Ich habe schon ein Konto",
+  "catalogAwaitingApproval": "„{title}“ wartet auf Freigabe durch einen Admin",
+  "@catalogAwaitingApproval": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "catalogAlreadyInLibrary": "„{title}“ ist schon in deiner Bibliothek",
+  "@catalogAlreadyInLibrary": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "catalogDownloadingTitle": "„{title}“ wird heruntergeladen",
+  "@catalogDownloadingTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "catalogInYourLibrary": "In deiner Bibliothek",
+  "catalogRequested": "Angefragt",
+  "catalogDownload": "Herunterladen",
+  "catalogInLibrary": "In Bibliothek",
+  "downloadsStatusPendingApproval": "Wartet auf Freigabe",
+  "downloadsStatusRunning": "Läuft",
+  "commonDone": "Fertig",
+  "downloadsStatusPartial": "Teilweise fertig",
+  "downloadsStatusFailed": "Fehlgeschlagen",
+  "downloadsStatusRejected": "Abgelehnt",
+  "downloadsStatusCancelled": "Abgebrochen",
+  "downloadsStatusQueued": "In Warteschlange",
+  "downloadsStatusSearching": "Suche Quelle …",
+  "downloadsStatusDownloading": "Lädt herunter",
+  "downloadsStatusProcessing": "Wird getaggt …",
+  "downloadsStatusExisting": "Schon vorhanden",
+  "playerShuffle": "Zufallswiedergabe",
+  "playerRemoveLiked": "Aus Lieblingssongs entfernen",
+  "playerAddLiked": "Zu Lieblingssongs hinzufügen",
+  "playerPlayNext": "Als Nächstes spielen",
+  "playerAddToQueue": "Zur Warteschlange hinzufügen",
+  "playerGoToAlbum": "Zum Album",
+  "playerGoToArtist": "Zum Künstler",
+  "editorCorrectMetadata": "Metadaten korrigieren",
+  "libraryAddedToPlaylist": "Zu „{name}“ hinzugefügt",
+  "@libraryAddedToPlaylist": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "commonSave": "Speichern",
+  "playerSkipBack": "30 Sekunden zurück",
+  "playerSkipForward": "30 Sekunden vor",
+  "playerPrevious": "Zurück",
+  "playerNext": "Weiter",
+  "playerRepeat": "Wiederholen",
+  "playerSpeed": "Geschwindigkeit",
+  "playerSleepTimer": "Sleep-Timer",
+  "playerSleepTimerTime": "Sleep-Timer: pausiert um {time}",
+  "@playerSleepTimerTime": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "playerTimerMinutes": "{minutes, plural, other{{minutes} Minuten}}",
+  "@playerTimerMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "playerDisableTimer": "Timer ausschalten",
+  "playerFullscreen": "Vollbild",
+  "commonDurationMinutesSeconds": "{minutes} Min. {seconds} Sek.",
+  "@commonDurationMinutesSeconds": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "updateAllowInstall": "Bitte erlaube Resonance in den Android-Einstellungen, Apps zu installieren.",
+  "updateFailedCode": "Update fehlgeschlagen ({code}). Bitte erneut versuchen.",
+  "@updateFailedCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "updateFailedMessage": "Update fehlgeschlagen: {error}",
+  "@updateFailedMessage": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "updateInProgress": "App wird aktualisiert",
+  "updateDownloadStarting": "Download startet …",
+  "updateDownloadProgress": "Download {percent} %",
+  "@updateDownloadProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "commonClose": "Schließen",
+  "updateAvailableTitle": "Neue App-Version {version} verfügbar",
+  "@updateAvailableTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateInstall": "Installieren",
+  "updateInstalledVersion": "App-Version {version} ({code})",
+  "@updateInstalledVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "updateAvailableVersion": "Version {version} ist verfügbar",
+  "@updateAvailableVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateCurrent": "Aktuell",
+  "updateAction": "Aktualisieren",
+  "updateCheck": "Nach Updates suchen",
+  "updateAlreadyCurrent": "Die App ist aktuell",
+  "adminImportCleanupTitle": "Bibliothek aufräumen?",
+  "adminImportCleanupHint": "Alle Songs der Bibliothek werden per Audio-Fingerabdruck erkannt, neu getaggt, mit Cover versehen und nach „Künstler/Album (Jahr)/Nr - Titel“ umbenannt. Die Dateien werden dabei direkt verändert.\n\nLikes, Playlists und Verlauf bleiben erhalten. Bei großen Bibliotheken dauert das mehrere Stunden.",
+  "adminImportCleanupConfirm": "Aufräumen",
+  "adminImportFolder": "Import-Ordner",
+  "adminImportPendingFiles": "{count, plural, other{{count} Audiodateien warten • Modus: {mode}}}",
+  "@adminImportPendingFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "adminImportCopyHint": "Kopieren (Originale bleiben unverändert)",
+  "adminImportMove": "Verschieben",
+  "adminImportAcoustIdHint": "Kein AcoustID-Schlüssel eingetragen – Songs werden nur über ihre vorhandenen Tags erkannt. Einen kostenlosen Schlüssel gibt es auf acoustid.org/new-application; eintragen unter „Server“.",
+  "adminImportStart": "Import starten",
+  "adminImportCleanup": "Bibliothek aufräumen",
+  "adminImportHistory": "Verlauf",
+  "adminImportEmptyHistory": "Noch kein Import gelaufen.",
+  "adminImportWaiting": "Wartet",
+  "adminImportBatchTitle": "Import ({mode})",
+  "@adminImportBatchTitle": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "adminImportFileProgress": "{total, plural, other{{count} von {total} Dateien}}",
+  "@adminImportFileProgress": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "adminImportIdentified": "Erkannt",
+  "adminImportImported": "Importiert",
+  "adminImportDuplicates": "Duplikate",
+  "adminImportUnidentified": "Nicht erkannt",
+  "adminImportErrors": "Fehler",
+  "adminImportMethodAlbumFingerprint": "Erkannt per Fingerabdruck (komplettes Album)",
+  "adminImportMethodTrackFingerprint": "Erkannt per Fingerabdruck (einzelner Song)",
+  "adminImportMethodTags": "Erkannt über vorhandene Tags (Katalog)",
+  "adminImportMethodUnidentified": "Nicht erkannt – vorhandene Tags übernommen",
+  "adminTabOverview": "Übersicht",
+  "adminTabUsers": "Benutzer",
+  "adminTabInvites": "Einladungen",
+  "adminTabImport": "Import",
+  "adminTabReview": "Zu prüfen",
+  "adminTabServer": "Server",
+  "adminStorage": "Speicher",
+  "adminPlaytime": "Spielzeit",
+  "commonDurationHours": "{hours} Std.",
+  "@commonDurationHours": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "adminScanHint": "Der schnelle Scan liest nur neue und geänderte Dateien ein. Der vollständige Scan liest alle Tags und Cover neu.",
+  "adminQuickScan": "Schneller Scan",
+  "adminFullScan": "Vollständiger Scan",
+  "adminJobs": "Aufgaben",
+  "adminNoJobs": "Noch keine Aufgaben",
+  "adminLibraryScan": "Bibliotheks-Scan",
+  "adminUserYouSuffix": " (du)",
+  "adminUserDisabledSuffix": " • deaktiviert",
+  "adminUserLastSeenSuffix": " • zuletzt {date}",
+  "@adminUserLastSeenSuffix": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "adminNewPasswordFor": "Neues Passwort für {name}",
+  "@adminNewPasswordFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "adminPasswordSet": "Passwort gesetzt, alle Geräte abgemeldet",
+  "adminDeleteUserTitle": "{name} löschen?",
+  "@adminDeleteUserTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "adminDeleteUserHint": "Playlists und Verlauf werden ebenfalls gelöscht.",
+  "adminRemoveAdmin": "Admin-Rechte entziehen",
+  "adminMakeAdmin": "Zum Admin machen",
+  "adminEnableUser": "Aktivieren",
+  "adminDisableUser": "Deaktivieren",
+  "adminResetPassword": "Passwort zurücksetzen",
+  "adminPasswordMinimum": "Min. 8 Zeichen",
+  "adminCreateInviteTitle": "Einladungslink erstellen",
+  "adminInviteNote": "Notiz (z. B. für wen)",
+  "adminInviteValidity": "Gültig für",
+  "adminInviteOneDay": "1 Tag",
+  "adminInviteThreeDays": "3 Tage",
+  "adminInviteSevenDays": "7 Tage",
+  "adminInviteThirtyDays": "30 Tage",
+  "adminInviteUnlimited": "Unbegrenzt",
+  "adminInviteAsAdmin": "Als Admin registrieren",
+  "commonCreate": "Erstellen",
+  "adminInviteLink": "Einladungslink",
+  "adminInviteLinkHint": "Der Link kann genau einmal benutzt werden. Er wird nur jetzt angezeigt.",
+  "adminLinkCopied": "Link kopiert",
+  "commonCopy": "Kopieren",
+  "adminNewInvite": "Neuer Link",
+  "adminNoInvites": "Noch keine Einladungen.\nErstelle einen Link, um jemanden einzuladen.",
+  "adminInvitation": "Einladung",
+  "adminInviteUsed": "Benutzt von {name} am {date}",
+  "@adminInviteUsed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInviteExpired": "Abgelaufen",
+  "adminInviteOpen": "Offen • {expiry}{role}",
+  "@adminInviteOpen": {
+    "placeholders": {
+      "expiry": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInviteNoExpiry": "läuft nicht ab",
+  "adminInviteExpires": "gültig bis {date}",
+  "@adminInviteExpires": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "adminInviteAdminSuffix": " • Admin",
+  "adminServerName": "Servername",
+  "adminRegistration": "Registrierung",
+  "adminRegistrationInviteOnly": "Nur mit Einladungslink",
+  "adminRegistrationInviteHint": "Admins erstellen einmalig nutzbare Links (empfohlen)",
+  "adminRegistrationPublic": "Öffentliche Registrierung",
+  "adminRegistrationPublicHint": "Jeder, der den Server erreicht, kann ein Konto anlegen",
+  "adminLibraryImport": "Bibliothek & Import",
+  "adminAcoustIdKey": "AcoustID-Schlüssel",
+  "adminAcoustIdNotSet": "Nicht gesetzt – kostenlos auf acoustid.org/new-application",
+  "adminConfigured": "Gesetzt",
+  "adminAcoustIdHint": "Für die Erkennung per Audio-Fingerabdruck",
+  "adminMoveImportedFiles": "Importierte Dateien verschieben",
+  "adminMoveImportedFilesHint": "Der Import-Ordner wird danach geleert",
+  "adminCopyImportedFiles": "Importierte Dateien kopieren",
+  "adminCopyImportedFilesHint": "Originale bleiben unverändert im Import-Ordner",
+  "adminImportUnidentifiedFiles": "Nicht erkannte Dateien trotzdem importieren",
+  "adminImportUnidentifiedFilesHint": "Mit ihren vorhandenen Tags; sonst bleiben sie im Import-Ordner liegen",
+  "adminAutoImport": "Import-Ordner automatisch importieren",
+  "adminAutoImportHint": "Prüft alle 5 Minuten auf neue Dateien (nur im Modus „Verschieben“)",
+  "adminSongRadio": "Song-Radio",
+  "adminRadioAutoDownload": "Fehlende Songs automatisch herunterladen",
+  "adminRadioAutoDownloadHint": "Ähnliche Songs, die noch nicht in der Bibliothek sind, landen in der Download-Warteschlange",
+  "adminRadioTemporary": "Radio-Downloads sind temporär",
+  "adminRadioTemporaryHint": "{days, plural, other{Werden nach {days} Tagen gelöscht, außer jemand liked sie oder fügt sie einer Playlist hinzu}}",
+  "@adminRadioTemporaryHint": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "adminRadioRetention": "Aufbewahrung temporärer Songs (Tage)",
+  "adminEnableAudiobookshelf": "Audiobookshelf einbinden",
+  "adminEnableAudiobookshelfHint": "Zeigt den Tab „Hörbücher“. Jeder Benutzer meldet sich dort mit seinem eigenen Audiobookshelf-Konto an.",
+  "adminAudiobookshelfAddress": "Audiobookshelf-Adresse",
+  "adminAudiobookshelfAddressHint": "z. B. https://audio.example.com – auch für externe Apps gedacht",
+  "adminAlbumTorrents": "Torrents für Alben",
+  "adminAlbumTorrentsHint": "Sucht Alben zuerst über Prowlarr (öffentliche Tracker) und lädt sie mit qBittorrent über das VPN. Was dort fehlt, kommt von YouTube Music.",
+  "adminProwlarrApiKey": "Prowlarr-API-Schlüssel",
+  "adminProwlarrApiKeyHint": "Prowlarr → Settings → General → API Key",
+  "adminQbittorrentUsername": "qBittorrent-Benutzer",
+  "adminQbittorrentPassword": "qBittorrent-Passwort",
+  "adminMinimumSeeders": "Mindestanzahl Seeder",
+  "adminTorrentTimeout": "Aufgeben nach … Minuten ohne Fortschritt",
+  "adminYouTubeSource": "YouTube Music als Quelle",
+  "adminYouTubeSourceHint": "Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)",
+  "adminQualityUpgrades": "Qualitäts-Upgrades",
+  "adminQualityUpgradesHint": "Songs in niedriger Qualität (z. B. von YouTube) später durch FLAC/MP3 320 ersetzen",
+  "adminAutoApprove": "Anfragen automatisch genehmigen",
+  "adminAutoApproveHint": "Sonst muss ein Admin Anfragen von Benutzern freigeben",
+  "adminDailyLimit": "Tageslimit pro Benutzer",
+  "adminDailyLimitHint": "{count, plural, other{Max. {count} automatische Downloads pro Tag}}",
+  "@adminDailyLimitHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "adminDownloadsPerDay": "Downloads pro Benutzer und Tag",
+  "adminNotConfigured": "Nicht gesetzt",
+  "adminTestConnection": "Verbindung testen",
+  "adminProwlarr": "Prowlarr",
+  "adminQbittorrent": "qBittorrent",
+  "editorSavedTrack": "Gespeichert: {title} – {artist} ({album})",
+  "@editorSavedTrack": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "artist": {
+        "type": "String"
+      },
+      "album": {
+        "type": "String"
+      }
+    }
+  },
+  "editorBitrate": "{bitrate} kbit/s",
+  "@editorBitrate": {
+    "placeholders": {
+      "bitrate": {
+        "type": "int"
+      }
+    }
+  },
+  "editorTabSearch": "Suchen",
+  "editorTabFingerprint": "Fingerabdruck",
+  "editorTabEdit": "Bearbeiten",
+  "editorSearchTrackHint": "Künstler und Titel",
+  "editorChooseTrackHint": "Tippe auf den richtigen Song – Tags, Cover und Dateiname werden übernommen.",
+  "editorFingerprintSearching": "Audio-Fingerabdruck wird abgeglichen …",
+  "editorFingerprintUnknown": "AcoustID kennt diese Aufnahme nicht. Versuche es über „Suchen“ oder „Bearbeiten“.",
+  "editorUnknownTitle": "Unbekannter Titel",
+  "editorFingerprintScore": "   {percent} % Übereinstimmung",
+  "@editorFingerprintScore": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "editorAutoSelectAlbum": "Originalalbum automatisch wählen",
+  "editorUnknownAlbum": "Unbekanntes Album",
+  "editorTrackNumberWithTotal": "Nr. {number}{total}",
+  "@editorTrackNumberWithTotal": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "editorTrackTotalSuffix": " von {total}",
+  "@editorTrackTotalSuffix": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "editorNumbersOnly": "Bitte nur Zahlen bei Jahr, Nr. und CD eingeben",
+  "editorNoChanges": "Keine Änderungen",
+  "editorTitle": "Titel",
+  "editorSwapTitleArtist": "Titel und Künstler tauschen",
+  "editorAlbumArtist": "Album-Künstler",
+  "editorYear": "Jahr",
+  "editorTrackNumber": "Nr.",
+  "editorGenre": "Genre",
+  "editorManualHint": "Leere Felder bleiben unverändert. Die Datei wird danach nach „Album-Künstler/Album (Jahr)/Nr - Titel“ umbenannt.",
+  "editorMatchedSongs": "{total, plural, other{{count} von {total} Songs zugeordnet}}",
+  "@editorMatchedSongs": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "editorUnmatchedSongs": "Nicht zugeordnet (unverändert):",
+  "editorSearchAlbumHint": "Künstler und Album oder MusicBrainz-Link",
+  "editorMatchAlbumHint": "{count, plural, other{Die {count} Songs dieses Albums werden per Titel, Position und Länge den Songs der gewählten Veröffentlichung zugeordnet. Was nicht passt, bleibt unverändert.}}",
+  "@editorMatchAlbumHint": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorUseMusicBrainzRelease": "MusicBrainz-Veröffentlichung verwenden",
+  "editorRetagging": "Songs werden neu getaggt …",
+  "editorCoverSaved": "Cover gespeichert",
+  "editorCoverSuggestionsHint": "Vorschläge von MusicBrainz und Deezer. Das Cover wird in alle Songs des Albums eingebettet.",
+  "editorUploadImage": "Bild hochladen",
+  "editorNoCoverSuggestions": "Keine Vorschläge gefunden",
+  "editorNoCover": "Ohne Cover",
+  "editorAlbumCount": "{count, plural, other{{count} Alben}}",
+  "@editorAlbumCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "editorLoadMore": "Mehr laden",
+  "editorAllDone": "Alles erledigt 🎉",
+  "commonOk": "OK",
+  "editorDisc": "CD",
+  "catalogEp": "EP",
+  "adminImportCopyMode": "kopieren",
+  "adminImportMoveMode": "verschieben",
+  "adminLibrary": "Bibliothek",
+  "commonSongs": "{count, plural, =1{1 Song} other{{count} Songs}}",
+  "@commonSongs": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "commonArtists": "Künstler",
+  "adminUserRole": "Benutzer",
+  "authServerAddressExample": "musik.example.com"
+}

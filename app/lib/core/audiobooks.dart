@@ -1,3 +1,6 @@
+import '../l10n/locale.dart';
+import '../l10n/l10n.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'session.dart';
@@ -78,7 +81,7 @@ class AbsItem {
   final List<AbsChapter> chapters;
   final AbsProgress? progress;
 
-  factory AbsItem.fromJson(Map<String, dynamic> j) {
+  factory AbsItem.fromJson(Map<String, dynamic> j, AppLocalizations l10n) {
     final media = (j['media'] as Map?)?.cast<String, dynamic>() ?? const {};
     final meta = (media['metadata'] as Map?)?.cast<String, dynamic>() ?? const {};
     String? names(Object? list) {
@@ -89,7 +92,7 @@ class AbsItem {
     final progress = j['userMediaProgress'] ?? j['mediaProgress'];
     return AbsItem(
       id: j['id'],
-      title: meta['title'] ?? 'Unbekannt',
+      title: meta['title'] ?? l10n.commonUnknown,
       duration: _num(media['duration']),
       author: meta['authorName'] ?? names(meta['authors']),
       narrator: meta['narratorName'] ?? names(meta['narrators']),
@@ -134,7 +137,13 @@ final absShelvesProvider = FutureProvider.autoDispose.family<List<AbsShelf>, Str
   return [
     for (final s in j as List)
       if (s['type'] == 'book' && (s['entities'] as List).isNotEmpty)
-        AbsShelf(id: s['id'], label: s['label'] ?? '', items: [for (final e in s['entities']) AbsItem.fromJson(e)]),
+        AbsShelf(
+          id: s['id'],
+          label: s['label'] ?? '',
+          items: [
+            for (final e in s['entities']) AbsItem.fromJson(e, lookupAppLocalizations(ref.read(appLocaleProvider))),
+          ],
+        ),
   ];
 });
 
@@ -145,15 +154,18 @@ final absItemsProvider = FutureProvider.autoDispose.family<List<AbsItem>, String
     'sort': 'media.metadata.title',
     'minified': 1,
   });
-  return [for (final i in j['results']) AbsItem.fromJson(i)];
+  return [for (final i in j['results']) AbsItem.fromJson(i, lookupAppLocalizations(ref.read(appLocaleProvider)))];
 });
 
 final absItemProvider = FutureProvider.autoDispose.family<AbsItem, String>((ref, id) async {
   final j = await ref.watch(apiProvider).absGet('items/$id', {'expanded': 1, 'include': 'progress'});
-  return AbsItem.fromJson(j);
+  return AbsItem.fromJson(j, lookupAppLocalizations(ref.read(appLocaleProvider)));
 });
 
 final absSearchProvider = FutureProvider.autoDispose.family<List<AbsItem>, (String, String)>((ref, key) async {
   final j = await ref.watch(apiProvider).absGet('libraries/${key.$1}/search', {'q': key.$2, 'limit': 30});
-  return [for (final b in (j['book'] as List? ?? const [])) AbsItem.fromJson(b['libraryItem'])];
+  return [
+    for (final b in (j['book'] as List? ?? const []))
+      AbsItem.fromJson(b['libraryItem'], lookupAppLocalizations(ref.read(appLocaleProvider))),
+  ];
 });

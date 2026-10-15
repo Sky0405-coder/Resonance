@@ -1,3 +1,5 @@
+import '../../../l10n/l10n.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -33,15 +35,11 @@ class ImportTab extends ConsumerWidget {
       final ok = await showDialog<bool>(
         context: context,
         builder: (d) => AlertDialog(
-          title: const Text('Bibliothek aufräumen?'),
-          content: const Text(
-            'Alle Songs der Bibliothek werden per Audio-Fingerabdruck erkannt, neu getaggt, mit Cover versehen '
-            'und nach „Künstler/Album (Jahr)/Nr - Titel“ umbenannt. Die Dateien werden dabei direkt verändert.\n\n'
-            'Likes, Playlists und Verlauf bleiben erhalten. Bei großen Bibliotheken dauert das mehrere Stunden.',
-          ),
+          title: Text(context.l10n.adminImportCleanupTitle),
+          content: Text(context.l10n.adminImportCleanupHint),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Abbrechen')),
-            FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Aufräumen')),
+            TextButton(onPressed: () => Navigator.pop(d, false), child: Text(context.l10n.commonCancel)),
+            FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(context.l10n.adminImportCleanupConfirm)),
           ],
         ),
       );
@@ -80,13 +78,16 @@ class ImportTab extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Import-Ordner', style: Theme.of(context).textTheme.titleMedium),
+                    Text(context.l10n.adminImportFolder, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 4),
                     SelectableText(i.importDir, style: const TextStyle(color: Palette.textMuted)),
                     const SizedBox(height: 8),
                     Text(
-                      '${i.pendingFiles} Audiodateien warten • Modus: '
-                      '${i.importMode == 'copy' ? 'Kopieren (Originale bleiben unverändert)' : 'Verschieben'}',
+                      context.l10n.adminImportPendingFiles(
+                        i.pendingFiles,
+                        (i.importMode == 'copy' ? context.l10n.adminImportCopyHint : context.l10n.adminImportMove)
+                            .toString(),
+                      ),
                     ),
                     if (!i.acoustidConfigured) ...[
                       const SizedBox(height: 12),
@@ -95,13 +96,7 @@ class ImportTab extends ConsumerWidget {
                         children: [
                           Icon(Icons.warning_amber, color: Theme.of(context).colorScheme.error, size: 20),
                           const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              'Kein AcoustID-Schlüssel eingetragen – Songs werden nur über ihre vorhandenen Tags '
-                              'erkannt. Einen kostenlosen Schlüssel gibt es auf acoustid.org/new-application; '
-                              'eintragen unter „Server“.',
-                            ),
-                          ),
+                          Expanded(child: Text(context.l10n.adminImportAcoustIdHint)),
                         ],
                       ),
                     ],
@@ -113,12 +108,12 @@ class ImportTab extends ConsumerWidget {
                         FilledButton.icon(
                           onPressed: running || i.pendingFiles == 0 ? null : () => _start(context, ref, 'import'),
                           icon: const Icon(Icons.move_to_inbox),
-                          label: const Text('Import starten'),
+                          label: Text(context.l10n.adminImportStart),
                         ),
                         OutlinedButton.icon(
                           onPressed: running ? null : () => _start(context, ref, 'cleanup'),
                           icon: const Icon(Icons.auto_fix_high),
-                          label: const Text('Bibliothek aufräumen'),
+                          label: Text(context.l10n.adminImportCleanup),
                         ),
                       ],
                     ),
@@ -128,14 +123,17 @@ class ImportTab extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Verlauf', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: accent)),
+          Text(
+            context.l10n.adminImportHistory,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: accent),
+          ),
           const SizedBox(height: 8),
           AsyncBody(
             value: batches,
             builder: (list) => list.isEmpty
-                ? const Padding(
+                ? Padding(
                     padding: EdgeInsets.all(16),
-                    child: Text('Noch kein Import gelaufen.', style: TextStyle(color: Palette.textMuted)),
+                    child: Text(context.l10n.adminImportEmptyHistory, style: TextStyle(color: Palette.textMuted)),
                   )
                 : Column(children: [for (final b in list) _BatchCard(batch: b)]),
           ),
@@ -145,12 +143,12 @@ class ImportTab extends ConsumerWidget {
   }
 }
 
-String _statusLabel(String s) => switch (s) {
-  'queued' => 'Wartet',
-  'running' => 'Läuft',
-  'done' => 'Fertig',
-  'failed' => 'Fehlgeschlagen',
-  'cancelled' => 'Abgebrochen',
+String _statusLabel(AppLocalizations l10n, String s) => switch (s) {
+  'queued' => l10n.adminImportWaiting,
+  'running' => l10n.downloadsStatusRunning,
+  'done' => l10n.commonDone,
+  'failed' => l10n.downloadsStatusFailed,
+  'cancelled' => l10n.downloadsStatusCancelled,
   _ => s,
 };
 
@@ -162,8 +160,10 @@ class _BatchCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final b = batch;
     final title = b.kind == 'cleanup'
-        ? 'Bibliothek aufräumen'
-        : 'Import (${b.mode == 'copy' ? 'kopieren' : 'verschieben'})';
+        ? context.l10n.adminImportCleanup
+        : context.l10n.adminImportBatchTitle(
+            (b.mode == 'copy' ? context.l10n.adminImportCopyMode : context.l10n.adminImportMoveMode).toString(),
+          );
     final started = MaterialLocalizations.of(context).formatShortDate(b.createdAt.toLocal());
     final time = TimeOfDay.fromDateTime(b.createdAt.toLocal()).format(context);
     Widget stat(String label, int value, String? filter) => ActionChip(
@@ -180,10 +180,13 @@ class _BatchCard extends ConsumerWidget {
             Row(
               children: [
                 Expanded(child: Text(title, style: Theme.of(context).textTheme.titleSmall)),
-                Text('${_statusLabel(b.status)} • $started $time', style: const TextStyle(color: Palette.textMuted)),
+                Text(
+                  '${_statusLabel(context.l10n, b.status)} • $started $time',
+                  style: const TextStyle(color: Palette.textMuted),
+                ),
                 if (b.isRunning)
                   IconButton(
-                    tooltip: 'Abbrechen',
+                    tooltip: context.l10n.commonCancel,
                     icon: const Icon(Icons.stop_circle_outlined),
                     onPressed: () async {
                       try {
@@ -200,7 +203,10 @@ class _BatchCard extends ConsumerWidget {
               const SizedBox(height: 8),
               LinearProgressIndicator(value: b.total == 0 ? null : b.progress, borderRadius: BorderRadius.circular(2)),
               const SizedBox(height: 4),
-              Text('${b.processed} von ${b.total} Dateien', style: const TextStyle(color: Palette.textMuted)),
+              Text(
+                context.l10n.adminImportFileProgress(b.processed, b.total),
+                style: const TextStyle(color: Palette.textMuted),
+              ),
             ],
             if (b.message != null) ...[
               const SizedBox(height: 8),
@@ -211,11 +217,11 @@ class _BatchCard extends ConsumerWidget {
               spacing: 8,
               runSpacing: 4,
               children: [
-                stat('Erkannt', b.identified, 'identified'),
-                stat('Importiert', b.imported, 'imported'),
-                stat('Duplikate', b.duplicates, 'duplicate'),
-                stat('Nicht erkannt', b.unidentified, 'unidentified'),
-                stat('Fehler', b.failed, 'failed'),
+                stat(context.l10n.adminImportIdentified, b.identified, 'identified'),
+                stat(context.l10n.adminImportImported, b.imported, 'imported'),
+                stat(context.l10n.adminImportDuplicates, b.duplicates, 'duplicate'),
+                stat(context.l10n.adminImportUnidentified, b.unidentified, 'unidentified'),
+                stat(context.l10n.adminImportErrors, b.failed, 'failed'),
               ],
             ),
           ],
@@ -273,7 +279,7 @@ class _FilesView extends ConsumerWidget {
                       [
                         if (meta.isNotEmpty) meta,
                         if (f.target != null) '→ ${f.target}',
-                        if (f.method != null) _methodLabel(f.method!),
+                        if (f.method != null) _methodLabel(context.l10n, f.method!),
                         if (f.error != null) f.error!,
                       ].join('\n'),
                       style: const TextStyle(color: Palette.textMuted),
@@ -289,10 +295,10 @@ class _FilesView extends ConsumerWidget {
   }
 }
 
-String _methodLabel(String m) => switch (m) {
-  'release' => 'Erkannt per Fingerabdruck (komplettes Album)',
-  'recording' => 'Erkannt per Fingerabdruck (einzelner Song)',
-  'deezer' => 'Erkannt über vorhandene Tags (Katalog)',
-  'tags' => 'Nicht erkannt – vorhandene Tags übernommen',
+String _methodLabel(AppLocalizations l10n, String m) => switch (m) {
+  'release' => l10n.adminImportMethodAlbumFingerprint,
+  'recording' => l10n.adminImportMethodTrackFingerprint,
+  'deezer' => l10n.adminImportMethodTags,
+  'tags' => l10n.adminImportMethodUnidentified,
   _ => m,
 };

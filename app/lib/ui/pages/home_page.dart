@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,12 +11,12 @@ import '../../core/theme.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 
-String _greeting() {
+String _greeting(AppLocalizations l10n) {
   final h = DateTime.now().hour;
-  if (h < 5) return 'Gute Nacht';
-  if (h < 11) return 'Guten Morgen';
-  if (h < 18) return 'Guten Tag';
-  return 'Guten Abend';
+  if (h < 5) return l10n.homeGreetingNight;
+  if (h < 11) return l10n.homeGreetingMorning;
+  if (h < 18) return l10n.homeGreetingAfternoon;
+  return l10n.homeGreetingEvening;
 }
 
 Future<void> playAlbum(BuildContext context, WidgetRef ref, String albumId, {bool shuffle = false}) async {
@@ -53,7 +55,7 @@ class HomePage extends ConsumerWidget {
                 padding: EdgeInsets.fromLTRB(16, 24 + MediaQuery.paddingOf(context).top, 16, 8),
                 child: Row(
                   children: [
-                    Expanded(child: Text(_greeting(), style: Theme.of(context).textTheme.headlineMedium)),
+                    Expanded(child: Text(_greeting(context.l10n), style: Theme.of(context).textTheme.headlineMedium)),
                     if (!isWide(context))
                       IconButton(
                         icon: CircleAvatar(
@@ -71,26 +73,26 @@ class HomePage extends ConsumerWidget {
               ),
               _QuickGrid(home: h),
               Shelf(
-                title: 'Zuletzt gehört',
+                title: context.l10n.homeRecentlyPlayed,
                 children: [
                   for (final a in h.recentlyPlayed) AlbumCard(album: a, onPlay: () => playAlbum(context, ref, a.id)),
                 ],
               ),
               Shelf(
-                title: 'Deine Playlists',
+                title: context.l10n.homeYourPlaylists,
                 children: [for (final p in h.playlists) PlaylistCard(playlist: p)],
               ),
               Shelf(
-                title: 'Neu in der Bibliothek',
+                title: context.l10n.homeRecentlyAdded,
                 children: [
                   for (final a in h.recentlyAdded) AlbumCard(album: a, onPlay: () => playAlbum(context, ref, a.id)),
                 ],
               ),
               if (h.recentlyAdded.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(32),
                   child: Text(
-                    'Deine Bibliothek ist noch leer.\nEin Admin kann im Dashboard einen Bibliotheks-Scan starten.',
+                    context.l10n.homeEmptyLibrary,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Palette.textMuted),
                   ),
@@ -111,7 +113,11 @@ class _QuickGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tiles = <Widget>[
-      _QuickTile(image: const LikedCover(radius: 0), title: 'Lieblingssongs', onTap: () => context.push('/liked')),
+      _QuickTile(
+        image: const LikedCover(radius: 0),
+        title: context.l10n.libraryLikedSongs,
+        onTap: () => context.push('/liked'),
+      ),
       for (final p in home.playlists.take(3))
         _QuickTile(
           image: PlaylistCover(albumIds: p.coverAlbumIds, radius: 0),

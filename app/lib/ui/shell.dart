@@ -1,3 +1,5 @@
+import '../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -63,11 +65,11 @@ class AppShell extends ConsumerWidget {
     }
 
     final tabs = [
-      ('/', Icons.home_outlined, Icons.home, 'Start'),
-      ('/search', Icons.search, Icons.search, 'Suche'),
-      ('/library', Icons.library_music_outlined, Icons.library_music, 'Bibliothek'),
-      if (audiobooks) ('/audiobooks', Icons.headphones_outlined, Icons.headphones, 'Hörbücher'),
-      if (isAdmin) ('/admin', Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, 'Admin'),
+      ('/', Icons.home_outlined, Icons.home, context.l10n.navHome),
+      ('/search', Icons.search, Icons.search, context.l10n.navSearch),
+      ('/library', Icons.library_music_outlined, Icons.library_music, context.l10n.navLibrary),
+      if (audiobooks) ('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
+      if (isAdmin) ('/admin', Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, context.l10n.navAdmin),
     ];
     var selected = tabs.lastIndexWhere((t) => t.$1 != '/' && location.startsWith(t.$1));
     if (selected < 0) selected = 0;
@@ -134,17 +136,23 @@ class _Sidebar extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
             children: [
-              nav('/', Icons.home_outlined, Icons.home, 'Start'),
-              nav('/search', Icons.search, Icons.search, 'Suche'),
-              nav('/downloads', Icons.download_outlined, Icons.download, 'Downloads', badge: summary.running),
+              nav('/', Icons.home_outlined, Icons.home, context.l10n.navHome),
+              nav('/search', Icons.search, Icons.search, context.l10n.navSearch),
+              nav(
+                '/downloads',
+                Icons.download_outlined,
+                Icons.download,
+                context.l10n.navDownloads,
+                badge: summary.running,
+              ),
               if (ref.watch(absStatusProvider).value?.enabled ?? false)
-                nav('/audiobooks', Icons.headphones_outlined, Icons.headphones, 'Hörbücher'),
+                nav('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
               if (isAdmin)
                 nav(
                   '/admin',
                   Icons.admin_panel_settings_outlined,
                   Icons.admin_panel_settings,
-                  'Admin-Dashboard',
+                  context.l10n.adminDashboard,
                   badge: summary.pendingApproval,
                 ),
             ],
@@ -158,16 +166,16 @@ class _Sidebar extends ConsumerWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.library_music, color: Palette.textMuted),
-                  title: const Text(
-                    'Bibliothek',
+                  title: Text(
+                    context.l10n.navLibrary,
                     style: TextStyle(fontWeight: FontWeight.w700, color: Palette.textMuted),
                   ),
                   onTap: () => context.go('/library'),
                   trailing: IconButton(
-                    tooltip: 'Playlist erstellen',
+                    tooltip: context.l10n.libraryCreatePlaylist,
                     icon: const Icon(Icons.add, color: Palette.textMuted),
                     onPressed: () async {
-                      final name = await promptText(context, 'Neue Playlist', 'Name');
+                      final name = await promptText(context, context.l10n.libraryNewPlaylist, context.l10n.commonName);
                       if (name == null || name.isEmpty) return;
                       final p = await ref.read(libraryActionsProvider).createPlaylist(name);
                       if (context.mounted) context.go('/playlist/${p.id}');
@@ -180,8 +188,8 @@ class _Sidebar extends ConsumerWidget {
                     children: [
                       _SidebarItem(
                         image: const LikedCover(),
-                        title: 'Lieblingssongs',
-                        subtitle: 'Playlist',
+                        title: context.l10n.libraryLikedSongs,
+                        subtitle: context.l10n.commonPlaylist,
                         active: location == '/liked',
                         onTap: () => context.go('/liked'),
                       ),
@@ -189,7 +197,9 @@ class _Sidebar extends ConsumerWidget {
                         (p) => _SidebarItem(
                           image: PlaylistCover(albumIds: p.coverAlbumIds),
                           title: p.name,
-                          subtitle: p.owner.id == userId ? 'Playlist' : 'Playlist • ${p.owner.name}',
+                          subtitle: p.owner.id == userId
+                              ? context.l10n.commonPlaylist
+                              : context.l10n.libraryPlaylistBy((p.owner.name).toString()),
                           active: location == '/playlist/${p.id}',
                           onTap: () => context.go('/playlist/${p.id}'),
                         ),
@@ -199,7 +209,7 @@ class _Sidebar extends ConsumerWidget {
                 ),
                 ListTile(
                   leading: const Icon(Icons.settings_outlined, color: Palette.textMuted),
-                  title: const Text('Einstellungen', style: TextStyle(color: Palette.textMuted)),
+                  title: Text(context.l10n.navSettings, style: TextStyle(color: Palette.textMuted)),
                   onTap: () => context.go('/settings'),
                 ),
               ],

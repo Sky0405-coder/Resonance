@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -112,7 +114,7 @@ class _TrackRowState extends ConsumerState<TrackRow> {
                 ),
               if (wide || t.liked)
                 IconButton(
-                  tooltip: t.liked ? 'Aus Lieblingssongs entfernen' : 'Zu Lieblingssongs hinzufügen',
+                  tooltip: t.liked ? context.l10n.playerRemoveLiked : context.l10n.playerAddLiked,
                   icon: Icon(t.liked ? Icons.favorite : Icons.favorite_border, size: 18),
                   color: t.liked ? accent : Palette.textMuted,
                   onPressed: () => ref.read(libraryActionsProvider).setLiked(t, !t.liked).catchError((e) {
@@ -158,32 +160,32 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
               const Divider(),
               ListTile(
                 leading: Icon(t.liked ? Icons.favorite : Icons.favorite_border),
-                title: Text(t.liked ? 'Aus Lieblingssongs entfernen' : 'Zu Lieblingssongs hinzufügen'),
+                title: Text(t.liked ? context.l10n.playerRemoveLiked : context.l10n.playerAddLiked),
                 onTap: () => run(() => ref.read(libraryActionsProvider).setLiked(t, !t.liked)),
               ),
               ListTile(
                 leading: const Icon(Icons.playlist_add),
-                title: const Text('Zur Playlist hinzufügen'),
+                title: Text(context.l10n.playerAddToPlaylist),
                 onTap: () => run(() => showAddToPlaylist(context, ref, [t.id])),
               ),
               ListTile(
                 leading: const Icon(Icons.queue_play_next),
-                title: const Text('Als Nächstes spielen'),
+                title: Text(context.l10n.playerPlayNext),
                 onTap: () => run(() => player.playNext(t)),
               ),
               ListTile(
                 leading: const Icon(Icons.queue_music),
-                title: const Text('Zur Warteschlange hinzufügen'),
+                title: Text(context.l10n.playerAddToQueue),
                 onTap: () => run(() => player.addToQueue(t)),
               ),
               ListTile(
                 leading: const Icon(Icons.album),
-                title: const Text('Zum Album'),
+                title: Text(context.l10n.playerGoToAlbum),
                 onTap: () => run(() => context.push('/album/${t.album.id}')),
               ),
               ListTile(
                 leading: const Icon(Icons.person),
-                title: const Text('Zum Künstler'),
+                title: Text(context.l10n.playerGoToArtist),
                 onTap: () => run(() => context.push('/artist/${t.artist.id}')),
               ),
               for (final a in extra)
@@ -191,7 +193,7 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
               if (ref.read(sessionProvider).user?.isAdmin ?? false)
                 ListTile(
                   leading: const Icon(Icons.edit_note),
-                  title: const Text('Metadaten korrigieren'),
+                  title: Text(context.l10n.editorCorrectMetadata),
                   onTap: () => run(() => showTrackEditor(context, ref, t)),
                 ),
             ],
@@ -216,26 +218,26 @@ Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String>
         children: [
           ListTile(
             leading: const Icon(Icons.add),
-            title: const Text('Neue Playlist'),
+            title: Text(context.l10n.libraryNewPlaylist),
             onTap: () async {
               Navigator.pop(sheet);
-              final name = await promptText(context, 'Neue Playlist', 'Name');
+              final name = await promptText(context, context.l10n.libraryNewPlaylist, context.l10n.commonName);
               if (name == null || name.isEmpty) return;
               final p = await actions.createPlaylist(name);
               await actions.addToPlaylist(p.id, trackIds);
-              if (context.mounted) showInfo(context, 'Zu „${p.name}“ hinzugefügt');
+              if (context.mounted) showInfo(context, context.l10n.libraryAddedToPlaylist((p.name).toString()));
             },
           ),
           for (final p in playlists.where((p) => p.owner.id == ref.read(currentUserIdProvider)))
             ListTile(
               leading: SizedBox(width: 40, child: PlaylistCover(albumIds: p.coverAlbumIds)),
               title: Text(p.name),
-              subtitle: Text(songs(p.trackCount)),
+              subtitle: Text(songs(context.l10n, p.trackCount)),
               onTap: () async {
                 Navigator.pop(sheet);
                 try {
                   await actions.addToPlaylist(p.id, trackIds);
-                  if (context.mounted) showInfo(context, 'Zu „${p.name}“ hinzugefügt');
+                  if (context.mounted) showInfo(context, context.l10n.libraryAddedToPlaylist((p.name).toString()));
                 } catch (e) {
                   if (context.mounted) showError(context, e);
                 }
@@ -260,8 +262,11 @@ Future<String?> promptText(BuildContext context, String title, String label, {St
         onSubmitted: (v) => Navigator.pop(dialog, v.trim()),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('Abbrechen')),
-        FilledButton(onPressed: () => Navigator.pop(dialog, controller.text.trim()), child: const Text('Speichern')),
+        TextButton(onPressed: () => Navigator.pop(dialog), child: Text(context.l10n.commonCancel)),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialog, controller.text.trim()),
+          child: Text(context.l10n.commonSave),
+        ),
       ],
     ),
   );

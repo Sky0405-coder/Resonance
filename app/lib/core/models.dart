@@ -1,3 +1,5 @@
+import '../l10n/l10n.dart';
+
 // Plain data classes mirroring the server's JSON (see backend/app/schemas.py).
 
 DateTime? _date(dynamic v) => v == null ? null : DateTime.parse(v as String);
@@ -376,11 +378,11 @@ class CatalogAlbum {
   final String? libraryId;
 
   /// German label for Deezer's record type.
-  String get typeLabel => switch (recordType) {
-    'ep' => 'EP',
-    'single' => 'Single',
-    'compile' => 'Compilation',
-    _ => 'Album',
+  String typeLabel(AppLocalizations l10n) => switch (recordType) {
+    'ep' => l10n.catalogEp,
+    'single' => l10n.catalogSingle,
+    'compile' => l10n.catalogCompilation,
+    _ => l10n.commonAlbum,
   };
 
   factory CatalogAlbum.fromJson(Map<String, dynamic> j) => CatalogAlbum(

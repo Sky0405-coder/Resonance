@@ -1,3 +1,7 @@
+import 'package:intl/intl.dart';
+
+import '../../l10n/l10n.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -115,7 +119,7 @@ class TransportControls extends ConsumerWidget {
         children: [
           const SpeedButton(),
           IconButton(
-            tooltip: '30 Sekunden zurück',
+            tooltip: context.l10n.playerSkipBack,
             iconSize: iconSize,
             icon: const Icon(Icons.replay_30),
             onPressed: () => ctrl.skipBook(-30),
@@ -124,7 +128,7 @@ class TransportControls extends ConsumerWidget {
           playButton,
           SizedBox(width: big ? 12 : 4),
           IconButton(
-            tooltip: '30 Sekunden vor',
+            tooltip: context.l10n.playerSkipForward,
             iconSize: iconSize,
             icon: const Icon(Icons.forward_30),
             onPressed: () => ctrl.skipBook(30),
@@ -138,13 +142,13 @@ class TransportControls extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
-          tooltip: 'Zufallswiedergabe',
+          tooltip: context.l10n.playerShuffle,
           icon: const Icon(Icons.shuffle),
           color: p.shuffle ? accent : Palette.textMuted,
           onPressed: ctrl.toggleShuffle,
         ),
         IconButton(
-          tooltip: 'Zurück',
+          tooltip: context.l10n.playerPrevious,
           iconSize: iconSize,
           icon: const Icon(Icons.skip_previous),
           onPressed: ctrl.previous,
@@ -152,9 +156,14 @@ class TransportControls extends ConsumerWidget {
         SizedBox(width: big ? 12 : 4),
         playButton,
         SizedBox(width: big ? 12 : 4),
-        IconButton(tooltip: 'Weiter', iconSize: iconSize, icon: const Icon(Icons.skip_next), onPressed: ctrl.next),
         IconButton(
-          tooltip: 'Wiederholen',
+          tooltip: context.l10n.playerNext,
+          iconSize: iconSize,
+          icon: const Icon(Icons.skip_next),
+          onPressed: ctrl.next,
+        ),
+        IconButton(
+          tooltip: context.l10n.playerRepeat,
           icon: Icon(p.loop == LoopMode.one ? Icons.repeat_one : Icons.repeat),
           color: p.loop == LoopMode.off ? Palette.textMuted : accent,
           onPressed: ctrl.cycleLoop,
@@ -172,9 +181,10 @@ class SpeedButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final speed = ref.watch(playerProvider.select((p) => p.speed));
-    String label(double v) => '${v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2).replaceAll('.', ',')}×';
+    String label(double v) =>
+        '${NumberFormat(v == v.roundToDouble() ? '0' : '0.00', context.l10n.localeName).format(v)}×';
     return PopupMenuButton<double>(
-      tooltip: 'Geschwindigkeit',
+      tooltip: context.l10n.playerSpeed,
       initialValue: speed,
       onSelected: ref.read(playerProvider.notifier).setSpeed,
       itemBuilder: (_) => [for (final v in speeds) PopupMenuItem(value: v, child: Text(label(v)))],
@@ -203,16 +213,17 @@ class SleepTimerButton extends ConsumerWidget {
     final ctrl = ref.read(playerProvider.notifier);
     return PopupMenuButton<int>(
       tooltip: sleepAt == null
-          ? 'Sleep-Timer'
-          : 'Sleep-Timer: pausiert um ${TimeOfDay.fromDateTime(sleepAt).format(context)}',
+          ? context.l10n.playerSleepTimer
+          : context.l10n.playerSleepTimerTime((TimeOfDay.fromDateTime(sleepAt).format(context)).toString()),
       icon: Icon(
         sleepAt == null ? Icons.bedtime_outlined : Icons.bedtime,
         color: sleepAt == null ? Palette.textMuted : Theme.of(context).colorScheme.primary,
       ),
       onSelected: (m) => ctrl.setSleepTimer(m == 0 ? null : Duration(minutes: m)),
       itemBuilder: (_) => [
-        for (final m in const [5, 10, 15, 30, 45, 60, 90]) PopupMenuItem(value: m, child: Text('$m Minuten')),
-        if (sleepAt != null) const PopupMenuItem(value: 0, child: Text('Timer ausschalten')),
+        for (final m in const [5, 10, 15, 30, 45, 60, 90])
+          PopupMenuItem(value: m, child: Text(context.l10n.playerTimerMinutes(m))),
+        if (sleepAt != null) PopupMenuItem(value: 0, child: Text(context.l10n.playerDisableTimer)),
       ],
     );
   }
@@ -271,7 +282,7 @@ class LikeButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accent = Theme.of(context).colorScheme.primary;
     return IconButton(
-      tooltip: track.liked ? 'Aus Lieblingssongs entfernen' : 'Zu Lieblingssongs hinzufügen',
+      tooltip: track.liked ? context.l10n.playerRemoveLiked : context.l10n.playerAddLiked,
       icon: Icon(track.liked ? Icons.favorite : Icons.favorite_border, size: size),
       color: track.liked ? accent : Palette.textMuted,
       onPressed: () => ref.read(libraryActionsProvider).setLiked(track, !track.liked).catchError((e) {
@@ -350,7 +361,7 @@ class DesktopPlayerBar extends ConsumerWidget {
               children: [
                 if (book == null)
                   IconButton(
-                    tooltip: 'Warteschlange',
+                    tooltip: context.l10n.playerQueue,
                     icon: const Icon(Icons.queue_music),
                     color: Palette.textMuted,
                     onPressed: () => context.push('/queue'),
@@ -365,7 +376,7 @@ class DesktopPlayerBar extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Vollbild',
+                  tooltip: context.l10n.playerFullscreen,
                   icon: const Icon(Icons.open_in_full, size: 18),
                   color: Palette.textMuted,
                   onPressed: track == null && book == null ? null : () => context.push('/now-playing'),

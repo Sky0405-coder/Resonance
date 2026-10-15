@@ -1,3 +1,5 @@
+import '../l10n/locale.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -58,7 +60,11 @@ class SessionNotifier extends Notifier<SessionState> {
 
   Future<void> _restore() async {
     try {
-      final user = await ApiClient(state.serverUrl!, state.token).me();
+      final user = await ApiClient(
+        state.serverUrl!,
+        state.token,
+        languageCode: ref.read(appLocaleProvider).languageCode,
+      ).me();
       state = state.copyWith(user: user, loading: false);
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
@@ -99,7 +105,7 @@ final sessionProvider = NotifierProvider<SessionNotifier, SessionState>(SessionN
 
 final apiProvider = Provider<ApiClient>((ref) {
   final s = ref.watch(sessionProvider.select((s) => (s.serverUrl, s.token)));
-  return ApiClient(s.$1 ?? '', s.$2);
+  return ApiClient(s.$1 ?? '', s.$2, languageCode: ref.watch(appLocaleProvider).languageCode);
 });
 
 final currentUserIdProvider = Provider<String?>((ref) => ref.watch(sessionProvider.select((s) => s.user?.id)));

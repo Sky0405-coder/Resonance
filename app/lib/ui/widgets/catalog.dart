@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,9 +67,9 @@ class _RequestButtonState extends ConsumerState<RequestButton> {
       final r = await ref.read(downloadActionsProvider).request(widget.kind, widget.catalogId);
       if (!mounted) return;
       showInfo(context, switch (r.status) {
-        'pending_approval' => '„${r.title}“ wartet auf Freigabe durch einen Admin',
-        'done' => '„${r.title}“ ist schon in deiner Bibliothek',
-        _ => '„${r.title}“ wird heruntergeladen',
+        'pending_approval' => context.l10n.catalogAwaitingApproval((r.title).toString()),
+        'done' => context.l10n.catalogAlreadyInLibrary((r.title).toString()),
+        _ => context.l10n.catalogDownloadingTitle((r.title).toString()),
       });
     } catch (e) {
       if (mounted) showError(context, e);
@@ -85,18 +87,18 @@ class _RequestButtonState extends ConsumerState<RequestButton> {
     if (widget.inLibrary) {
       return label == null
           ? Tooltip(
-              message: 'In deiner Bibliothek',
+              message: context.l10n.catalogInYourLibrary,
               child: Icon(Icons.check_circle, color: accent, size: 22),
             )
           : const SizedBox.shrink();
     }
     if (requested) {
       return label == null
-          ? const Tooltip(
-              message: 'Angefragt',
+          ? Tooltip(
+              message: context.l10n.catalogRequested,
               child: Icon(Icons.downloading, color: Palette.textMuted, size: 22),
             )
-          : const OutlinedButton(onPressed: null, child: Text('Angefragt'));
+          : OutlinedButton(onPressed: null, child: Text(context.l10n.catalogRequested));
     }
     if (_busy) {
       return const SizedBox(
@@ -107,7 +109,7 @@ class _RequestButtonState extends ConsumerState<RequestButton> {
     }
     return label == null
         ? IconButton(
-            tooltip: 'Herunterladen',
+            tooltip: context.l10n.catalogDownload,
             color: Palette.textMuted,
             icon: const Icon(Icons.download_for_offline_outlined),
             onPressed: _request,
@@ -201,7 +203,7 @@ class CatalogAlbumCard extends StatelessWidget {
                 children: [
                   Icon(Icons.check, size: 12, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(width: 3),
-                  const Text('In Bibliothek', style: TextStyle(fontSize: 11)),
+                  Text(context.l10n.catalogInLibrary, style: TextStyle(fontSize: 11)),
                 ],
               ),
             ),
@@ -209,7 +211,10 @@ class CatalogAlbumCard extends StatelessWidget {
       ],
     ),
     title: album.title,
-    subtitle: [if (album.year != null) '${album.year}', showArtist ? album.artist : album.typeLabel].join(' • '),
+    subtitle: [
+      if (album.year != null) '${album.year}',
+      showArtist ? album.artist : album.typeLabel(context.l10n),
+    ].join(' • '),
     onTap: () => context.push('/catalog/album/${album.id}'),
   );
 }
@@ -223,26 +228,26 @@ class CatalogArtistCard extends StatelessWidget {
     circle: true,
     image: NetworkCover(url: artist.pictureUrl, radius: 0, icon: Icons.person),
     title: artist.name,
-    subtitle: 'Künstler',
+    subtitle: context.l10n.commonArtist,
     onTap: () => context.push('/catalog/artist/${artist.id}'),
   );
 }
 
 /// Human-readable status of a request / item.
-String requestStatusLabel(String status) => switch (status) {
-  'pending_approval' => 'Wartet auf Freigabe',
-  'active' => 'Läuft',
-  'done' => 'Fertig',
-  'partial' => 'Teilweise fertig',
-  'failed' => 'Fehlgeschlagen',
-  'rejected' => 'Abgelehnt',
-  'cancelled' => 'Abgebrochen',
-  'waiting' => 'Wartet auf Freigabe',
-  'queued' => 'In Warteschlange',
-  'searching' => 'Suche Quelle …',
-  'downloading' => 'Lädt herunter',
-  'processing' => 'Wird getaggt …',
-  'exists' => 'Schon vorhanden',
+String requestStatusLabel(AppLocalizations l10n, String status) => switch (status) {
+  'pending_approval' => l10n.downloadsStatusPendingApproval,
+  'active' => l10n.downloadsStatusRunning,
+  'done' => l10n.commonDone,
+  'partial' => l10n.downloadsStatusPartial,
+  'failed' => l10n.downloadsStatusFailed,
+  'rejected' => l10n.downloadsStatusRejected,
+  'cancelled' => l10n.downloadsStatusCancelled,
+  'waiting' => l10n.downloadsStatusPendingApproval,
+  'queued' => l10n.downloadsStatusQueued,
+  'searching' => l10n.downloadsStatusSearching,
+  'downloading' => l10n.downloadsStatusDownloading,
+  'processing' => l10n.downloadsStatusProcessing,
+  'exists' => l10n.downloadsStatusExisting,
   _ => status,
 };
 
