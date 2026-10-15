@@ -957,5 +957,47 @@
         "type": "String"
       }
     }
+  },
+  "audiobooksViewLibrary": "Bibliothek",
+  "audiobooksViewSeries": "Serien",
+  "audiobooksViewAuthors": "Autoren",
+  "audiobooksViewNarrators": "Sprecher",
+  "audiobooksBookCount": "{count, plural, =1{1 Hörbuch} other{{count} Hörbücher}}",
+  "@audiobooksBookCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "albumFindMissing": "Fehlende Songs suchen",
+  "adminDeleteSong": "Song löschen",
+  "adminDeleteAlbum": "Album löschen",
+  "adminDeleteSongConfirm": "„{title}“ wird endgültig vom Server gelöscht, auch die Datei.",
+  "@adminDeleteSongConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "adminDeleteAlbumConfirm": "Das Album „{title}“ wird mit allen Songs endgültig vom Server gelöscht, auch die Dateien.",
+  "@adminDeleteAlbumConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "adminDeleted": "Gelöscht",
+  "libraryShareWithUsers": "Mit bestimmten Nutzern teilen",
+  "libraryNoOtherUsers": "Es gibt noch keine anderen Nutzer.",
+  "librarySharedWith": "Geteilt mit {names}",
+  "@librarySharedWith": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
   }
 }

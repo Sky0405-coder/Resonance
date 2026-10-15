@@ -192,6 +192,7 @@ class Playlist {
     required this.duration,
     required this.coverAlbumIds,
     this.description,
+    this.sharedWith = const [],
   });
 
   final String id;
@@ -202,6 +203,8 @@ class Playlist {
   final int trackCount;
   final double duration;
   final List<String> coverAlbumIds;
+  // Users the playlist is shared with (only filled for the owner).
+  final List<NamedRef> sharedWith;
 
   factory Playlist.fromJson(Map<String, dynamic> j) => Playlist(
     id: j['id'],
@@ -212,6 +215,7 @@ class Playlist {
     trackCount: j['track_count'] ?? 0,
     duration: (j['duration'] as num? ?? 0).toDouble(),
     coverAlbumIds: [for (final id in j['cover_album_ids'] ?? const []) id as String],
+    sharedWith: [for (final u in j['shared_with'] ?? const []) NamedRef.fromJson(u)],
   );
 }
 

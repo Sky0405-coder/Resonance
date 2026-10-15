@@ -63,7 +63,7 @@ class ApiClient {
       _call(() async => (await _dio.get(path, queryParameters: query)).data);
   Future<dynamic> _post(String path, [Object? body]) => _call(() async => (await _dio.post(path, data: body)).data);
   Future<dynamic> _patch(String path, Object body) => _call(() async => (await _dio.patch(path, data: body)).data);
-  Future<dynamic> _put(String path) => _call(() async => (await _dio.put(path)).data);
+  Future<dynamic> _put(String path, [Object? body]) => _call(() async => (await _dio.put(path, data: body)).data);
   Future<dynamic> _delete(String path) => _call(() async => (await _dio.delete(path)).data);
 
   // --- media URLs (token in query so players/images work without headers) ---
@@ -152,6 +152,20 @@ class ApiClient {
   Future<void> updatePlaylist(String id, Map<String, dynamic> patch) => _patch('/api/playlists/$id', patch);
 
   Future<void> deletePlaylist(String id) => _delete('/api/playlists/$id');
+
+  Future<void> setPlaylistShares(String id, List<String> userIds) =>
+      _put('/api/playlists/$id/shares', {'user_ids': userIds});
+
+  /// Other (active) users of this server, e.g. to share a playlist with.
+  Future<List<NamedRef>> otherUsers() async => [for (final u in await _get('/api/users')) NamedRef.fromJson(u)];
+
+  /// Catalog id of a library album (to download its missing songs).
+  Future<String> albumCatalogId(String albumId) async =>
+      (await _get('/api/library/albums/$albumId/catalog'))['catalog_id'] as String;
+
+  Future<void> deleteLibraryTrack(String id) => _delete('/api/admin/library/tracks/$id');
+
+  Future<void> deleteLibraryAlbum(String id) => _delete('/api/admin/library/albums/$id');
 
   Future<void> addToPlaylist(String id, List<String> trackIds) =>
       _post('/api/playlists/$id/tracks', {'track_ids': trackIds});

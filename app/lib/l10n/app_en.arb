@@ -429,5 +429,19 @@
   "adminSpotifyGroup": "Spotify import",
   "adminSpotifyClientId": "Spotify Client ID",
   "adminSpotifyClientSecret": "Spotify Client Secret",
-  "adminSpotifyHint": "developer.spotify.com/dashboard → create an app, Redirect URI: {uri}"
+  "adminSpotifyHint": "developer.spotify.com/dashboard → create an app, Redirect URI: {uri}",
+  "audiobooksViewLibrary": "Library",
+  "audiobooksViewSeries": "Series",
+  "audiobooksViewAuthors": "Authors",
+  "audiobooksViewNarrators": "Narrators",
+  "audiobooksBookCount": "{count, plural, =1{1 audiobook} other{{count} audiobooks}}",
+  "albumFindMissing": "Find missing songs",
+  "adminDeleteSong": "Delete song",
+  "adminDeleteAlbum": "Delete album",
+  "adminDeleteSongConfirm": "\"{title}\" will be permanently deleted from the server, including the file.",
+  "adminDeleteAlbumConfirm": "The album \"{title}\" and all its songs will be permanently deleted from the server, including the files.",
+  "adminDeleted": "Deleted",
+  "libraryShareWithUsers": "Share with specific users",
+  "libraryNoOtherUsers": "There are no other users yet.",
+  "librarySharedWith": "Shared with {names}"
 }

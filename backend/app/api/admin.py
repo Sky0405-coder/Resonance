@@ -10,6 +10,7 @@ from app.models import Album, Artist, AuthSession, Invite, Job, Role, Track, Use
 from app.schemas import InviteCreated, InviteIn, InviteOut, JobOut, UserAdminPatch, UserOut
 from app.security import hash_password, hash_token, new_token
 from app.services import scanner
+from app.services.deletion import delete_empty_album, delete_tracks
 from app.services.server_config import ServerConfig, load_config, update_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -38,7 +39,9 @@ async def patch_config(patch: dict, admin: AdminUser, db: DB) -> ServerConfig:
 async def list_invites(admin: AdminUser, db: DB) -> list[InviteOut]:
     used_by = aliased(User)
     rows = await db.execute(
-        select(Invite, used_by.username).outerjoin(used_by, used_by.id == Invite.used_by_id).order_by(Invite.created_at.desc())
+        select(Invite, used_by.username)
+        .outerjoin(used_by, used_by.id == Invite.used_by_id)
+        .order_by(Invite.created_at.desc())
     )
     out = []
     for invite, username in rows:
@@ -80,7 +83,9 @@ async def list_users(admin: AdminUser, db: DB) -> list[UserOut]:
 
 
 async def _admin_count(db: DB) -> int:
-    return await db.scalar(select(func.count()).select_from(User).where(User.role == Role.admin, ~User.is_disabled)) or 0
+    return (
+        await db.scalar(select(func.count()).select_from(User).where(User.role == Role.admin, ~User.is_disabled)) or 0
+    )
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)
@@ -133,6 +138,24 @@ async def library_stats(admin: AdminUser, db: DB) -> dict:
     }
 
 
+@router.delete("/library/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_library_track(track_id: uuid.UUID, admin: AdminUser, db: DB) -> None:
+    if await db.get(Track, track_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Nicht gefunden")
+    await delete_tracks(db, [track_id])
+
+
+@router.delete("/library/albums/{album_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_library_album(album_id: uuid.UUID, admin: AdminUser, db: DB) -> None:
+    album = await db.get(Album, album_id)
+    if album is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Nicht gefunden")
+    track_ids = list(await db.scalars(select(Track.id).where(Track.album_id == album_id)))
+    await delete_tracks(db, track_ids)
+    if not track_ids:
+        await delete_empty_album(db, album)
+
+
 @router.post("/library/scan", response_model=JobOut, status_code=status.HTTP_202_ACCEPTED)
 async def start_scan(admin: AdminUser, db: DB, full: bool = False) -> JobOut:
     job = await scanner.start_scan(db, full=full)
@@ -141,4 +164,6 @@ async def start_scan(admin: AdminUser, db: DB, full: bool = False) -> JobOut:
 
 @router.get("/jobs", response_model=list[JobOut])
 async def list_jobs(admin: AdminUser, db: DB, limit: int = 50) -> list[JobOut]:
-    return [JobOut.model_validate(j) for j in await db.scalars(select(Job).order_by(Job.created_at.desc()).limit(limit))]
+    return [
+        JobOut.model_validate(j) for j in await db.scalars(select(Job).order_by(Job.created_at.desc()).limit(limit))
+    ]

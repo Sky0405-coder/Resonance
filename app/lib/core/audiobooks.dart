@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../l10n/locale.dart';
 import '../l10n/l10n.dart';
 
@@ -168,4 +170,70 @@ final absSearchProvider = FutureProvider.autoDispose.family<List<AbsItem>, (Stri
     for (final b in (j['book'] as List? ?? const []))
       AbsItem.fromJson(b['libraryItem'], lookupAppLocalizations(ref.read(appLocaleProvider))),
   ];
+});
+
+class AbsSeries {
+  const AbsSeries({required this.id, required this.name, required this.bookCount, this.coverItemId});
+  final String id;
+  final String name;
+  final int bookCount;
+  // A book of the series whose cover represents it.
+  final String? coverItemId;
+}
+
+/// An author or narrator with the item filter that lists their books.
+class AbsPerson {
+  const AbsPerson({required this.name, required this.bookCount, required this.filter});
+  final String name;
+  final int bookCount;
+  final String filter;
+}
+
+/// ABS item filters are `group.base64(value)` (author/series id, narrator name).
+String absFilter(String group, String value) => '$group.${base64.encode(utf8.encode(value))}';
+
+final absSeriesProvider = FutureProvider.autoDispose.family<List<AbsSeries>, String>((ref, libraryId) async {
+  final j = await ref.watch(apiProvider).absGet('libraries/$libraryId/series', {'limit': 1000, 'sort': 'name'});
+  return [
+    for (final s in j['results'] as List)
+      if ((s['books'] as List? ?? const []).isNotEmpty)
+        AbsSeries(
+          id: s['id'],
+          name: s['name'] ?? '',
+          bookCount: (s['books'] as List).length,
+          coverItemId: (s['books'] as List).first['id'],
+        ),
+  ];
+});
+
+final absAuthorsProvider = FutureProvider.autoDispose.family<List<AbsPerson>, String>((ref, libraryId) async {
+  final j = await ref.watch(apiProvider).absGet('libraries/$libraryId/authors');
+  final list = [
+    for (final a in j['authors'] as List)
+      if ((a['numBooks'] ?? 0) > 0)
+        AbsPerson(name: a['name'] ?? '', bookCount: a['numBooks'] ?? 0, filter: absFilter('authors', a['id'])),
+  ];
+  return list..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+});
+
+final absNarratorsProvider = FutureProvider.autoDispose.family<List<AbsPerson>, String>((ref, libraryId) async {
+  final j = await ref.watch(apiProvider).absGet('libraries/$libraryId/narrators');
+  final list = [
+    for (final n in j['narrators'] as List)
+      AbsPerson(name: n['name'] ?? '', bookCount: n['numBooks'] ?? 0, filter: absFilter('narrators', n['name'] ?? '')),
+  ];
+  return list..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+});
+
+/// Books matching an ABS filter; series are listed in series order, everything else by title.
+final absFilteredItemsProvider = FutureProvider.autoDispose.family<List<AbsItem>, (String, String)>((ref, key) async {
+  final (libraryId, filter) = key;
+  final j = await ref.watch(apiProvider).absGet('libraries/$libraryId/items', {
+    'filter': filter,
+    'limit': 1000,
+    'page': 0,
+    'sort': filter.startsWith('series.') ? 'sequence' : 'media.metadata.title',
+    'minified': 1,
+  });
+  return [for (final i in j['results']) AbsItem.fromJson(i, lookupAppLocalizations(ref.read(appLocaleProvider)))];
 });

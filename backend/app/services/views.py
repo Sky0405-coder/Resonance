@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models import Album, Artist, Playlist, PlaylistEntry, Track, TrackLike, User
+from app.models import Album, Artist, Playlist, PlaylistEntry, PlaylistShare, Track, TrackLike, User
 from app.schemas import AlbumOut, ArtistOut, ArtistRef, PlaylistOut, TrackOut
 
 
@@ -87,7 +87,7 @@ async def artists_out(db: AsyncSession, artists: Sequence[Artist]) -> list[Artis
     return out
 
 
-async def playlists_out(db: AsyncSession, playlists: Sequence[Playlist]) -> list[PlaylistOut]:
+async def playlists_out(db: AsyncSession, playlists: Sequence[Playlist], user_id: uuid.UUID) -> list[PlaylistOut]:
     if not playlists:
         return []
     ids = [p.id for p in playlists]
@@ -112,9 +112,17 @@ async def playlists_out(db: AsyncSession, playlists: Sequence[Playlist]) -> list
         lst = covers.setdefault(pid, [])
         if album_id not in lst and len(lst) < 4:
             lst.append(album_id)
-    owners = {
-        u.id: u for u in await db.scalars(select(User).where(User.id.in_({p.owner_id for p in playlists})))
-    }
+    owners = {u.id: u for u in await db.scalars(select(User).where(User.id.in_({p.owner_id for p in playlists})))}
+    shared_with: dict[uuid.UUID, list[ArtistRef]] = {}
+    rows = await db.execute(
+        select(PlaylistShare.playlist_id, User.id, User.display_name)
+        .join(User, User.id == PlaylistShare.user_id)
+        .where(PlaylistShare.playlist_id.in_([p.id for p in playlists if p.owner_id == user_id]))
+    )
+    for playlist_id, shared_user_id, name in rows:
+        shared_with.setdefault(playlist_id, []).append(ArtistRef(id=shared_user_id, name=name))
+    for shares in shared_with.values():
+        shares.sort(key=lambda share: share.name.casefold())
     out = []
     for p in playlists:
         owner = owners[p.owner_id]
@@ -126,6 +134,7 @@ async def playlists_out(db: AsyncSession, playlists: Sequence[Playlist]) -> list
                 description=p.description,
                 is_public=p.is_public,
                 owner=ArtistRef(id=owner.id, name=owner.display_name),
+                shared_with=shared_with.get(p.id, []),
                 track_count=count,
                 duration=duration,
                 cover_album_ids=covers.get(p.id, []),
@@ -133,4 +142,3 @@ async def playlists_out(db: AsyncSession, playlists: Sequence[Playlist]) -> list
             )
         )
     return out
-

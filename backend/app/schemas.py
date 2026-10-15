@@ -200,12 +200,17 @@ class PlaylistPatch(BaseModel):
     is_public: bool | None = None
 
 
+class PlaylistSharesIn(BaseModel):
+    user_ids: list[uuid.UUID] = Field(max_length=100)
+
+
 class PlaylistOut(ORM):
     id: uuid.UUID
     name: str
     description: str | None
     is_public: bool
     owner: ArtistRef  # {id, name} of the owning user
+    shared_with: list[ArtistRef] = []
     track_count: int = 0
     duration: float = 0
     # Up to 4 album ids for a mosaic cover.

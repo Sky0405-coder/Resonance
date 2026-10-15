@@ -17,7 +17,9 @@ class Playlist(Base):
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     entries: Mapped[list["PlaylistEntry"]] = relationship(
         back_populates="playlist", cascade="all, delete-orphan", order_by="PlaylistEntry.position"
@@ -36,6 +38,16 @@ class PlaylistEntry(Base):
 
     playlist: Mapped[Playlist] = relationship(back_populates="entries")
     track: Mapped[Track] = relationship()
+
+
+class PlaylistShare(Base):
+    __tablename__ = "playlist_shares"
+    __table_args__ = (UniqueConstraint("playlist_id", "user_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    playlist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("playlists.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class TrackLike(Base):

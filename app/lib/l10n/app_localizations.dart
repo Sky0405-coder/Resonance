@@ -2671,6 +2671,90 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'developer.spotify.com/dashboard → App anlegen, Redirect URI: {uri}'**
   String adminSpotifyHint(String uri);
+
+  /// No description provided for @audiobooksViewLibrary.
+  ///
+  /// In de, this message translates to:
+  /// **'Bibliothek'**
+  String get audiobooksViewLibrary;
+
+  /// No description provided for @audiobooksViewSeries.
+  ///
+  /// In de, this message translates to:
+  /// **'Serien'**
+  String get audiobooksViewSeries;
+
+  /// No description provided for @audiobooksViewAuthors.
+  ///
+  /// In de, this message translates to:
+  /// **'Autoren'**
+  String get audiobooksViewAuthors;
+
+  /// No description provided for @audiobooksViewNarrators.
+  ///
+  /// In de, this message translates to:
+  /// **'Sprecher'**
+  String get audiobooksViewNarrators;
+
+  /// No description provided for @audiobooksBookCount.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Hörbuch} other{{count} Hörbücher}}'**
+  String audiobooksBookCount(int count);
+
+  /// No description provided for @albumFindMissing.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlende Songs suchen'**
+  String get albumFindMissing;
+
+  /// No description provided for @adminDeleteSong.
+  ///
+  /// In de, this message translates to:
+  /// **'Song löschen'**
+  String get adminDeleteSong;
+
+  /// No description provided for @adminDeleteAlbum.
+  ///
+  /// In de, this message translates to:
+  /// **'Album löschen'**
+  String get adminDeleteAlbum;
+
+  /// No description provided for @adminDeleteSongConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'„{title}“ wird endgültig vom Server gelöscht, auch die Datei.'**
+  String adminDeleteSongConfirm(String title);
+
+  /// No description provided for @adminDeleteAlbumConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'Das Album „{title}“ wird mit allen Songs endgültig vom Server gelöscht, auch die Dateien.'**
+  String adminDeleteAlbumConfirm(String title);
+
+  /// No description provided for @adminDeleted.
+  ///
+  /// In de, this message translates to:
+  /// **'Gelöscht'**
+  String get adminDeleted;
+
+  /// No description provided for @libraryShareWithUsers.
+  ///
+  /// In de, this message translates to:
+  /// **'Mit bestimmten Nutzern teilen'**
+  String get libraryShareWithUsers;
+
+  /// No description provided for @libraryNoOtherUsers.
+  ///
+  /// In de, this message translates to:
+  /// **'Es gibt noch keine anderen Nutzer.'**
+  String get libraryNoOtherUsers;
+
+  /// No description provided for @librarySharedWith.
+  ///
+  /// In de, this message translates to:
+  /// **'Geteilt mit {names}'**
+  String librarySharedWith(String names);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

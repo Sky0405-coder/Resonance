@@ -34,6 +34,31 @@ void _playOrToggle(
   }
 }
 
+/// Opens the catalog page of a library album, where its missing songs can be downloaded.
+Future<void> _openInCatalog(BuildContext context, WidgetRef ref, String albumId) async {
+  try {
+    final catalogId = await ref.read(apiProvider).albumCatalogId(albumId);
+    if (context.mounted) context.push('/catalog/album/$catalogId');
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
+}
+
+Future<void> _deleteAlbum(BuildContext context, WidgetRef ref, AlbumDetail d) async {
+  final l10n = context.l10n;
+  if (!await confirmDelete(context, l10n.adminDeleteAlbum, l10n.adminDeleteAlbumConfirm(d.album.title))) return;
+  try {
+    await ref.read(apiProvider).deleteLibraryAlbum(d.album.id);
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+    return;
+  }
+  invalidateLibrary(ref);
+  if (!context.mounted) return;
+  showInfo(context, l10n.adminDeleted);
+  context.canPop() ? context.pop() : context.go('/library');
+}
+
 class AlbumPage extends ConsumerWidget {
   const AlbumPage({super.key, required this.id});
   final String id;
@@ -122,40 +147,59 @@ class AlbumPage extends ConsumerWidget {
                       icon: const Icon(Icons.playlist_add),
                       onPressed: () => showAddToPlaylist(context, ref, [for (final t in d.tracks) t.id]),
                     ),
-                    if (ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false)))
-                      PopupMenuButton<String>(
-                        useRootNavigator: true,
-                        tooltip: context.l10n.editorCorrectAlbum,
-                        iconSize: 28,
-                        icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
-                        onSelected: (action) async {
-                          if (action == 'cover') {
+                    PopupMenuButton<String>(
+                      useRootNavigator: true,
+                      iconSize: 28,
+                      icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
+                      onSelected: (action) async {
+                        switch (action) {
+                          case 'missing':
+                            await _openInCatalog(context, ref, id);
+                          case 'cover':
                             await showCoverPicker(context, ref, id);
-                            return;
-                          }
-                          final album = await showAlbumMatcher(context, ref, d);
-                          // The songs may now live in another (new or existing) album.
-                          if (album != null && album.id != id && context.mounted) {
-                            context.pushReplacement('/album/${album.id}');
-                          }
-                        },
-                        itemBuilder: (_) => [
+                          case 'delete':
+                            await _deleteAlbum(context, ref, d);
+                          case 'match':
+                            final album = await showAlbumMatcher(context, ref, d);
+                            // The songs may now live in another (new or existing) album.
+                            if (album != null && album.id != id && context.mounted) {
+                              context.pushReplacement('/album/${album.id}');
+                            }
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'missing',
+                          child: ListTile(
+                            leading: const Icon(Icons.download),
+                            title: Text(context.l10n.albumFindMissing),
+                          ),
+                        ),
+                        if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
                           PopupMenuItem(
                             value: 'match',
                             child: ListTile(
-                              leading: Icon(Icons.manage_search),
+                              leading: const Icon(Icons.manage_search),
                               title: Text(context.l10n.editorMatchAlbum),
                             ),
                           ),
                           PopupMenuItem(
                             value: 'cover',
                             child: ListTile(
-                              leading: Icon(Icons.image_search),
+                              leading: const Icon(Icons.image_search),
                               title: Text(context.l10n.editorChangeCover),
                             ),
                           ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: ListTile(
+                              leading: const Icon(Icons.delete_outline),
+                              title: Text(context.l10n.adminDeleteAlbum),
+                            ),
+                          ),
                         ],
-                      ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -273,7 +317,8 @@ class PlaylistPage extends ConsumerWidget {
                   description: d.playlist.description,
                   meta: Text(
                     '${d.playlist.owner.name} • ${songs(context.l10n, d.playlist.trackCount)}'
-                    '${d.playlist.duration > 0 ? ', ${formatLongDuration(context.l10n, d.playlist.duration)}' : ''}',
+                    '${d.playlist.duration > 0 ? ', ${formatLongDuration(context.l10n, d.playlist.duration)}' : ''}'
+                    '${d.playlist.sharedWith.isEmpty ? '' : '\n${context.l10n.librarySharedWith(d.playlist.sharedWith.map((u) => u.name).join(', '))}'}',
                   ),
                 ),
               ),
@@ -301,6 +346,8 @@ class PlaylistPage extends ConsumerWidget {
                                 ref.invalidate(playlistDetailProvider(id));
                                 ref.invalidate(playlistsProvider);
                               }
+                            case 'share':
+                              await showShareWithUsers(context, ref, d.playlist);
                             case 'public':
                               await ref.read(apiProvider).updatePlaylist(id, {'is_public': !d.playlist.isPublic});
                               ref.invalidate(playlistDetailProvider(id));
@@ -318,6 +365,7 @@ class PlaylistPage extends ConsumerWidget {
                               d.playlist.isPublic ? context.l10n.libraryMakePrivate : context.l10n.librarySharePlaylist,
                             ),
                           ),
+                          PopupMenuItem(value: 'share', child: Text(context.l10n.libraryShareWithUsers)),
                           PopupMenuItem(value: 'delete', child: Text(context.l10n.commonDelete)),
                         ],
                       ),

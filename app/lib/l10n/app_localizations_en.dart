@@ -1508,4 +1508,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String adminSpotifyHint(String uri) {
     return 'developer.spotify.com/dashboard → create an app, Redirect URI: $uri';
   }
+
+  @override
+  String get audiobooksViewLibrary => 'Library';
+
+  @override
+  String get audiobooksViewSeries => 'Series';
+
+  @override
+  String get audiobooksViewAuthors => 'Authors';
+
+  @override
+  String get audiobooksViewNarrators => 'Narrators';
+
+  @override
+  String audiobooksBookCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count audiobooks', one: '1 audiobook');
+    return '$_temp0';
+  }
+
+  @override
+  String get albumFindMissing => 'Find missing songs';
+
+  @override
+  String get adminDeleteSong => 'Delete song';
+
+  @override
+  String get adminDeleteAlbum => 'Delete album';
+
+  @override
+  String adminDeleteSongConfirm(String title) {
+    return '\"$title\" will be permanently deleted from the server, including the file.';
+  }
+
+  @override
+  String adminDeleteAlbumConfirm(String title) {
+    return 'The album \"$title\" and all its songs will be permanently deleted from the server, including the files.';
+  }
+
+  @override
+  String get adminDeleted => 'Deleted';
+
+  @override
+  String get libraryShareWithUsers => 'Share with specific users';
+
+  @override
+  String get libraryNoOtherUsers => 'There are no other users yet.';
+
+  @override
+  String librarySharedWith(String names) {
+    return 'Shared with $names';
+  }
 }

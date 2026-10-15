@@ -1,11 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import joinedload
 
 from app.deps import DB, CurrentUser
-from app.models import Playlist, PlaylistEntry, Track, User
+from app.models import Playlist, PlaylistEntry, PlaylistShare, Track, User
 from app.schemas import (
     AddTracksIn,
     MoveEntryIn,
@@ -14,6 +14,7 @@ from app.schemas import (
     PlaylistIn,
     PlaylistOut,
     PlaylistPatch,
+    PlaylistSharesIn,
 )
 from app.services.views import playlists_out, tracks_out
 
@@ -21,20 +22,33 @@ router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 
 
 async def _get_visible(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
-    playlist = await db.get(Playlist, playlist_id)
-    if playlist is None or (playlist.owner_id != user.id and not playlist.is_public):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist not found")
+    playlist = await db.scalar(
+        select(Playlist).where(
+            Playlist.id == playlist_id,
+            or_(
+                Playlist.owner_id == user.id,
+                Playlist.is_public,
+                select(PlaylistShare.id)
+                .where(PlaylistShare.playlist_id == Playlist.id, PlaylistShare.user_id == user.id)
+                .exists(),
+            ),
+        )
+    )
+    if playlist is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist nicht gefunden")
     return playlist
 
 
 async def _get_owned(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
     playlist = await _get_visible(db, user, playlist_id)
     if playlist.owner_id != user.id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your playlist")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Nicht deine Playlist")
     return playlist
 
 
-async def _position_before(db: DB, playlist_id: uuid.UUID, before_entry_id: uuid.UUID | None, count: int) -> list[float]:
+async def _position_before(
+    db: DB, playlist_id: uuid.UUID, before_entry_id: uuid.UUID | None, count: int
+) -> list[float]:
     """Compute `count` fractional positions placed before `before_entry_id` (or at the end)."""
     if before_entry_id is None:
         last = await db.scalar(select(func.max(PlaylistEntry.position)).where(PlaylistEntry.playlist_id == playlist_id))
@@ -57,10 +71,18 @@ async def _position_before(db: DB, playlist_id: uuid.UUID, before_entry_id: uuid
 async def list_playlists(user: CurrentUser, db: DB) -> list[PlaylistOut]:
     rows = await db.scalars(
         select(Playlist)
-        .where(or_(Playlist.owner_id == user.id, Playlist.is_public))
+        .where(
+            or_(
+                Playlist.owner_id == user.id,
+                Playlist.is_public,
+                select(PlaylistShare.id)
+                .where(PlaylistShare.playlist_id == Playlist.id, PlaylistShare.user_id == user.id)
+                .exists(),
+            )
+        )
         .order_by(Playlist.updated_at.desc())
     )
-    return await playlists_out(db, list(rows))
+    return await playlists_out(db, list(rows), user.id)
 
 
 @router.post("", response_model=PlaylistOut, status_code=status.HTTP_201_CREATED)
@@ -69,7 +91,7 @@ async def create_playlist(body: PlaylistIn, user: CurrentUser, db: DB) -> Playli
     db.add(playlist)
     await db.commit()
     await db.refresh(playlist)
-    return (await playlists_out(db, [playlist]))[0]
+    return (await playlists_out(db, [playlist], user.id))[0]
 
 
 @router.get("/{playlist_id}", response_model=PlaylistDetail)
@@ -78,13 +100,16 @@ async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> Pla
     entries = list(
         await db.scalars(
             select(PlaylistEntry)
-            .options(joinedload(PlaylistEntry.track).joinedload(Track.artist), joinedload(PlaylistEntry.track).joinedload(Track.album))
+            .options(
+                joinedload(PlaylistEntry.track).joinedload(Track.artist),
+                joinedload(PlaylistEntry.track).joinedload(Track.album),
+            )
             .where(PlaylistEntry.playlist_id == playlist_id)
             .order_by(PlaylistEntry.position)
         )
     )
     tracks = await tracks_out(db, user, [e.track for e in entries])
-    detail = PlaylistDetail.model_validate((await playlists_out(db, [playlist]))[0].model_dump())
+    detail = PlaylistDetail.model_validate((await playlists_out(db, [playlist], user.id))[0].model_dump())
     detail.entries = [
         PlaylistEntryOut(entry_id=e.id, added_at=e.added_at, track=t) for e, t in zip(entries, tracks, strict=True)
     ]
@@ -99,7 +124,24 @@ async def update_playlist(playlist_id: uuid.UUID, body: PlaylistPatch, user: Cur
         setattr(playlist, key, value)
     await db.commit()
     await db.refresh(playlist)
-    return (await playlists_out(db, [playlist]))[0]
+    return (await playlists_out(db, [playlist], user.id))[0]
+
+
+@router.put("/{playlist_id}/shares", response_model=PlaylistOut)
+async def replace_shares(playlist_id: uuid.UUID, body: PlaylistSharesIn, user: CurrentUser, db: DB) -> PlaylistOut:
+    playlist = await _get_owned(db, user, playlist_id)
+    user_ids = set(body.user_ids)
+    known_ids = set(
+        await db.scalars(select(User.id).where(User.id.in_(user_ids), ~User.is_disabled, User.id != user.id))
+    )
+    if user_ids != known_ids:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unbekannter Nutzer")
+    await db.execute(delete(PlaylistShare).where(PlaylistShare.playlist_id == playlist_id))
+    db.add_all([PlaylistShare(playlist_id=playlist_id, user_id=shared_user_id) for shared_user_id in user_ids])
+    playlist.updated_at = func.now()
+    await db.commit()
+    await db.refresh(playlist)
+    return (await playlists_out(db, [playlist], user.id))[0]
 
 
 @router.delete("/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)

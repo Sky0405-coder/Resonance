@@ -10,6 +10,8 @@ from app.deps import DB, CurrentUser
 from app.models import Album, Artist, PlayEvent, Playlist, SavedAlbum, Track
 from app.schemas import AlbumDetail, AlbumOut, ArtistDetail, ArtistOut, HomeOut, Page, SearchResult, TrackOut
 from app.services import covers, transcode
+from app.services.deezer import DeezerError, deezer
+from app.services.matching import name_key
 from app.services.views import album_options, albums_out, artists_out, playlists_out, track_options, tracks_out
 
 router = APIRouter(prefix="/api", tags=["library"])
@@ -58,12 +60,14 @@ async def home(user: CurrentUser, db: DB) -> HomeOut:
             )
         ).all()
     ]
-    tracks_by_id = {t.id: t for t in await db.scalars(select(Track).options(*track_options()).where(Track.id.in_(top_ids)))}
+    tracks_by_id = {
+        t.id: t for t in await db.scalars(select(Track).options(*track_options()).where(Track.id.in_(top_ids)))
+    }
 
     return HomeOut(
         recently_played=await albums_out(db, recently_played),
         recently_added=await albums_out(db, recently_added),
-        playlists=await playlists_out(db, playlists),
+        playlists=await playlists_out(db, playlists, user.id),
         most_played=await tracks_out(db, user, [tracks_by_id[i] for i in top_ids if i in tracks_by_id]),
     )
 
@@ -153,7 +157,9 @@ async def get_album(album_id: uuid.UUID, user: CurrentUser, db: DB) -> AlbumDeta
     if album is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Album not found")
     tracks = list(
-        await db.scalars(select(Track).options(*track_options()).where(Track.album_id == album_id).order_by(*_track_order()))
+        await db.scalars(
+            select(Track).options(*track_options()).where(Track.album_id == album_id).order_by(*_track_order())
+        )
     )
     detail = AlbumDetail.model_validate((await albums_out(db, [album]))[0].model_dump())
     detail.tracks = await tracks_out(db, user, tracks)
@@ -162,6 +168,26 @@ async def get_album(album_id: uuid.UUID, user: CurrentUser, db: DB) -> AlbumDeta
         await db.scalar(select(SavedAlbum.id).where(SavedAlbum.user_id == user.id, SavedAlbum.album_id == album_id))
     ) is not None
     return detail
+
+
+@router.get("/library/albums/{album_id}/catalog")
+async def album_catalog(album_id: uuid.UUID, user: CurrentUser, db: DB) -> dict[str, str]:
+    album = await db.scalar(select(Album).options(*album_options()).where(Album.id == album_id))
+    if album is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Nicht gefunden")
+    try:
+        results = await deezer.search_albums(f"{album.artist.name} {album.title}", 10)
+    except DeezerError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Katalog nicht erreichbar") from e
+    candidates = [result for result in results if name_key(result["artist"]["name"]) == album.artist.name_key]
+    for result in candidates:
+        if name_key(result["title"]) == album.title_key:
+            return {"catalog_id": str(result["id"])}
+    for result in candidates:
+        title_key = name_key(result["title"])
+        if title_key.startswith(album.title_key) or album.title_key.startswith(title_key):
+            return {"catalog_id": str(result["id"])}
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "Album nicht im Katalog gefunden")
 
 
 @router.get("/albums/{album_id}/cover")
@@ -231,7 +257,9 @@ async def search(
     limit: int = Query(20, ge=1, le=100),
 ) -> SearchResult:
     pattern = f"%{q.strip()}%"
-    artists = list(await db.scalars(select(Artist).where(Artist.name.ilike(pattern)).order_by(Artist.name).limit(limit)))
+    artists = list(
+        await db.scalars(select(Artist).where(Artist.name.ilike(pattern)).order_by(Artist.name).limit(limit))
+    )
     albums = list(
         await db.scalars(
             select(Album).options(*album_options()).where(Album.title.ilike(pattern)).order_by(Album.title).limit(limit)

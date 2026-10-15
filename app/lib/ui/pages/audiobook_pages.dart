@@ -158,9 +158,14 @@ class _LibraryView extends ConsumerStatefulWidget {
   ConsumerState<_LibraryView> createState() => _LibraryViewState();
 }
 
+enum _BooksView { library, series, authors, narrators }
+
 class _LibraryViewState extends ConsumerState<_LibraryView> {
   final _search = TextEditingController();
   String _query = '';
+  _BooksView _view = _BooksView.library;
+  // Opened series / author / narrator: (title, ABS item filter).
+  (String, String)? _filter;
 
   @override
   void dispose() {
@@ -189,6 +194,10 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
             ref.invalidate(absShelvesProvider(library.id));
             ref.invalidate(absItemsProvider(library.id));
             ref.invalidate(absProgressProvider);
+            ref.invalidate(absSeriesProvider(library.id));
+            ref.invalidate(absAuthorsProvider(library.id));
+            ref.invalidate(absNarratorsProvider(library.id));
+            if (_filter != null) ref.invalidate(absFilteredItemsProvider((library.id, _filter!.$2)));
           },
           child: CustomScrollView(
             slivers: [
@@ -233,7 +242,10 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                           ChoiceChip(
                             label: Text(l.name),
                             selected: l.id == library.id,
-                            onSelected: (_) => ref.read(_selectedLibraryProvider.notifier).select(l.id),
+                            onSelected: (_) {
+                              setState(() => _filter = null);
+                              ref.read(_selectedLibraryProvider.notifier).select(l.id);
+                            },
                           ),
                       ],
                     ),
@@ -260,6 +272,72 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                 _BookGrid(value: ref.watch(absSearchProvider((library.id, _query))), progress: progress)
               else ...[
                 SliverToBoxAdapter(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Row(
+                      children: [
+                        for (final (view, label) in [
+                          (_BooksView.library, context.l10n.audiobooksViewLibrary),
+                          (_BooksView.series, context.l10n.audiobooksViewSeries),
+                          (_BooksView.authors, context.l10n.audiobooksViewAuthors),
+                          (_BooksView.narrators, context.l10n.audiobooksViewNarrators),
+                        ])
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(label),
+                              selected: _view == view,
+                              onSelected: (_) => setState(() {
+                                _view = view;
+                                _filter = null;
+                              }),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_filter case (final title, final filter)) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 16, 16, 8),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back),
+                            onPressed: () => setState(() => _filter = null),
+                          ),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: Theme.of(context).textTheme.titleLarge,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  _BookGrid(value: ref.watch(absFilteredItemsProvider((library.id, filter))), progress: progress),
+                ] else if (_view == _BooksView.series)
+                  _SeriesGrid(
+                    value: ref.watch(absSeriesProvider(library.id)),
+                    onOpen: (s) => setState(() => _filter = (s.name, absFilter('series', s.id))),
+                  )
+                else if (_view != _BooksView.library)
+                  _PersonList(
+                    value: ref.watch(
+                      _view == _BooksView.authors
+                          ? absAuthorsProvider(library.id)
+                          : absNarratorsProvider(library.id),
+                    ),
+                    icon: _view == _BooksView.authors ? Icons.person : Icons.record_voice_over,
+                    onOpen: (p) => setState(() => _filter = (p.name, p.filter)),
+                  )
+                else ...[
+                SliverToBoxAdapter(
                   child: ref
                       .watch(absShelvesProvider(library.id))
                       .when(
@@ -283,6 +361,7 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                   ),
                 ),
                 _BookGrid(value: ref.watch(absItemsProvider(library.id)), progress: progress),
+                ],
               ],
               const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
             ],
@@ -330,6 +409,91 @@ class _BookGrid extends StatelessWidget {
             ),
     );
   }
+}
+
+Widget _sliverLoading() => const SliverToBoxAdapter(
+  child: Padding(
+    padding: EdgeInsets.all(24),
+    child: Center(child: CircularProgressIndicator()),
+  ),
+);
+
+Widget _sliverEmpty(BuildContext context) => SliverToBoxAdapter(
+  child: Padding(
+    padding: const EdgeInsets.all(24),
+    child: Center(child: Text(context.l10n.commonNothingFound, style: TextStyle(color: Palette.textMuted))),
+  ),
+);
+
+class _SeriesGrid extends ConsumerWidget {
+  const _SeriesGrid({required this.value, required this.onOpen});
+  final AsyncValue<List<AbsSeries>> value;
+  final ValueChanged<AbsSeries> onOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => value.when(
+    loading: _sliverLoading,
+    error: (e, _) => SliverToBoxAdapter(child: Center(child: Text('$e'))),
+    data: (series) => series.isEmpty
+        ? _sliverEmpty(context)
+        : SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 200,
+                childAspectRatio: 0.68,
+              ),
+              itemCount: series.length,
+              itemBuilder: (_, i) {
+                final s = series[i];
+                return MediaCard(
+                  image: NetworkCover(
+                    url: s.coverItemId == null
+                        ? null
+                        : ref.watch(apiProvider).absUrl('items/${s.coverItemId}/cover', {'width': '400'}),
+                    icon: Icons.library_books,
+                  ),
+                  title: s.name,
+                  subtitle: context.l10n.audiobooksBookCount(s.bookCount),
+                  onTap: () => onOpen(s),
+                );
+              },
+            ),
+          ),
+  );
+}
+
+class _PersonList extends StatelessWidget {
+  const _PersonList({required this.value, required this.icon, required this.onOpen});
+  final AsyncValue<List<AbsPerson>> value;
+  final IconData icon;
+  final ValueChanged<AbsPerson> onOpen;
+
+  @override
+  Widget build(BuildContext context) => value.when(
+    loading: _sliverLoading,
+    error: (e, _) => SliverToBoxAdapter(child: Center(child: Text('$e'))),
+    data: (people) => people.isEmpty
+        ? _sliverEmpty(context)
+        : SliverPadding(
+            padding: const EdgeInsets.only(top: 8),
+            sliver: SliverList.builder(
+              itemCount: people.length,
+              itemBuilder: (_, i) {
+                final p = people[i];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFF282828),
+                    child: Icon(icon, color: Palette.textMuted),
+                  ),
+                  title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(context.l10n.audiobooksBookCount(p.bookCount)),
+                  onTap: () => onOpen(p),
+                );
+              },
+            ),
+          ),
+  );
 }
 
 class _BookCard extends ConsumerWidget {

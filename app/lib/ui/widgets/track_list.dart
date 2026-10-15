@@ -192,12 +192,18 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
               ),
               for (final a in extra)
                 ListTile(leading: Icon(a.icon), title: Text(a.label), onTap: () => run(a.onSelected)),
-              if (ref.read(sessionProvider).user?.isAdmin ?? false)
+              if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
                 ListTile(
                   leading: const Icon(Icons.edit_note),
                   title: Text(context.l10n.editorCorrectMetadata),
                   onTap: () => run(() => showTrackEditor(context, ref, t)),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: Text(context.l10n.adminDeleteSong),
+                  onTap: () => run(() => deleteTrackAsAdmin(context, ref, t)),
+                ),
+              ],
             ],
           ),
         ),
@@ -273,4 +279,105 @@ Future<String?> promptText(BuildContext context, String title, String label, {St
       ],
     ),
   );
+}
+
+Future<bool> confirmDelete(BuildContext context, String title, String message) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(context.l10n.commonCancel)),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(context.l10n.commonDelete),
+          ),
+        ],
+      ),
+    ) ??
+    false;
+
+/// Admin only: deletes the song (database row and file) from the server.
+Future<void> deleteTrackAsAdmin(BuildContext context, WidgetRef ref, Track t) async {
+  if (!await confirmDelete(context, context.l10n.adminDeleteSong, context.l10n.adminDeleteSongConfirm(t.title))) {
+    return;
+  }
+  try {
+    await ref.read(apiProvider).deleteLibraryTrack(t.id);
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+    return;
+  }
+  invalidateLibrary(ref);
+  ref.invalidate(albumProvider(t.album.id));
+  if (context.mounted) showInfo(context, context.l10n.adminDeleted);
+}
+
+/// Refresh the library lists after songs or albums were deleted.
+void invalidateLibrary(WidgetRef ref) {
+  ref.invalidate(homeProvider);
+  ref.invalidate(likedTracksProvider);
+  ref.invalidate(playlistsProvider);
+  ref.invalidate(savedAlbumsProvider);
+  ref.invalidate(allAlbumsProvider);
+  ref.invalidate(allArtistsProvider);
+  ref.invalidate(playlistDetailProvider);
+  ref.invalidate(artistProvider);
+}
+
+/// Owner only: pick the users a playlist is shared with.
+Future<void> showShareWithUsers(BuildContext context, WidgetRef ref, Playlist playlist) async {
+  final api = ref.read(apiProvider);
+  final List<NamedRef> users;
+  try {
+    users = await api.otherUsers();
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+    return;
+  }
+  if (!context.mounted) return;
+  final selected = {for (final u in playlist.sharedWith) u.id};
+  final result = await showDialog<Set<String>>(
+    context: context,
+    builder: (dialog) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(context.l10n.libraryShareWithUsers),
+        contentPadding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
+        content: SizedBox(
+          width: 400,
+          child: users.isEmpty
+              ? Padding(padding: const EdgeInsets.all(16), child: Text(context.l10n.libraryNoOtherUsers))
+              : ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final u in users)
+                      CheckboxListTile(
+                        title: Text(u.name),
+                        value: selected.contains(u.id),
+                        onChanged: (v) => setState(() => v! ? selected.add(u.id) : selected.remove(u.id)),
+                      ),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog), child: Text(context.l10n.commonCancel)),
+          FilledButton(
+            onPressed: users.isEmpty ? null : () => Navigator.pop(dialog, selected),
+            child: Text(context.l10n.commonSave),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (result == null) return;
+  try {
+    await api.setPlaylistShares(playlist.id, result.toList());
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+    return;
+  }
+  ref.invalidate(playlistDetailProvider(playlist.id));
+  ref.invalidate(playlistsProvider);
 }

@@ -22,6 +22,7 @@ from app.api import (
     requests,
     spotify,
     torrents,
+    users,
 )
 from app.config import get_settings
 from app.services import audiobookshelf as abs_service
@@ -72,6 +73,7 @@ for module in (
     torrents,
     editor,
     audiobookshelf,
+    users,
 ):
     app.include_router(module.router)
 app.include_router(audiobookshelf.admin_router)
