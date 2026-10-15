@@ -9,12 +9,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import ImportBatch, ImportFile, Track, User
+from app.models import ImportBatch, ImportFile, Job, Track, User
 from app.services import acoustid
 from app.services.fingerprint import fingerprint
 from app.services.identify import FileInfo, album_context, assign_releases, candidates, group_key, identify_file
@@ -313,6 +313,13 @@ async def _auto_import() -> None:
 async def start() -> None:
     global _running, _auto_task
     async with SessionLocal() as db:
+        # Background jobs (library scans) do not survive a restart.
+        await db.execute(
+            update(Job)
+            .where(Job.status.in_(["queued", "running"]))
+            .values(status="failed", message="Durch Neustart abgebrochen", finished_at=datetime.now(UTC))
+        )
+        await db.commit()
         ids = list(
             await db.scalars(
                 select(ImportBatch.id).where(ImportBatch.status.in_(_ACTIVE)).order_by(ImportBatch.created_at)
