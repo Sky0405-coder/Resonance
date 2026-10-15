@@ -1570,4 +1570,36 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get radioStartSong => 'Go to song radio';
+
+  @override
+  String get radioStartAlbum => 'Go to album radio';
+
+  @override
+  String get radioKind => 'Radio';
+
+  @override
+  String get radioKeep => 'Keep as playlist';
+
+  @override
+  String radioDownloading(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count missing songs are being downloaded and will then be added to the radio',
+      one: '1 missing song is being downloaded and will then be added to the radio',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get libraryRadios => 'Radios';
+
+  @override
+  String get adminRadioMaxDownloads => 'Max. downloads per radio start';
+
+  @override
+  String get adminRadioPlaylistRetention => 'Keep radios (days since last use, 0 = forever)';
 }

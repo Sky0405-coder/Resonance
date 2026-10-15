@@ -670,6 +670,21 @@ class _ServerTab extends ConsumerWidget {
                 'radio': {'temporary_retention_days': v},
               }),
             ),
+            _NumberTile(
+              title: context.l10n.adminRadioMaxDownloads,
+              value: radio['max_downloads_per_radio'] ?? 10,
+              enabled: radio['auto_download_enabled'],
+              onChanged: (v) => patch({
+                'radio': {'max_downloads_per_radio': v},
+              }),
+            ),
+            _NumberTile(
+              title: context.l10n.adminRadioPlaylistRetention,
+              value: radio['playlist_retention_days'] ?? 30,
+              onChanged: (v) => patch({
+                'radio': {'playlist_retention_days': v},
+              }),
+            ),
             _Group(context.l10n.navAudiobooks),
             SwitchListTile(
               title: Text(context.l10n.adminEnableAudiobookshelf),

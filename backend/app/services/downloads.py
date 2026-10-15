@@ -411,9 +411,10 @@ class DownloadManager:
             await recompute_request(db, request)
             await db.commit()
         if values.get("status") == "done":
-            from app.services.spotify import resolve_after_download
+            from app.services import radio, spotify
 
-            resolve_after_download()
+            spotify.resolve_after_download()
+            radio.resolve_after_download()
 
     async def _write_progress(self, item_id: uuid.UUID, finished: asyncio.Event) -> None:
         while not finished.is_set():
@@ -537,7 +538,9 @@ class DownloadManager:
 manager = DownloadManager()
 
 
-async def create_request(db: AsyncSession, user: User, kind: str, catalog_id: str, temporary: bool) -> DownloadRequest:
+async def create_request(
+    db: AsyncSession, user: User, kind: str, catalog_id: str, temporary: bool, *, radio: bool = False
+) -> DownloadRequest:
     existing = await db.scalar(
         select(DownloadRequest)
         .options(selectinload(DownloadRequest.items), joinedload(DownloadRequest.user))
@@ -595,7 +598,7 @@ async def create_request(db: AsyncSession, user: User, kind: str, catalog_id: st
         artist=artist,
         cover_url=album.get("cover_medium"),
         status="active" if approved else "pending_approval",
-        is_temporary=temporary and user.is_admin,
+        is_temporary=temporary and (user.is_admin or radio),
         items=[
             DownloadItem(
                 position=i,

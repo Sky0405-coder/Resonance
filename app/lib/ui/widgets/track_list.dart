@@ -181,6 +181,11 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
                 onTap: () => run(() => player.addToQueue(t)),
               ),
               ListTile(
+                leading: const Icon(Icons.radio),
+                title: Text(context.l10n.radioStartSong),
+                onTap: () => run(() => startRadio(context, ref, 'track', t.id)),
+              ),
+              ListTile(
                 leading: const Icon(Icons.album),
                 title: Text(context.l10n.playerGoToAlbum),
                 onTap: () => run(() => context.push('/album/${t.album.id}')),
@@ -237,7 +242,7 @@ Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String>
               if (context.mounted) showInfo(context, context.l10n.libraryAddedToPlaylist((p.name).toString()));
             },
           ),
-          for (final p in playlists.where((p) => p.owner.id == ref.read(currentUserIdProvider)))
+          for (final p in playlists.where((p) => p.owner.id == ref.read(currentUserIdProvider) && !p.isRadio))
             ListTile(
               leading: SizedBox(width: 40, child: PlaylistCover(albumIds: p.coverAlbumIds)),
               title: Text(p.name),
@@ -380,4 +385,22 @@ Future<void> showShareWithUsers(BuildContext context, WidgetRef ref, Playlist pl
   }
   ref.invalidate(playlistDetailProvider(playlist.id));
   ref.invalidate(playlistsProvider);
+}
+
+/// Starts a song/album radio: builds it on the server, plays it and opens it.
+Future<void> startRadio(BuildContext context, WidgetRef ref, String seedType, String id) async {
+  final api = ref.read(apiProvider);
+  final l10n = context.l10n;
+  try {
+    final (playlist, requested) = await api.startRadio(seedType, id);
+    ref.invalidate(playlistsProvider);
+    final detail = await api.playlist(playlist.id);
+    if (!context.mounted) return;
+    await playMusic(context, ref, [for (final e in detail.entries) e.track], contextId: 'playlist:${playlist.id}');
+    if (!context.mounted) return;
+    context.push('/playlist/${playlist.id}');
+    if (requested > 0) showInfo(context, l10n.radioDownloading(requested));
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
 }

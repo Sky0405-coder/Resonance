@@ -26,6 +26,10 @@ class RadioConfig(BaseModel):
     # unless someone likes them or adds them to a playlist.
     temporary_tracks_enabled: bool = True
     temporary_retention_days: int = Field(14, ge=1, le=365)
+    # Radio playlists are deleted this many days after they were last started (0 = keep forever).
+    playlist_retention_days: int = Field(30, ge=0, le=3650)
+    # Maximum number of missing songs requested for download per radio start (0 = none).
+    max_downloads_per_radio: int = Field(10, ge=0, le=50)
 
 
 class DownloadConfig(BaseModel):

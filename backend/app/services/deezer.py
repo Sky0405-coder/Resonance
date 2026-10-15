@@ -96,6 +96,12 @@ class DeezerClient:
     async def artist_top(self, id: str, limit: int = 10) -> list[dict]:
         return (await self._get(f"artist/{id}/top", limit=limit)).get("data", [])
 
+    async def artist_radio(self, id: str) -> list[dict]:
+        return (await self._get(f"artist/{id}/radio", limit=50)).get("data", [])
+
+    async def artist_related(self, id: str, limit: int = 10) -> list[dict]:
+        return (await self._get(f"artist/{id}/related", limit=limit)).get("data", [])
+
     async def artist_albums(self, id: str) -> list[dict]:
         return (await self._get(f"artist/{id}/albums", limit=100)).get("data", [])
 

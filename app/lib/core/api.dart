@@ -169,6 +169,14 @@ class ApiClient {
     return (j['catalog_id'] as String, [for (final t in j['tracks']) CatalogTrack.fromJson(t)]);
   }
 
+  /// Builds (or reuses) a radio for a library song or album: (radio playlist, number of requested downloads).
+  Future<(Playlist, int)> startRadio(String seedType, String id) async {
+    final j = await _post('/api/radio', {'seed_type': seedType, 'id': id});
+    return (Playlist.fromJson(j['playlist']), j['requested'] as int);
+  }
+
+  Future<void> keepRadio(String playlistId) => _post('/api/playlists/$playlistId/keep');
+
   Future<void> deleteLibraryTrack(String id) => _delete('/api/admin/library/tracks/$id');
 
   Future<void> deleteLibraryAlbum(String id) => _delete('/api/admin/library/albums/$id');

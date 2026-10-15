@@ -246,13 +246,26 @@ class _PlaylistsTab extends ConsumerWidget {
             ),
             onTap: () => context.push('/liked'),
           ),
-          for (final p in list)
+          for (final p in list.where((p) => !p.isRadio))
             ListTile(
               leading: SizedBox(width: 56, child: PlaylistCover(albumIds: p.coverAlbumIds)),
               title: Text(p.name),
               subtitle: Text(context.l10n.libraryPlaylistBy((p.owner.name).toString())),
               onTap: () => context.push('/playlist/${p.id}'),
             ),
+          if (list.any((p) => p.isRadio)) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+              child: Text(context.l10n.libraryRadios, style: Theme.of(context).textTheme.titleMedium),
+            ),
+            for (final p in list.where((p) => p.isRadio))
+              ListTile(
+                leading: SizedBox(width: 56, child: PlaylistCover(albumIds: p.coverAlbumIds, icon: Icons.radio)),
+                title: Text(p.name),
+                subtitle: Text(songs(context.l10n, p.trackCount)),
+                onTap: () => context.push('/playlist/${p.id}'),
+              ),
+          ],
         ],
       ),
     );

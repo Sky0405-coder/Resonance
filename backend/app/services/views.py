@@ -133,6 +133,7 @@ async def playlists_out(db: AsyncSession, playlists: Sequence[Playlist], user_id
                 name=p.name,
                 description=p.description,
                 is_public=p.is_public,
+                kind=p.kind,
                 owner=ArtistRef(id=owner.id, name=owner.display_name),
                 shared_with=shared_with.get(p.id, []),
                 track_count=count,

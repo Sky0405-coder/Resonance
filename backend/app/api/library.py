@@ -62,7 +62,10 @@ async def home(user: CurrentUser, db: DB) -> HomeOut:
 
     playlists = list(
         await db.scalars(
-            select(Playlist).where(Playlist.owner_id == user.id).order_by(Playlist.updated_at.desc()).limit(12)
+            select(Playlist)
+            .where(Playlist.owner_id == user.id, Playlist.kind == "user")
+            .order_by(Playlist.updated_at.desc())
+            .limit(12)
         )
     )
 

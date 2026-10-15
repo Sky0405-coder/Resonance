@@ -198,6 +198,8 @@ class AlbumPage extends ConsumerWidget {
                         switch (action) {
                           case 'missing':
                             await _openInCatalog(context, ref, id);
+                          case 'radio':
+                            await startRadio(context, ref, 'album', id);
                           case 'cover':
                             await showCoverPicker(context, ref, id);
                           case 'delete':
@@ -211,6 +213,10 @@ class AlbumPage extends ConsumerWidget {
                         }
                       },
                       itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'radio',
+                          child: ListTile(leading: const Icon(Icons.radio), title: Text(context.l10n.radioStartAlbum)),
+                        ),
                         PopupMenuItem(
                           value: 'missing',
                           child: ListTile(
@@ -356,7 +362,11 @@ class PlaylistPage extends ConsumerWidget {
               SliverToBoxAdapter(
                 child: CollectionHeader(
                   image: PlaylistCover(albumIds: d.playlist.coverAlbumIds),
-                  kind: d.playlist.isPublic ? context.l10n.libraryPublicPlaylist : context.l10n.commonPlaylist,
+                  kind: d.playlist.isRadio
+                      ? context.l10n.radioKind
+                      : d.playlist.isPublic
+                      ? context.l10n.libraryPublicPlaylist
+                      : context.l10n.commonPlaylist,
                   title: d.playlist.name,
                   description: d.playlist.description,
                   meta: Text(
@@ -390,6 +400,10 @@ class PlaylistPage extends ConsumerWidget {
                                 ref.invalidate(playlistDetailProvider(id));
                                 ref.invalidate(playlistsProvider);
                               }
+                            case 'keep':
+                              await ref.read(apiProvider).keepRadio(id);
+                              ref.invalidate(playlistDetailProvider(id));
+                              ref.invalidate(playlistsProvider);
                             case 'share':
                               await showShareWithUsers(context, ref, d.playlist);
                             case 'public':
@@ -402,14 +416,20 @@ class PlaylistPage extends ConsumerWidget {
                           }
                         },
                         itemBuilder: (_) => [
-                          PopupMenuItem(value: 'rename', child: Text(context.l10n.commonRename)),
-                          PopupMenuItem(
-                            value: 'public',
-                            child: Text(
-                              d.playlist.isPublic ? context.l10n.libraryMakePrivate : context.l10n.librarySharePlaylist,
+                          if (d.playlist.isRadio)
+                            PopupMenuItem(value: 'keep', child: Text(context.l10n.radioKeep))
+                          else ...[
+                            PopupMenuItem(value: 'rename', child: Text(context.l10n.commonRename)),
+                            PopupMenuItem(
+                              value: 'public',
+                              child: Text(
+                                d.playlist.isPublic
+                                    ? context.l10n.libraryMakePrivate
+                                    : context.l10n.librarySharePlaylist,
+                              ),
                             ),
-                          ),
-                          PopupMenuItem(value: 'share', child: Text(context.l10n.libraryShareWithUsers)),
+                            PopupMenuItem(value: 'share', child: Text(context.l10n.libraryShareWithUsers)),
+                          ],
                           PopupMenuItem(value: 'delete', child: Text(context.l10n.commonDelete)),
                         ],
                       ),

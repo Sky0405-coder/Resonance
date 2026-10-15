@@ -444,5 +444,13 @@
   "libraryShareWithUsers": "Share with specific users",
   "libraryNoOtherUsers": "There are no other users yet.",
   "librarySharedWith": "Shared with {names}",
-  "albumMissingTitle": "{count, plural, =1{1 song not in your library} other{{count} songs not in your library}}"
+  "albumMissingTitle": "{count, plural, =1{1 song not in your library} other{{count} songs not in your library}}",
+  "radioStartSong": "Go to song radio",
+  "radioStartAlbum": "Go to album radio",
+  "radioKind": "Radio",
+  "radioKeep": "Keep as playlist",
+  "radioDownloading": "{count, plural, =1{1 missing song is being downloaded and will then be added to the radio} other{{count} missing songs are being downloaded and will then be added to the radio}}",
+  "libraryRadios": "Radios",
+  "adminRadioMaxDownloads": "Max. downloads per radio start",
+  "adminRadioPlaylistRetention": "Keep radios (days since last use, 0 = forever)"
 }

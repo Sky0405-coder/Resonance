@@ -1,11 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import joinedload
 
 from app.deps import DB, CurrentUser
-from app.models import Playlist, PlaylistEntry, PlaylistShare, Track, User
+from app.models import Playlist, PlaylistEntry, PlaylistShare, RadioPending, Track, User
 from app.schemas import (
     AddTracksIn,
     MoveEntryIn,
@@ -25,6 +25,7 @@ async def _get_visible(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
     playlist = await db.scalar(
         select(Playlist).where(
             Playlist.id == playlist_id,
+            or_(Playlist.owner_id == user.id, Playlist.kind != "radio"),
             or_(
                 Playlist.owner_id == user.id,
                 Playlist.is_public,
@@ -72,13 +73,14 @@ async def list_playlists(user: CurrentUser, db: DB) -> list[PlaylistOut]:
     rows = await db.scalars(
         select(Playlist)
         .where(
+            or_(Playlist.owner_id == user.id, Playlist.kind != "radio"),
             or_(
                 Playlist.owner_id == user.id,
                 Playlist.is_public,
                 select(PlaylistShare.id)
                 .where(PlaylistShare.playlist_id == Playlist.id, PlaylistShare.user_id == user.id)
                 .exists(),
-            )
+            ),
         )
         .order_by(Playlist.updated_at.desc())
     )
@@ -120,6 +122,8 @@ async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> Pla
 @router.patch("/{playlist_id}", response_model=PlaylistOut)
 async def update_playlist(playlist_id: uuid.UUID, body: PlaylistPatch, user: CurrentUser, db: DB) -> PlaylistOut:
     playlist = await _get_owned(db, user, playlist_id)
+    if playlist.kind == "radio" and body.is_public is True:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Radios können nicht geteilt werden")
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(playlist, key, value)
     await db.commit()
@@ -130,6 +134,8 @@ async def update_playlist(playlist_id: uuid.UUID, body: PlaylistPatch, user: Cur
 @router.put("/{playlist_id}/shares", response_model=PlaylistOut)
 async def replace_shares(playlist_id: uuid.UUID, body: PlaylistSharesIn, user: CurrentUser, db: DB) -> PlaylistOut:
     playlist = await _get_owned(db, user, playlist_id)
+    if playlist.kind == "radio":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Radios können nicht geteilt werden")
     user_ids = set(body.user_ids)
     known_ids = set(
         await db.scalars(select(User.id).where(User.id.in_(user_ids), ~User.is_disabled, User.id != user.id))
@@ -151,6 +157,27 @@ async def delete_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> 
     await db.commit()
 
 
+@router.post("/{playlist_id}/keep", response_model=PlaylistOut)
+async def keep_radio(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> PlaylistOut:
+    playlist = await _get_owned(db, user, playlist_id)
+    if playlist.kind != "radio":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Keine Radio-Playlist")
+    playlist.kind = "user"
+    playlist.radio_seed = None
+    await db.execute(
+        update(Track)
+        .where(
+            Track.is_temporary,
+            Track.id.in_(select(PlaylistEntry.track_id).where(PlaylistEntry.playlist_id == playlist_id)),
+        )
+        .values(is_temporary=False)
+    )
+    await db.execute(delete(RadioPending).where(RadioPending.playlist_id == playlist_id))
+    await db.commit()
+    await db.refresh(playlist)
+    return (await playlists_out(db, [playlist], user.id))[0]
+
+
 @router.post("/{playlist_id}/tracks", status_code=status.HTTP_204_NO_CONTENT)
 async def add_tracks(playlist_id: uuid.UUID, body: AddTracksIn, user: CurrentUser, db: DB) -> None:
     playlist = await _get_owned(db, user, playlist_id)
@@ -160,8 +187,8 @@ async def add_tracks(playlist_id: uuid.UUID, body: AddTracksIn, user: CurrentUse
     positions = await _position_before(db, playlist_id, body.before_entry_id, len(body.track_ids))
     for track_id, pos in zip(body.track_ids, positions, strict=True):
         db.add(PlaylistEntry(playlist_id=playlist_id, track_id=track_id, position=pos))
-        # Adding to a playlist keeps a temporary radio download permanently.
-        tracks[track_id].is_temporary = False
+        if playlist.kind == "user":
+            tracks[track_id].is_temporary = False
     playlist.updated_at = func.now()
     await db.commit()
 

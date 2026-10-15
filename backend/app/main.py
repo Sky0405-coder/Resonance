@@ -19,6 +19,7 @@ from app.api import (
     library,
     me,
     playlists,
+    radio,
     requests,
     spotify,
     torrents,
@@ -27,6 +28,7 @@ from app.api import (
 from app.config import get_settings
 from app.services import audiobookshelf as abs_service
 from app.services import importer
+from app.services import radio as radio_service
 from app.services import spotify as spotify_service
 from app.services.downloads import manager
 
@@ -41,12 +43,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await manager.start()
     await importer.start()
     await spotify_service.start()
+    await radio_service.start()
     try:
         yield
     finally:
         await importer.stop()
         await manager.stop()
         await spotify_service.stop()
+        await radio_service.stop()
         await abs_service.close()
 
 
@@ -65,6 +69,7 @@ for module in (
     me,
     library,
     playlists,
+    radio,
     admin,
     catalog,
     requests,

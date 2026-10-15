@@ -2761,6 +2761,54 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'{count, plural, =1{1 Song nicht in deiner Bibliothek} other{{count} Songs nicht in deiner Bibliothek}}'**
   String albumMissingTitle(int count);
+
+  /// No description provided for @radioStartSong.
+  ///
+  /// In de, this message translates to:
+  /// **'Song-Radio starten'**
+  String get radioStartSong;
+
+  /// No description provided for @radioStartAlbum.
+  ///
+  /// In de, this message translates to:
+  /// **'Album-Radio starten'**
+  String get radioStartAlbum;
+
+  /// No description provided for @radioKind.
+  ///
+  /// In de, this message translates to:
+  /// **'Radio'**
+  String get radioKind;
+
+  /// No description provided for @radioKeep.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Playlist behalten'**
+  String get radioKeep;
+
+  /// No description provided for @radioDownloading.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 fehlender Song wird geladen und dann zum Radio hinzugefügt} other{{count} fehlende Songs werden geladen und dann zum Radio hinzugefügt}}'**
+  String radioDownloading(int count);
+
+  /// No description provided for @libraryRadios.
+  ///
+  /// In de, this message translates to:
+  /// **'Radios'**
+  String get libraryRadios;
+
+  /// No description provided for @adminRadioMaxDownloads.
+  ///
+  /// In de, this message translates to:
+  /// **'Max. Downloads pro Radio-Start'**
+  String get adminRadioMaxDownloads;
+
+  /// No description provided for @adminRadioPlaylistRetention.
+  ///
+  /// In de, this message translates to:
+  /// **'Radios aufbewahren (Tage seit letzter Nutzung, 0 = immer)'**
+  String get adminRadioPlaylistRetention;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

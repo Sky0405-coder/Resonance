@@ -1544,4 +1544,36 @@ class AppLocalizationsDe extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get radioStartSong => 'Song-Radio starten';
+
+  @override
+  String get radioStartAlbum => 'Album-Radio starten';
+
+  @override
+  String get radioKind => 'Radio';
+
+  @override
+  String get radioKeep => 'Als Playlist behalten';
+
+  @override
+  String radioDownloading(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fehlende Songs werden geladen und dann zum Radio hinzugefügt',
+      one: '1 fehlender Song wird geladen und dann zum Radio hinzugefügt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get libraryRadios => 'Radios';
+
+  @override
+  String get adminRadioMaxDownloads => 'Max. Downloads pro Radio-Start';
+
+  @override
+  String get adminRadioPlaylistRetention => 'Radios aufbewahren (Tage seit letzter Nutzung, 0 = immer)';
 }

@@ -1004,5 +1004,20 @@
         "type": "int"
       }
     }
-  }
+  },
+  "radioStartSong": "Song-Radio starten",
+  "radioStartAlbum": "Album-Radio starten",
+  "radioKind": "Radio",
+  "radioKeep": "Als Playlist behalten",
+  "radioDownloading": "{count, plural, =1{1 fehlender Song wird geladen und dann zum Radio hinzugefügt} other{{count} fehlende Songs werden geladen und dann zum Radio hinzugefügt}}",
+  "@radioDownloading": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libraryRadios": "Radios",
+  "adminRadioMaxDownloads": "Max. Downloads pro Radio-Start",
+  "adminRadioPlaylistRetention": "Radios aufbewahren (Tage seit letzter Nutzung, 0 = immer)"
 }

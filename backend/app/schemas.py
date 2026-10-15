@@ -209,6 +209,7 @@ class PlaylistOut(ORM):
     name: str
     description: str | None
     is_public: bool
+    kind: str = "user"
     owner: ArtistRef  # {id, name} of the owning user
     shared_with: list[ArtistRef] = []
     track_count: int = 0
@@ -216,6 +217,16 @@ class PlaylistOut(ORM):
     # Up to 4 album ids for a mosaic cover.
     cover_album_ids: list[uuid.UUID] = []
     updated_at: datetime
+
+
+class RadioIn(BaseModel):
+    seed_type: Literal["track", "album"]
+    id: uuid.UUID
+
+
+class RadioOut(BaseModel):
+    playlist: PlaylistOut
+    requested: int
 
 
 class PlaylistEntryOut(BaseModel):

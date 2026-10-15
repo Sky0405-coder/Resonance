@@ -1,4 +1,4 @@
-from app.models.collection import PlayEvent, Playlist, PlaylistEntry, PlaylistShare, SavedAlbum, TrackLike
+from app.models.collection import PlayEvent, Playlist, PlaylistEntry, PlaylistShare, RadioPending, SavedAlbum, TrackLike
 from app.models.downloads import DownloadItem, DownloadRequest
 from app.models.imports import ImportBatch, ImportFile
 from app.models.library import Album, Artist, Track
@@ -22,6 +22,7 @@ __all__ = [
     "Playlist",
     "PlaylistEntry",
     "PlaylistShare",
+    "RadioPending",
     "Role",
     "SavedAlbum",
     "ServerSetting",
