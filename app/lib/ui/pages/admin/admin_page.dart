@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/audiobooks.dart';
 import '../../../core/models.dart';
 import '../../../core/session.dart';
+import '../../../integrations/discord_presence.dart';
 import '../../../core/theme.dart';
 import '../../widgets/collection.dart';
 import '../../widgets/common.dart';
@@ -526,6 +527,7 @@ class _ServerTab extends ConsumerWidget {
         final lib = (c['library'] ?? const {}) as Map;
         final abs = (c['audiobookshelf'] ?? const {}) as Map;
         final spotify = (c['spotify'] ?? const {}) as Map;
+        final integrations = (c['integrations'] ?? const {}) as Map;
         return ListView(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
           children: [
@@ -719,6 +721,18 @@ class _ServerTab extends ConsumerWidget {
               ),
               const _AbsCheckTile(),
             ],
+            _Group(context.l10n.adminIntegrations),
+            _TextTile(
+              title: context.l10n.adminDiscordClientId,
+              value: integrations['discord_client_id'] ?? '',
+              hint: context.l10n.adminDiscordClientIdHint,
+              onChanged: (v) async {
+                await patch({
+                  'integrations': {'discord_client_id': v},
+                });
+                if (isDiscordDesktop) ref.invalidate(discordClientIdProvider);
+              },
+            ),
             _Group(context.l10n.adminSpotifyGroup),
             _TextTile(
               title: context.l10n.adminSpotifyClientId,
@@ -908,7 +922,7 @@ class _TextTile extends StatelessWidget {
             controller: ctrl,
             autofocus: true,
             obscureText: secret,
-            decoration: InputDecoration(helperText: hint),
+            decoration: InputDecoration(helperText: hint, helperMaxLines: 5),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonCancel)),

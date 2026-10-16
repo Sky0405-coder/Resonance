@@ -28,12 +28,14 @@ from app.api import (
     users,
 )
 from app.config import get_settings
+from app.deps import DB, CurrentUser
 from app.services import audiobookshelf as abs_service
 from app.services import importer
 from app.services import mixes as mixes_service
 from app.services import radio as radio_service
 from app.services import spotify as spotify_service
 from app.services.downloads import manager
+from app.services.server_config import load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -94,6 +96,12 @@ app.include_router(audiobookshelf.admin_router)
 @app.get("/api/health", tags=["system"])
 async def health() -> dict:
     return {"status": "ok", "version": app.version}
+
+
+@app.get("/api/client-config", tags=["system"])
+async def client_config(user: CurrentUser, db: DB) -> dict[str, str]:
+    config = await load_config(db)
+    return {"discord_client_id": config.integrations.discord_client_id}
 
 
 def _mount_web(web_dir: Path) -> None:

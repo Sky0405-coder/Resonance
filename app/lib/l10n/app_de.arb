@@ -1133,5 +1133,17 @@
         "type": "String"
       }
     }
+  },
+  "adminIntegrations": "Integrationen",
+  "adminDiscordClientId": "Discord-Anwendungs-ID",
+  "adminDiscordClientIdHint": "Für den Discord-Status der Desktop-App. Anwendung unter discord.com/developers anlegen und die Application ID hier eintragen.",
+  "settingsDiscordPresence": "Discord-Status anzeigen",
+  "settingsDiscordPresenceHint": "Zeigt in Discord an, was du gerade hörst",
+  "settingsDiscordNotConfigured": "Vom Admin noch nicht eingerichtet",
+  "discordPresenceArtist": "von {artist}",
+  "@discordPresenceArtist": {
+    "placeholders": {
+      "artist": {"type": "String"}
+    }
   }
 }

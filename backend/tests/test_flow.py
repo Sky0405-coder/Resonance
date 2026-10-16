@@ -5,9 +5,22 @@ Tests share one database and run in file order.
 
 import asyncio
 
+import pytest
+from pydantic import ValidationError
+
+from app.services.server_config import IntegrationsConfig, ServerConfig
 from tests.conftest import auth, make_track, register
 
 state: dict = {}
+
+
+def test_discord_config_validation():
+    assert ServerConfig().integrations.discord_client_id == ""
+    for value in ("", "0", "123456789012345678901234"):
+        assert IntegrationsConfig(discord_client_id=value).discord_client_id == value
+    for value in ("1234567890123456789012345", "abc", "123 456", "-123", "123\n", 123, None):
+        with pytest.raises(ValidationError, match="Discord-Anwendungs-ID"):
+            IntegrationsConfig(discord_client_id=value)
 
 
 async def test_first_user_becomes_admin(client):
@@ -37,7 +50,9 @@ async def test_invite_is_one_time(client):
     state["user"] = user["token"]
 
     assert (await client.get(f"/api/auth/invites/{token}")).json() == {"valid": False}
-    r = await client.post("/api/auth/register", json={"username": "mallory", "password": "password123", "invite": token})
+    r = await client.post(
+        "/api/auth/register", json={"username": "mallory", "password": "password123", "invite": token}
+    )
     assert r.status_code == 400
 
     invites = (await client.get("/api/admin/invites", headers=auth(state["admin"]))).json()
@@ -49,10 +64,30 @@ async def test_admin_endpoints_hidden_from_users(client):
     assert (await client.get("/api/admin/users", headers=auth(state["user"]))).status_code == 403
 
 
-async def test_public_registration_toggle(client):
-    r = await client.patch(
-        "/api/admin/config", json={"registration": {"mode": "public"}}, headers=auth(state["admin"])
+async def test_discord_client_config(client):
+    assert (await client.get("/api/client-config")).status_code == 401
+    assert (await client.get("/api/client-config", headers=auth("invalid"))).status_code == 401
+    headers = auth(state["user"])
+    assert (await client.get("/api/client-config", headers=headers)).json() == {"discord_client_id": ""}
+    patch = {"integrations": {"discord_client_id": "123456789012345678"}}
+    assert (await client.patch("/api/admin/config", headers=headers, json=patch)).status_code == 403
+    admin = auth(state["admin"])
+    result = await client.patch("/api/admin/config", headers=admin, json=patch)
+    assert result.status_code == 200
+    assert result.json()["integrations"] == patch["integrations"]
+    assert (await client.get("/api/client-config", headers=headers)).json() == patch["integrations"]
+    result = await client.patch(
+        "/api/admin/config", headers=admin, json={"integrations": {"discord_client_id": "invalid"}}
     )
+    assert result.status_code == 422
+    assert "Discord-Anwendungs-ID" in result.json()["detail"]
+    assert (await client.get("/api/client-config", headers=headers)).json() == patch["integrations"]
+    await client.patch("/api/admin/config", headers=admin, json={"integrations": {"discord_client_id": ""}})
+    assert (await client.get("/api/client-config", headers=headers)).json() == {"discord_client_id": ""}
+
+
+async def test_public_registration_toggle(client):
+    r = await client.patch("/api/admin/config", json={"registration": {"mode": "public"}}, headers=auth(state["admin"]))
     assert r.json()["registration"]["mode"] == "public"
     # Other sections keep their defaults when patching one key.
     assert r.json()["radio"]["temporary_tracks_enabled"] is True
@@ -62,7 +97,9 @@ async def test_public_registration_toggle(client):
     r = await client.post("/api/auth/register", json={"username": "closed", "password": "password123"})
     assert r.status_code == 403
 
-    r = await client.patch("/api/admin/config", json={"radio": {"temporary_retention_days": 0}}, headers=auth(state["admin"]))
+    r = await client.patch(
+        "/api/admin/config", json={"radio": {"temporary_retention_days": 0}}, headers=auth(state["admin"])
+    )
     assert r.status_code == 422
 
 
@@ -74,13 +111,30 @@ async def test_accent_color(client):
 
 
 async def test_scan_library(client):
-    make_track("Daft Punk/Discovery (2001)/01 - One More Time.mp3",
-               title="One More Time", artist="Daft Punk", album="Discovery", track="1", date="2001")
-    make_track("Daft Punk/Discovery (2001)/02 - Aerodynamic.flac",
-               title="Aerodynamic", artist="Daft Punk", album="Discovery", track="2/14", date="2001-03-12")
-    make_track("Daft Punk/Random Access Memories/08 - Get Lucky.flac",
-               title="Get Lucky", artist="Daft Punk feat. Pharrell Williams", album="Random Access Memories",
-               album_artist="Daft Punk", track="8")
+    make_track(
+        "Daft Punk/Discovery (2001)/01 - One More Time.mp3",
+        title="One More Time",
+        artist="Daft Punk",
+        album="Discovery",
+        track="1",
+        date="2001",
+    )
+    make_track(
+        "Daft Punk/Discovery (2001)/02 - Aerodynamic.flac",
+        title="Aerodynamic",
+        artist="Daft Punk",
+        album="Discovery",
+        track="2/14",
+        date="2001-03-12",
+    )
+    make_track(
+        "Daft Punk/Random Access Memories/08 - Get Lucky.flac",
+        title="Get Lucky",
+        artist="Daft Punk feat. Pharrell Williams",
+        album="Random Access Memories",
+        album_artist="Daft Punk",
+        track="8",
+    )
     make_track("untagged/Some Folder/song.mp3")
     # Folder cover for Discovery
     from PIL import Image
@@ -155,7 +209,11 @@ async def test_likes_playlists_and_home(client):
     await client.post(f"/api/playlists/{pid}/tracks", json={"track_ids": [a, b]}, headers=h)
     entries = (await client.get(f"/api/playlists/{pid}", headers=h)).json()["entries"]
     # Move b before a
-    await client.post(f"/api/playlists/{pid}/move", json={"entry_id": entries[1]["entry_id"], "before_entry_id": entries[0]["entry_id"]}, headers=h)
+    await client.post(
+        f"/api/playlists/{pid}/move",
+        json={"entry_id": entries[1]["entry_id"], "before_entry_id": entries[0]["entry_id"]},
+        headers=h,
+    )
     detail = (await client.get(f"/api/playlists/{pid}", headers=h)).json()
     assert [e["track"]["id"] for e in detail["entries"]] == [b, a]
     assert detail["track_count"] == 2 and detail["cover_album_ids"] == [state["album"]]

@@ -1787,4 +1787,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSubsonicShownOnce => 'Shown only now.';
+
+  @override
+  String get adminIntegrations => 'Integrations';
+
+  @override
+  String get adminDiscordClientId => 'Discord application ID';
+
+  @override
+  String get adminDiscordClientIdHint =>
+      'For the desktop app\'s Discord status. Create an application at discord.com/developers and enter its application ID here.';
+
+  @override
+  String get settingsDiscordPresence => 'Show Discord status';
+
+  @override
+  String get settingsDiscordPresenceHint => 'Shows what you\'re listening to on Discord';
+
+  @override
+  String get settingsDiscordNotConfigured => 'Not set up by the admin yet';
+
+  @override
+  String discordPresenceArtist(String artist) {
+    return 'by $artist';
+  }
 }

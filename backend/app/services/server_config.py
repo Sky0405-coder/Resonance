@@ -4,6 +4,7 @@ Stored as a single JSON document so that new options only need a field with a
 default here — no migration required.
 """
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -85,6 +86,17 @@ class SpotifyConfig(BaseModel):
     client_secret: str = ""
 
 
+class IntegrationsConfig(BaseModel):
+    discord_client_id: str = Field("", pattern=r"^\d{0,24}$")
+
+    @field_validator("discord_client_id", mode="before")
+    @classmethod
+    def validate_discord_client_id(cls, value: object) -> str:
+        if not isinstance(value, str) or re.fullmatch(r"\d{0,24}", value) is None:
+            raise ValueError("Die Discord-Anwendungs-ID darf nur aus bis zu 24 Ziffern bestehen")
+        return value
+
+
 class ServerConfig(BaseModel):
     server_name: str = "Resonance"
     registration: RegistrationConfig = RegistrationConfig()
@@ -93,6 +105,7 @@ class ServerConfig(BaseModel):
     library: LibraryConfig = LibraryConfig()
     audiobookshelf: AudiobookshelfConfig = AudiobookshelfConfig()
     spotify: SpotifyConfig = SpotifyConfig()
+    integrations: IntegrationsConfig = IntegrationsConfig()
 
 
 def _deep_merge(base: dict, patch: dict) -> dict:

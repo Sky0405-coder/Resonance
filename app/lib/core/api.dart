@@ -119,6 +119,8 @@ class ApiClient {
 
   Future<void> logout() => _post('/api/auth/logout');
 
+  Future<String> discordClientId() async => (await _get('/api/client-config'))['discord_client_id'] as String;
+
   // --- me -------------------------------------------------------------------
 
   Future<User> me() async => User.fromJson(await _get('/api/me'));

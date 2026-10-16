@@ -566,5 +566,12 @@
         "type": "String"
       }
     }
-  }
+  },
+  "adminIntegrations": "Integrations",
+  "adminDiscordClientId": "Discord application ID",
+  "adminDiscordClientIdHint": "For the desktop app's Discord status. Create an application at discord.com/developers and enter its application ID here.",
+  "settingsDiscordPresence": "Show Discord status",
+  "settingsDiscordPresenceHint": "Shows what you're listening to on Discord",
+  "settingsDiscordNotConfigured": "Not set up by the admin yet",
+  "discordPresenceArtist": "by {artist}"
 }

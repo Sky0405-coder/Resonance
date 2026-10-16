@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../integrations/discord_presence.dart';
 import '../../player/player.dart';
 import '../../offline/offline_store.dart';
 import '../widgets/collection.dart';
@@ -147,6 +148,19 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
           _Section(context.l10n.settingsPlayback),
+          if (isDiscordDesktop)
+            SwitchListTile(
+              title: Text(context.l10n.settingsDiscordPresence),
+              subtitle: Text(
+                (ref.watch(discordClientIdProvider).asData?.value ?? '').isEmpty
+                    ? context.l10n.settingsDiscordNotConfigured
+                    : context.l10n.settingsDiscordPresenceHint,
+              ),
+              value: ref.watch(discordPresenceSettingProvider),
+              onChanged: (ref.watch(discordClientIdProvider).asData?.value ?? '').isEmpty
+                  ? null
+                  : ref.read(discordPresenceSettingProvider.notifier).setEnabled,
+            ),
           StatefulBuilder(
             builder: (context, setState) => SwitchListTile(
               title: Text(context.l10n.settingsNormalizeVolume),

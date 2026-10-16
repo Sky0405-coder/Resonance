@@ -11,6 +11,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/session.dart';
+import 'integrations/discord_presence.dart';
 import 'offline/offline_store.dart';
 import 'player/audio_handler.dart';
 import 'core/theme.dart';
@@ -79,6 +80,7 @@ class _ResonanceAppState extends ConsumerState<ResonanceApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (isDiscordDesktop) ref.watch(discordPresenceProvider);
     final accent = parseHexColor(ref.watch(sessionProvider.select((s) => s.user?.accentColor)));
     return MaterialApp.router(
       onGenerateTitle: (context) => context.l10n.commonProductName,

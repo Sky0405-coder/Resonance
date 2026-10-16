@@ -3145,6 +3145,48 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Wird nur jetzt angezeigt.'**
   String get settingsSubsonicShownOnce;
+
+  /// No description provided for @adminIntegrations.
+  ///
+  /// In de, this message translates to:
+  /// **'Integrationen'**
+  String get adminIntegrations;
+
+  /// No description provided for @adminDiscordClientId.
+  ///
+  /// In de, this message translates to:
+  /// **'Discord-Anwendungs-ID'**
+  String get adminDiscordClientId;
+
+  /// No description provided for @adminDiscordClientIdHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Für den Discord-Status der Desktop-App. Anwendung unter discord.com/developers anlegen und die Application ID hier eintragen.'**
+  String get adminDiscordClientIdHint;
+
+  /// No description provided for @settingsDiscordPresence.
+  ///
+  /// In de, this message translates to:
+  /// **'Discord-Status anzeigen'**
+  String get settingsDiscordPresence;
+
+  /// No description provided for @settingsDiscordPresenceHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeigt in Discord an, was du gerade hörst'**
+  String get settingsDiscordPresenceHint;
+
+  /// No description provided for @settingsDiscordNotConfigured.
+  ///
+  /// In de, this message translates to:
+  /// **'Vom Admin noch nicht eingerichtet'**
+  String get settingsDiscordNotConfigured;
+
+  /// No description provided for @discordPresenceArtist.
+  ///
+  /// In de, this message translates to:
+  /// **'von {artist}'**
+  String discordPresenceArtist(String artist);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
