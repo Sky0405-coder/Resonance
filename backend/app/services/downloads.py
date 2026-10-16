@@ -44,6 +44,10 @@ log = logging.getLogger(__name__)
 
 # Automatic attempts per item before it is marked failed.
 MAX_ATTEMPTS = 3
+# YouTube's "Sign in to confirm you're not a bot" is a temporary IP block after many downloads: pause instead of failing.
+BOT_CHECK = "confirm you’re not a bot"
+BOT_PAUSE_SECONDS = 1800
+BOT_PAUSED = "YouTube blockiert gerade – neuer Versuch in 30 Minuten"
 
 
 def request_status(item_statuses: Iterable[str], current: str) -> str:
@@ -89,6 +93,7 @@ class DownloadManager:
         self._workers: list[asyncio.Task] = []
         self._progress: dict[uuid.UUID, float] = {}
         self._cancelled: set[uuid.UUID] = set()
+        self._paused_until = 0.0
 
     async def start(self) -> None:
         async with SessionLocal() as db:
@@ -145,6 +150,8 @@ class DownloadManager:
                 await asyncio.sleep(10)
 
     async def process_one(self) -> bool:
+        if time.monotonic() < self._paused_until:
+            return False
         async with SessionLocal() as db:
             cfg = await load_config(db)
             item = await db.scalar(
@@ -679,6 +686,11 @@ class DownloadManager:
         except Cancelled:
             await self._change(item.id, status="cancelled")
         except Exception as e:
+            if BOT_CHECK in str(e).replace("'", "’"):
+                log.warning("YouTube bot check, pausing downloads for %s s", BOT_PAUSE_SECONDS)
+                self._paused_until = time.monotonic() + BOT_PAUSE_SECONDS
+                await self._change(item.id, status="queued", error=BOT_PAUSED)
+                return
             log.exception("Download failed for %s", item.id)
             attempts = item.attempts + 1
             # YouTube answers sporadic 403s; a fresh attempt usually works.

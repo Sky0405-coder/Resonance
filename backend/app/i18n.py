@@ -68,6 +68,7 @@ _EXACT: dict[str, str] = {
     "Keine Download-Quelle aktiviert": "No download source enabled",
     "Keine andere Version gefunden": "No alternative version found",
     "Keine passende Quelle gefunden": "No matching source found",
+    "YouTube blockiert gerade – neuer Versuch in 30 Minuten": "YouTube is blocking downloads right now – retrying in 30 minutes",
     "Abgebrochen": "Cancelled",
     "Kein gültiger YouTube-Link": "Invalid YouTube link",
     "Kein passender Torrent gefunden": "No matching torrent found",

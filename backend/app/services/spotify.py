@@ -338,7 +338,7 @@ async def _deezer_id(track: SpotifyTrack) -> str | None:
         found = await deezer.track_by_isrc(track.isrc)
         if found is not None:
             return str(found["id"])
-    results = await deezer.search_tracks(f'artist:"{track.artist}" track:"{track.title}"', 5)
+    results = await deezer.find_tracks(track.artist.split(", ")[0], track.title, 5)
     for result in results:
         if fuzz.token_set_ratio(norm(track.title), norm(result["title"])) < 90:
             continue

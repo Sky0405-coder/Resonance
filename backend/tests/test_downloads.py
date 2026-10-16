@@ -79,6 +79,7 @@ class FakeSource:
 
     def __init__(self) -> None:
         self.fail_once = False
+        self.error = "Testfehler"
         self.no_match = False
         self.on_find: Callable[[], None] | None = None
 
@@ -96,7 +97,7 @@ class FakeSource:
             raise Cancelled()
         if self.fail_once:
             self.fail_once = False
-            raise RuntimeError("Testfehler")
+            raise RuntimeError(self.error)
         path = dest_dir / "audio.opus"
         await asyncio.to_thread(
             subprocess.run,
@@ -387,6 +388,26 @@ async def test_automatic_retry(client: httpx.AsyncClient, env: SimpleNamespace) 
     assert await manager.process_one()
     detail = (await client.get(f"/api/requests/{request['id']}", headers=env.user)).json()
     assert detail["status"] == "done" and detail["items"][0]["error"] is None
+
+
+async def test_bot_check_pauses(
+    client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    request = await post_request(client, env.user, "track", env.track)
+    env.fake.fail_once = True
+    env.fake.error = "ERROR: [youtube] abc: Sign in to confirm you're not a bot. Use --cookies-from-browser"
+    monkeypatch.setattr(manager, "_paused_until", 0.0)
+    assert await manager.process_one()
+    detail = (await client.get(f"/api/requests/{request['id']}", headers=env.user)).json()
+    item = detail["items"][0]
+    assert detail["status"] == "active" and item["status"] == "queued"
+    assert item["error"] == "YouTube blockiert gerade – neuer Versuch in 30 Minuten"
+    async with SessionLocal() as db:
+        assert (await db.get(DownloadItem, uuid.UUID(item["id"]))).attempts == 0
+    assert not await manager.process_one()
+    manager._paused_until = 0.0
+    assert await manager.process_one()
+    assert (await client.get(f"/api/requests/{request['id']}", headers=env.user)).json()["status"] == "done"
 
 
 async def test_cancel_and_retry(

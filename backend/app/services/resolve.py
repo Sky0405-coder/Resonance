@@ -105,7 +105,7 @@ async def explicit_track_id(deezer_id: str) -> str:
         return deezer_id
     artist = track.get("artist", {}).get("name", "")
     try:
-        results = await deezer.search_tracks(f'artist:"{artist}" track:"{track["title"]}"', 10)
+        results = await deezer.find_tracks(artist, track["title"], 10)
     except DeezerError:
         return deezer_id
     for result in results:

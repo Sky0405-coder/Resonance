@@ -70,6 +70,12 @@ class DeezerClient:
     async def search_tracks(self, q: str, limit: int) -> list[dict]:
         return (await self._get("search/track", q=q, limit=limit)).get("data", [])
 
+    async def find_tracks(self, artist: str, title: str, limit: int) -> list[dict]:
+        """Track search by artist + title. Deezer's combined `artist:"…" track:"…"` filter stopped returning results
+        (2026-10), so fall back to a plain query; callers check title/artist/duration themselves."""
+        results = await self.search_tracks(f'artist:"{artist}" track:"{title}"', limit)
+        return results or await self.search_tracks(f"{artist} {title}", limit)
+
     async def search_albums(self, q: str, limit: int) -> list[dict]:
         return (await self._get("search/album", q=q, limit=limit)).get("data", [])
 

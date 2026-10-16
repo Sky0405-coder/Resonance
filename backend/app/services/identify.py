@@ -282,7 +282,7 @@ async def identify_file(
     if file.tags.extra.get("has_artist_tag") and file.tags.extra.get("has_title_tag"):
         tags = file.tags
         try:
-            results = await deezer.search_tracks(f'artist:"{tags.artist_credit}" track:"{tags.title}"', 5)
+            results = await deezer.find_tracks(tags.artist_credit, tags.title, 5)
             for result in results:
                 if (
                     fuzz.token_set_ratio(norm(tags.title), norm(result.get("title", ""))) >= 90
