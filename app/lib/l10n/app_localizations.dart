@@ -2498,6 +2498,30 @@ abstract class AppLocalizations {
   /// **'Von Spotify importieren'**
   String get spotifyTitle;
 
+  /// No description provided for @spotifyLinkHeading.
+  ///
+  /// In de, this message translates to:
+  /// **'Playlist per Link importieren'**
+  String get spotifyLinkHeading;
+
+  /// No description provided for @spotifyLinksHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Füge Links zu öffentlichen Spotify-Playlists ein, einen pro Zeile. Ohne verbundenes Spotify-Konto werden höchstens 100 Songs pro Playlist übernommen.'**
+  String get spotifyLinksHint;
+
+  /// No description provided for @spotifyLinkPlaceholder.
+  ///
+  /// In de, this message translates to:
+  /// **'https://open.spotify.com/playlist/…'**
+  String get spotifyLinkPlaceholder;
+
+  /// No description provided for @spotifyImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Importieren'**
+  String get spotifyImport;
+
   /// No description provided for @spotifyNotConfigured.
   ///
   /// In de, this message translates to:

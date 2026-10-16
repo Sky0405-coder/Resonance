@@ -1381,6 +1381,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get spotifyTitle => 'Von Spotify importieren';
 
   @override
+  String get spotifyLinkHeading => 'Playlist per Link importieren';
+
+  @override
+  String get spotifyLinksHint =>
+      'Füge Links zu öffentlichen Spotify-Playlists ein, einen pro Zeile. Ohne verbundenes Spotify-Konto werden höchstens 100 Songs pro Playlist übernommen.';
+
+  @override
+  String get spotifyLinkPlaceholder => 'https://open.spotify.com/playlist/…';
+
+  @override
+  String get spotifyImport => 'Importieren';
+
+  @override
   String get spotifyNotConfigured =>
       'Spotify ist auf diesem Server noch nicht eingerichtet. Ein Admin kann das im Admin-Dashboard unter „Server“ erledigen.';
 

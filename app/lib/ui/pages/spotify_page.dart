@@ -36,6 +36,15 @@ class SpotifyImportPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    // Likes and playlists change when an import finishes.
+    ref.listen(_importsProvider, (prev, next) {
+      final wasRunning = prev?.value?.any((i) => i['status'] == 'running' || i['status'] == 'queued') ?? false;
+      final running = next.value?.any((i) => i['status'] == 'running' || i['status'] == 'queued') ?? false;
+      if (wasRunning && !running) {
+        ref.read(libraryActionsProvider).libraryChanged();
+        ref.invalidate(_playlistsProvider);
+      }
+    });
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -45,12 +54,96 @@ class SpotifyImportPage extends ConsumerWidget {
         value: ref.watch(_statusProvider),
         onRetry: () => ref.invalidate(_statusProvider),
         builder: (s) {
-          if (s['configured'] != true) {
-            return _Message(l10n.spotifyNotConfigured);
+          if (s['configured'] != true || s['connected'] != true) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, kBottomInset),
+              children: [
+                const _LinkImport(),
+                if (s['configured'] != true) _Message(l10n.spotifyNotConfigured) else const _Connect(),
+                const _ImportHistory(),
+              ],
+            );
           }
-          if (s['connected'] != true) return const _Connect();
           return _Picker(displayName: s['display_name'] as String?);
         },
+      ),
+    );
+  }
+}
+
+class _LinkImport extends ConsumerStatefulWidget {
+  const _LinkImport();
+
+  @override
+  ConsumerState<_LinkImport> createState() => _LinkImportState();
+}
+
+class _LinkImportState extends ConsumerState<_LinkImport> {
+  final _controller = TextEditingController();
+  bool _download = true;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _start() async {
+    final l10n = context.l10n;
+    final links = _controller.text.split(RegExp(r'\s+')).where((link) => link.isNotEmpty).toList();
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(apiProvider)
+          .startSpotifyImport(liked: false, playlistIds: [], links: links, downloadMissing: _download);
+      ref.invalidate(_importsProvider);
+      if (mounted) {
+        _controller.clear();
+        showInfo(context, l10n.spotifyStarted);
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final imports = ref.watch(_importsProvider);
+    final running = imports.value?.any((i) => i['status'] == 'queued' || i['status'] == 'running') ?? false;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.spotifyLinkHeading, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(l10n.spotifyLinksHint, style: const TextStyle(color: Palette.textMuted)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            minLines: 3,
+            maxLines: 6,
+            keyboardType: TextInputType.multiline,
+            decoration: InputDecoration(hintText: l10n.spotifyLinkPlaceholder),
+            onChanged: (_) => setState(() {}),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _download,
+            onChanged: (value) => setState(() => _download = value),
+            title: Text(l10n.spotifyDownloadMissing),
+            subtitle: Text(l10n.spotifyDownloadMissingHint),
+          ),
+          FilledButton.icon(
+            onPressed: _busy || running || _controller.text.trim().isEmpty ? null : _start,
+            icon: const Icon(Icons.link),
+            label: Text(l10n.spotifyImport),
+          ),
+        ],
       ),
     );
   }
@@ -120,7 +213,7 @@ class _ConnectState extends ConsumerState<_Connect> with WidgetsBindingObserver 
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Center(
-      child: SingleChildScrollView(
+      child: Padding(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
@@ -192,14 +285,6 @@ class _PickerState extends ConsumerState<_Picker> {
     final l10n = context.l10n;
     final imports = ref.watch(_importsProvider);
     final running = imports.value?.any((i) => i['status'] == 'queued' || i['status'] == 'running') ?? false;
-    // Likes and playlists change when an import finishes.
-    ref.listen(_importsProvider, (prev, next) {
-      final wasRunning = prev?.value?.any((i) => i['status'] == 'running' || i['status'] == 'queued') ?? false;
-      if (wasRunning && !running) {
-        ref.read(libraryActionsProvider).libraryChanged();
-        ref.invalidate(_playlistsProvider);
-      }
-    });
     return ListView(
       padding: const EdgeInsets.fromLTRB(8, 0, 8, kBottomInset),
       children: [
@@ -214,6 +299,7 @@ class _PickerState extends ConsumerState<_Picker> {
             child: Text(l10n.spotifyDisconnect),
           ),
         ),
+        const _LinkImport(),
         AsyncBody(
           value: ref.watch(_playlistsProvider),
           onRetry: () => ref.invalidate(_playlistsProvider),
@@ -276,24 +362,31 @@ class _PickerState extends ConsumerState<_Picker> {
             );
           },
         ),
-        AsyncBody(
-          value: imports,
-          builder: (list) => list.isEmpty
-              ? const SizedBox()
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Text(l10n.spotifyHistory, style: Theme.of(context).textTheme.titleMedium),
-                    ),
-                    for (final i in list) _ImportTile(data: i),
-                  ],
-                ),
-        ),
+        const _ImportHistory(),
       ],
     );
   }
+}
+
+class _ImportHistory extends ConsumerWidget {
+  const _ImportHistory();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => AsyncBody(
+    value: ref.watch(_importsProvider),
+    builder: (list) => list.isEmpty
+        ? const SizedBox()
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text(context.l10n.spotifyHistory, style: Theme.of(context).textTheme.titleMedium),
+              ),
+              for (final i in list) _ImportTile(data: i),
+            ],
+          ),
+  );
 }
 
 class _ImportTile extends ConsumerWidget {

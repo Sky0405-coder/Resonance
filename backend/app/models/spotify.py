@@ -41,6 +41,7 @@ class SpotifyImport(Base):
     status: Mapped[str] = mapped_column(String(16))
     liked: Mapped[bool]
     playlist_ids: Mapped[list[str]] = mapped_column(JSONB)
+    links: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default="[]", default=list)
     download_missing: Mapped[bool]
     total: Mapped[int] = mapped_column(default=0)
     matched: Mapped[int] = mapped_column(default=0)

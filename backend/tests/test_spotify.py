@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 import uuid
 from collections import deque
@@ -33,6 +34,68 @@ from app.services.server_config import ServerConfig, update_config
 from tests.conftest import auth, register
 
 ADDED = datetime(2026, 10, 1, 12, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    "link",
+    [
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc",
+        "https://open.spotify.com/intl-de/playlist/37i9dQZF1DXcBWIGoYBM5M",
+        "https://open.spotify.com/intl-fr/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc&foo=bar",
+        "open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+        "open.spotify.com/intl-en/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc",
+        "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
+        "37i9dQZF1DXcBWIGoYBM5M",
+    ],
+)
+def test_playlist_id_from_link(link: str) -> None:
+    assert spotify.playlist_id_from_link(link) == "37i9dQZF1DXcBWIGoYBM5M"
+
+
+@pytest.mark.parametrize(
+    "link",
+    [
+        "",
+        "https://example.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+        "https://open.spotify.com.example.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+        "https://open.spotify.com@evil.example/playlist/37i9dQZF1DXcBWIGoYBM5M",
+        "https://open.spotify.com/album/37i9dQZF1DXcBWIGoYBM5M",
+        "https://open.spotify.com/track/37i9dQZF1DXcBWIGoYBM5M",
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5",
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5MM",
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5_",
+        "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M/items",
+        "http://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+        "spotify:album:37i9dQZF1DXcBWIGoYBM5M",
+        "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M?si=abc",
+        "37i9dQZF1DXcBWIGoYBM5",
+        "37i9dQZF1DXcBWIGoYBM5MM",
+        "37i9dQZF1DXcBWIGoYBM5_",
+    ],
+)
+def test_playlist_id_from_link_rejects_invalid(link: str) -> None:
+    assert spotify.playlist_id_from_link(link) is None
+
+
+def embed_html(titles: list[str], *, name: str = "Public playlist") -> str:
+    entity = {
+        "name": name,
+        "subtitle": "Spotify",
+        "coverArt": {"sources": [{"url": "https://image.example/embed-cover"}]},
+        "trackList": [
+            {
+                "uri": f"spotify:track:{index:022d}",
+                "title": title,
+                "subtitle": "Artist",
+                "duration": 180000,
+                "entityType": "track",
+            }
+            for index, title in enumerate(titles)
+        ],
+    }
+    data = {"props": {"pageProps": {"state": {"data": {"entity": entity}}}}}
+    return f'<html><script id="__NEXT_DATA__" type="application/json">{json.dumps(data)}</script></html>'
 
 
 def song(title="Song", *, isrc="usabc1234567", duration=180000, **extra):
@@ -94,7 +157,7 @@ async def env(client, monkeypatch):
 
     async def dispatch(request):
         env.seen.append(request)
-        assert request.extensions["timeout"]["read"] == 30
+        assert request.extensions["timeout"]["read"] == (20 if request.url.host == "open.spotify.com" else 30)
         if env.handler:
             response = env.handler(request)
             if response is not None:
@@ -198,13 +261,14 @@ async def library_track(db, title="Song", isrc="USABC1234567", duration=180, tem
     return track
 
 
-async def run(env, *, liked=True, playlist_ids=None, download_missing=False):
+async def run(env, *, liked=True, playlist_ids=None, links=None, download_missing=False):
     async with SessionLocal() as db:
         batch = SpotifyImport(
             user_id=env.user_id,
             status="queued",
             liked=liked,
             playlist_ids=playlist_ids or [],
+            links=links or [],
             download_missing=download_missing,
         )
         db.add(batch)
@@ -212,10 +276,257 @@ async def run(env, *, liked=True, playlist_ids=None, download_missing=False):
         id = batch.id
     before = len(env.factories)
     await spotify.run_import(id)
-    assert len(env.factories) == before + 1
-    assert env.factories[-1].is_closed
+    assert len(env.factories) > before
+    assert all(client.is_closed for client in env.factories[before:])
     async with SessionLocal() as db:
         return await db.get(SpotifyImport, id)
+
+
+async def test_fetch_embed_playlist(env: SimpleNamespace) -> None:
+    html = """<html><script type="application/json" id="__NEXT_DATA__">
+    {"props":{"pageProps":{"state":{"data":{"entity":{
+      "name":"Editorial playlist","subtitle":"Spotify",
+      "coverArt":{"sources":[{"url":"https://image.example/first"},{"url":"https://image.example/second"}]},
+      "trackList":[
+        {"uri":"spotify:track:0000000000000000000001","title":"Song","subtitle":"Artist,\u00a0Guest",
+         "duration":180500,"entityType":"track"},
+        {"title":"Episode","entityType":"episode"},
+        {"uri":"spotify:track:0000000000000000000002","title":"Second","subtitle":"Another Artist",
+         "duration":200000,"entityType":"track"}
+      ]
+    }}}}}}</script></html>"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url == "https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M"
+        assert request.headers["user-agent"].startswith("Mozilla/5.0")
+        return httpx.Response(200, text=html)
+
+    env.handler = handler
+    metadata, tracks = await spotify.fetch_embed_playlist("37i9dQZF1DXcBWIGoYBM5M")
+    assert metadata == {
+        "id": "37i9dQZF1DXcBWIGoYBM5M",
+        "name": "Editorial playlist",
+        "owner": "Spotify",
+        "image_url": "https://image.example/first",
+    }
+    assert tracks == [
+        spotify.SpotifyTrack("Song", "Artist, Guest", None, None, 180.5, None, 0),
+        spotify.SpotifyTrack("Second", "Another Artist", None, None, 200, None, 2),
+    ]
+    assert env.factories[-1].is_closed
+
+
+async def test_embed_redirect_and_missing_cover(env: SimpleNamespace) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if not request.url.query:
+            return httpx.Response(302, headers={"location": str(request.url) + "?redirected=1"})
+        return httpx.Response(
+            200,
+            text='<script id="__NEXT_DATA__">'
+            '{"props":{"pageProps":{"state":{"data":{"entity":{"name":"Empty","trackList":[]}}}}}}'
+            "</script>",
+        )
+
+    env.handler = handler
+    metadata, tracks = await spotify.fetch_embed_playlist("37i9dQZF1DXcBWIGoYBM5M")
+    assert metadata["name"] == "Empty" and metadata["image_url"] is None and tracks == []
+    assert len(env.seen) == 2
+
+
+@pytest.mark.parametrize(
+    "status,html,error_status,message",
+    [
+        (404, "", 404, "Playlist nicht gefunden oder privat"),
+        (200, "<html>Private</html>", 404, "Playlist nicht gefunden oder privat"),
+        (200, '<script id="__NEXT_DATA__">{invalid}</script>', 404, "Playlist nicht gefunden oder privat"),
+        (200, '<script id="__NEXT_DATA__">{}</script>', 404, "Playlist nicht gefunden oder privat"),
+        (
+            200,
+            '<script id="__NEXT_DATA__">{"props":{"pageProps":{"state":{"data":{"entity":null}}}}}</script>',
+            404,
+            "Playlist nicht gefunden oder privat",
+        ),
+        (403, "", 502, "Spotify nicht erreichbar"),
+        (500, "", 502, "Spotify nicht erreichbar"),
+        (0, "", 502, "Spotify nicht erreichbar"),
+    ],
+)
+async def test_embed_errors(env: SimpleNamespace, status: int, html: str, error_status: int, message: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if status == 0:
+            raise httpx.ConnectError("offline", request=request)
+        return httpx.Response(status, text=html)
+
+    env.handler = handler
+    with pytest.raises(spotify.SpotifyError) as exc:
+        await spotify.fetch_embed_playlist("37i9dQZF1DXcBWIGoYBM5M")
+    assert (exc.value.status, exc.value.message) == (error_status, message)
+    assert env.factories[-1].is_closed
+
+
+async def test_link_import_without_account_and_sync(env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        await update_config(db, {"spotify": {"client_id": "", "client_secret": ""}})
+        first = await library_track(db, isrc=None)
+        second = await library_track(db, "Second", isrc=None)
+        await db.commit()
+    id = "37i9dQZF1DXcBWIGoYBM5M"
+    env.handler = lambda request: httpx.Response(200, text=embed_html(["Song", "Song", "Missing"]))
+    env.deezer_handler = lambda request: httpx.Response(
+        200, json={"data": [{"id": 42, "title": "Missing", "duration": 180}]}
+    )
+    batch = await run(env, liked=False, links=[id], download_missing=True)
+    assert (batch.status, batch.total, batch.matched, batch.missing, batch.requested) == ("done", 3, 2, 1, 1)
+    assert batch.links == [id] and env.requests == [(env.user_id, "track", "42", False)]
+    assert batch.missing_tracks == [{"title": "Missing", "artist": "Artist", "source": "Public playlist"}]
+    assert all(request.url.host == "open.spotify.com" for request in env.seen)
+    async with SessionLocal() as db:
+        link = await db.scalar(select(SpotifyPlaylistLink))
+        assert link.spotify_playlist_id == id
+        playlist_id = link.playlist_id
+        result = await db.get(Playlist, playlist_id)
+        assert (result.name, result.description, result.is_public, result.owner_id) == (
+            "Public playlist",
+            "Von Spotify importiert",
+            False,
+            env.user_id,
+        )
+        entries = list(await db.scalars(select(PlaylistEntry).order_by(PlaylistEntry.position)))
+        assert [(row.track_id, row.position) for row in entries] == [(first.id, 0), (first.id, 1)]
+        pending = await db.scalar(select(SpotifyPending))
+        assert (pending.playlist_id, pending.position, pending.deezer_id, pending.isrc, pending.like) == (
+            playlist_id,
+            2,
+            "42",
+            None,
+            False,
+        )
+        assert await db.scalar(select(func.count()).select_from(TrackLike)) == 0
+    env.handler = lambda request: httpx.Response(200, text=embed_html(["Second"], name="Renamed"))
+    batch = await run(env, liked=False, links=[id])
+    assert batch.status == "done" and batch.matched == 1
+    async with SessionLocal() as db:
+        assert (await db.get(Playlist, playlist_id)).name == "Renamed"
+        entries = list(await db.scalars(select(PlaylistEntry)))
+        assert [(row.track_id, row.position) for row in entries] == [(second.id, 0)]
+        assert await db.scalar(select(func.count()).select_from(SpotifyPlaylistLink)) == 1
+        assert await db.scalar(select(func.count()).select_from(SpotifyPending)) == 0
+
+
+@pytest.mark.parametrize("count", [99, 100])
+async def test_link_import_track_limit_notice(env: SimpleNamespace, count: int) -> None:
+    env.handler = lambda request: httpx.Response(200, text=embed_html(["Song"] * count))
+    batch = await run(env, liked=False, links=["37i9dQZF1DXcBWIGoYBM5M"])
+    assert batch.status == "done" and batch.total == count
+    assert batch.message == (
+        "„Public playlist“: nur die ersten 100 Songs übernommen "
+        "(ohne verbundenes Spotify-Konto liefert Spotify nicht mehr)"
+        if count == 100
+        else None
+    )
+
+
+@pytest.mark.parametrize("status", [403, 404])
+@pytest.mark.parametrize("path", ["", "/items"])
+async def test_link_import_api_embed_fallback(env: SimpleNamespace, status: int, path: str) -> None:
+    await connect(env)
+    id = "37i9dQZF1DXcBWIGoYBM5M"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "open.spotify.com":
+            return httpx.Response(200, text=embed_html(["Song"]))
+        if request.url.path == f"/v1/playlists/{id}{path}":
+            return httpx.Response(status)
+        assert request.url.path == f"/v1/playlists/{id}"
+        assert request.url.params["fields"] == "name,owner(display_name,id)"
+        return httpx.Response(200, json={"name": "API playlist"})
+
+    env.handler = handler
+    batch = await run(env, liked=False, links=[id])
+    assert batch.status == "done" and batch.total == 1 and batch.message is None
+    assert env.seen[-1].url.host == "open.spotify.com"
+    async with SessionLocal() as db:
+        assert await db.scalar(select(Playlist.name)) == "Public playlist"
+
+
+async def test_link_import_uses_api_and_existing_playlist_link(env: SimpleNamespace) -> None:
+    await connect(env)
+    env.items["own"] = []
+    await run(env, liked=False, playlist_ids=["own"])
+    async with SessionLocal() as db:
+        playlist_id = await db.scalar(select(Playlist.id))
+        await library_track(db)
+        await db.commit()
+
+    def handler(request: httpx.Request) -> httpx.Response | None:
+        assert request.url.host == "api.spotify.com"
+        if request.url.path == "/v1/playlists/own":
+            assert request.url.params["fields"] == "name,owner(display_name,id)"
+            return httpx.Response(200, json={"name": "API playlist"})
+        return None
+
+    env.handler = handler
+    env.items["own"] = [entry(song(), key="item")]
+    batch = await run(env, liked=False, links=["own"])
+    assert batch.status == "done" and batch.matched == 1
+    async with SessionLocal() as db:
+        assert (await db.get(Playlist, playlist_id)).name == "API playlist"
+        assert await db.scalar(select(func.count()).select_from(SpotifyPlaylistLink)) == 1
+
+
+async def test_link_import_continues_after_embed_error(env: SimpleNamespace) -> None:
+    id = "37i9dQZF1DXcBWIGoYBM5M"
+    other = "0123456789abcdefghijkl"
+    env.handler = lambda request: (
+        httpx.Response(404) if request.url.path.endswith(id) else httpx.Response(200, text=embed_html([]))
+    )
+    batch = await run(env, liked=False, links=[id, other])
+    assert batch.status == "done" and batch.message == f"{id}: Playlist nicht gefunden oder privat"
+    async with SessionLocal() as db:
+        assert await db.scalar(select(SpotifyPlaylistLink.spotify_playlist_id)) == other
+
+
+async def test_link_import_propagates_other_api_errors(env: SimpleNamespace) -> None:
+    await connect(env)
+    env.handler = lambda request: httpx.Response(500)
+    batch = await run(env, liked=False, links=["37i9dQZF1DXcBWIGoYBM5M"])
+    assert batch.status == "failed" and batch.message == "Spotify-Fehler (HTTP 500)"
+    assert env.seen[-1].url.host == "api.spotify.com"
+
+
+async def test_api_links_without_account_validation_and_defaults(
+    env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launched = []
+    monkeypatch.setattr(spotify, "launch_import", launched.append)
+    async with SessionLocal() as db:
+        await update_config(db, {"spotify": {"client_id": "", "client_secret": ""}})
+    for body, status, message in [
+        ({}, 422, "Nichts ausgewählt"),
+        ({"links": ["invalid"]}, 422, "Ungültiger Spotify-Link: invalid"),
+        ({"liked": True}, 409, "Kein Spotify-Konto verbunden"),
+        ({"playlist_ids": ["own"]}, 409, "Kein Spotify-Konto verbunden"),
+    ]:
+        response = await env.client.post("/api/spotify/imports", headers=env.headers, json=body)
+        assert response.status_code == status and response.json()["detail"] == message
+    id = "37i9dQZF1DXcBWIGoYBM5M"
+    other = "0123456789abcdefghijkl"
+    response = await env.client.post("/api/spotify/imports", headers=env.headers, json={"links": [id] * 51})
+    assert response.status_code == 422
+    response = await env.client.post(
+        "/api/spotify/imports",
+        headers=env.headers,
+        json={"links": [f"https://open.spotify.com/intl-de/playlist/{id}?si=abc", other, f"spotify:playlist:{id}"]},
+    )
+    assert response.status_code == 202, response.text
+    data = response.json()
+    assert data["links"] == [id, other] and data["playlist_ids"] == []
+    assert data["liked"] is False and data["download_missing"] is False
+    assert launched == [uuid.UUID(data["id"])]
+    async with SessionLocal() as db:
+        assert (await db.get(SpotifyImport, launched[0])).links == [id, other]
+    listing = await env.client.get("/api/spotify/imports", headers=env.headers)
+    assert listing.json()[0]["links"] == [id, other]
 
 
 async def test_login_callback_status_and_disconnect(env):

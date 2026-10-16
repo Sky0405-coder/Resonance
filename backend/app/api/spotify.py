@@ -19,9 +19,10 @@ router = APIRouter(prefix="/api/spotify", tags=["spotify"])
 
 
 class SpotifyImportIn(BaseModel):
-    liked: bool
-    playlist_ids: list[str] = Field(max_length=200)
-    download_missing: bool
+    liked: bool = False
+    playlist_ids: list[str] = Field(default=[], max_length=200)
+    links: list[str] = Field(default=[], max_length=50)
+    download_missing: bool = False
 
 
 class SpotifyImportOut(BaseModel):
@@ -32,6 +33,7 @@ class SpotifyImportOut(BaseModel):
     status: str
     liked: bool
     playlist_ids: list[str]
+    links: list[str]
     download_missing: bool
     total: int
     matched: int
@@ -155,9 +157,17 @@ async def playlists(user: CurrentUser, db: DB) -> dict:
 
 @router.post("/imports", response_model=SpotifyImportOut, status_code=202)
 async def create_import(body: SpotifyImportIn, user: CurrentUser, db: DB) -> SpotifyImportOut:
-    if not body.liked and not body.playlist_ids:
+    if not body.liked and not body.playlist_ids and not body.links:
         raise HTTPException(422, "Nichts ausgewählt")
-    await _account(db, user.id)
+    links: list[str] = []
+    for link in body.links:
+        id = spotify.playlist_id_from_link(link)
+        if id is None:
+            raise HTTPException(422, f"Ungültiger Spotify-Link: {link}")
+        if id not in links:
+            links.append(id)
+    if body.liked or body.playlist_ids:
+        await _account(db, user.id)
     await db.scalar(select(User).where(User.id == user.id).with_for_update())
     active = await db.scalar(
         select(SpotifyImport.id).where(
@@ -166,7 +176,7 @@ async def create_import(body: SpotifyImportIn, user: CurrentUser, db: DB) -> Spo
     )
     if active is not None:
         raise HTTPException(409, "Es läuft bereits ein Import")
-    batch = SpotifyImport(user_id=user.id, status="queued", **body.model_dump())
+    batch = SpotifyImport(user_id=user.id, status="queued", links=links, **body.model_dump(exclude={"links"}))
     db.add(batch)
     await db.commit()
     result = SpotifyImportOut.model_validate(batch)

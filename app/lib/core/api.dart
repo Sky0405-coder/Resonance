@@ -360,10 +360,12 @@ class ApiClient {
     required bool liked,
     required List<String> playlistIds,
     required bool downloadMissing,
+    List<String> links = const [],
   }) async => Map<String, dynamic>.from(
     await _post('/api/spotify/imports', {
       'liked': liked,
       'playlist_ids': playlistIds,
+      'links': links,
       'download_missing': downloadMissing,
     }),
   );

@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -46,6 +48,18 @@ class SpotifyError(Exception):
 
 def _client_factory() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=30)
+
+
+def playlist_id_from_link(link: str) -> str | None:
+    if re.fullmatch(r"[A-Za-z0-9]{22}", link):
+        return link
+    uri = re.fullmatch(r"spotify:playlist:([A-Za-z0-9]{22})", link)
+    if uri:
+        return uri[1]
+    url = re.fullmatch(
+        r"(?:https://)?open\.spotify\.com/(?:intl-[a-z]{2}/)?playlist/([A-Za-z0-9]{22})(?:\?[^\s#]*)?", link
+    )
+    return url[1] if url else None
 
 
 def redirect_uri(request: Request) -> str:
@@ -178,6 +192,58 @@ class SpotifyTrack:
     position: int
 
 
+async def fetch_embed_playlist(id: str) -> tuple[dict, list[SpotifyTrack]]:
+    try:
+        async with _client_factory() as client:
+            response = await client.get(
+                f"https://open.spotify.com/embed/playlist/{id}",
+                headers={
+                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/140.0 Safari/537.36"
+                },
+                timeout=20,
+                follow_redirects=True,
+            )
+    except httpx.HTTPError as e:
+        raise SpotifyError(502, "Spotify nicht erreichbar") from e
+    if response.status_code == 404:
+        raise SpotifyError(404, "Playlist nicht gefunden oder privat")
+    if not response.is_success:
+        raise SpotifyError(502, "Spotify nicht erreichbar")
+    script = re.search(
+        r"<script\b[^>]*\bid\s*=\s*[\"']__NEXT_DATA__[\"'][^>]*>(.*?)</script\s*>",
+        response.text,
+        re.IGNORECASE | re.DOTALL,
+    )
+    try:
+        if script is None:
+            raise ValueError("Missing playlist JSON")
+        entity = json.loads(script[1])["props"]["pageProps"]["state"]["data"]["entity"]
+        sources = (entity.get("coverArt") or {}).get("sources") or []
+        metadata = {
+            "id": id,
+            "name": entity["name"],
+            "owner": entity.get("subtitle"),
+            "image_url": sources[0]["url"] if sources else None,
+        }
+        tracks = [
+            SpotifyTrack(
+                title=item["title"],
+                artist=item["subtitle"].replace("\u00a0", " "),
+                album=None,
+                isrc=None,
+                duration=item["duration"] / 1000 if item.get("duration") is not None else None,
+                added_at=None,
+                position=index,
+            )
+            for index, item in enumerate(entity.get("trackList") or [])
+            if item.get("entityType") == "track"
+        ]
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
+        raise SpotifyError(404, "Playlist nicht gefunden oder privat") from e
+    return metadata, tracks
+
+
 async def _fetch_tracks(
     db: AsyncSession, account: SpotifyAccount, client: httpx.AsyncClient, path: str, key: str, limit: int
 ) -> list[SpotifyTrack]:
@@ -292,7 +358,7 @@ async def run_import(import_id: uuid.UUID) -> None:
             batch.status = "running"
             await db.commit()
             account = await db.get(SpotifyAccount, batch.user_id)
-            if account is None:
+            if account is None and (batch.liked or batch.playlist_ids):
                 raise SpotifyError(409, "Kein Spotify-Konto verbunden")
             user = await db.get(User, batch.user_id)
             request_more = batch.download_missing
@@ -350,6 +416,26 @@ async def run_import(import_id: uuid.UUID) -> None:
                         await db.commit()
                 await db.commit()
 
+            async def import_playlist(id: str, name: str, tracks: list[SpotifyTrack]) -> None:
+                link = await db.scalar(
+                    select(SpotifyPlaylistLink).where(
+                        SpotifyPlaylistLink.user_id == user.id, SpotifyPlaylistLink.spotify_playlist_id == id
+                    )
+                )
+                if link is None:
+                    playlist = Playlist(
+                        owner_id=user.id, name=name, description="Von Spotify importiert", is_public=False
+                    )
+                    db.add(playlist)
+                    await db.flush()
+                    db.add(SpotifyPlaylistLink(user_id=user.id, spotify_playlist_id=id, playlist_id=playlist.id))
+                else:
+                    playlist = await db.get(Playlist, link.playlist_id)
+                    playlist.name = name
+                    await db.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist.id))
+                    await db.execute(delete(SpotifyPending).where(SpotifyPending.playlist_id == playlist.id))
+                await process(tracks, name, playlist.id)
+
             if batch.liked:
                 await process(await _fetch_tracks(db, account, client, "me/tracks", "track", 50), "Lieblingssongs")
             if batch.playlist_ids:
@@ -368,27 +454,32 @@ async def run_import(import_id: uuid.UUID) -> None:
                         _message(batch, f"„{metadata['name']}“: Spotify gibt die Songs dieser Playlist nicht frei")
                         await db.commit()
                         continue
-                    link = await db.scalar(
-                        select(SpotifyPlaylistLink).where(
-                            SpotifyPlaylistLink.user_id == user.id, SpotifyPlaylistLink.spotify_playlist_id == id
+                    await import_playlist(id, metadata["name"], tracks)
+            for id in batch.links:
+                used_embed = account is None
+                if account is not None:
+                    try:
+                        metadata = await _get(
+                            db, account, client, f"playlists/{id}", fields="name,owner(display_name,id)"
                         )
-                    )
-                    if link is None:
-                        playlist = Playlist(
-                            owner_id=user.id,
-                            name=metadata["name"],
-                            description="Von Spotify importiert",
-                            is_public=False,
+                        tracks = await _fetch_tracks(db, account, client, f"playlists/{id}/items", "item", 100)
+                    except SpotifyError as e:
+                        if e.status not in {403, 404}:
+                            raise
+                        used_embed = True
+                if used_embed:
+                    try:
+                        metadata, tracks = await fetch_embed_playlist(id)
+                    except SpotifyError as e:
+                        _message(batch, f"{id}: {e.message}")
+                        continue
+                    if len(tracks) == 100:
+                        _message(
+                            batch,
+                            f"„{metadata['name']}“: nur die ersten 100 Songs übernommen "
+                            "(ohne verbundenes Spotify-Konto liefert Spotify nicht mehr)",
                         )
-                        db.add(playlist)
-                        await db.flush()
-                        db.add(SpotifyPlaylistLink(user_id=user.id, spotify_playlist_id=id, playlist_id=playlist.id))
-                    else:
-                        playlist = await db.get(Playlist, link.playlist_id)
-                        playlist.name = metadata["name"]
-                        await db.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist.id))
-                        await db.execute(delete(SpotifyPending).where(SpotifyPending.playlist_id == playlist.id))
-                    await process(tracks, metadata["name"], playlist.id)
+                await import_playlist(id, metadata["name"], tracks)
             batch.status = "done"
             batch.finished_at = datetime.now(UTC)
             await db.commit()
