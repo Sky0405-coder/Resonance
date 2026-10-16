@@ -1,4 +1,4 @@
-from app.services.deezer import artist_string, deezer
+from app.services.deezer import DeezerError, artist_string, deezer
 from app.services.musicbrainz import MusicBrainzError, NotFound, TrackMeta, mb
 
 
@@ -88,3 +88,53 @@ async def resolve_album(deezer_id: str) -> tuple[dict, list[TrackMeta]]:
             for t in tracks
         ]
     return album, metas
+
+
+# Deezer `explicit_content_lyrics`: 3 = edited (censored) version of an explicit original.
+EDITED = 3
+
+
+def _same(a: str, b: str) -> bool:
+    return " ".join(a.casefold().split()) == " ".join(b.casefold().split())
+
+
+async def explicit_track_id(deezer_id: str) -> str:
+    """Id of the explicit original when `deezer_id` is a censored version, else `deezer_id`."""
+    track = await deezer.track(deezer_id)
+    if track.get("explicit_content_lyrics") != EDITED:
+        return deezer_id
+    artist = track.get("artist", {}).get("name", "")
+    try:
+        results = await deezer.search_tracks(f'artist:"{artist}" track:"{track["title"]}"', 10)
+    except DeezerError:
+        return deezer_id
+    for result in results:
+        if (
+            result.get("explicit_lyrics")
+            and _same(result.get("artist", {}).get("name", ""), artist)
+            and _same(result["title"], track["title"])
+            and abs((result.get("duration") or 0) - (track.get("duration") or 0)) <= 10
+        ):
+            return str(result["id"])
+    return deezer_id
+
+
+async def explicit_album_id(deezer_id: str) -> str:
+    """Id of the explicit edition when `deezer_id` is a censored album, else `deezer_id`."""
+    album = await deezer.album(deezer_id)
+    if album.get("explicit_content_lyrics") != EDITED:
+        return deezer_id
+    artist = album.get("artist", {}).get("name", "")
+    try:
+        results = await deezer.search_albums(f"{artist} {album['title']}", 10)
+    except DeezerError:
+        return deezer_id
+    for result in results:
+        if (
+            result.get("explicit_lyrics")
+            and _same(result.get("artist", {}).get("name", ""), artist)
+            and _same(result["title"], album["title"])
+            and abs((result.get("nb_tracks") or 0) - (album.get("nb_tracks") or 0)) <= 2
+        ):
+            return str(result["id"])
+    return deezer_id

@@ -198,8 +198,8 @@ class LibraryPage extends ConsumerWidget {
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [
-              if (!kIsWeb) Tab(text: context.l10n.offlineDownloaded),
               Tab(text: context.l10n.libraryPlaylists),
+              if (!kIsWeb) Tab(text: context.l10n.offlineDownloaded),
               Tab(text: context.l10n.librarySavedAlbums),
               Tab(text: context.l10n.libraryAllAlbums),
               Tab(text: context.l10n.commonArtists),
@@ -208,8 +208,8 @@ class LibraryPage extends ConsumerWidget {
         ),
         body: const TabBarView(
           children: [
-            if (!kIsWeb) OfflineCollections(),
             _PlaylistsTab(),
+            if (!kIsWeb) OfflineCollections(),
             _SavedAlbumsTab(),
             _AllAlbumsTab(),
             _ArtistsTab(),

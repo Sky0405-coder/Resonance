@@ -26,7 +26,7 @@ from app.services.library_paths import target_relpath
 from app.services.lyrics import sidecar_path
 from app.services.matching import match_tracks
 from app.services.musicbrainz import TrackMeta
-from app.services.resolve import resolve_album, resolve_track
+from app.services.resolve import explicit_album_id, explicit_track_id, resolve_album, resolve_track
 from app.services.scanner import AUDIO_EXTENSIONS, import_file, import_files
 from app.services.server_config import load_config
 from app.services.sources.base import Cancelled
@@ -561,6 +561,8 @@ async def create_request(
     if existing is not None:
         return existing
     try:
+        # Censored releases sound wrong; always fetch the explicit original when Deezer has one.
+        catalog_id = await (explicit_track_id if kind == "track" else explicit_album_id)(catalog_id)
         if kind == "track":
             metas = [await resolve_track(catalog_id)]
             track = await deezer.track(catalog_id)

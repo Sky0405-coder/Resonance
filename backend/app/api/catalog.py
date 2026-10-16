@@ -55,6 +55,17 @@ def _track(data: dict, album: dict | None = None) -> CatalogTrack:
     )
 
 
+def _preference(item: dict) -> tuple[bool, int]:
+    """Explicit editions first, then the more popular one."""
+    return bool(item.get("explicit_lyrics")), item.get("fans") or 0
+
+
+def _drop_censored(items: list[dict], key) -> list[dict]:
+    """Drop clean duplicates of releases that are also in the list as explicit."""
+    explicit = {key(item) for item in items if item.get("explicit_lyrics")}
+    return [item for item in items if item.get("explicit_lyrics") or key(item) not in explicit]
+
+
 @router.get("/search", response_model=CatalogSearchOut)
 async def search(
     user: CurrentUser,
@@ -73,8 +84,18 @@ async def search(
     except DeezerError as e:
         raise HTTPException(502, "Katalog nicht erreichbar") from e
     artists = [_artist(a) for a in results.get("artist", [])]
-    albums = [_album(a) for a in results.get("album", [])]
-    tracks = [_track(t) for t in results.get("track", [])]
+    albums = [
+        _album(a)
+        for a in _drop_censored(
+            results.get("album", []), lambda a: (a["title"].casefold(), a.get("artist", {}).get("name", "").casefold())
+        )
+    ]
+    tracks = [
+        _track(t)
+        for t in _drop_censored(
+            results.get("track", []), lambda t: (t["title"].casefold(), t.get("artist", {}).get("name", "").casefold())
+        )
+    ]
     await match_artists(db, artists)
     await match_albums(db, albums)
     await match_tracks(db, tracks)
@@ -96,7 +117,7 @@ async def artist(user: CurrentUser, db: DB, id: str = Path(max_length=20, patter
         if release.get("record_type") == "compile":
             continue
         key = release["title"].casefold()
-        if key not in deduped or (release.get("fans") or 0) > (deduped[key].get("fans") or 0):
+        if key not in deduped or _preference(release) > _preference(deduped[key]):
             deduped[key] = release
     ordered = sorted(deduped.values(), key=lambda a: a["title"])
     ordered.sort(key=lambda a: a.get("release_date") or "", reverse=True)

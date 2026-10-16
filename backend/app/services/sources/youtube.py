@@ -23,6 +23,10 @@ def norm(s: str) -> str:
     return " ".join(s.split()).strip()
 
 
+# Explicit versions win over otherwise equal clean ones.
+EXPLICIT_BONUS = 15
+
+
 def score_candidate(meta: TrackMeta, title: str, artists: list[str],
                     duration: float | None, is_video: bool) -> float | None:
     title_ratio = fuzz.token_set_ratio(norm(meta.title), norm(title))
@@ -30,7 +34,10 @@ def score_candidate(meta: TrackMeta, title: str, artists: list[str],
     d = abs(meta.duration - duration) if meta.duration is not None and duration is not None else None
     if title_ratio < 70 or artist_ratio < 60 or (d is not None and d > 15):
         return None
-    for word in ("live", "cover", "karaoke", "instrumental", "remix", "sped up", "slowed", "nightcore", "8d", "reverb"):
+    for word in (
+        "live", "cover", "karaoke", "instrumental", "remix", "sped up", "slowed", "nightcore", "8d", "reverb",
+        "clean", "radio edit", "censored", "originally performed", "tribute", "a cappella", "acapella",
+    ):
         pattern = rf"\b{re.escape(word)}\b"
         if re.search(pattern, title.casefold()) and not re.search(pattern, meta.title.casefold()):
             return None
@@ -67,6 +74,9 @@ class YouTubeMusicSource:
                         except ValueError:
                             pass
                     score = score_candidate(meta, title, artists, duration, filter == "videos")
+                    # YouTube Music lists censored album versions under the same title; prefer the explicit one.
+                    if score is not None and result.get("isExplicit"):
+                        score += EXPLICIT_BONUS
                     if score is not None:
                         candidates.append(Candidate(self.name, ref, title, " / ".join(artists), duration, score))
                 if candidates:
