@@ -45,6 +45,17 @@ List<T> shuffleQueue<T>(List<T> queue, int currentIndex, {math.Random? random}) 
 
 (List<T>, int) unshuffleQueue<T>(List<T> original, T current) => ([...original], original.indexOf(current));
 
+(List<T>, List<T>) replaceUpcomingQueue<T>(
+  T current,
+  List<T> tracks, {
+  required String Function(T) id,
+  required bool shuffle,
+  math.Random? random,
+}) {
+  final original = [current, ...tracks.where((track) => id(track) != id(current))];
+  return (shuffle ? shuffleQueue(original, 0, random: random) : [...original], original);
+}
+
 class _Fade {
   _Fade(this.outgoing, this.incoming, this.index, this.duration)
     : outgoingIndex = outgoing.currentIndex,

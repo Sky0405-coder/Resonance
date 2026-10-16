@@ -7,7 +7,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models import Album, Artist, Playlist, PlaylistEntry, PlaylistShare, Track, TrackLike, User
+from app.i18n import translate
+from app.models import (
+    Album,
+    Artist,
+    Playlist,
+    PlaylistEntry,
+    PlaylistShare,
+    Track,
+    TrackLike,
+    User,
+)
 from app.schemas import AlbumOut, ArtistOut, ArtistRef, PlaylistOut, TrackOut
 
 
@@ -87,7 +97,9 @@ async def artists_out(db: AsyncSession, artists: Sequence[Artist]) -> list[Artis
     return out
 
 
-async def playlists_out(db: AsyncSession, playlists: Sequence[Playlist], user_id: uuid.UUID) -> list[PlaylistOut]:
+async def playlists_out(
+    db: AsyncSession, playlists: Sequence[Playlist], user_id: uuid.UUID, lang: str = "de"
+) -> list[PlaylistOut]:
     if not playlists:
         return []
     ids = [p.id for p in playlists]
@@ -130,8 +142,10 @@ async def playlists_out(db: AsyncSession, playlists: Sequence[Playlist], user_id
         out.append(
             PlaylistOut(
                 id=p.id,
-                name=p.name,
-                description=p.description,
+                name=translate(p.name, lang) if p.kind == "mix" else p.name,
+                description=translate(p.description, lang)
+                if p.kind == "mix" and p.description is not None
+                else p.description,
                 is_public=p.is_public,
                 kind=p.kind,
                 owner=ArtistRef(id=owner.id, name=owner.display_name),

@@ -127,4 +127,47 @@ void main() {
       expect(index, 1);
     });
   });
+
+  group('replace upcoming queue', () {
+    test('keeps the current object and removes every matching seed id', () {
+      const current = (id: 'seed', title: 'Playing');
+      final tracks = [
+        (id: 'a', title: 'First'),
+        (id: 'seed', title: 'Other metadata'),
+        (id: 'b', title: 'Second'),
+        current,
+      ];
+      final (queue, original) = replaceUpcomingQueue(current, tracks, id: (track) => track.id, shuffle: false);
+      expect(queue, [current, tracks[0], tracks[2]]);
+      expect(original, queue);
+      expect(identical(queue, original), false);
+      expect(tracks, hasLength(4));
+    });
+
+    test('shuffles only upcoming songs and retains the order for unshuffle', () {
+      final tracks = ['seed', ...List.generate(20, (index) => 'track-$index')];
+      final (queue, original) = replaceUpcomingQueue(
+        'seed',
+        tracks,
+        id: (track) => track,
+        shuffle: true,
+        random: Random(42),
+      );
+      expect(queue.first, 'seed');
+      expect(queue.skip(1), unorderedEquals(tracks.skip(1)));
+      expect(queue.skip(1), isNot(orderedEquals(tracks.skip(1))));
+      expect(original, tracks);
+      final (restored, index) = unshuffleQueue(original, queue[4]);
+      expect(restored, tracks);
+      expect(restored[index], queue[4]);
+    });
+
+    test('an empty radio leaves the seed as the sole item with either shuffle setting', () {
+      for (final shuffle in [false, true]) {
+        final (queue, original) = replaceUpcomingQueue('seed', <String>[], id: (track) => track, shuffle: shuffle);
+        expect(queue, ['seed']);
+        expect(original, ['seed']);
+      }
+    });
+  });
 }

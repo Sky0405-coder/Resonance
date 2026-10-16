@@ -1,9 +1,10 @@
 from datetime import date
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from sqlalchemy import func, select
 
 from app.deps import DB, CurrentUser
+from app.i18n import language
 from app.models import Playlist
 from app.schemas import MixesOut
 from app.services.mixes import generate_mixes
@@ -12,13 +13,13 @@ from app.services.views import playlists_out
 router = APIRouter(prefix="/api/mixes", tags=["mixes"])
 
 
-async def _out(db: DB, user: CurrentUser) -> MixesOut:
+async def _out(db: DB, user: CurrentUser, lang: str) -> MixesOut:
     playlists = list(
         await db.scalars(
             select(Playlist).where(Playlist.owner_id == user.id, Playlist.kind == "mix").order_by(Playlist.mix_key)
         )
     )
-    items = await playlists_out(db, playlists, user.id)
+    items = await playlists_out(db, playlists, user.id, lang)
     made_for_you = []
     genres = []
     for playlist, item in zip(playlists, items, strict=True):
@@ -31,16 +32,16 @@ async def _out(db: DB, user: CurrentUser) -> MixesOut:
 
 
 @router.get("", response_model=MixesOut)
-async def get_mixes(user: CurrentUser, db: DB) -> MixesOut:
+async def get_mixes(user: CurrentUser, db: DB, request: Request) -> MixesOut:
     generated_at = await db.scalar(
         select(func.max(Playlist.generated_at)).where(Playlist.owner_id == user.id, Playlist.kind == "mix")
     )
     if generated_at is None or generated_at.astimezone().date() != date.today():
         await generate_mixes(db, user)
-    return await _out(db, user)
+    return await _out(db, user, language(request))
 
 
 @router.post("/refresh", response_model=MixesOut)
-async def refresh_mixes(user: CurrentUser, db: DB) -> MixesOut:
+async def refresh_mixes(user: CurrentUser, db: DB, request: Request) -> MixesOut:
     await generate_mixes(db, user)
-    return await _out(db, user)
+    return await _out(db, user, language(request))

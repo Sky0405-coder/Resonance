@@ -10,6 +10,7 @@ from sqlalchemy import delete, func, or_, select
 from app.api import library, me
 from app.api import playlists as playlist_api
 from app.deps import DB
+from app.i18n import language, translate
 from app.models import (
     Album,
     Artist,
@@ -298,7 +299,9 @@ async def _media(db: DB, user: User, params: ss.Params, endpoint: str) -> Respon
     return await library.stream_track(track.id, user, db, fmt, max(32, min(bitrate, 320)) if bitrate else None)
 
 
-async def _dispatch(endpoint: str, db: DB, user: User, params: ss.Params) -> dict[str, Any] | Response:
+async def _dispatch(
+    endpoint: str, db: DB, user: User, params: ss.Params, request: Request
+) -> dict[str, Any] | Response:
     if endpoint in {"ping", "setRating", "savePlayQueue"}:
         return {}
     if endpoint == "getLicense":
@@ -485,7 +488,7 @@ async def _dispatch(endpoint: str, db: DB, user: User, params: ss.Params) -> dic
     if endpoint in {"search2", "search3"}:
         return await _search(db, user, params, endpoint == "search2")
     if endpoint == "getPlaylists":
-        visible = await playlist_api.list_playlists(user, db)
+        visible = await playlist_api.list_playlists(user, db, request)
         ids = [playlist.id for playlist in visible if playlist.kind != "mix"]
         rows = list(await db.scalars(select(Playlist).where(Playlist.id.in_(ids)).order_by(Playlist.updated_at.desc())))
         return {"playlists": {"playlist": await ss.playlists(db, user, rows)}}
@@ -577,7 +580,7 @@ async def subsonic(endpoint: str, request: Request, db: DB) -> Response:
     try:
         params = await ss.Params.read(request)
         user = await ss.authenticate(db, params)
-        result = await _dispatch(endpoint.removesuffix(".view"), db, user, params)
+        result = await _dispatch(endpoint.removesuffix(".view"), db, user, params, request)
         if isinstance(result, Response):
             return result
         return ss.response(params, request.app.version, result)
@@ -597,4 +600,5 @@ async def subsonic(endpoint: str, request: Request, db: DB) -> Response:
     except Exception:
         log.exception("Subsonic request failed: %s", endpoint)
         error = ss.SubsonicError(0, "Interner Fehler")
+    error.message = translate(error.message, language(request))
     return ss.response(params, request.app.version, {}, error)

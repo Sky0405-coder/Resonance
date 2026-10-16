@@ -1,10 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func, select
 
 from app.config import get_settings
 from app.deps import DB, AdminUser
+from app.i18n import language, translate
 from app.models import ImportBatch, ImportFile
 from app.schemas import ImportBatchIn, ImportBatchOut, ImportFileOut, Page
 from app.services import importer
@@ -14,9 +15,10 @@ from app.services.server_config import load_config
 router = APIRouter(prefix="/api/admin/imports", tags=["admin"])
 
 
-def _out(batch: ImportBatch) -> ImportBatchOut:
+def _out(batch: ImportBatch, lang: str) -> ImportBatchOut:
     return ImportBatchOut.model_validate(batch).model_copy(
         update={
+            "message": translate(batch.message, lang) if batch.message is not None else None,
             "progress": batch.processed / batch.total if batch.total else 0,
         }
     )
@@ -42,19 +44,19 @@ async def info(admin: AdminUser, db: DB) -> dict:
 
 
 @router.post("", response_model=ImportBatchOut, status_code=201)
-async def create(body: ImportBatchIn, admin: AdminUser, db: DB) -> ImportBatchOut:
-    return _out(await importer.start_batch(db, body.kind, admin))
+async def create(body: ImportBatchIn, admin: AdminUser, db: DB, request: Request) -> ImportBatchOut:
+    return _out(await importer.start_batch(db, body.kind, admin), language(request))
 
 
 @router.get("", response_model=list[ImportBatchOut])
-async def list_batches(admin: AdminUser, db: DB) -> list[ImportBatchOut]:
+async def list_batches(admin: AdminUser, db: DB, request: Request) -> list[ImportBatchOut]:
     rows = await db.scalars(select(ImportBatch).order_by(ImportBatch.created_at.desc()).limit(20))
-    return [_out(row) for row in rows]
+    return [_out(row, language(request)) for row in rows]
 
 
 @router.get("/{id}", response_model=ImportBatchOut)
-async def detail(id: uuid.UUID, admin: AdminUser, db: DB) -> ImportBatchOut:
-    return _out(await _get(db, id))
+async def detail(id: uuid.UUID, admin: AdminUser, db: DB, request: Request) -> ImportBatchOut:
+    return _out(await _get(db, id), language(request))
 
 
 @router.get("/{id}/files", response_model=Page[ImportFileOut])
@@ -62,6 +64,7 @@ async def files(
     id: uuid.UUID,
     admin: AdminUser,
     db: DB,
+    request: Request,
     status: str | None = None,
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
@@ -75,7 +78,10 @@ async def files(
     return Page(
         items=[
             ImportFileOut.model_validate(row).model_copy(
-                update={key: (row.meta or {}).get(key) for key in ("title", "artist", "album")}
+                update={
+                    **{key: (row.meta or {}).get(key) for key in ("title", "artist", "album")},
+                    "error": translate(row.error, language(request)) if row.error is not None else None,
+                }
             )
             for row in rows
         ],
@@ -86,7 +92,7 @@ async def files(
 
 
 @router.post("/{id}/cancel", response_model=ImportBatchOut)
-async def cancel(id: uuid.UUID, admin: AdminUser, db: DB) -> ImportBatchOut:
+async def cancel(id: uuid.UUID, admin: AdminUser, db: DB, request: Request) -> ImportBatchOut:
     batch = await _get(db, id)
     importer.cancel_batch(batch)
-    return _out(batch)
+    return _out(batch, language(request))

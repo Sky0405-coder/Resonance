@@ -1,11 +1,12 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import joinedload
 
 from app.deps import DB, CurrentUser
+from app.i18n import language
 from app.models import Playlist, PlaylistEntry, PlaylistShare, RadioPending, Track, User
 from app.schemas import (
     AddTracksIn,
@@ -70,7 +71,7 @@ async def _position_before(
 
 
 @router.get("", response_model=list[PlaylistOut])
-async def list_playlists(user: CurrentUser, db: DB) -> list[PlaylistOut]:
+async def list_playlists(user: CurrentUser, db: DB, request: Request) -> list[PlaylistOut]:
     rows = await db.scalars(
         select(Playlist)
         .where(
@@ -85,7 +86,7 @@ async def list_playlists(user: CurrentUser, db: DB) -> list[PlaylistOut]:
         )
         .order_by(Playlist.updated_at.desc())
     )
-    return await playlists_out(db, list(rows), user.id)
+    return await playlists_out(db, list(rows), user.id, language(request))
 
 
 @router.post("", response_model=PlaylistOut, status_code=status.HTTP_201_CREATED)
@@ -98,7 +99,7 @@ async def create_playlist(body: PlaylistIn, user: CurrentUser, db: DB) -> Playli
 
 
 @router.get("/{playlist_id}", response_model=PlaylistDetail)
-async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> PlaylistDetail:
+async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB, request: Request) -> PlaylistDetail:
     playlist = await _get_visible(db, user, playlist_id)
     entries = list(
         await db.scalars(
@@ -112,7 +113,9 @@ async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> Pla
         )
     )
     tracks = await tracks_out(db, user, [e.track for e in entries])
-    detail = PlaylistDetail.model_validate((await playlists_out(db, [playlist], user.id))[0].model_dump())
+    detail = PlaylistDetail.model_validate(
+        (await playlists_out(db, [playlist], user.id, language(request)))[0].model_dump()
+    )
     detail.entries = [
         PlaylistEntryOut(entry_id=e.id, added_at=e.added_at, track=t) for e, t in zip(entries, tracks, strict=True)
     ]

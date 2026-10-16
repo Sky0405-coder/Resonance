@@ -3,10 +3,11 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
     admin,
@@ -29,6 +30,7 @@ from app.api import (
 )
 from app.config import get_settings
 from app.deps import DB, CurrentUser
+from app.i18n import language, translate
 from app.services import audiobookshelf as abs_service
 from app.services import importer, upgrades
 from app.services import mixes as mixes_service
@@ -64,6 +66,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Resonance", version="0.1.0", lifespan=lifespan)
+
+
+@app.exception_handler(HTTPException)
+@app.exception_handler(StarletteHTTPException)
+async def http_exception(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    detail = translate(exc.detail, language(request)) if isinstance(exc.detail, str) else exc.detail
+    return JSONResponse({"detail": detail}, status_code=exc.status_code, headers=exc.headers)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

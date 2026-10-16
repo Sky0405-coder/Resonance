@@ -3,13 +3,14 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy import Select, func, or_, select
 
 from app.api.catalog import _track as catalog_track
 from app.api.requests import _out as request_out
 from app.deps import DB, CurrentUser
+from app.i18n import language
 from app.models import Album, Artist, PlayEvent, Playlist, SavedAlbum, Track
 from app.schemas import (
     AlbumDetail,
@@ -47,7 +48,7 @@ def _track_order():
 
 
 @router.get("/home", response_model=HomeOut)
-async def home(user: CurrentUser, db: DB) -> HomeOut:
+async def home(user: CurrentUser, db: DB, request: Request) -> HomeOut:
     recent_album_ids = (
         await db.execute(
             select(Track.album_id, func.max(PlayEvent.played_at).label("last"))
@@ -95,7 +96,7 @@ async def home(user: CurrentUser, db: DB) -> HomeOut:
     return HomeOut(
         recently_played=await albums_out(db, recently_played),
         recently_added=await albums_out(db, recently_added),
-        playlists=await playlists_out(db, playlists, user.id),
+        playlists=await playlists_out(db, playlists, user.id, language(request)),
         most_played=await tracks_out(db, user, [tracks_by_id[i] for i in top_ids if i in tracks_by_id]),
     )
 
@@ -274,11 +275,13 @@ async def get_track(track_id: uuid.UUID, user: CurrentUser, db: DB) -> TrackOut:
 
 
 @router.post("/tracks/{track_id}/redownload", response_model=DownloadRequestDetail, status_code=201)
-async def redownload(track_id: uuid.UUID, body: RedownloadIn, user: CurrentUser, db: DB) -> DownloadRequestDetail:
+async def redownload(
+    track_id: uuid.UUID, body: RedownloadIn, user: CurrentUser, db: DB, request: Request
+) -> DownloadRequestDetail:
     track = await db.get(Track, track_id)
     if track is None:
         raise HTTPException(404, "Song nicht gefunden")
-    return request_out(await create_redownload(db, user, track, body.youtube_url))
+    return request_out(await create_redownload(db, user, track, body.youtube_url), language(request))
 
 
 @router.get("/tracks/{track_id}/lyrics", response_model=LyricsOut)

@@ -9,8 +9,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
 import 'engine.dart';
+import 'radio_follow.dart';
 
 import '../core/api.dart';
+import '../core/downloads.dart';
 import '../offline/offline_store.dart';
 import '../core/audiobooks.dart';
 import '../core/models.dart';
@@ -142,7 +144,31 @@ class PlayerController extends Notifier<PlayerView> {
       }),
       engine.positionStream.listen(_trackListening),
     ]);
+    final radioFollow = RadioFollow(
+      loadPlaylist: (id) async {
+        final detail = await _api.playlist(id);
+        return (
+          isRadio: detail.playlist.isRadio,
+          tracks: [for (final entry in detail.entries) entry.track],
+          pendingDownloads: null,
+        );
+      },
+      currentContext: () => state.context,
+      queuedTrackIds: () => {for (final track in state.queue) track.id},
+      append: (track, context) => _switch(() async {
+        if (state.context != context || state.queue.any((t) => t.id == track.id)) return;
+        await addToQueue(track);
+      }),
+    );
+    listenSelf((previous, next) {
+      if (previous?.context != next.context) radioFollow.contextChanged(next.context);
+    });
+    ref.listen(downloadSummaryProvider, (_, next) {
+      final summary = next.asData?.value;
+      if (summary != null) radioFollow.downloadRunningChanged(summary.running);
+    });
     ref.onDispose(() {
+      radioFollow.dispose();
       for (final s in _subs) {
         s.cancel();
       }
@@ -160,6 +186,7 @@ class PlayerController extends Notifier<PlayerView> {
     bool? playing,
     bool? buffering,
     bool? shuffle,
+    String? context,
     LoopMode? loop,
     double? speed,
     DateTime? Function()? sleepAt,
@@ -170,7 +197,7 @@ class PlayerController extends Notifier<PlayerView> {
     buffering: buffering ?? state.buffering,
     shuffle: shuffle ?? state.shuffle,
     loop: loop ?? state.loop,
-    context: state.context,
+    context: context ?? state.context,
     book: state.book,
     speed: speed ?? state.speed,
     sleepAt: sleepAt == null ? state.sleepAt : sleepAt(),
@@ -202,6 +229,24 @@ class PlayerController extends Notifier<PlayerView> {
     );
     _unshuffled = [...tracks];
   });
+
+  Future<void> replaceUpcoming(List<Track> tracks, {required String context}) {
+    final previousContext = state.context;
+    final current = state.current;
+    return _switch(() async {
+      await engine.finishFade();
+      if (current == null || state.context != previousContext || state.current?.id != current.id) return;
+      final (queue, original) = replaceUpcomingQueue(current, tracks, id: (track) => track.id, shuffle: state.shuffle);
+      _switching = true;
+      try {
+        await engine.setSources([for (final track in queue) _source(track)], initialIndex: 0, preserveCurrent: true);
+        _unshuffled = original;
+        state = _copy(queue: List.unmodifiable(queue), index: 0, context: context);
+      } finally {
+        _switching = false;
+      }
+    });
+  }
 
   /// Commit metadata only after loading, and reload the previous sources on failure.
   Future<void> _replacePlayback(

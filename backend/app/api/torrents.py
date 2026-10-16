@@ -1,8 +1,9 @@
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.config import get_settings
 from app.deps import DB, AdminUser
+from app.i18n import language, translate
 from app.services.server_config import load_config
 from app.services.torrents import TorrentError
 from app.services.torrents.qbittorrent import QBittorrent
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/api/admin/torrents", tags=["admin"])
 
 
 @router.get("/status")
-async def status(admin: AdminUser, db: DB) -> dict[str, dict[str, bool | str]]:
+async def status(admin: AdminUser, db: DB, request: Request) -> dict[str, dict[str, bool | str]]:
     cfg = await load_config(db)
     try:
         async with httpx.AsyncClient(timeout=60) as client:
@@ -32,4 +33,6 @@ async def status(admin: AdminUser, db: DB) -> dict[str, dict[str, bool | str]]:
         qbittorrent = {"ok": True, "message": f"Version {version}"}
     except TorrentError as e:
         qbittorrent = {"ok": False, "message": str(e)}
+    for result in (prowlarr, qbittorrent):
+        result["message"] = translate(result["message"], language(request))
     return {"prowlarr": prowlarr, "qbittorrent": qbittorrent}

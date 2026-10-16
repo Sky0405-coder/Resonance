@@ -202,7 +202,7 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
               ListTile(
                 leading: const Icon(Icons.radio),
                 title: Text(context.l10n.radioStartSong),
-                onTap: () => run(() => startRadio(context, ref, 'track', t.id)),
+                onTap: () => run(() => startRadio(context, ref, 'track', t.id, seed: t)),
               ),
               ListTile(
                 leading: const Icon(Icons.album),
@@ -460,15 +460,26 @@ Future<void> showShareWithUsers(BuildContext context, WidgetRef ref, Playlist pl
 }
 
 /// Starts a song/album radio: builds it on the server, plays it and opens it.
-Future<void> startRadio(BuildContext context, WidgetRef ref, String seedType, String id) async {
+Future<void> startRadio(BuildContext context, WidgetRef ref, String seedType, String id, {Track? seed}) async {
   final api = ref.read(apiProvider);
+  final player = ref.read(playerProvider.notifier);
   final l10n = context.l10n;
   try {
+    final instant = seedType == 'track' && seed != null;
+    if (instant) await player.playTracks([seed], context: 'radio:pending');
     final (playlist, requested) = await api.startRadio(seedType, id);
     ref.invalidate(playlistsProvider);
     final detail = await api.playlist(playlist.id);
     if (!context.mounted) return;
-    await playMusic(context, ref, [for (final e in detail.entries) e.track], contextId: 'playlist:${playlist.id}');
+    final tracks = [for (final e in detail.entries) e.track];
+    if (instant) {
+      final playing = ref.read(playerProvider);
+      if (playing.context == 'radio:pending' && playing.current?.id == seed.id) {
+        await player.replaceUpcoming(tracks, context: 'playlist:${playlist.id}');
+      }
+    } else {
+      await playMusic(context, ref, tracks, contextId: 'playlist:${playlist.id}');
+    }
     if (!context.mounted) return;
     context.push('/playlist/${playlist.id}');
     if (requested > 0) showInfo(context, l10n.radioDownloading(requested));

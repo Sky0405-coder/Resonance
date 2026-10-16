@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.deps import DB, CurrentUser
+from app.i18n import language, translate
 from app.models import SpotifyAccount, SpotifyImport, SpotifyPlaylistLink, User
 from app.services import spotify
 from app.services.server_config import load_config
@@ -43,6 +44,20 @@ class SpotifyImportOut(BaseModel):
     missing_tracks: list[dict]
     created_at: datetime
     finished_at: datetime | None
+
+
+def _out(batch: SpotifyImport, lang: str) -> SpotifyImportOut:
+    return SpotifyImportOut.model_validate(batch).model_copy(
+        update={
+            "message": translate(batch.message, lang) if batch.message is not None else None,
+            "missing_tracks": [
+                {**track, "source": translate("Lieblingssongs", lang)}
+                if track.get("source") == "Lieblingssongs"
+                else track.copy()
+                for track in batch.missing_tracks
+            ],
+        }
+    )
 
 
 async def _account(db: DB, user_id: uuid.UUID) -> SpotifyAccount:
@@ -122,9 +137,9 @@ async def callback(db: DB, request: Request, code: str = "", state: str = "", er
         message = "Verbindung fehlgeschlagen: Spotify nicht erreichbar"
         status_code = 502
     return HTMLResponse(
-        '<!doctype html><html lang="de"><meta charset="utf-8"><title>Spotify</title>'
+        f'<!doctype html><html lang="{language(request)}"><meta charset="utf-8"><title>Spotify</title>'
         '<body style="background:#121212;color:#fff;font-family:sans-serif;padding:2rem">'
-        f"<p>{html.escape(message)}</p></body></html>",
+        f"<p>{html.escape(translate(message, language(request)))}</p></body></html>",
         status_code=status_code,
     )
 
@@ -156,7 +171,7 @@ async def playlists(user: CurrentUser, db: DB) -> dict:
 
 
 @router.post("/imports", response_model=SpotifyImportOut, status_code=202)
-async def create_import(body: SpotifyImportIn, user: CurrentUser, db: DB) -> SpotifyImportOut:
+async def create_import(body: SpotifyImportIn, user: CurrentUser, db: DB, request: Request) -> SpotifyImportOut:
     if not body.liked and not body.playlist_ids and not body.links:
         raise HTTPException(422, "Nichts ausgewählt")
     links: list[str] = []
@@ -179,25 +194,25 @@ async def create_import(body: SpotifyImportIn, user: CurrentUser, db: DB) -> Spo
     batch = SpotifyImport(user_id=user.id, status="queued", links=links, **body.model_dump(exclude={"links"}))
     db.add(batch)
     await db.commit()
-    result = SpotifyImportOut.model_validate(batch)
+    result = _out(batch, language(request))
     spotify.launch_import(batch.id)
     return result
 
 
 @router.get("/imports")
-async def imports(user: CurrentUser, db: DB) -> list[dict]:
+async def imports(user: CurrentUser, db: DB, request: Request) -> list[dict]:
     batches = await db.scalars(
         select(SpotifyImport)
         .where(SpotifyImport.user_id == user.id)
         .order_by(SpotifyImport.created_at.desc())
         .limit(20)
     )
-    return [SpotifyImportOut.model_validate(batch).model_dump(exclude={"missing_tracks"}) for batch in batches]
+    return [_out(batch, language(request)).model_dump(exclude={"missing_tracks"}) for batch in batches]
 
 
 @router.get("/imports/{id}", response_model=SpotifyImportOut)
-async def import_detail(id: uuid.UUID, user: CurrentUser, db: DB) -> SpotifyImportOut:
+async def import_detail(id: uuid.UUID, user: CurrentUser, db: DB, request: Request) -> SpotifyImportOut:
     batch = await db.get(SpotifyImport, id)
     if batch is None or batch.user_id != user.id:
         raise HTTPException(404, "Import nicht gefunden")
-    return SpotifyImportOut.model_validate(batch)
+    return _out(batch, language(request))

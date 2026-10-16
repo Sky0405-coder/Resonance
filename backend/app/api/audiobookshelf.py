@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 
 from app.deps import DB, AdminUser, CurrentUser
+from app.i18n import language, translate
 from app.models import AudiobookshelfAccount
 from app.services import audiobookshelf as abs_service
 from app.services.server_config import AudiobookshelfConfig, load_config
@@ -135,14 +136,14 @@ async def proxy(path: str, request: Request, user: CurrentUser, db: DB) -> Strea
 
 
 @admin_router.get("/status")
-async def admin_status(admin: AdminUser, db: DB) -> dict:
+async def admin_status(admin: AdminUser, db: DB, request: Request) -> dict:
     cfg = (await load_config(db)).audiobookshelf
     if not cfg.url:
-        return {"ok": False, "message": "Keine Adresse eingetragen"}
+        return {"ok": False, "message": translate("Keine Adresse eingetragen", language(request))}
     try:
         response = await abs_service._get_client().get(f"{cfg.url}/status", timeout=20)
         response.raise_for_status()
         version = response.json()["serverVersion"]
         return {"ok": True, "message": f"Version {version}"}
     except (httpx.HTTPError, ValueError, KeyError):
-        return {"ok": False, "message": "Audiobookshelf nicht erreichbar"}
+        return {"ok": False, "message": translate("Audiobookshelf nicht erreichbar", language(request))}

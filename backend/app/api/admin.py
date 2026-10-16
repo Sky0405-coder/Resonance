@@ -1,13 +1,21 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import aliased
 
 from app.deps import DB, AdminUser
+from app.i18n import language, translate
 from app.models import Album, Artist, AuthSession, Invite, Job, Role, Track, User
-from app.schemas import InviteCreated, InviteIn, InviteOut, JobOut, UserAdminPatch, UserOut
+from app.schemas import (
+    InviteCreated,
+    InviteIn,
+    InviteOut,
+    JobOut,
+    UserAdminPatch,
+    UserOut,
+)
 from app.security import hash_password, hash_token, new_token
 from app.services import scanner, upgrades
 from app.services.deletion import delete_empty_album, delete_tracks
@@ -163,13 +171,18 @@ async def delete_library_album(album_id: uuid.UUID, admin: AdminUser, db: DB) ->
 
 
 @router.post("/library/scan", response_model=JobOut, status_code=status.HTTP_202_ACCEPTED)
-async def start_scan(admin: AdminUser, db: DB, full: bool = False) -> JobOut:
+async def start_scan(admin: AdminUser, db: DB, request: Request, full: bool = False) -> JobOut:
     job = await scanner.start_scan(db, full=full)
-    return JobOut.model_validate(job)
+    return JobOut.model_validate(job).model_copy(
+        update={"message": translate(job.message, language(request)) if job.message is not None else None}
+    )
 
 
 @router.get("/jobs", response_model=list[JobOut])
-async def list_jobs(admin: AdminUser, db: DB, limit: int = 50) -> list[JobOut]:
+async def list_jobs(admin: AdminUser, db: DB, request: Request, limit: int = 50) -> list[JobOut]:
     return [
-        JobOut.model_validate(j) for j in await db.scalars(select(Job).order_by(Job.created_at.desc()).limit(limit))
+        JobOut.model_validate(j).model_copy(
+            update={"message": translate(j.message, language(request)) if j.message is not None else None}
+        )
+        for j in await db.scalars(select(Job).order_by(Job.created_at.desc()).limit(limit))
     ]

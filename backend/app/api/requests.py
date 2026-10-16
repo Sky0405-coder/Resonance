@@ -1,12 +1,13 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.deps import DB, AdminUser, CurrentUser
+from app.i18n import language, translate
 from app.models import DownloadItem, DownloadRequest, User
 from app.schemas import (
     DownloadItemOut,
@@ -23,7 +24,7 @@ from app.services.downloads import create_request, manager, recompute_request
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
 
-def _out(request: DownloadRequest) -> DownloadRequestDetail:
+def _out(request: DownloadRequest, lang: str) -> DownloadRequestDetail:
     items = request.items
     progress = sum(
         1 if i.status in {"done", "exists", "failed", "cancelled"} else i.progress if i.status == "downloading" else 0
@@ -44,7 +45,7 @@ def _out(request: DownloadRequest) -> DownloadRequestDetail:
         torrent_status=request.torrent_status,
         torrent_name=request.torrent_name,
         torrent_progress=request.torrent_progress,
-        torrent_error=request.torrent_error,
+        torrent_error=translate(request.torrent_error, lang) if request.torrent_error is not None else None,
         created_at=request.created_at,
         updated_at=request.updated_at,
         user=UserRef.model_validate(request.user),
@@ -52,7 +53,12 @@ def _out(request: DownloadRequest) -> DownloadRequestDetail:
         item_count=len(items),
         done_count=sum(i.status in {"done", "exists"} for i in items),
         failed_count=sum(i.status == "failed" for i in items),
-        items=[DownloadItemOut.model_validate(i) for i in items],
+        items=[
+            DownloadItemOut.model_validate(i).model_copy(
+                update={"error": translate(i.error, lang) if i.error is not None else None}
+            )
+            for i in items
+        ],
     )
 
 
@@ -68,7 +74,9 @@ async def _get(db: AsyncSession, user: User, id: uuid.UUID, lock: bool = False) 
 
 
 @router.post("", response_model=DownloadRequestDetail, status_code=201)
-async def create(body: RequestIn, response: Response, user: CurrentUser, db: DB) -> DownloadRequestDetail:
+async def create(
+    body: RequestIn, response: Response, http_request: Request, user: CurrentUser, db: DB
+) -> DownloadRequestDetail:
     existing = await db.scalar(
         select(DownloadRequest.id).where(
             DownloadRequest.user_id == user.id,
@@ -80,13 +88,14 @@ async def create(body: RequestIn, response: Response, user: CurrentUser, db: DB)
     request = await create_request(db, user, body.kind, body.id, body.temporary)
     if existing == request.id:
         response.status_code = 200
-    return _out(request)
+    return _out(request, language(http_request))
 
 
 @router.get("", response_model=Page[DownloadRequestOut])
 async def list_requests(
     user: CurrentUser,
     db: DB,
+    http_request: Request,
     scope: Literal["mine", "all"] = "mine",
     state: Literal["open", "finished", "all"] = "all",
     offset: int = Query(0, ge=0),
@@ -110,7 +119,10 @@ async def list_requests(
         .limit(limit)
     )
     return Page(
-        items=[DownloadRequestOut.model_validate(_out(r)) for r in rows], total=total, offset=offset, limit=limit
+        items=[DownloadRequestOut.model_validate(_out(r, language(http_request))) for r in rows],
+        total=total,
+        offset=offset,
+        limit=limit,
     )
 
 
@@ -138,12 +150,12 @@ async def summary(user: CurrentUser, db: DB) -> DownloadSummary:
 
 
 @router.get("/{id}", response_model=DownloadRequestDetail)
-async def detail(id: uuid.UUID, user: CurrentUser, db: DB) -> DownloadRequestDetail:
-    return _out(await _get(db, user, id))
+async def detail(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request) -> DownloadRequestDetail:
+    return _out(await _get(db, user, id), language(http_request))
 
 
 @router.post("/{id}/approve", response_model=DownloadRequestDetail)
-async def approve(id: uuid.UUID, admin: AdminUser, db: DB) -> DownloadRequestDetail:
+async def approve(id: uuid.UUID, admin: AdminUser, db: DB, http_request: Request) -> DownloadRequestDetail:
     request = await _get(db, admin, id, lock=True)
     if request.status != "pending_approval":
         raise HTTPException(409, "Anfrage wartet nicht auf Freigabe")
@@ -154,11 +166,13 @@ async def approve(id: uuid.UUID, admin: AdminUser, db: DB) -> DownloadRequestDet
     await recompute_request(db, request)
     await db.commit()
     manager.wake()
-    return _out(request)
+    return _out(request, language(http_request))
 
 
 @router.post("/{id}/reject", response_model=DownloadRequestDetail)
-async def reject(id: uuid.UUID, body: RejectIn, admin: AdminUser, db: DB) -> DownloadRequestDetail:
+async def reject(
+    id: uuid.UUID, body: RejectIn, admin: AdminUser, db: DB, http_request: Request
+) -> DownloadRequestDetail:
     request = await _get(db, admin, id, lock=True)
     if request.status != "pending_approval":
         raise HTTPException(409, "Anfrage wartet nicht auf Freigabe")
@@ -168,18 +182,18 @@ async def reject(id: uuid.UUID, body: RejectIn, admin: AdminUser, db: DB) -> Dow
         item.status = "cancelled"
     await recompute_request(db, request)
     await db.commit()
-    return _out(request)
+    return _out(request, language(http_request))
 
 
 @router.post("/{id}/cancel", response_model=DownloadRequestDetail)
-async def cancel(id: uuid.UUID, user: CurrentUser, db: DB) -> DownloadRequestDetail:
+async def cancel(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request) -> DownloadRequestDetail:
     request = await _get(db, user, id, lock=True)
     await manager.cancel_request(db, request)
-    return _out(request)
+    return _out(request, language(http_request))
 
 
 @router.post("/{id}/retry", response_model=DownloadRequestDetail)
-async def retry(id: uuid.UUID, user: CurrentUser, db: DB) -> DownloadRequestDetail:
+async def retry(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request) -> DownloadRequestDetail:
     request = await _get(db, user, id, lock=True)
     for item in request.items:
         if item.status == "failed":
@@ -189,7 +203,7 @@ async def retry(id: uuid.UUID, user: CurrentUser, db: DB) -> DownloadRequestDeta
     await recompute_request(db, request)
     await db.commit()
     manager.wake()
-    return _out(request)
+    return _out(request, language(http_request))
 
 
 @router.delete("/{id}", status_code=204)
