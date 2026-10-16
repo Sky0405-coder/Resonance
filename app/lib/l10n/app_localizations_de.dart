@@ -1166,8 +1166,17 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminQualityUpgrades => 'Qualitäts-Upgrades';
 
   @override
+  String get downloadsQualityUpgrade => 'Qualitäts-Upgrade';
+
+  @override
+  String get adminQualityUpgradeSearchNow => 'Jetzt suchen';
+
+  @override
+  String get adminQualityUpgradeStarted => 'Suche gestartet';
+
+  @override
   String get adminQualityUpgradesHint =>
-      'Songs in niedriger Qualität (z. B. von YouTube) später durch FLAC/MP3 320 ersetzen';
+      'Sucht im Hintergrund bessere Versionen (Torrent) für Songs in niedriger Qualität und ersetzt sie. Benötigt aktivierte Torrents.';
 
   @override
   String get adminAutoApprove => 'Anfragen automatisch genehmigen';

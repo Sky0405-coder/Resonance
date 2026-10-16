@@ -19,7 +19,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import Album, DownloadItem, DownloadRequest, Track, TrackLyrics, User
+from app.models import Album, DownloadItem, DownloadRequest, QualityUpgradeAttempt, Track, TrackLyrics, User
 from app.schemas import CatalogTrack
 from app.services import scanner, sources
 from app.services.deezer import DeezerError, NotFound, artist_string, deezer
@@ -164,7 +164,13 @@ class DownloadManager:
             request = await db.scalar(
                 select(DownloadRequest).where(DownloadRequest.id == item.request_id).with_for_update()
             )
-            torrent = cfg.downloads.torrent_enabled and request.kind == "album" and request.torrent_status is None
+            if request.kind == "upgrade" and not cfg.downloads.torrent_enabled:
+                await db.commit()
+                await self._torrent_fallback(request.id, "Torrents sind deaktiviert")
+                return True
+            torrent = cfg.downloads.torrent_enabled and (
+                request.kind == "upgrade" or (request.kind == "album" and request.torrent_status is None)
+            )
             if torrent:
                 request.torrent_status = "searching"
                 await db.execute(
@@ -256,14 +262,38 @@ class DownloadManager:
                 return
             request.torrent_status = "failed"
             request.torrent_error = error
+            upgrade = request.kind == "upgrade"
             await db.execute(
                 update(DownloadItem)
-                .where(DownloadItem.request_id == request_id, DownloadItem.status.in_(["searching", "downloading"]))
-                .values(status="queued", source=None, progress=0)
+                .where(
+                    DownloadItem.request_id == request_id,
+                    DownloadItem.status.in_(["queued", "searching", "downloading", "processing"])
+                    if upgrade
+                    else DownloadItem.status.in_(["searching", "downloading"]),
+                )
+                .values(
+                    status="failed" if upgrade else "queued",
+                    source=None,
+                    progress=0,
+                    **({"error": error} if upgrade else {}),
+                )
             )
+            if upgrade:
+                attempt = await self._upgrade_attempt(db, request_id)
+                if attempt is not None:
+                    attempt.result = "no_torrent" if error == "Kein passender Torrent gefunden" else "failed"
             await recompute_request(db, request)
             await db.commit()
         self.wake()
+
+    async def _upgrade_attempt(self, db: AsyncSession, request_id: uuid.UUID) -> QualityUpgradeAttempt | None:
+        return await db.scalar(
+            select(QualityUpgradeAttempt)
+            .join(Track, Track.album_id == QualityUpgradeAttempt.album_id)
+            .join(DownloadItem, DownloadItem.replace_track_id == Track.id)
+            .where(DownloadItem.request_id == request_id)
+            .limit(1)
+        )
 
     async def _torrent_monitor(self) -> None:
         while True:
@@ -318,6 +348,13 @@ class DownloadManager:
                     await self._torrent_fallback(request_id, "Torrent ohne Fortschritt")
         except TorrentError as e:
             await self._torrent_fallback(request_id, str(e))
+        except Exception as e:
+            async with SessionLocal() as db:
+                request = await db.get(DownloadRequest, request_id)
+                if request is None or request.kind != "upgrade":
+                    raise
+            log.exception("Quality upgrade torrent failed for %s", request_id)
+            await self._torrent_fallback(request_id, f"Download fehlgeschlagen: {e}"[:500])
 
     async def _torrent_import(self, request: DownloadRequest) -> None:
         async with SessionLocal() as db:
@@ -330,6 +367,8 @@ class DownloadManager:
             if request.torrent_status != "downloading":
                 return
             cfg = await load_config(db)
+            attempt = await self._upgrade_attempt(db, request.id) if request.kind == "upgrade" else None
+            attempt_album_id = attempt.album_id if attempt is not None else None
             async with QBittorrent(cfg) as qb:
                 info = await qb.info(str(request.id))
                 if info is None:
@@ -375,12 +414,35 @@ class DownloadManager:
             matched[item_id] = pair[2]
             used.add(pair[2])
             del candidates[item_id]
+        upgraded = False
         for item in items:
             if item.id not in matched:
-                await self._change(item.id, status="queued", source=None, progress=0)
+                if request.kind == "upgrade":
+                    await self._change(item.id, status="failed", error="Nicht im Torrent enthalten")
+                else:
+                    await self._change(item.id, status="queued", source=None, progress=0)
                 continue
             path = audio[matched[item.id]][0]
             meta = metas[item.id]
+            if request.kind == "upgrade":
+                async with SessionLocal() as db:
+                    track = await db.get(Track, item.replace_track_id) if item.replace_track_id else None
+                if track is None:
+                    await self._change(item.id, status="failed", error="Song wurde gelöscht")
+                    continue
+                current = await asyncio.to_thread(read_tags, get_settings().music_dir / track.path)
+                if quality(audio[matched[item.id]][1]) <= quality(current):
+                    await self._change(item.id, status="exists", track_id=track.id, progress=1, error=None)
+                    continue
+                imported = await self._replace(track.id, path, meta, copy=True)
+                if imported is None:
+                    await self._change(item.id, status="failed", error="Song wurde gelöscht")
+                    continue
+                upgraded = True
+                await self._change(
+                    item.id, status="done", source="torrent", track_id=imported.id, progress=1, error=None
+                )
+                continue
             rel = target_relpath(meta, path.suffix)
             target = get_settings().music_dir / rel
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -402,6 +464,10 @@ class DownloadManager:
         async with SessionLocal() as db:
             request = await db.scalar(select(DownloadRequest).where(DownloadRequest.id == request.id).with_for_update())
             request.torrent_status = "done"
+            if attempt_album_id is not None:
+                attempt = await db.get(QualityUpgradeAttempt, attempt_album_id)
+                if attempt is not None:
+                    attempt.result = "upgraded" if upgraded else "not_better"
             await recompute_request(db, request)
             await db.commit()
         self.wake()
@@ -435,7 +501,9 @@ class DownloadManager:
                     )
                     await db.commit()
 
-    async def _replace(self, track_id: uuid.UUID | None, path: Path, meta: TrackMeta) -> Track | None:
+    async def _replace(
+        self, track_id: uuid.UUID | None, path: Path, meta: TrackMeta, *, copy: bool = False
+    ) -> Track | None:
         async with scanner.library_lock, SessionLocal() as db:
             track = await db.get(Track, track_id, with_for_update=True) if track_id else None
             if track is None:
@@ -449,11 +517,18 @@ class DownloadManager:
                 folder_cover = old.parent / "cover.jpg"
                 if cover is None and folder_cover.is_file():
                     cover = folder_cover.read_bytes()
-                write_tags(path, meta, cover)
-                with tempfile.NamedTemporaryFile(dir=target.parent, prefix=".redownload-", delete=False) as temp:
+                if not copy:
+                    write_tags(path, meta, cover)
+                with tempfile.NamedTemporaryFile(
+                    dir=target.parent, prefix=".redownload-", suffix=path.suffix if copy else "", delete=False
+                ) as temp:
                     staged = Path(temp.name)
                 try:
-                    shutil.move(str(path), str(staged))
+                    if copy:
+                        shutil.copy2(path, staged)
+                        write_tags(staged, meta, cover)
+                    else:
+                        shutil.move(str(path), str(staged))
                     os.replace(staged, target)
                 finally:
                     staged.unlink(missing_ok=True)

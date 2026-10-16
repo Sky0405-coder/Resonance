@@ -2144,10 +2144,28 @@ abstract class AppLocalizations {
   /// **'Qualitäts-Upgrades'**
   String get adminQualityUpgrades;
 
+  /// No description provided for @downloadsQualityUpgrade.
+  ///
+  /// In de, this message translates to:
+  /// **'Qualitäts-Upgrade'**
+  String get downloadsQualityUpgrade;
+
+  /// No description provided for @adminQualityUpgradeSearchNow.
+  ///
+  /// In de, this message translates to:
+  /// **'Jetzt suchen'**
+  String get adminQualityUpgradeSearchNow;
+
+  /// No description provided for @adminQualityUpgradeStarted.
+  ///
+  /// In de, this message translates to:
+  /// **'Suche gestartet'**
+  String get adminQualityUpgradeStarted;
+
   /// No description provided for @adminQualityUpgradesHint.
   ///
   /// In de, this message translates to:
-  /// **'Songs in niedriger Qualität (z. B. von YouTube) später durch FLAC/MP3 320 ersetzen'**
+  /// **'Sucht im Hintergrund bessere Versionen (Torrent) für Songs in niedriger Qualität und ersetzt sie. Benötigt aktivierte Torrents.'**
   String get adminQualityUpgradesHint;
 
   /// No description provided for @adminAutoApprove.

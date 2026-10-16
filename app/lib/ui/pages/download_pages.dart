@@ -370,7 +370,9 @@ class _RequestTile extends ConsumerWidget {
               width: 56,
               child: NetworkCover(
                 url: r.coverUrl,
-                icon: r.kind == 'redownload'
+                icon: r.kind == 'upgrade'
+                    ? Icons.high_quality
+                    : r.kind == 'redownload'
                     ? Icons.restart_alt
                     : r.kind == 'album'
                     ? Icons.album
@@ -385,7 +387,9 @@ class _RequestTile extends ConsumerWidget {
                   Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(
                     [
-                      r.kind == 'redownload'
+                      r.kind == 'upgrade'
+                          ? context.l10n.downloadsQualityUpgrade
+                          : r.kind == 'redownload'
                           ? context.l10n.downloadsRedownload
                           : r.kind == 'album'
                           ? context.l10n.commonAlbum
@@ -472,7 +476,11 @@ class RequestDetailPage extends ConsumerWidget {
                     width: 120,
                     child: NetworkCover(
                       url: r.coverUrl,
-                      icon: r.kind == 'redownload' ? Icons.restart_alt : Icons.album,
+                      icon: r.kind == 'upgrade'
+                          ? Icons.high_quality
+                          : r.kind == 'redownload'
+                          ? Icons.restart_alt
+                          : Icons.album,
                     ),
                   ),
                   const SizedBox(width: 16),

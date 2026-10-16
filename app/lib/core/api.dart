@@ -312,6 +312,8 @@ class ApiClient {
   Future<Map<String, dynamic>> torrentStatus() async =>
       Map<String, dynamic>.from(await _get('/api/admin/torrents/status'));
 
+  Future<void> runQualityUpgrades() => _post('/api/admin/upgrades/run');
+
   // --- Audiobookshelf (proxied by the server, see /api/abs) ---------------
 
   Future<Map<String, dynamic>> absStatus() async => Map<String, dynamic>.from(await _get('/api/abs/status'));

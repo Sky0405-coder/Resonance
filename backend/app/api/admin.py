@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import aliased
 
@@ -9,7 +9,7 @@ from app.deps import DB, AdminUser
 from app.models import Album, Artist, AuthSession, Invite, Job, Role, Track, User
 from app.schemas import InviteCreated, InviteIn, InviteOut, JobOut, UserAdminPatch, UserOut
 from app.security import hash_password, hash_token, new_token
-from app.services import scanner
+from app.services import scanner, upgrades
 from app.services.deletion import delete_empty_album, delete_tracks
 from app.services.server_config import ServerConfig, load_config, update_config
 
@@ -30,6 +30,12 @@ async def patch_config(patch: dict, admin: AdminUser, db: DB) -> ServerConfig:
         return await update_config(db, patch)
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
+
+
+@router.post("/upgrades/run", status_code=status.HTTP_202_ACCEPTED)
+async def run_upgrades(admin: AdminUser, background_tasks: BackgroundTasks) -> dict[str, bool]:
+    background_tasks.add_task(upgrades.run_once)
+    return {"started": True}
 
 
 # --- invites ----------------------------------------------------------------

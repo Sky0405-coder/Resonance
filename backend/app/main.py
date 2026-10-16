@@ -30,7 +30,7 @@ from app.api import (
 from app.config import get_settings
 from app.deps import DB, CurrentUser
 from app.services import audiobookshelf as abs_service
-from app.services import importer
+from app.services import importer, upgrades
 from app.services import mixes as mixes_service
 from app.services import radio as radio_service
 from app.services import spotify as spotify_service
@@ -50,9 +50,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await spotify_service.start()
     await radio_service.start()
     await mixes_service.start()
+    await upgrades.start()
     try:
         yield
     finally:
+        await upgrades.stop()
         await importer.stop()
         await manager.stop()
         await spotify_service.stop()

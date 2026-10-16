@@ -816,6 +816,20 @@ class _ServerTab extends ConsumerWidget {
                 'downloads': {'quality_upgrade_enabled': v},
               }),
             ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () async {
+                  try {
+                    await ref.read(apiProvider).runQualityUpgrades();
+                    if (context.mounted) showInfo(context, context.l10n.adminQualityUpgradeStarted);
+                  } catch (e) {
+                    if (context.mounted) showError(context, e);
+                  }
+                },
+                child: Text(context.l10n.adminQualityUpgradeSearchNow),
+              ),
+            ),
             SwitchListTile(
               title: Text(context.l10n.adminAutoApprove),
               subtitle: Text(context.l10n.adminAutoApproveHint),

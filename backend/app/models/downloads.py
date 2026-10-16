@@ -59,9 +59,18 @@ class DownloadItem(Base):
     error: Mapped[str | None] = mapped_column(Text)
     attempts: Mapped[int] = mapped_column(default=0)
     track_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tracks.id", ondelete="SET NULL"))
+    replace_track_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tracks.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     request: Mapped[DownloadRequest] = relationship(back_populates="items")
+
+
+class QualityUpgradeAttempt(Base):
+    __tablename__ = "quality_upgrade_attempts"
+
+    album_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("albums.id", ondelete="CASCADE"), primary_key=True)
+    tried_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    result: Mapped[str] = mapped_column(String(24))
