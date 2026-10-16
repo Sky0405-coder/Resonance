@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/library.dart';
 import '../../player/player.dart';
 import 'audiobook_pages.dart';
 import '../widgets/catalog.dart';
@@ -35,99 +36,179 @@ class NowPlayingPage extends ConsumerWidget {
               ? _BookNowPlaying(book: book)
               : track == null
               ? Center(child: Text(context.l10n.playerNothingPlaying))
-              : Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
+              : LayoutBuilder(
+                  builder: (context, constraints) => ListView(
+                    padding: EdgeInsets.zero,
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-                            onPressed: () => context.pop(),
-                          ),
-                          Expanded(
-                            child: Text(
-                              track.album.name,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.more_vert),
-                            onPressed: () => showTrackMenu(context, ref, track),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
-                        child: Material(
-                          elevation: 16,
-                          borderRadius: BorderRadius.circular(8),
-                          clipBehavior: Clip.antiAlias,
-                          child: CoverImage(albumId: track.album.id, size: 600, radius: 8),
-                        ),
-                      ),
-                      const Spacer(),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 600),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        track.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context).textTheme.headlineSmall
-                                            ?.copyWith(fontWeight: FontWeight.w800),
-                                      ),
-                                      InkWell(
-                                        onTap: () {
-                                          context.pop();
-                                          context.push('/artist/${track.artist.id}');
-                                        },
-                                        child: Text(
-                                          track.artistCredit,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(color: Palette.textMuted, fontSize: 16),
-                                        ),
-                                      ),
-                                    ],
+                      SizedBox(
+                        height: constraints.maxHeight,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.keyboard_arrow_down, size: 32),
+                                    onPressed: () => context.pop(),
                                   ),
+                                  Expanded(
+                                    child: Text(
+                                      track.album.name,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.more_vert),
+                                    onPressed: () => showTrackMenu(context, ref, track),
+                                  ),
+                                ],
+                              ),
+                              const Spacer(),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
+                                child: Material(
+                                  elevation: 16,
+                                  borderRadius: BorderRadius.circular(8),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: CoverImage(albumId: track.album.id, size: 600, radius: 8),
                                 ),
-                                LikeButton(track: track, size: 28),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            const SeekBar(),
-                            const SizedBox(height: 8),
-                            const TransportControls(big: true),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                const SleepTimerButton(),
-                                IconButton(
-                                  tooltip: context.l10n.playerQueue,
-                                  icon: const Icon(Icons.queue_music),
-                                  onPressed: () => context.push('/queue'),
+                              ),
+                              const Spacer(),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 600),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                track.title,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: Theme.of(context).textTheme.headlineSmall
+                                                    ?.copyWith(fontWeight: FontWeight.w800),
+                                              ),
+                                              InkWell(
+                                                onTap: () {
+                                                  context.pop();
+                                                  context.push('/artist/${track.artist.id}');
+                                                },
+                                                child: Text(
+                                                  track.artistCredit,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(color: Palette.textMuted, fontSize: 16),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        LikeButton(track: track, size: 28),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const SeekBar(),
+                                    const SizedBox(height: 8),
+                                    const TransportControls(big: true),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        const SleepTimerButton(),
+                                        IconButton(
+                                          tooltip: context.l10n.lyricsTitle,
+                                          icon: const Icon(Icons.lyrics_outlined),
+                                          onPressed: () => context.push('/lyrics'),
+                                        ),
+                                        IconButton(
+                                          tooltip: context.l10n.playerQueue,
+                                          icon: const Icon(Icons.queue_music),
+                                          onPressed: () => context.push('/queue'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ],
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      _LyricsCard(trackId: track.id),
                     ],
                   ),
                 ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LyricsCard extends ConsumerWidget {
+  const _LyricsCard({required this.trackId});
+  final String trackId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final value = ref.watch(lyricsProvider(trackId));
+    final lyrics = value.isLoading || value.hasError ? null : value.value;
+    if (lyrics == null || lyrics.lines.isEmpty) return const SizedBox.shrink();
+    final position = ref.watch(positionProvider).value ?? Duration.zero;
+    final current = lyrics.synced ? lyrics.lines.lastIndexWhere((line) => line.timeMs! <= position.inMilliseconds) : -1;
+    final start = current < 0 ? 0 : current;
+    final accent = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Material(
+        color: Color.alphaBlend(Colors.black.withValues(alpha: 0.55), accent),
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/lyrics'),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.l10n.lyricsTitle,
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => context.push('/lyrics'),
+                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      icon: const Icon(Icons.open_in_full, size: 16),
+                      label: Text(context.l10n.lyricsExpand),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                for (var i = start; i < lyrics.lines.length && i < start + 8; i++)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      lyrics.lines[i].text.isEmpty ? '♪' : lyrics.lines[i].text,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: !lyrics.synced || i == current ? Colors.white : Colors.white.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );

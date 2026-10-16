@@ -1082,5 +1082,13 @@
   "mixKind": "Mix",
   "mixSave": "Als Playlist speichern",
   "homeMadeForYou": "Für dich erstellt",
-  "homeGenreMixes": "Deine Genres"
+  "homeGenreMixes": "Deine Genres",
+  "lyricsTitle": "Songtext",
+  "lyricsExpand": "Vollbild",
+  "lyricsUnsynced": "Diese Songtexte sind nicht synchronisiert.",
+  "lyricsInstrumental": "Instrumental",
+  "lyricsNotFound": "Für diesen Song gibt es keinen Songtext.",
+  "lyricsAttribution": "Songtext von LRCLIB",
+  "adminLyricsOnline": "Songtexte online suchen (LRCLIB)",
+  "adminLyricsOnlineHint": "Für Songs ohne eigene Songtexte werden synchronisierte Texte von lrclib.net geladen."
 }

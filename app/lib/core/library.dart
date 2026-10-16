@@ -19,6 +19,11 @@ final mixesProvider = FutureProvider.autoDispose<(List<Playlist>, List<Playlist>
 
 final homeProvider = FutureProvider.autoDispose<Home>((ref) => ref.watch(apiProvider).home());
 
+final lyricsProvider = FutureProvider.family<Lyrics, String>((ref, id) {
+  final cached = kIsWeb ? null : ref.watch(offlineProvider.select((s) => s.lyrics(id)));
+  return cached ?? ref.watch(apiProvider).lyrics(id);
+});
+
 final albumProvider = FutureProvider.autoDispose.family<AlbumDetail, String>(
   (ref, id) =>
       _withOffline(ref, 'album:$id', () => ref.watch(apiProvider).album(id), (data) => AlbumDetail.fromJson(data)),

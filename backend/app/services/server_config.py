@@ -52,6 +52,8 @@ class DownloadConfig(BaseModel):
 
 
 class LibraryConfig(BaseModel):
+    # Look up lyrics on lrclib.net when a song has no local lyrics.
+    lyrics_online: bool = True
     # Free key from https://acoustid.org/new-application – enables audio fingerprint identification.
     acoustid_api_key: str = ""
     # "move": imported files leave the import folder; "copy": originals stay untouched.

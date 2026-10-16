@@ -515,5 +515,13 @@
   "mixKind": "Mix",
   "mixSave": "Save as playlist",
   "homeMadeForYou": "Made for you",
-  "homeGenreMixes": "Your genres"
+  "homeGenreMixes": "Your genres",
+  "lyricsTitle": "Lyrics",
+  "lyricsExpand": "Expand",
+  "lyricsUnsynced": "These lyrics aren't synced.",
+  "lyricsInstrumental": "Instrumental",
+  "lyricsNotFound": "No lyrics available for this song.",
+  "lyricsAttribution": "Lyrics from LRCLIB",
+  "adminLyricsOnline": "Look up lyrics online (LRCLIB)",
+  "adminLyricsOnlineHint": "Songs without their own lyrics get synced lyrics from lrclib.net."
 }

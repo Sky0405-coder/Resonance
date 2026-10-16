@@ -1652,4 +1652,29 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get homeGenreMixes => 'Deine Genres';
+
+  @override
+  String get lyricsTitle => 'Songtext';
+
+  @override
+  String get lyricsExpand => 'Vollbild';
+
+  @override
+  String get lyricsUnsynced => 'Diese Songtexte sind nicht synchronisiert.';
+
+  @override
+  String get lyricsInstrumental => 'Instrumental';
+
+  @override
+  String get lyricsNotFound => 'Für diesen Song gibt es keinen Songtext.';
+
+  @override
+  String get lyricsAttribution => 'Songtext von LRCLIB';
+
+  @override
+  String get adminLyricsOnline => 'Songtexte online suchen (LRCLIB)';
+
+  @override
+  String get adminLyricsOnlineHint =>
+      'Für Songs ohne eigene Songtexte werden synchronisierte Texte von lrclib.net geladen.';
 }

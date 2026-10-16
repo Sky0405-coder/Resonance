@@ -2941,6 +2941,54 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Deine Genres'**
   String get homeGenreMixes;
+
+  /// No description provided for @lyricsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Songtext'**
+  String get lyricsTitle;
+
+  /// No description provided for @lyricsExpand.
+  ///
+  /// In de, this message translates to:
+  /// **'Vollbild'**
+  String get lyricsExpand;
+
+  /// No description provided for @lyricsUnsynced.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Songtexte sind nicht synchronisiert.'**
+  String get lyricsUnsynced;
+
+  /// No description provided for @lyricsInstrumental.
+  ///
+  /// In de, this message translates to:
+  /// **'Instrumental'**
+  String get lyricsInstrumental;
+
+  /// No description provided for @lyricsNotFound.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diesen Song gibt es keinen Songtext.'**
+  String get lyricsNotFound;
+
+  /// No description provided for @lyricsAttribution.
+  ///
+  /// In de, this message translates to:
+  /// **'Songtext von LRCLIB'**
+  String get lyricsAttribution;
+
+  /// No description provided for @adminLyricsOnline.
+  ///
+  /// In de, this message translates to:
+  /// **'Songtexte online suchen (LRCLIB)'**
+  String get adminLyricsOnline;
+
+  /// No description provided for @adminLyricsOnlineHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Für Songs ohne eigene Songtexte werden synchronisierte Texte von lrclib.net geladen.'**
+  String get adminLyricsOnlineHint;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

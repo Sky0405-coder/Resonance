@@ -128,6 +128,18 @@ class AlbumRef(ORM):
     title: str
 
 
+class LyricLine(BaseModel):
+    time_ms: int | None
+    text: str
+
+
+class LyricsOut(BaseModel):
+    synced: bool
+    instrumental: bool
+    source: str | None
+    lines: list[LyricLine]
+
+
 class TrackOut(ORM):
     id: uuid.UUID
     title: str

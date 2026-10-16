@@ -645,6 +645,14 @@ class _ServerTab extends ConsumerWidget {
                 'library': {'auto_import': v},
               }),
             ),
+            SwitchListTile(
+              title: Text(context.l10n.adminLyricsOnline),
+              subtitle: Text(context.l10n.adminLyricsOnlineHint),
+              value: lib['lyrics_online'] ?? true,
+              onChanged: (v) => patch({
+                'library': {'lyrics_online': v},
+              }),
+            ),
             _Group(context.l10n.adminSongRadio),
             SwitchListTile(
               title: Text(context.l10n.adminRadioAutoDownload),

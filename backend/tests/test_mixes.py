@@ -34,7 +34,7 @@ from tests.conftest import auth, register
 
 @pytest.fixture
 async def env(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[SimpleNamespace]:
-    assert engine.url.database == "app_test"
+    assert engine.url.database.startswith("app_test")
     await mixes.stop()
 
     async def reset() -> None:

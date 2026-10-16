@@ -16,6 +16,7 @@ from app.schemas import (
     ArtistDetail,
     ArtistOut,
     HomeOut,
+    LyricsOut,
     MissingTracksOut,
     Page,
     SearchResult,
@@ -23,6 +24,7 @@ from app.schemas import (
 )
 from app.services import covers, transcode
 from app.services.deezer import DeezerError, deezer
+from app.services.lyrics import get_lyrics
 from app.services.matching import match_tracks, name_key
 from app.services.views import (
     album_options,
@@ -265,6 +267,15 @@ async def get_track(track_id: uuid.UUID, user: CurrentUser, db: DB) -> TrackOut:
     if track is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Track not found")
     return (await tracks_out(db, user, [track]))[0]
+
+
+@router.get("/tracks/{track_id}/lyrics", response_model=LyricsOut)
+async def track_lyrics(track_id: uuid.UUID, user: CurrentUser, db: DB, response: Response) -> LyricsOut:
+    track = await db.get(Track, track_id)
+    if track is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Titel nicht gefunden")
+    response.headers["Cache-Control"] = "private, max-age=3600"
+    return await get_lyrics(db, track)
 
 
 @router.get("/tracks/{track_id}/stream")

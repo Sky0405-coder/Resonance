@@ -19,6 +19,7 @@ from app.services import acoustid
 from app.services.fingerprint import fingerprint
 from app.services.identify import FileInfo, album_context, assign_releases, candidates, group_key, identify_file
 from app.services.library_paths import target_relpath
+from app.services.lyrics import sidecar_path
 from app.services.musicbrainz import TrackMeta
 from app.services.scanner import _walk, import_files, relocate_track
 from app.services.server_config import load_config
@@ -102,6 +103,10 @@ async def _place(db: AsyncSession, batch: ImportBatch, row: ImportFile, tags: Tr
             await asyncio.to_thread(write_tags, source, meta, cover, clear_missing=True)
             if not same:
                 await asyncio.to_thread(shutil.move, str(source), str(dest))
+        sidecar = await asyncio.to_thread(sidecar_path, source)
+        if sidecar is not None and sidecar.resolve() != dest.with_suffix(".lrc").resolve():
+            operation = shutil.copy2 if batch.mode == "copy" else shutil.move
+            await asyncio.to_thread(operation, str(sidecar), str(dest.with_suffix(".lrc")))
         if cover and not (dest.parent / "cover.jpg").exists():
             (dest.parent / "cover.jpg").write_bytes(cover)
         elif row.method != "release" and folder_cover(dest.parent) is None and original_cover:

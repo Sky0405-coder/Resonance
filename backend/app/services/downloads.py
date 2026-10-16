@@ -23,6 +23,7 @@ from app.services import sources
 from app.services.deezer import DeezerError, NotFound, artist_string, deezer
 from app.services.importer import quality
 from app.services.library_paths import target_relpath
+from app.services.lyrics import sidecar_path
 from app.services.matching import match_tracks
 from app.services.musicbrainz import TrackMeta
 from app.services.resolve import resolve_album, resolve_track
@@ -382,6 +383,9 @@ class DownloadManager:
             target = get_settings().music_dir / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             await asyncio.to_thread(shutil.copy2, path, target)
+            sidecar = await asyncio.to_thread(sidecar_path, path)
+            if sidecar is not None:
+                await asyncio.to_thread(shutil.copy2, sidecar, target.with_suffix(".lrc"))
             cover = await fetch_cover(meta)
             await asyncio.to_thread(write_tags, target, meta, cover, clear_missing=True)
             if cover and not (target.parent / "cover.jpg").exists():
@@ -485,6 +489,9 @@ class DownloadManager:
             target = get_settings().music_dir / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             await asyncio.to_thread(shutil.move, str(path), str(target))
+            sidecar = await asyncio.to_thread(sidecar_path, path)
+            if sidecar is not None:
+                await asyncio.to_thread(shutil.move, str(sidecar), str(target.with_suffix(".lrc")))
             if cover and not (target.parent / "cover.jpg").exists():
                 (target.parent / "cover.jpg").write_bytes(cover)
             async with SessionLocal() as db:

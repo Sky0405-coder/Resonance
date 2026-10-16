@@ -123,6 +123,7 @@ class OfflineState {
   const OfflineState({
     this.collections = const {},
     this.tracks = const {},
+    this.trackLyrics = const {},
     this.queued = 0,
     this.currentTrackId,
     this.waitingForWifi = false,
@@ -131,6 +132,7 @@ class OfflineState {
   });
   final Map<String, OfflineCollection> collections;
   final Map<String, OfflineTrack> tracks;
+  final Map<String, Lyrics> trackLyrics;
   final int queued;
   final String? currentTrackId;
   final bool waitingForWifi;
@@ -138,6 +140,8 @@ class OfflineState {
   final String? directory;
 
   bool isDownloaded(String trackId) => filePath(trackId) != null;
+
+  Lyrics? lyrics(String trackId) => trackLyrics[trackId];
 
   String? filePath(String trackId) {
     final file = tracks[trackId]?.file;
@@ -223,6 +227,7 @@ class OfflineController extends Notifier<OfflineState> {
     final directory = await ref.read(offlineDirectoryProvider);
     await Directory('${directory.path}/tracks').create(recursive: true);
     await Directory('${directory.path}/covers').create(recursive: true);
+    await Directory('${directory.path}/lyrics').create(recursive: true);
     final index = File('${directory.path}/index.json');
     var collections = <String, OfflineCollection>{};
     var tracks = <String, OfflineTrack>{};
@@ -246,9 +251,19 @@ class OfflineController extends Notifier<OfflineState> {
             ? OfflineTrack(albumId: entry.value.albumId, collections: entry.value.collections)
             : entry.value,
     };
+    final trackLyrics = <String, Lyrics>{};
+    for (final id in tracks.keys) {
+      try {
+        final file = File('${directory.path}/lyrics/$id.json');
+        if (await file.exists()) trackLyrics[id] = Lyrics.fromJson(jsonDecode(await file.readAsString()));
+      } catch (_) {
+        // A missing or damaged lyrics cache must not prevent loading downloaded music.
+      }
+    }
     state = OfflineState(
       collections: Map.unmodifiable(collections),
       tracks: Map.unmodifiable(tracks),
+      trackLyrics: Map.unmodifiable(trackLyrics),
       directory: directory.path,
       loaded: true,
     );
@@ -266,6 +281,7 @@ class OfflineController extends Notifier<OfflineState> {
   void _publish({
     Map<String, OfflineCollection>? collections,
     Map<String, OfflineTrack>? tracks,
+    Map<String, Lyrics>? trackLyrics,
     String? currentTrackId,
     bool? waitingForWifi,
     bool clearCurrent = false,
@@ -274,6 +290,7 @@ class OfflineController extends Notifier<OfflineState> {
     state = OfflineState(
       collections: collections == null ? state.collections : Map.unmodifiable(collections),
       tracks: tracks == null ? state.tracks : Map.unmodifiable(tracks),
+      trackLyrics: trackLyrics == null ? state.trackLyrics : Map.unmodifiable(trackLyrics),
       directory: state.directory,
       loaded: state.loaded,
       queued: _queue.length,
@@ -363,6 +380,8 @@ class OfflineController extends Notifier<OfflineState> {
       if (state.currentTrackId == id) _cancel?.cancel();
       _signal(interruptRetry: state.currentTrackId == id);
       if (track.file != null) await _deleteFile('${state.directory}/${track.file}');
+      await _deleteFile('${state.directory}/lyrics/$id.json');
+      _publish(trackLyrics: {...state.trackLyrics}..remove(id));
     } else {
       tracks[id] = OfflineTrack(file: track.file, size: track.size, albumId: track.albumId, collections: collections);
     }
@@ -444,7 +463,8 @@ class OfflineController extends Notifier<OfflineState> {
       if (await directory.exists()) await directory.delete(recursive: true);
       await Directory('${directory.path}/tracks').create(recursive: true);
       await Directory('${directory.path}/covers').create(recursive: true);
-      _publish(collections: {}, tracks: {}, clearCurrent: true, waitingForWifi: false);
+      await Directory('${directory.path}/lyrics').create(recursive: true);
+      _publish(collections: {}, tracks: {}, trackLyrics: {}, clearCurrent: true, waitingForWifi: false);
       await _persist();
     });
   }
@@ -513,6 +533,7 @@ class OfflineController extends Notifier<OfflineState> {
           final api = ref.read(apiProvider);
           final cancel = _cancel = CancelToken();
           if (state.isDownloaded(id)) {
+            await _downloadLyrics(api, id, generation, ticket);
             await _downloadCover(api, state.tracks[id]!.albumId, generation, cancel);
             break;
           }
@@ -541,6 +562,7 @@ class OfflineController extends Notifier<OfflineState> {
             );
             await _persist();
           });
+          if (_active(id, generation, ticket)) await _downloadLyrics(api, id, generation, ticket);
           if (_active(id, generation, ticket)) await _downloadCover(api, albumId, generation, cancel);
           break;
         } catch (_) {
@@ -563,6 +585,20 @@ class OfflineController extends Notifier<OfflineState> {
       }
       if (_queue[id] == ticket) _queue.remove(id);
       if (ref.mounted) _publish(clearCurrent: true);
+    }
+  }
+
+  Future<void> _downloadLyrics(ApiClient api, String id, int generation, int ticket) async {
+    if (state.lyrics(id) != null) return;
+    try {
+      final lyrics = await api.lyrics(id);
+      await _serialize(() async {
+        if (!_active(id, generation, ticket) || !state.isDownloaded(id)) return;
+        await File('${state.directory}/lyrics/$id.json').writeAsString(jsonEncode(lyrics.toJson()));
+        _publish(trackLyrics: {...state.trackLyrics, id: lyrics});
+      });
+    } catch (_) {
+      // Lyrics are optional; a failed lookup must not fail the track download.
     }
   }
 

@@ -85,8 +85,9 @@ class _SeekBarState extends ConsumerState<SeekBar> {
 }
 
 class TransportControls extends ConsumerWidget {
-  const TransportControls({super.key, this.big = false});
+  const TransportControls({super.key, this.big = false, this.playPauseOnly = false});
   final bool big;
+  final bool playPauseOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -112,6 +113,7 @@ class TransportControls extends ConsumerWidget {
         ),
       ),
     );
+    if (playPauseOnly) return playButton;
     if (p.book != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,

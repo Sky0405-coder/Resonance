@@ -71,3 +71,14 @@ class Track(Base):
 
     album: Mapped[Album] = relationship(back_populates="tracks")
     artist: Mapped[Artist] = relationship()
+
+
+class TrackLyrics(Base):
+    __tablename__ = "track_lyrics"
+
+    track_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True)
+    synced: Mapped[str | None] = mapped_column(Text)
+    plain: Mapped[str | None] = mapped_column(Text)
+    instrumental: Mapped[bool] = mapped_column(default=False)
+    source: Mapped[str] = mapped_column(String(16))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

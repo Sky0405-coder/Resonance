@@ -124,6 +124,38 @@ class Track {
   );
 }
 
+class LyricLine {
+  const LyricLine({required this.timeMs, required this.text});
+  final int? timeMs;
+  final String text;
+
+  factory LyricLine.fromJson(Map<String, dynamic> j) => LyricLine(timeMs: j['time_ms'], text: j['text']);
+
+  Map<String, dynamic> toJson() => {'time_ms': timeMs, 'text': text};
+}
+
+class Lyrics {
+  const Lyrics({required this.synced, required this.instrumental, required this.source, required this.lines});
+  final bool synced;
+  final bool instrumental;
+  final String? source;
+  final List<LyricLine> lines;
+
+  factory Lyrics.fromJson(Map<String, dynamic> j) => Lyrics(
+    synced: j['synced'],
+    instrumental: j['instrumental'],
+    source: j['source'],
+    lines: [for (final line in j['lines']) LyricLine.fromJson(line)],
+  );
+
+  Map<String, dynamic> toJson() => {
+    'synced': synced,
+    'instrumental': instrumental,
+    'source': source,
+    'lines': [for (final line in lines) line.toJson()],
+  };
+}
+
 class Album {
   const Album({
     required this.id,

@@ -1678,4 +1678,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeGenreMixes => 'Your genres';
+
+  @override
+  String get lyricsTitle => 'Lyrics';
+
+  @override
+  String get lyricsExpand => 'Expand';
+
+  @override
+  String get lyricsUnsynced => 'These lyrics aren\'t synced.';
+
+  @override
+  String get lyricsInstrumental => 'Instrumental';
+
+  @override
+  String get lyricsNotFound => 'No lyrics available for this song.';
+
+  @override
+  String get lyricsAttribution => 'Lyrics from LRCLIB';
+
+  @override
+  String get adminLyricsOnline => 'Look up lyrics online (LRCLIB)';
+
+  @override
+  String get adminLyricsOnlineHint => 'Songs without their own lyrics get synced lyrics from lrclib.net.';
 }

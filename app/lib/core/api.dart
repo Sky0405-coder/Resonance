@@ -146,6 +146,8 @@ class ApiClient {
 
   Future<Home> home() async => Home.fromJson(await _get('/api/home'));
 
+  Future<Lyrics> lyrics(String trackId) async => Lyrics.fromJson(await _get('/api/tracks/$trackId/lyrics'));
+
   Future<List<Album>> albums({String sort = 'recent', bool saved = false, int offset = 0, int limit = 200}) async {
     final j = await _get('/api/albums', {'sort': sort, 'saved': saved, 'offset': offset, 'limit': limit});
     return [for (final a in j['items']) Album.fromJson(a)];

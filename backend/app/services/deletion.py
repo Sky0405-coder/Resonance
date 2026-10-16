@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models import Album, Artist, Track
+from app.services.lyrics import sidecar_path
 from app.services.tags import AUDIO_EXTENSIONS
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,9 @@ def _delete_files(track_paths: list[str], cover_files: list[str], image_paths: l
                 continue
             parents.add(path.parent.resolve())
             path.unlink(missing_ok=True)
+            sidecar = sidecar_path(path)
+            if sidecar is not None:
+                sidecar.unlink(missing_ok=True)
         except OSError:
             logger.warning("Could not delete track file: %s", path, exc_info=True)
 

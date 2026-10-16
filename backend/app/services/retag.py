@@ -15,6 +15,7 @@ from app.models import Album, Artist, Track
 from app.schemas import ManualMetaIn
 from app.services.identify import AlbumCtx, _tag_meta
 from app.services.library_paths import target_relpath
+from app.services.lyrics import sidecar_path
 from app.services.musicbrainz import TrackMeta
 from app.services.scanner import import_file, library_lock, relocate_track
 from app.services.sources.youtube import norm
@@ -41,6 +42,9 @@ async def apply_meta(db: AsyncSession, track: Track, meta: TrackMeta, cover: byt
             await asyncio.to_thread(os.replace, temp, dest)
             if rel != old_rel:
                 await asyncio.to_thread(source.unlink)
+                sidecar = await asyncio.to_thread(sidecar_path, source)
+                if sidecar is not None:
+                    await asyncio.to_thread(shutil.move, str(sidecar), str(dest.with_suffix(".lrc")))
         except BaseException:
             await asyncio.to_thread(temp.unlink, missing_ok=True)
             raise

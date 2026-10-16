@@ -12,6 +12,7 @@ import 'ui/pages/collection_pages.dart';
 import 'ui/pages/download_pages.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/pages/now_playing_page.dart';
+import 'ui/pages/lyrics_page.dart';
 import 'ui/pages/settings_page.dart';
 import 'ui/pages/spotify_page.dart';
 import 'ui/shell.dart';
@@ -70,6 +71,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // Outside the shell so it opens above the now-playing page and the mini player.
       GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
+      GoRoute(path: '/lyrics', builder: (_, _) => const LyricsPage()),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.matchedLocation, child: child),
         routes: [
