@@ -1102,5 +1102,16 @@
   "redownloadYoutubeHint": "Falls du eine bestimmte Version willst",
   "redownloadStarted": "Neu-Download gestartet",
   "redownloadAwaitingApproval": "Anfrage gesendet – ein Admin muss sie freigeben",
-  "downloadsRedownload": "Neu-Download"
+  "downloadsRedownload": "Neu-Download",
+  "audioBrowseHome": "Startseite",
+  "settingsCrossfade": "Crossfade",
+  "settingsCrossfadeOff": "Aus",
+  "settingsCrossfadeSeconds": "{seconds} s",
+  "@settingsCrossfadeSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  }
 }

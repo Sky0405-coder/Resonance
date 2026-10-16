@@ -6,12 +6,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/session.dart';
 import 'offline/offline_store.dart';
+import 'player/audio_handler.dart';
 import 'core/theme.dart';
 import 'router.dart';
 import 'ui/pages/settings_page.dart';
@@ -26,19 +27,39 @@ Future<void> main() async {
     // just_audio has no native Linux/Windows backend; media_kit (libmpv) provides it.
     JustAudioMediaKit.ensureInitialized(linux: true, windows: true);
   }
+  final prefs = await SharedPreferences.getInstance();
+  final container = ProviderContainer(
+    overrides: [prefsProvider.overrideWithValue(prefs), audioHandlerProvider.overrideWithValue(null)],
+  );
+  if (!kIsWeb) await container.read(offlineProvider.notifier).load();
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     // Media notification, lock screen controls and background playback.
-    await JustAudioBackground.init(
-      androidNotificationChannelId: 'de.knode.resonance.playback',
-      androidNotificationChannelName: initialL10n.settingsPlayback,
-      androidNotificationOngoing: true,
-      androidNotificationIcon: 'drawable/ic_stat_resonance',
+    final handler = await AudioService.init(
+      builder: () => ResonanceAudioHandler(container),
+      config: AudioServiceConfig(
+        androidNotificationChannelId: 'de.knode.resonance.playback',
+        androidNotificationChannelName: initialL10n.settingsPlayback,
+        androidNotificationOngoing: true,
+        androidStopForegroundOnPause: true,
+        androidNotificationIcon: 'drawable/ic_stat_resonance',
+        preloadArtwork: true,
+        artDownscaleWidth: 512,
+        artDownscaleHeight: 512,
+        androidBrowsableRootExtras: const {
+          'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 2,
+          'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1,
+        },
+      ),
     );
+    container.updateOverrides([
+      prefsProvider.overrideWithValue(prefs),
+      audioHandlerProvider.overrideWith((ref) {
+        ref.onDispose(handler.dispose);
+        return handler;
+      }),
+    ]);
   }
 
-  final prefs = await SharedPreferences.getInstance();
-  final container = ProviderContainer(overrides: [prefsProvider.overrideWithValue(prefs)]);
-  if (!kIsWeb) await container.read(offlineProvider.notifier).load();
   runApp(UncontrolledProviderScope(container: container, child: const ResonanceApp()));
 }
 

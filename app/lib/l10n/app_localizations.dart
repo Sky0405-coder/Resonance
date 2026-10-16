@@ -3061,6 +3061,30 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Neu-Download'**
   String get downloadsRedownload;
+
+  /// No description provided for @audioBrowseHome.
+  ///
+  /// In de, this message translates to:
+  /// **'Startseite'**
+  String get audioBrowseHome;
+
+  /// No description provided for @settingsCrossfade.
+  ///
+  /// In de, this message translates to:
+  /// **'Crossfade'**
+  String get settingsCrossfade;
+
+  /// No description provided for @settingsCrossfadeOff.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus'**
+  String get settingsCrossfadeOff;
+
+  /// No description provided for @settingsCrossfadeSeconds.
+  ///
+  /// In de, this message translates to:
+  /// **'{seconds} s'**
+  String settingsCrossfadeSeconds(int seconds);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

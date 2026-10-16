@@ -304,9 +304,7 @@ class QueuePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = ref.watch(playerProvider);
     final ctrl = ref.read(playerProvider.notifier);
-    final order = ctrl.player.effectiveIndices;
-    final pos = p.index == null ? -1 : order.indexOf(p.index!);
-    final upcoming = pos < 0 ? <int>[] : order.sublist(pos + 1);
+    final upcoming = p.index == null ? <int>[] : [for (var i = p.index! + 1; i < p.queue.length; i++) i];
 
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.playerQueue)),

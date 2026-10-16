@@ -535,5 +535,16 @@
   "redownloadYoutubeHint": "If you want a specific version",
   "redownloadStarted": "Re-download started",
   "redownloadAwaitingApproval": "Request sent – an admin has to approve it",
-  "downloadsRedownload": "Re-download"
+  "downloadsRedownload": "Re-download",
+  "audioBrowseHome": "Home",
+  "settingsCrossfade": "Crossfade",
+  "settingsCrossfadeOff": "Off",
+  "settingsCrossfadeSeconds": "{seconds} s",
+  "@settingsCrossfadeSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -1715,4 +1715,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get downloadsRedownload => 'Neu-Download';
+
+  @override
+  String get audioBrowseHome => 'Startseite';
+
+  @override
+  String get settingsCrossfade => 'Crossfade';
+
+  @override
+  String get settingsCrossfadeOff => 'Aus';
+
+  @override
+  String settingsCrossfadeSeconds(int seconds) {
+    return '$seconds s';
+  }
 }

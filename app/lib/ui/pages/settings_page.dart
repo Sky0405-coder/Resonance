@@ -152,6 +152,35 @@ class SettingsPage extends ConsumerWidget {
               },
             ),
           ),
+          StatefulBuilder(
+            builder: (context, setState) {
+              final controller = ref.read(playerProvider.notifier);
+              final seconds = controller.crossfadeSeconds;
+              return Column(
+                children: [
+                  ListTile(
+                    title: Text(context.l10n.settingsCrossfade),
+                    subtitle: Text(
+                      seconds == 0 ? context.l10n.settingsCrossfadeOff : context.l10n.settingsCrossfadeSeconds(seconds),
+                    ),
+                  ),
+                  Slider(
+                    value: seconds.toDouble(),
+                    min: 0,
+                    max: 12,
+                    divisions: 12,
+                    label: seconds == 0
+                        ? context.l10n.settingsCrossfadeOff
+                        : context.l10n.settingsCrossfadeSeconds(seconds),
+                    onChanged: (value) {
+                      controller.setCrossfade(value.round());
+                      setState(() {});
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.queue_music),
             title: Text(context.l10n.spotifyTitle),
@@ -249,6 +278,7 @@ class SettingsPage extends ConsumerWidget {
 void applyPlaybackPrefs(WidgetRef ref) {
   final enabled = ref.read(prefsProvider).getBool(_kNormalize) ?? true;
   ref.read(playerProvider.notifier).setNormalize(enabled);
+  ref.read(playerProvider.notifier).setCrossfade(ref.read(prefsProvider).getInt('crossfade_seconds') ?? 0);
 }
 
 class _Section extends StatelessWidget {

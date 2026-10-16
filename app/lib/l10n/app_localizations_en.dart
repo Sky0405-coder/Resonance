@@ -1740,4 +1740,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadsRedownload => 'Re-download';
+
+  @override
+  String get audioBrowseHome => 'Home';
+
+  @override
+  String get settingsCrossfade => 'Crossfade';
+
+  @override
+  String get settingsCrossfadeOff => 'Off';
+
+  @override
+  String settingsCrossfadeSeconds(int seconds) {
+    return '$seconds s';
+  }
 }
