@@ -4,17 +4,34 @@ import random
 import re
 import uuid
 from collections import Counter, defaultdict
-from datetime import UTC, date, datetime, timedelta
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
+from itertools import zip_longest
 
+from fastapi import HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.api.catalog import _track
 from app.db import SessionLocal
-from app.models import PlayEvent, Playlist, PlaylistEntry, Track, TrackLike, User
-from app.services.deezer import DeezerError, deezer
-from app.services.matching import name_key
+from app.models import (
+    Artist,
+    PlayEvent,
+    Playlist,
+    PlaylistEntry,
+    RadioPending,
+    Track,
+    TrackLike,
+    User,
+)
+from app.services.deezer import DeezerError, artist_string, deezer
+from app.services.downloads import create_request
+from app.services.matching import match_tracks, name_key
+from app.services.server_config import load_config
+from app.services.tags import primary_artist
 
 GENRE_NAMES = {"hip hop": "Hip-Hop", "r&b": "R&B", "edm": "EDM"}
 log = logging.getLogger(__name__)
@@ -49,8 +66,19 @@ def genre_keys(raw: str | None) -> list[str]:
     return keys
 
 
-async def generate_mixes(db: AsyncSession, user: User) -> None:
-    now = datetime.now(UTC)
+@dataclass
+class _Taste:
+    tracks: list[Track]
+    by_artist: dict[uuid.UUID, list[Track]]
+    artists: dict[uuid.UUID, Artist]
+    history: dict[uuid.UUID, Row]
+    likes: dict[uuid.UUID, datetime]
+    scores: dict[uuid.UUID, int]
+    artist_scores: dict[uuid.UUID, int]
+    favourites: list[uuid.UUID]
+
+
+async def _taste(db: AsyncSession, user: User, now: datetime) -> _Taste:
     tracks = list(
         await db.scalars(
             select(Track)
@@ -60,20 +88,9 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
         )
     )
     by_artist: dict[uuid.UUID, list[Track]] = defaultdict(list)
-    by_genre: dict[str, list[Track]] = defaultdict(list)
     for track in tracks:
         by_artist[track.artist_id].append(track)
-        for key in genre_keys(track.genre) or genre_keys(track.album.genre):
-            by_genre[key].append(track)
     artists = {artist_id: artist_tracks[0].artist for artist_id, artist_tracks in by_artist.items()}
-    artist_ids_by_key = {artist.name_key: artist.id for artist in artists.values()}
-    dominant: dict[uuid.UUID, str] = {}
-    for artist_id, artist_tracks in by_artist.items():
-        counts = Counter(
-            key for track in artist_tracks for key in (genre_keys(track.genre) or genre_keys(track.album.genre))
-        )
-        dominant[artist_id] = min(counts, key=lambda key: (-counts[key], key)) if counts else "other"
-
     history = {
         row.track_id: row
         for row in await db.execute(
@@ -103,6 +120,169 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
         (artist_id for artist_id in artists if artist_scores[artist_id] > 0),
         key=lambda artist_id: (-artist_scores[artist_id], artists[artist_id].name_key),
     )[:30]
+    return _Taste(tracks, by_artist, artists, history, likes, scores, artist_scores, favourites)
+
+
+async def _deezer_artist_id(artist: Artist) -> str | None:
+    try:
+        matches = await deezer.search_artists(artist.name, 5)
+        return next((str(item["id"]) for item in matches if name_key(item["name"]) == artist.name_key), None)
+    except DeezerError:
+        log.debug("Mix artist lookup failed", exc_info=True)
+        return None
+
+
+async def _related_artists(artist_id: str | None) -> list[dict]:
+    if artist_id is None:
+        return []
+    try:
+        return await deezer.artist_related(artist_id, 10)
+    except DeezerError:
+        log.debug("Mix related artist lookup failed", exc_info=True)
+        return []
+
+
+async def _write(
+    db: AsyncSession,
+    user: User,
+    key: str,
+    name: str,
+    description: str,
+    track_ids: list[uuid.UUID],
+    now: datetime,
+    pending: list[str] | None = None,
+) -> Playlist | None:
+    if not track_ids and not pending:
+        return None
+    playlist = await db.scalar(
+        insert(Playlist)
+        .values(
+            owner_id=user.id,
+            mix_key=key,
+            kind="mix",
+            is_public=False,
+            name=name,
+            description=description,
+            generated_at=now,
+        )
+        .on_conflict_do_update(
+            index_elements=[Playlist.owner_id, Playlist.mix_key],
+            index_where=Playlist.mix_key.is_not(None),
+            set_={
+                "kind": "mix",
+                "is_public": False,
+                "name": name,
+                "description": description,
+                "generated_at": now,
+                "updated_at": now,
+            },
+        )
+        .returning(Playlist)
+        .execution_options(populate_existing=True)
+    )
+    await db.execute(delete(RadioPending).where(RadioPending.playlist_id == playlist.id))
+    await db.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist.id))
+    db.add_all(
+        [
+            PlaylistEntry(playlist_id=playlist.id, track_id=track_id, position=i)
+            for i, track_id in enumerate(track_ids, 1)
+        ]
+    )
+    db.add_all([RadioPending(playlist_id=playlist.id, deezer_id=deezer_id) for deezer_id in pending or []])
+    return playlist
+
+
+def discover_due(generated_at: datetime | None) -> bool:
+    local = datetime.now(UTC).astimezone()
+    monday = datetime.combine(local.date() - timedelta(days=local.weekday()), time.min).astimezone()
+    return generated_at is None or generated_at < monday
+
+
+async def generate_discover(db: AsyncSession, user: User) -> Playlist | None:
+    cfg = await load_config(db)
+    if not cfg.mixes.discover_enabled:
+        return None
+    now = datetime.now(UTC)
+    taste = await _taste(db, user, now)
+    seeds = [taste.artists[artist_id] for artist_id in taste.favourites[:10]]
+    if not seeds:
+        return None
+    seed_ids = [await _deezer_artist_id(artist) for artist in seeds]
+    seed_keys = {artist.name_key for artist in seeds}
+    seed_tracks: list[list[dict]] = []
+    for seed_id in seed_ids:
+        tracks: list[dict] = []
+        for artist in await _related_artists(seed_id):
+            if str(artist["id"]) in seed_ids or name_key(artist["name"]) in seed_keys:
+                continue
+            try:
+                tracks.extend(await deezer.artist_top(str(artist["id"]), 5))
+            except DeezerError:
+                log.debug("Discover top tracks lookup failed", exc_info=True)
+        seed_tracks.append(tracks)
+    candidates: list[dict] = []
+    ids: set[str] = set()
+    names: set[tuple[str, str]] = set()
+    artist_counts: Counter[str] = Counter()
+    for group in zip_longest(*seed_tracks):
+        for track in group:
+            if track is None:
+                continue
+            deezer_id = str(track["id"])
+            artist_key = name_key(primary_artist(artist_string(track)))
+            key = (artist_key, name_key(track["title"]))
+            if deezer_id in ids or key in names or artist_counts[artist_key] >= 2:
+                continue
+            candidates.append(track)
+            ids.add(deezer_id)
+            names.add(key)
+            artist_counts[artist_key] += 1
+    catalog = [_track(track) for track in candidates]
+    await match_tracks(db, catalog)
+    eligible = [
+        track for track in catalog if track.library_id not in taste.history and track.library_id not in taste.likes
+    ]
+    chosen: list[uuid.UUID] = []
+    pending: list[str] = []
+    download_limit = cfg.mixes.discover_downloads
+    for track in eligible[:30]:
+        if track.library_id is not None:
+            if track.library_id not in chosen:
+                chosen.append(track.library_id)
+        elif len(pending) < download_limit:
+            try:
+                await create_request(
+                    db, user, "track", track.id, temporary=cfg.radio.temporary_tracks_enabled, radio=True
+                )
+            except HTTPException as exc:
+                if exc.status_code == 429:
+                    download_limit = 0
+                continue
+            pending.append(track.id)
+    playlist = await _write(
+        db, user, "discover-weekly", "Mix der Woche", "Neue Songs für dich – jeden Montag neu", chosen, now, pending
+    )
+    await db.commit()
+    return playlist
+
+
+async def generate_mixes(db: AsyncSession, user: User) -> None:
+    now = datetime.now(UTC)
+    taste = await _taste(db, user, now)
+    tracks, by_artist, artists = taste.tracks, taste.by_artist, taste.artists
+    history, likes, scores = taste.history, taste.likes, taste.scores
+    artist_scores, favourites = taste.artist_scores, taste.favourites
+    artist_ids_by_key = {artist.name_key: artist.id for artist in artists.values()}
+    by_genre: dict[str, list[Track]] = defaultdict(list)
+    for track in tracks:
+        for key in genre_keys(track.genre) or genre_keys(track.album.genre):
+            by_genre[key].append(track)
+    dominant: dict[uuid.UUID, str] = {}
+    for artist_id, artist_tracks in by_artist.items():
+        counts = Counter(
+            key for track in artist_tracks for key in (genre_keys(track.genre) or genre_keys(track.album.genre))
+        )
+        dominant[artist_id] = min(counts, key=lambda key: (-counts[key], key)) if counts else "other"
     related_cache: dict[uuid.UUID, list[uuid.UUID]] = {}
 
     async def related_artists(seeds: list[uuid.UUID]) -> list[uuid.UUID]:
@@ -110,22 +290,14 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
         for artist_id in seeds:
             if artist_id not in related_cache:
                 related_cache[artist_id] = []
-                try:
-                    matches = await deezer.search_artists(artists[artist_id].name, 5)
-                    match = next(
-                        (item for item in matches if name_key(item["name"]) == artists[artist_id].name_key), None
+                results = await _related_artists(await _deezer_artist_id(artists[artist_id]))
+                related_cache[artist_id] = list(
+                    dict.fromkeys(
+                        artist_ids_by_key[name_key(item["name"])]
+                        for item in results
+                        if name_key(item["name"]) in artist_ids_by_key
                     )
-                    if match is not None:
-                        results = await deezer.artist_related(str(match["id"]), 10)
-                        related_cache[artist_id] = list(
-                            dict.fromkeys(
-                                artist_ids_by_key[name_key(item["name"])]
-                                for item in results
-                                if name_key(item["name"]) in artist_ids_by_key
-                            )
-                        )
-                except DeezerError:
-                    log.debug("Mix related artist lookup failed", exc_info=True)
+                )
             related.update(dict.fromkeys(related_cache[artist_id]))
         return list(related)
 
@@ -135,39 +307,7 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
         track_ids = list(dict.fromkeys(track.id for track in chosen))[:50]
         if len(track_ids) < 5:
             return
-        playlist = await db.scalar(
-            insert(Playlist)
-            .values(
-                owner_id=user.id,
-                mix_key=key,
-                kind="mix",
-                is_public=False,
-                name=name,
-                description=description,
-                generated_at=now,
-            )
-            .on_conflict_do_update(
-                index_elements=[Playlist.owner_id, Playlist.mix_key],
-                index_where=Playlist.mix_key.is_not(None),
-                set_={
-                    "kind": "mix",
-                    "is_public": False,
-                    "name": name,
-                    "description": description,
-                    "generated_at": now,
-                    "updated_at": now,
-                },
-            )
-            .returning(Playlist)
-            .execution_options(populate_existing=True)
-        )
-        await db.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist.id))
-        db.add_all(
-            [
-                PlaylistEntry(playlist_id=playlist.id, track_id=track_id, position=i)
-                for i, track_id in enumerate(track_ids, 1)
-            ]
-        )
+        await _write(db, user, key, name, description, track_ids, now)
         produced.add(key)
 
     groups: dict[str, list[uuid.UUID]] = defaultdict(list)
@@ -262,6 +402,7 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
         delete(Playlist).where(
             Playlist.owner_id == user.id,
             Playlist.kind == "mix",
+            Playlist.mix_key.is_distinct_from("discover-weekly"),
             Playlist.mix_key.is_(None) | Playlist.mix_key.not_in(produced),
         )
     )
@@ -273,27 +414,41 @@ async def _generate_due() -> None:
     async with SessionLocal() as db:
         newest = (
             select(
-                Playlist.owner_id, func.max(Playlist.generated_at).label("generated_at"), func.count().label("count")
+                Playlist.owner_id,
+                func.max(Playlist.generated_at)
+                .filter(Playlist.mix_key.is_distinct_from("discover-weekly"))
+                .label("generated_at"),
+                func.count().label("count"),
             )
             .where(Playlist.kind == "mix")
             .group_by(Playlist.owner_id)
             .subquery()
         )
+        cfg = await load_config(db)
+        discover = (
+            select(Playlist.owner_id, Playlist.generated_at).where(Playlist.mix_key == "discover-weekly").subquery()
+        )
         rows = (
             await db.execute(
-                select(User.id, newest.c.generated_at)
+                select(User.id, newest.c.generated_at, discover.c.generated_at)
                 .outerjoin(newest, newest.c.owner_id == User.id)
+                .outerjoin(discover, discover.c.owner_id == User.id)
                 .where(~User.is_disabled, (User.last_seen_at >= now - timedelta(days=14)) | newest.c.count.is_(None))
             )
         ).all()
-    for user_id, generated_at in rows:
-        if generated_at is not None and generated_at.astimezone().date() == date.today():
+    for user_id, generated_at, discover_at in rows:
+        daily_due = generated_at is None or generated_at.astimezone().date() != date.today()
+        weekly_due = cfg.mixes.discover_enabled and discover_due(discover_at)
+        if not daily_due and not weekly_due:
             continue
         try:
             async with SessionLocal() as db:
                 user = await db.get(User, user_id)
                 if user is not None and not user.is_disabled:
-                    await generate_mixes(db, user)
+                    if daily_due:
+                        await generate_mixes(db, user)
+                    if weekly_due:
+                        await generate_discover(db, user)
         except Exception:
             log.exception("Mix generation failed for user %s", user_id)
 

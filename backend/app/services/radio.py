@@ -247,7 +247,10 @@ async def cleanup(db: AsyncSession) -> tuple[int, int]:
                 ~select(TrackLike.id).where(TrackLike.track_id == Track.id).exists(),
                 ~select(PlaylistEntry.id)
                 .join(Playlist, Playlist.id == PlaylistEntry.playlist_id)
-                .where(PlaylistEntry.track_id == Track.id, Playlist.kind == "user")
+                .where(
+                    PlaylistEntry.track_id == Track.id,
+                    (Playlist.kind == "user") | (Playlist.mix_key == "discover-weekly"),
+                )
                 .exists(),
             )
         )

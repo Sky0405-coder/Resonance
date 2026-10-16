@@ -1837,4 +1837,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String discordPresenceArtist(String artist) {
     return 'by $artist';
   }
+
+  @override
+  String get playlistRemoveCover => 'Remove cover';
+
+  @override
+  String get playlistCoverRemoved => 'Cover removed';
+
+  @override
+  String get editorLooksGood => 'Looks good';
+
+  @override
+  String get discoverWeekly => 'Discover Weekly';
+
+  @override
+  String get adminMixes => 'Mixes';
+
+  @override
+  String get adminDiscoverWeeklyHint => '30 new songs per user every Monday, missing ones are downloaded';
+
+  @override
+  String get adminDiscoverDownloads => 'Downloads per week and user';
 }

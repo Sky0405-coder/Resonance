@@ -1,7 +1,9 @@
+import asyncio
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import joinedload
 
@@ -18,6 +20,7 @@ from app.schemas import (
     PlaylistPatch,
     PlaylistSharesIn,
 )
+from app.services import covers
 from app.services.views import playlists_out, tracks_out
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
@@ -133,6 +136,50 @@ async def update_playlist(playlist_id: uuid.UUID, body: PlaylistPatch, user: Cur
     await db.commit()
     await db.refresh(playlist)
     return (await playlists_out(db, [playlist], user.id))[0]
+
+
+@router.put("/{playlist_id}/cover", response_model=PlaylistOut)
+async def upload_cover(playlist_id: uuid.UUID, file: UploadFile, user: CurrentUser, db: DB) -> PlaylistOut:
+    playlist = await _get_visible(db, user, playlist_id)
+    if playlist.owner_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist nicht gefunden")
+    if playlist.kind != "user":
+        raise HTTPException(status.HTTP_409_CONFLICT, "Nur eigene Playlists können ein Cover haben")
+    data = await file.read(10 * 1024 * 1024 + 1)
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Bild zu groß")
+    name = await asyncio.to_thread(covers.store, data)
+    if name is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Kein gültiges Bild")
+    playlist.cover_file = name
+    await db.commit()
+    await db.refresh(playlist)
+    return (await playlists_out(db, [playlist], user.id))[0]
+
+
+@router.delete("/{playlist_id}/cover", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_cover(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> None:
+    playlist = await _get_visible(db, user, playlist_id)
+    if playlist.owner_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist nicht gefunden")
+    playlist.cover_file = None
+    await db.commit()
+
+
+@router.get("/{playlist_id}/cover")
+async def playlist_cover(
+    playlist_id: uuid.UUID,
+    user: CurrentUser,
+    db: DB,
+    size: int | None = Query(None, ge=32, le=2000),
+) -> Response:
+    playlist = await _get_visible(db, user, playlist_id)
+    if playlist.cover_file is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
+    path = covers.resized(playlist.cover_file, size)
+    if path is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})
 
 
 @router.put("/{playlist_id}/shares", response_model=PlaylistOut)

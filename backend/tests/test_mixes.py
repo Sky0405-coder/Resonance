@@ -463,7 +463,7 @@ async def test_mix_privacy_immutable_entries_dated_keep_and_home(env: SimpleName
     response = await env.client.get("/api/playlists", headers=env.other_headers)
     assert str(playlist.id) not in {row["id"] for row in response.json()}
     response = await env.client.get("/api/mixes", headers=env.other_headers)
-    assert response.json() == {"made_for_you": [], "genres": []}
+    assert response.json() == {"made_for_you": [], "genres": [], "discover": None}
     response = await env.client.get("/api/playlists", headers=env.headers)
     assert {row["kind"] for row in response.json()} == {"mix", "user"}
     detail = (await env.client.get(url, headers=env.headers)).json()
@@ -560,7 +560,7 @@ async def test_no_history_only_genre_mixes_and_too_small_library(env: SimpleName
         await db.execute(delete(Track))
         await db.commit()
     response = await env.client.post("/api/mixes/refresh", headers=env.headers)
-    assert response.json() == {"made_for_you": [], "genres": []}
+    assert response.json() == {"made_for_you": [], "genres": [], "discover": None}
 
 
 async def test_scheduler_selects_due_active_users_and_isolates_errors(

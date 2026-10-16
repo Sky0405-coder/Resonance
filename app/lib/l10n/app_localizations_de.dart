@@ -1811,4 +1811,25 @@ class AppLocalizationsDe extends AppLocalizations {
   String discordPresenceArtist(String artist) {
     return 'von $artist';
   }
+
+  @override
+  String get playlistRemoveCover => 'Cover entfernen';
+
+  @override
+  String get playlistCoverRemoved => 'Cover entfernt';
+
+  @override
+  String get editorLooksGood => 'Passt so';
+
+  @override
+  String get discoverWeekly => 'Mix der Woche';
+
+  @override
+  String get adminMixes => 'Mixes';
+
+  @override
+  String get adminDiscoverWeeklyHint => 'Jeden Montag 30 neue Songs pro Nutzer, fehlende werden heruntergeladen';
+
+  @override
+  String get adminDiscoverDownloads => 'Downloads pro Woche und Nutzer';
 }

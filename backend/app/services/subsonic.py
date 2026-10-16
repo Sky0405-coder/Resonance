@@ -356,7 +356,11 @@ async def playlists(db: AsyncSession, user: User, rows: Sequence[Playlist]) -> l
                 "duration": int(view.duration),
                 "created": row.created_at.isoformat(),
                 "changed": row.updated_at.isoformat(),
-                "coverArt": str(first_albums[row.id]) if row.id in first_albums else None,
+                "coverArt": str(row.id)
+                if row.cover_file is not None
+                else str(first_albums[row.id])
+                if row.id in first_albums
+                else None,
             }
         )
         for row, view in zip(rows, views, strict=True)

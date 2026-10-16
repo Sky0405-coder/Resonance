@@ -4,6 +4,9 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from PIL import Image
+from sqlalchemy import select
+
 from app.api import editor
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
@@ -29,9 +32,6 @@ from app.services.retag import (
 from app.services.server_config import update_config
 from app.services.tagger import write_tags
 from app.services.tags import embedded_cover, read_tags
-from PIL import Image
-from sqlalchemy import select
-
 from tests.conftest import auth, register
 from tests.test_imports import audio, lookup_result, meta, tags
 
@@ -167,6 +167,7 @@ async def test_manual_match_preserves_identity(env):
     assert not path.parent.exists() and not path.parent.parent.exists()
     assert embedded_cover(target) == old_picture
     async with SessionLocal() as db:
+        assert (await db.get(Track, track_id)).reviewed is True
         assert (await db.scalar(select(TrackLike))).track_id == track_id
         assert (await db.scalar(select(PlaylistEntry))).track_id == track_id
         assert (await db.scalar(select(PlayEvent))).track_id == track_id
@@ -175,6 +176,8 @@ async def test_manual_match_preserves_identity(env):
     file = await env.client.get(f"/api/admin/library/tracks/{track_id}/file", headers=env.headers)
     assert file.json()["query"] == "New Artist Correct"
     assert file.json()["mb_recording_id"] is None
+    review = await env.client.get("/api/editor/review", headers=env.headers)
+    assert review.json()["total"] == 0
     empty = await env.client.post(
         f"/api/admin/library/tracks/{track_id}/match",
         headers=env.headers,
@@ -185,6 +188,33 @@ async def test_manual_match_preserves_identity(env):
         f"/api/admin/library/tracks/{track_id}/match", headers=env.headers, json={"source": "manual"}
     )
     assert missing.status_code == 422 and missing.json()["detail"] == "Unvollständige Angaben"
+
+
+async def test_mark_reviewed(env: SimpleNamespace) -> None:
+    track_id, album_id, _, _ = await library_track(env)
+    async with SessionLocal() as db:
+        track = await db.get(Track, track_id)
+        assert track.reviewed is False
+        track.mb_recording_id = None
+        album = await db.get(Album, album_id)
+        album.cover_file = None
+        await db.commit()
+    result = await env.client.get("/api/editor/review", headers=env.headers)
+    assert result.status_code == 200 and result.json()["total"] == 1
+    endpoint = f"/api/editor/tracks/{track_id}/reviewed"
+    assert (await env.client.post(endpoint, headers=auth(env.user["token"]))).status_code == 403
+    result = await env.client.post(f"/api/editor/tracks/{uuid.uuid4()}/reviewed", headers=env.headers)
+    assert result.status_code == 404 and result.json()["detail"] == "Song nicht gefunden"
+    assert (await env.client.post(endpoint, headers=env.headers)).status_code == 204
+    assert (await env.client.post(endpoint, headers=env.headers)).status_code == 204
+    async with SessionLocal() as db:
+        assert (await db.get(Track, track_id)).reviewed is True
+    for path in ("/api/editor/review", "/api/admin/library/review"):
+        result = await env.client.get(path, headers=env.headers)
+        assert result.json()["total"] == 0 and result.json()["items"] == []
+    result = await env.client.get("/api/editor/review", headers=env.headers, params={"kind": "no_cover"})
+    assert result.json()["total"] == 1
+    assert (await env.client.get("/api/editor/review", headers=auth(env.user["token"]))).status_code == 403
 
 
 @pytest.mark.parametrize("source", ["deezer", "musicbrainz"])

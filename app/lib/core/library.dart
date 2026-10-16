@@ -9,7 +9,7 @@ import 'models.dart';
 import 'session.dart';
 
 /// Generated playlists; null when unavailable (offline, server error) – home simply hides them then.
-final mixesProvider = FutureProvider.autoDispose<(List<Playlist>, List<Playlist>)?>((ref) async {
+final mixesProvider = FutureProvider.autoDispose<(List<Playlist>, List<Playlist>, Playlist?)?>((ref) async {
   try {
     return await ref.watch(apiProvider).mixes();
   } catch (_) {

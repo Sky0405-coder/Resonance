@@ -15,6 +15,7 @@ import '../../player/player.dart';
 import '../../offline/offline_store.dart';
 import '../pages/admin/metadata_editor.dart';
 import 'common.dart';
+import 'action_sheet.dart';
 
 /// One row in a track list. [number] shows a track number instead of the cover.
 class TrackRow extends ConsumerStatefulWidget {
@@ -156,89 +157,69 @@ class _TrackRowState extends ConsumerState<TrackRow> {
 
 Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<TrackAction> extra = const []]) {
   final player = ref.read(playerProvider.notifier);
-  return showModalBottomSheet(
-    context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    backgroundColor: const Color(0xFF282828),
-    showDragHandle: true,
-    builder: (sheet) {
-      void run(VoidCallback fn) {
-        Navigator.pop(sheet);
-        fn();
-      }
-
-      return SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: SizedBox(width: 48, child: CoverImage(albumId: t.album.id, size: 64)),
-                title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text(t.artistCredit, maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-              const Divider(),
-              ListTile(
-                leading: Icon(t.liked ? Icons.favorite : Icons.favorite_border),
-                title: Text(t.liked ? context.l10n.playerRemoveLiked : context.l10n.playerAddLiked),
-                onTap: () => run(() => ref.read(libraryActionsProvider).setLiked(t, !t.liked)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.playlist_add),
-                title: Text(context.l10n.playerAddToPlaylist),
-                onTap: () => run(() => showAddToPlaylist(context, ref, [t.id])),
-              ),
-              ListTile(
-                leading: const Icon(Icons.queue_play_next),
-                title: Text(context.l10n.playerPlayNext),
-                onTap: () => run(() => player.playNext(t)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.queue_music),
-                title: Text(context.l10n.playerAddToQueue),
-                onTap: () => run(() => player.addToQueue(t)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.radio),
-                title: Text(context.l10n.radioStartSong),
-                onTap: () => run(() => startRadio(context, ref, 'track', t.id, seed: t)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.album),
-                title: Text(context.l10n.playerGoToAlbum),
-                onTap: () => run(() => context.push('/album/${t.album.id}')),
-              ),
-              ListTile(
-                leading: const Icon(Icons.person),
-                title: Text(context.l10n.playerGoToArtist),
-                onTap: () => run(() => context.push('/artist/${t.artist.id}')),
-              ),
-              if (!ref.read(sessionProvider).offline)
-                ListTile(
-                  leading: const Icon(Icons.restart_alt),
-                  title: Text(context.l10n.redownloadMenu),
-                  onTap: () => run(() => showRedownloadDialog(context, ref, t)),
-                ),
-              for (final a in extra)
-                ListTile(leading: Icon(a.icon), title: Text(a.label), onTap: () => run(a.onSelected)),
-              if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
-                ListTile(
-                  leading: const Icon(Icons.edit_note),
-                  title: Text(context.l10n.editorCorrectMetadata),
-                  onTap: () => run(() => showTrackEditor(context, ref, t)),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete_outline),
-                  title: Text(context.l10n.adminDeleteSong),
-                  onTap: () => run(() => deleteTrackAsAdmin(context, ref, t)),
-                ),
-              ],
-            ],
-          ),
+  return showActionSheet(
+    context,
+    header: ListTile(
+      leading: SizedBox(width: 48, child: CoverImage(albumId: t.album.id, size: 64)),
+      title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(t.artistCredit, maxLines: 1, overflow: TextOverflow.ellipsis),
+    ),
+    actions: [
+      SheetAction(
+        icon: t.liked ? Icons.favorite : Icons.favorite_border,
+        label: t.liked ? context.l10n.playerRemoveLiked : context.l10n.playerAddLiked,
+        onSelected: () => ref.read(libraryActionsProvider).setLiked(t, !t.liked),
+      ),
+      SheetAction(
+        icon: Icons.playlist_add,
+        label: context.l10n.playerAddToPlaylist,
+        onSelected: () => showAddToPlaylist(context, ref, [t.id]),
+      ),
+      SheetAction(
+        icon: Icons.queue_play_next,
+        label: context.l10n.playerPlayNext,
+        onSelected: () => player.playNext(t),
+      ),
+      SheetAction(
+        icon: Icons.queue_music,
+        label: context.l10n.playerAddToQueue,
+        onSelected: () => player.addToQueue(t),
+      ),
+      SheetAction(
+        icon: Icons.radio,
+        label: context.l10n.radioStartSong,
+        onSelected: () => startRadio(context, ref, 'track', t.id, seed: t),
+      ),
+      SheetAction(
+        icon: Icons.album,
+        label: context.l10n.playerGoToAlbum,
+        onSelected: () => context.push('/album/${t.album.id}'),
+      ),
+      SheetAction(
+        icon: Icons.person,
+        label: context.l10n.playerGoToArtist,
+        onSelected: () => context.push('/artist/${t.artist.id}'),
+      ),
+      if (!ref.read(sessionProvider).offline)
+        SheetAction(
+          icon: Icons.restart_alt,
+          label: context.l10n.redownloadMenu,
+          onSelected: () => showRedownloadDialog(context, ref, t),
         ),
-      );
-    },
+      for (final a in extra) SheetAction(icon: a.icon, label: a.label, onSelected: a.onSelected),
+      if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
+        SheetAction(
+          icon: Icons.edit_note,
+          label: context.l10n.editorCorrectMetadata,
+          onSelected: () => showTrackEditor(context, ref, t),
+        ),
+        SheetAction(
+          icon: Icons.delete_outline,
+          label: context.l10n.adminDeleteSong,
+          onSelected: () => deleteTrackAsAdmin(context, ref, t),
+        ),
+      ],
+    ],
   );
 }
 
@@ -316,7 +297,10 @@ Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String>
             (p) => p.owner.id == ref.read(currentUserIdProvider) && !p.isRadio && !p.isMix,
           ))
             ListTile(
-              leading: SizedBox(width: 40, child: PlaylistCover(albumIds: p.coverAlbumIds)),
+              leading: SizedBox(
+                width: 40,
+                child: PlaylistCover(playlistId: p.id, coverKey: p.coverKey, albumIds: p.coverAlbumIds),
+              ),
               title: Text(p.name),
               subtitle: Text(songs(context.l10n, p.trackCount)),
               onTap: () async {

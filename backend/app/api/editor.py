@@ -46,6 +46,7 @@ from app.services.tags import TrackTags, read_tags
 from app.services.views import album_options, albums_out, track_options, tracks_out
 
 router = APIRouter(prefix="/api/admin/library", tags=["editor"])
+editor_router = APIRouter(prefix="/api/editor", tags=["editor"])
 
 
 async def _track(db: DB, track_id: uuid.UUID) -> Track:
@@ -189,6 +190,9 @@ async def match_track(id: uuid.UUID, body: TrackMatchIn, admin: AdminUser, db: D
         track = await apply_meta(db, track, meta, cover)
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
+    if body.source == "manual":
+        track.reviewed = True
+        await db.commit()
     return (await tracks_out(db, admin, [track]))[0]
 
 
@@ -325,6 +329,14 @@ async def album_cover(id: uuid.UUID, request: Request, admin: AdminUser, db: DB)
     return (await albums_out(db, [album]))[0]
 
 
+@editor_router.post("/tracks/{id}/reviewed", status_code=204)
+async def mark_reviewed(id: uuid.UUID, admin: AdminUser, db: DB) -> None:
+    track = await _track(db, id)
+    track.reviewed = True
+    await db.commit()
+
+
+@editor_router.get("/review", response_model=Page[ReviewTrackOut])
 @router.get("/review", response_model=Page[ReviewTrackOut])
 async def review(
     admin: AdminUser,
@@ -335,7 +347,7 @@ async def review(
 ) -> Page[ReviewTrackOut]:
     query = select(Track).join(Track.artist).join(Track.album)
     if kind == "unidentified":
-        query = query.where(Track.mb_recording_id.is_(None))
+        query = query.where(Track.mb_recording_id.is_(None), Track.reviewed.is_(False))
     else:
         first = (
             select(Track.id)

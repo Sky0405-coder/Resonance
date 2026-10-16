@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Index, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Index, String, Text, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -67,6 +67,7 @@ class Track(Base):
     replaygain_album_gain: Mapped[float | None]
     # Radio auto-downloads are temporary until liked / added to a playlist (phase 5).
     is_temporary: Mapped[bool] = mapped_column(default=False)
+    reviewed: Mapped[bool] = mapped_column(default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     album: Mapped[Album] = relationship(back_populates="tracks")

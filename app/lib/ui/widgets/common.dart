@@ -82,15 +82,47 @@ class CoverImage extends ConsumerWidget {
 }
 
 /// 2x2 mosaic for playlists, like Spotify.
-class PlaylistCover extends StatelessWidget {
-  const PlaylistCover({super.key, required this.albumIds, this.radius = 4, this.icon = Icons.queue_music});
+class PlaylistCover extends ConsumerWidget {
+  const PlaylistCover({
+    super.key,
+    required this.albumIds,
+    this.playlistId,
+    this.coverKey,
+    this.radius = 4,
+    this.icon = Icons.queue_music,
+  });
 
   final List<String> albumIds;
+  final String? playlistId;
+  final String? coverKey;
   final double radius;
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (playlistId != null && coverKey != null && !ref.watch(sessionProvider.select((s) => s.offline))) {
+      final placeholder = Container(
+        color: const Color(0xFF282828),
+        alignment: Alignment.center,
+        child: LayoutBuilder(
+          builder: (_, c) => Icon(icon, color: Palette.textMuted, size: (c.maxWidth * 0.4).clamp(12, 64)),
+        ),
+      );
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: AspectRatio(
+          aspectRatio: 1,
+          child: CachedNetworkImage(
+            imageUrl: ref.watch(apiProvider).playlistCoverUrl(playlistId!, coverKey!),
+            cacheKey: 'playlist-cover:$playlistId:$coverKey:300',
+            fit: BoxFit.cover,
+            fadeInDuration: const Duration(milliseconds: 150),
+            placeholder: (_, _) => placeholder,
+            errorWidget: (_, _, _) => placeholder,
+          ),
+        ),
+      );
+    }
     if (albumIds.length < 4) {
       return CoverImage(albumId: albumIds.firstOrNull, radius: radius, icon: icon);
     }
@@ -128,6 +160,49 @@ class LikedCover extends StatelessWidget {
         ),
         child: LayoutBuilder(
           builder: (_, c) => Icon(Icons.favorite, color: Colors.white, size: (c.maxWidth * 0.4).clamp(12, 72)),
+        ),
+      ),
+    ),
+  );
+}
+
+class DiscoverCover extends StatelessWidget {
+  const DiscoverCover({super.key, this.radius = 4});
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(radius),
+    child: AspectRatio(
+      aspectRatio: 1,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+          ),
+        ),
+        child: LayoutBuilder(
+          builder: (_, c) => Padding(
+            padding: EdgeInsets.all(c.maxWidth * 0.08),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.explore, color: Colors.white, size: (c.maxWidth * 0.4).clamp(12, 72)),
+                SizedBox(height: c.maxWidth * 0.06),
+                Text(
+                  context.l10n.discoverWeekly,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: (c.maxWidth * 0.1).clamp(8, 24),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     ),
@@ -272,7 +347,9 @@ class PlaylistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MediaCard(
-    image: PlaylistCover(albumIds: playlist.coverAlbumIds),
+    image: playlist.mixKey == 'discover-weekly'
+        ? const DiscoverCover()
+        : PlaylistCover(playlistId: playlist.id, coverKey: playlist.coverKey, albumIds: playlist.coverAlbumIds),
     title: playlist.name,
     subtitle: playlist.isMix && playlist.description != null
         ? playlist.description!

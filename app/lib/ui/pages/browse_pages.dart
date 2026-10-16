@@ -260,7 +260,10 @@ class _PlaylistsTab extends ConsumerWidget {
           ),
           for (final p in list.where((p) => !p.isRadio && !p.isMix))
             ListTile(
-              leading: SizedBox(width: 56, child: PlaylistCover(albumIds: p.coverAlbumIds)),
+              leading: SizedBox(
+                width: 56,
+                child: PlaylistCover(playlistId: p.id, coverKey: p.coverKey, albumIds: p.coverAlbumIds),
+              ),
               title: Text(p.name),
               subtitle: Text(context.l10n.libraryPlaylistBy((p.owner.name).toString())),
               onTap: () => context.push('/playlist/${p.id}'),
@@ -274,7 +277,12 @@ class _PlaylistsTab extends ConsumerWidget {
               ListTile(
                 leading: SizedBox(
                   width: 56,
-                  child: PlaylistCover(albumIds: p.coverAlbumIds, icon: Icons.radio),
+                  child: PlaylistCover(
+                    playlistId: p.id,
+                    coverKey: p.coverKey,
+                    albumIds: p.coverAlbumIds,
+                    icon: Icons.radio,
+                  ),
                 ),
                 title: Text(p.name),
                 subtitle: Text(songs(context.l10n, p.trackCount)),

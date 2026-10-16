@@ -523,6 +523,7 @@ class _ServerTab extends ConsumerWidget {
       builder: (c) {
         final reg = c['registration'] as Map;
         final radio = c['radio'] as Map;
+        final mixes = (c['mixes'] ?? const {}) as Map;
         final dl = c['downloads'] as Map;
         final lib = (c['library'] ?? const {}) as Map;
         final abs = (c['audiobookshelf'] ?? const {}) as Map;
@@ -653,6 +654,23 @@ class _ServerTab extends ConsumerWidget {
               value: lib['lyrics_online'] ?? true,
               onChanged: (v) => patch({
                 'library': {'lyrics_online': v},
+              }),
+            ),
+            _Group(context.l10n.adminMixes),
+            SwitchListTile(
+              title: Text(context.l10n.discoverWeekly),
+              subtitle: Text(context.l10n.adminDiscoverWeeklyHint),
+              value: mixes['discover_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'mixes': {'discover_enabled': v},
+              }),
+            ),
+            _NumberTile(
+              title: context.l10n.adminDiscoverDownloads,
+              value: mixes['discover_downloads'] ?? 20,
+              enabled: mixes['discover_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'mixes': {'discover_downloads': v},
               }),
             ),
             _Group(context.l10n.adminSongRadio),

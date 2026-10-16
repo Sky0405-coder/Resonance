@@ -879,6 +879,18 @@ class _ReviewTabState extends ConsumerState<ReviewTab> {
     if (mounted) _load(reset: true);
   }
 
+  Future<void> _markReviewed(ReviewTrack r) async {
+    try {
+      await ref.read(apiProvider).markTrackReviewed(r.track.id);
+      if (!mounted) return;
+      setState(() {
+        if (_items.remove(r) && _total != null) _total = _total! - 1;
+      });
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final noCover = _kind == 'no_cover';
@@ -957,7 +969,13 @@ class _ReviewTabState extends ConsumerState<ReviewTab> {
             style: const TextStyle(color: Palette.textMuted),
           ),
           isThreeLine: true,
-          trailing: Icon(noCover ? Icons.image_search : Icons.edit_note),
+          trailing: noCover
+              ? const Icon(Icons.image_search)
+              : IconButton(
+                  icon: const Icon(Icons.check),
+                  tooltip: context.l10n.editorLooksGood,
+                  onPressed: () => _markReviewed(r),
+                ),
           onTap: () => _open(r),
         );
       },

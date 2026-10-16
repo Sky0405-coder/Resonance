@@ -104,6 +104,7 @@ for module in (
 ):
     app.include_router(module.router)
 app.include_router(audiobookshelf.admin_router)
+app.include_router(editor.editor_router)
 
 
 @app.get("/api/health", tags=["system"])

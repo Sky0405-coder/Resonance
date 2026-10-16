@@ -148,11 +148,13 @@ async def playlists_out(
                 else p.description,
                 is_public=p.is_public,
                 kind=p.kind,
+                mix_key=p.mix_key,
                 owner=ArtistRef(id=owner.id, name=owner.display_name),
                 shared_with=shared_with.get(p.id, []),
                 track_count=count,
                 duration=duration,
                 cover_album_ids=covers.get(p.id, []),
+                cover_key=p.cover_file,
                 updated_at=p.updated_at,
             )
         )

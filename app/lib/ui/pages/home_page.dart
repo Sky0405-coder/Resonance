@@ -87,7 +87,10 @@ class HomePage extends ConsumerWidget {
               if (mixes != null)
                 Shelf(
                   title: context.l10n.homeMadeForYou,
-                  children: [for (final p in mixes.$1) PlaylistCard(playlist: p)],
+                  children: [
+                    if (mixes.$3 case final discover?) PlaylistCard(playlist: discover),
+                    for (final p in mixes.$1) PlaylistCard(playlist: p),
+                  ],
                 ),
               Shelf(
                 title: context.l10n.homeRecentlyPlayed,
@@ -142,7 +145,7 @@ class _QuickGrid extends ConsumerWidget {
       ),
       for (final p in home.playlists.take(3))
         _QuickTile(
-          image: PlaylistCover(albumIds: p.coverAlbumIds, radius: 0),
+          image: PlaylistCover(playlistId: p.id, coverKey: p.coverKey, albumIds: p.coverAlbumIds, radius: 0),
           title: p.name,
           onTap: () => context.push('/playlist/${p.id}'),
         ),

@@ -1,5 +1,7 @@
 import '../../l10n/l10n.dart';
 
+import 'package:file_picker/file_picker.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,7 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
 import '../widgets/catalog.dart';
+import '../widgets/action_sheet.dart';
 import '../widgets/collection.dart';
 import 'admin/metadata_editor.dart';
 import '../widgets/common.dart';
@@ -193,67 +196,53 @@ class AlbumPage extends ConsumerWidget {
                         icon: const Icon(Icons.playlist_add),
                         onPressed: () => showAddToPlaylist(context, ref, [for (final t in d.tracks) t.id]),
                       ),
-                      PopupMenuButton<String>(
-                        useRootNavigator: true,
+                      IconButton(
                         iconSize: 28,
-                        icon: const Icon(Icons.more_horiz, color: Palette.textMuted),
-                        onSelected: (action) async {
-                          switch (action) {
-                            case 'missing':
-                              await _openInCatalog(context, ref, id);
-                            case 'radio':
-                              await startRadio(context, ref, 'album', id);
-                            case 'cover':
-                              await showCoverPicker(context, ref, id);
-                            case 'delete':
-                              await _deleteAlbum(context, ref, d);
-                            case 'match':
-                              final album = await showAlbumMatcher(context, ref, d);
-                              // The songs may now live in another (new or existing) album.
-                              if (album != null && album.id != id && context.mounted) {
-                                context.pushReplacement('/album/${album.id}');
-                              }
-                          }
-                        },
-                        itemBuilder: (_) => [
-                          PopupMenuItem(
-                            value: 'radio',
-                            child: ListTile(
-                              leading: const Icon(Icons.radio),
-                              title: Text(context.l10n.radioStartAlbum),
-                            ),
+                        color: Palette.textMuted,
+                        icon: const Icon(Icons.more_horiz),
+                        onPressed: () => showActionSheet(
+                          context,
+                          header: ListTile(
+                            leading: SizedBox(width: 48, child: CoverImage(albumId: id, size: 64)),
+                            title: Text(d.album.title),
+                            subtitle: Text(d.album.artist.name),
                           ),
-                          PopupMenuItem(
-                            value: 'missing',
-                            child: ListTile(
-                              leading: const Icon(Icons.download),
-                              title: Text(context.l10n.albumFindMissing),
+                          actions: [
+                            SheetAction(
+                              icon: Icons.radio,
+                              label: context.l10n.radioStartAlbum,
+                              onSelected: () => startRadio(context, ref, 'album', id),
                             ),
-                          ),
-                          if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
-                            PopupMenuItem(
-                              value: 'match',
-                              child: ListTile(
-                                leading: const Icon(Icons.manage_search),
-                                title: Text(context.l10n.editorMatchAlbum),
+                            SheetAction(
+                              icon: Icons.download,
+                              label: context.l10n.albumFindMissing,
+                              onSelected: () => _openInCatalog(context, ref, id),
+                            ),
+                            if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
+                              SheetAction(
+                                icon: Icons.manage_search,
+                                label: context.l10n.editorMatchAlbum,
+                                onSelected: () async {
+                                  final album = await showAlbumMatcher(context, ref, d);
+                                  // The songs may now live in another (new or existing) album.
+                                  if (album != null && album.id != id && context.mounted) {
+                                    context.pushReplacement('/album/${album.id}');
+                                  }
+                                },
                               ),
-                            ),
-                            PopupMenuItem(
-                              value: 'cover',
-                              child: ListTile(
-                                leading: const Icon(Icons.image_search),
-                                title: Text(context.l10n.editorChangeCover),
+                              SheetAction(
+                                icon: Icons.image_search,
+                                label: context.l10n.editorChangeCover,
+                                onSelected: () => showCoverPicker(context, ref, id),
                               ),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: ListTile(
-                                leading: const Icon(Icons.delete_outline),
-                                title: Text(context.l10n.adminDeleteAlbum),
+                              SheetAction(
+                                icon: Icons.delete_outline,
+                                label: context.l10n.adminDeleteAlbum,
+                                onSelected: () => _deleteAlbum(context, ref, d),
                               ),
-                            ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -351,6 +340,27 @@ class PlaylistPage extends ConsumerWidget {
   const PlaylistPage({super.key, required this.id});
   final String id;
 
+  Future<void> _changeCover(BuildContext context, WidgetRef ref, {bool remove = false}) async {
+    try {
+      final api = ref.read(apiProvider);
+      if (remove) {
+        await api.deletePlaylistCover(id);
+      } else {
+        final file = await FilePicker.pickFile(type: FileType.image);
+        if (file == null) return;
+        final bytes = await file.readAsBytes();
+        await api.uploadPlaylistCover(id, bytes, file.name);
+      }
+      ref.invalidate(playlistDetailProvider(id));
+      ref.invalidate(playlistsProvider);
+      if (context.mounted) {
+        showInfo(context, remove ? context.l10n.playlistCoverRemoved : context.l10n.editorCoverSaved);
+      }
+    } catch (e) {
+      if (context.mounted) showError(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final value = ref.watch(playlistDetailProvider(id));
@@ -372,7 +382,13 @@ class PlaylistPage extends ConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: CollectionHeader(
-                    image: PlaylistCover(albumIds: d.playlist.coverAlbumIds),
+                    image: d.playlist.mixKey == 'discover-weekly'
+                        ? const DiscoverCover()
+                        : PlaylistCover(
+                            playlistId: d.playlist.id,
+                            coverKey: d.playlist.coverKey,
+                            albumIds: d.playlist.coverAlbumIds,
+                          ),
                     kind: d.playlist.isRadio
                         ? context.l10n.radioKind
                         : d.playlist.isMix
@@ -397,58 +413,105 @@ class PlaylistPage extends ConsumerWidget {
                     children: [
                       OfflineDownloadButton(kind: 'playlist', id: id),
                       if (d.editable)
-                        PopupMenuButton<String>(
-                          useRootNavigator: true,
-                          icon: const Icon(Icons.more_horiz, color: Palette.textMuted, size: 28),
-                          onSelected: (v) async {
-                            switch (v) {
-                              case 'rename':
-                                final name = await promptText(
-                                  context,
-                                  context.l10n.libraryRenamePlaylist,
-                                  context.l10n.commonName,
-                                  initial: d.playlist.name,
-                                );
-                                if (name != null && name.isNotEmpty) {
-                                  await ref.read(apiProvider).updatePlaylist(id, {'name': name});
-                                  ref.invalidate(playlistDetailProvider(id));
-                                  ref.invalidate(playlistsProvider);
-                                }
-                              case 'keep':
-                                final kept = await ref.read(apiProvider).keepPlaylist(id);
-                                ref.invalidate(playlistDetailProvider(id));
-                                ref.invalidate(playlistsProvider);
-                                if (kept.id != id && context.mounted) context.push('/playlist/${kept.id}');
-                              case 'share':
-                                await showShareWithUsers(context, ref, d.playlist);
-                              case 'public':
-                                await ref.read(apiProvider).updatePlaylist(id, {'is_public': !d.playlist.isPublic});
-                                ref.invalidate(playlistDetailProvider(id));
-                                ref.invalidate(playlistsProvider);
-                              case 'delete':
-                                await actions.deletePlaylist(id);
-                                if (context.mounted) context.go('/library');
-                            }
-                          },
-                          itemBuilder: (_) => [
-                            if (d.playlist.isMix)
-                              PopupMenuItem(value: 'keep', child: Text(context.l10n.mixSave))
-                            else if (d.playlist.isRadio)
-                              PopupMenuItem(value: 'keep', child: Text(context.l10n.radioKeep))
-                            else ...[
-                              PopupMenuItem(value: 'rename', child: Text(context.l10n.commonRename)),
-                              PopupMenuItem(
-                                value: 'public',
-                                child: Text(
-                                  d.playlist.isPublic
-                                      ? context.l10n.libraryMakePrivate
-                                      : context.l10n.librarySharePlaylist,
+                        IconButton(
+                          iconSize: 28,
+                          color: Palette.textMuted,
+                          icon: const Icon(Icons.more_horiz),
+                          onPressed: () => showActionSheet(
+                            context,
+                            header: ListTile(
+                              leading: SizedBox(
+                                width: 48,
+                                child: PlaylistCover(
+                                  albumIds: d.playlist.coverAlbumIds,
+                                  playlistId: d.playlist.id,
+                                  coverKey: d.playlist.coverKey,
                                 ),
                               ),
-                              PopupMenuItem(value: 'share', child: Text(context.l10n.libraryShareWithUsers)),
+                              title: Text(d.playlist.name),
+                              subtitle: Text(d.playlist.owner.name),
+                            ),
+                            actions: [
+                              if (d.playlist.isMix)
+                                SheetAction(
+                                  icon: Icons.bookmark_add,
+                                  label: context.l10n.mixSave,
+                                  onSelected: () async {
+                                    final kept = await ref.read(apiProvider).keepPlaylist(id);
+                                    ref.invalidate(playlistDetailProvider(id));
+                                    ref.invalidate(playlistsProvider);
+                                    if (kept.id != id && context.mounted) context.push('/playlist/${kept.id}');
+                                  },
+                                )
+                              else if (d.playlist.isRadio)
+                                SheetAction(
+                                  icon: Icons.bookmark_add,
+                                  label: context.l10n.radioKeep,
+                                  onSelected: () async {
+                                    final kept = await ref.read(apiProvider).keepPlaylist(id);
+                                    ref.invalidate(playlistDetailProvider(id));
+                                    ref.invalidate(playlistsProvider);
+                                    if (kept.id != id && context.mounted) context.push('/playlist/${kept.id}');
+                                  },
+                                )
+                              else ...[
+                                SheetAction(
+                                  icon: Icons.edit,
+                                  label: context.l10n.commonRename,
+                                  onSelected: () async {
+                                    final name = await promptText(
+                                      context,
+                                      context.l10n.libraryRenamePlaylist,
+                                      context.l10n.commonName,
+                                      initial: d.playlist.name,
+                                    );
+                                    if (name != null && name.isNotEmpty) {
+                                      await ref.read(apiProvider).updatePlaylist(id, {'name': name});
+                                      ref.invalidate(playlistDetailProvider(id));
+                                      ref.invalidate(playlistsProvider);
+                                    }
+                                  },
+                                ),
+                                SheetAction(
+                                  icon: d.playlist.isPublic ? Icons.lock : Icons.public,
+                                  label: d.playlist.isPublic
+                                      ? context.l10n.libraryMakePrivate
+                                      : context.l10n.librarySharePlaylist,
+                                  onSelected: () async {
+                                    await ref.read(apiProvider).updatePlaylist(id, {'is_public': !d.playlist.isPublic});
+                                    ref.invalidate(playlistDetailProvider(id));
+                                    ref.invalidate(playlistsProvider);
+                                  },
+                                ),
+                                SheetAction(
+                                  icon: Icons.group_add,
+                                  label: context.l10n.libraryShareWithUsers,
+                                  onSelected: () => showShareWithUsers(context, ref, d.playlist),
+                                ),
+                              ],
+                              if (d.playlist.kind == 'user')
+                                SheetAction(
+                                  icon: Icons.image,
+                                  label: context.l10n.editorChangeCover,
+                                  onSelected: () => _changeCover(context, ref),
+                                ),
+                              if (d.playlist.coverKey != null)
+                                SheetAction(
+                                  icon: Icons.hide_image,
+                                  label: context.l10n.playlistRemoveCover,
+                                  onSelected: () => _changeCover(context, ref, remove: true),
+                                ),
+                              if (!d.playlist.isMix)
+                                SheetAction(
+                                  icon: Icons.delete_outline,
+                                  label: context.l10n.commonDelete,
+                                  onSelected: () async {
+                                    await actions.deletePlaylist(id);
+                                    if (context.mounted) context.go('/library');
+                                  },
+                                ),
                             ],
-                            if (!d.playlist.isMix) PopupMenuItem(value: 'delete', child: Text(context.l10n.commonDelete)),
-                          ],
+                          ),
                         ),
                     ],
                   ),

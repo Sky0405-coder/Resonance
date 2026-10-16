@@ -581,5 +581,12 @@
   "settingsDiscordPresence": "Show Discord status",
   "settingsDiscordPresenceHint": "Shows what you're listening to on Discord",
   "settingsDiscordNotConfigured": "Not set up by the admin yet",
-  "discordPresenceArtist": "by {artist}"
+  "discordPresenceArtist": "by {artist}",
+  "playlistRemoveCover": "Remove cover",
+  "playlistCoverRemoved": "Cover removed",
+  "editorLooksGood": "Looks good",
+  "discoverWeekly": "Discover Weekly",
+  "adminMixes": "Mixes",
+  "adminDiscoverWeeklyHint": "30 new songs per user every Monday, missing ones are downloaded",
+  "adminDiscoverDownloads": "Downloads per week and user"
 }

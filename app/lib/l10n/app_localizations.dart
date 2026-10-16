@@ -3235,6 +3235,48 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'von {artist}'**
   String discordPresenceArtist(String artist);
+
+  /// No description provided for @playlistRemoveCover.
+  ///
+  /// In de, this message translates to:
+  /// **'Cover entfernen'**
+  String get playlistRemoveCover;
+
+  /// No description provided for @playlistCoverRemoved.
+  ///
+  /// In de, this message translates to:
+  /// **'Cover entfernt'**
+  String get playlistCoverRemoved;
+
+  /// No description provided for @editorLooksGood.
+  ///
+  /// In de, this message translates to:
+  /// **'Passt so'**
+  String get editorLooksGood;
+
+  /// No description provided for @discoverWeekly.
+  ///
+  /// In de, this message translates to:
+  /// **'Mix der Woche'**
+  String get discoverWeekly;
+
+  /// No description provided for @adminMixes.
+  ///
+  /// In de, this message translates to:
+  /// **'Mixes'**
+  String get adminMixes;
+
+  /// No description provided for @adminDiscoverWeeklyHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Jeden Montag 30 neue Songs pro Nutzer, fehlende werden heruntergeladen'**
+  String get adminDiscoverWeeklyHint;
+
+  /// No description provided for @adminDiscoverDownloads.
+  ///
+  /// In de, this message translates to:
+  /// **'Downloads pro Woche und Nutzer'**
+  String get adminDiscoverDownloads;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

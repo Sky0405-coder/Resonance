@@ -183,6 +183,14 @@ class ApiClient {
 
   Future<void> deletePlaylist(String id) => _delete('/api/playlists/$id');
 
+  String playlistCoverUrl(String id, String key, {int size = 300}) =>
+      '$baseUrl/api/playlists/$id/cover?size=$size&v=$key&token=$token';
+
+  Future<void> uploadPlaylistCover(String id, List<int> bytes, String filename) =>
+      _put('/api/playlists/$id/cover', FormData.fromMap({'file': MultipartFile.fromBytes(bytes, filename: filename)}));
+
+  Future<void> deletePlaylistCover(String id) => _delete('/api/playlists/$id/cover');
+
   Future<void> setPlaylistShares(String id, List<String> userIds) =>
       _put('/api/playlists/$id/shares', {'user_ids': userIds});
 
@@ -209,12 +217,13 @@ class ApiClient {
   Future<Playlist> keepPlaylist(String playlistId) async =>
       Playlist.fromJson(await _post('/api/playlists/$playlistId/keep'));
 
-  /// Generated playlists of the current user: (made for you, genre mixes).
-  Future<(List<Playlist>, List<Playlist>)> mixes() async {
+  /// Generated playlists of the current user: (made for you, genre mixes, Discover Weekly).
+  Future<(List<Playlist>, List<Playlist>, Playlist?)> mixes() async {
     final j = await _get('/api/mixes');
     return (
       [for (final p in j['made_for_you']) Playlist.fromJson(p)],
       [for (final p in j['genres']) Playlist.fromJson(p)],
+      j['discover'] == null ? null : Playlist.fromJson(j['discover']),
     );
   }
 
@@ -415,9 +424,11 @@ class ApiClient {
   );
 
   Future<(List<ReviewTrack>, int)> review({String kind = 'unidentified', int offset = 0, int limit = 50}) async {
-    final j = await _get('/api/admin/library/review', {'kind': kind, 'offset': offset, 'limit': limit});
+    final j = await _get('/api/editor/review', {'kind': kind, 'offset': offset, 'limit': limit});
     return ([for (final t in j['items']) ReviewTrack.fromJson(t)], j['total'] as int);
   }
+
+  Future<void> markTrackReviewed(String id) => _post('/api/editor/tracks/$id/reviewed');
 
   Future<List<Job>> jobs() async => [for (final j in await _get('/api/admin/jobs')) Job.fromJson(j)];
 }

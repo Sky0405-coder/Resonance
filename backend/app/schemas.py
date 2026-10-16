@@ -223,12 +223,14 @@ class PlaylistOut(ORM):
     description: str | None
     is_public: bool
     kind: str = "user"
+    mix_key: str | None = None
     owner: ArtistRef  # {id, name} of the owning user
     shared_with: list[ArtistRef] = []
     track_count: int = 0
     duration: float = 0
     # Up to 4 album ids for a mosaic cover.
     cover_album_ids: list[uuid.UUID] = []
+    cover_key: str | None = None
     updated_at: datetime
 
 
@@ -245,6 +247,7 @@ class RadioOut(BaseModel):
 class MixesOut(BaseModel):
     made_for_you: list[PlaylistOut]
     genres: list[PlaylistOut]
+    discover: PlaylistOut | None
 
 
 class PlaylistEntryOut(BaseModel):

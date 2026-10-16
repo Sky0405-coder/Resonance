@@ -33,6 +33,12 @@ class RadioConfig(BaseModel):
     max_downloads_per_radio: int = Field(10, ge=0, le=50)
 
 
+class MixesConfig(BaseModel):
+    discover_enabled: bool = True
+    # Missing songs downloaded per user and week for the 'Mix der Woche'.
+    discover_downloads: int = Field(20, ge=0, le=50)
+
+
 class DownloadConfig(BaseModel):
     # YouTube Music via yt-dlp as a download source.
     youtube_enabled: bool = True
@@ -105,6 +111,7 @@ class ServerConfig(BaseModel):
     server_name: str = "Resonance"
     registration: RegistrationConfig = RegistrationConfig()
     radio: RadioConfig = RadioConfig()
+    mixes: MixesConfig = MixesConfig()
     downloads: DownloadConfig = DownloadConfig()
     library: LibraryConfig = LibraryConfig()
     audiobookshelf: AudiobookshelfConfig = AudiobookshelfConfig()

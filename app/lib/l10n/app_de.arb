@@ -1153,5 +1153,12 @@
     "placeholders": {
       "artist": {"type": "String"}
     }
-  }
+  },
+  "playlistRemoveCover": "Cover entfernen",
+  "playlistCoverRemoved": "Cover entfernt",
+  "editorLooksGood": "Passt so",
+  "discoverWeekly": "Mix der Woche",
+  "adminMixes": "Mixes",
+  "adminDiscoverWeeklyHint": "Jeden Montag 30 neue Songs pro Nutzer, fehlende werden heruntergeladen",
+  "adminDiscoverDownloads": "Downloads pro Woche und Nutzer"
 }

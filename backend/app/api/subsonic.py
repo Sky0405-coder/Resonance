@@ -271,6 +271,9 @@ async def _media(db: DB, user: User, params: ss.Params, endpoint: str) -> Respon
                 album = await db.get(Album, track.album_id)
             else:
                 playlist = await _visible_playlist(db, user, value)
+                if playlist.cover_file is not None:
+                    size = max(32, min(params.integer("size", 300), 2000)) if params.has("size") else None
+                    return await playlist_api.playlist_cover(playlist.id, user, db, size)
                 album = await db.scalar(
                     select(Album)
                     .join(Track, Track.album_id == Album.id)

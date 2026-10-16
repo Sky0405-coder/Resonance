@@ -207,7 +207,7 @@ class _Sidebar extends ConsumerWidget {
                       ),
                       ...?playlists.value?.map(
                         (p) => _SidebarItem(
-                          image: PlaylistCover(albumIds: p.coverAlbumIds),
+                          image: PlaylistCover(playlistId: p.id, coverKey: p.coverKey, albumIds: p.coverAlbumIds),
                           title: p.name,
                           subtitle: p.owner.id == userId
                               ? context.l10n.commonPlaylist

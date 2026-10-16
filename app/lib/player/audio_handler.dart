@@ -169,7 +169,11 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     'playlist:${playlist.id}',
     playlist.name,
     subtitle: playlist.owner.name,
-    artUri: playlist.coverAlbumIds.isEmpty ? null : _cover(playlist.coverAlbumIds.first),
+    artUri: playlist.coverKey != null
+        ? Uri.parse(_api.playlistCoverUrl(playlist.id, playlist.coverKey!))
+        : playlist.coverAlbumIds.isEmpty
+        ? null
+        : _cover(playlist.coverAlbumIds.first),
   );
 
   MediaItem _album(Album album) => _folder(
