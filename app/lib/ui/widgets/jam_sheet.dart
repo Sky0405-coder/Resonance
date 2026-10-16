@@ -101,7 +101,13 @@ class _JamPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(jamProvider);
-    if (view == null) return const SizedBox(height: 120);
+    if (view == null) {
+      // The Jam ended while the sheet was open.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Navigator.maybePop(context);
+      });
+      return const SizedBox.shrink();
+    }
     final jam = view.state;
     final ctrl = ref.read(jamProvider.notifier);
     final link = '${ref.read(sessionProvider).serverUrl}/jam/${jam.code}';
