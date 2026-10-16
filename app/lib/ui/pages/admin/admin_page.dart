@@ -798,6 +798,14 @@ class _ServerTab extends ConsumerWidget {
                   'downloads': {'torrent_timeout_minutes': v},
                 }),
               ),
+              _NumberTile(
+                title: context.l10n.adminTorrentSeedDays,
+                subtitle: context.l10n.adminTorrentSeedDaysHint,
+                value: dl['torrent_seed_days'] ?? 7,
+                onChanged: (v) => patch({
+                  'downloads': {'torrent_seed_days': v},
+                }),
+              ),
               const _TorrentCheckTile(),
             ],
             SwitchListTile(
@@ -876,8 +884,15 @@ class _Group extends StatelessWidget {
 }
 
 class _NumberTile extends StatelessWidget {
-  const _NumberTile({required this.title, required this.value, required this.onChanged, this.enabled = true});
+  const _NumberTile({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+    this.enabled = true,
+  });
   final String title;
+  final String? subtitle;
   final int value;
   final bool enabled;
   final ValueChanged<int> onChanged;
@@ -886,6 +901,7 @@ class _NumberTile extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     enabled: enabled,
     title: Text(title),
+    subtitle: subtitle == null ? null : Text(subtitle!),
     trailing: Text('$value', style: Theme.of(context).textTheme.titleMedium),
     onTap: () async {
       final ctrl = TextEditingController(text: '$value');

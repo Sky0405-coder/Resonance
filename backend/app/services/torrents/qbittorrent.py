@@ -70,6 +70,16 @@ class QBittorrent:
         except (ValueError, KeyError, TypeError) as e:
             raise TorrentError("Ungültige qBittorrent-Antwort") from e
 
+    async def all(self) -> list[dict]:
+        response = await self._request("GET", "/api/v2/torrents/info", params={"category": "resonance"})
+        try:
+            rows = response.json()
+            if not isinstance(rows, list):
+                raise TypeError()
+            return rows
+        except (ValueError, TypeError) as e:
+            raise TorrentError("Ungültige qBittorrent-Antwort") from e
+
     async def files(self, hash: str) -> list[dict]:
         response = await self._request("GET", "/api/v2/torrents/files", params={"hash": hash})
         try:

@@ -1157,6 +1157,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminTorrentTimeout => 'Aufgeben nach … Minuten ohne Fortschritt';
 
   @override
+  String get adminTorrentSeedDays => 'Torrents behalten für … Tage';
+
+  @override
+  String get adminTorrentSeedDaysHint =>
+      'Danach werden fertige Torrents samt Dateien aus qBittorrent gelöscht (die Songs in der Bibliothek bleiben). Von qBittorrent gestoppte Torrents werden sofort gelöscht. 0 = direkt nach dem Import.';
+
+  @override
   String get adminYouTubeSource => 'YouTube Music als Quelle';
 
   @override

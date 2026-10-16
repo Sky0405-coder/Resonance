@@ -339,6 +339,8 @@
   "adminQbittorrentPassword": "qBittorrent password",
   "adminMinimumSeeders": "Minimum seeders",
   "adminTorrentTimeout": "Give up after … minutes without progress",
+  "adminTorrentSeedDays": "Keep torrents for … days",
+  "adminTorrentSeedDaysHint": "Afterwards finished torrents and their files are deleted from qBittorrent (the songs in the library stay). Torrents stopped by qBittorrent are deleted right away. 0 = right after the import.",
   "adminYouTubeSource": "YouTube Music as a source",
   "adminYouTubeSourceHint": "Downloads songs from YouTube Music via yt-dlp (Opus, approx. 130–160 kbit/s)",
   "adminQualityUpgrades": "Quality upgrades",

@@ -2,6 +2,7 @@ import asyncio
 import io
 import shutil
 import subprocess
+import time
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
@@ -97,6 +98,7 @@ class Gateway:
         self.requests: list[httpx.Request] = []
         self.added: list[bytes] = []
         self.deleted: list[dict] = []
+        self.all_rows: list[dict] = []
         self.logins = 0
 
     def handle(self, request: httpx.Request) -> httpx.Response:
@@ -141,6 +143,8 @@ class Gateway:
             return httpx.Response(self.add_code, text="Ok.")
         if path == "/api/v2/torrents/info":
             assert request.url.params["category"] == "resonance"
+            if "tag" not in request.url.params:
+                return httpx.Response(self.info_code, json=self.all_rows)
             return httpx.Response(
                 self.info_code,
                 json=[{"hash": "hash", "progress": self.progress, "save_path": str(self.root)}] if self.present else [],
@@ -504,6 +508,37 @@ async def test_monitor_loop(client: httpx.AsyncClient, env: SimpleNamespace, mon
             await env.manager._torrent_monitor()
     row = await detail(client, env, request)
     assert row["torrent_progress"] == 0.25 and all(item["progress"] == 0.25 for item in row["items"])
+
+
+async def test_torrent_cleanup(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
+    busy = await request_album(client, env)
+    assert await env.manager.process_one()
+    now = time.time()
+
+    def row(hash: str, tag: str, days: float, state: str = "uploading", progress: float = 1) -> dict:
+        return {"hash": hash, "tags": tag, "progress": progress, "completion_on": now - days * 86400, "state": state}
+
+    env.gateway.all_rows = [
+        row("old", "a", 8),
+        row("fresh", "b", 1),
+        row("stopped", "c", 1, "stoppedUP"),
+        row("busy", busy["id"], 30),
+        row("incomplete", "d", 30, "downloading", 0.5),
+        {"hash": "never", "tags": "e", "progress": 1, "completion_on": -1, "state": "uploading"},
+    ]
+    assert await env.manager.torrent_cleanup() == 2
+    assert env.gateway.deleted == [
+        {"hashes": ["old"], "deleteFiles": ["true"]},
+        {"hashes": ["stopped"], "deleteFiles": ["true"]},
+    ]
+    response = await client.patch("/api/admin/config", json={"downloads": {"torrent_seed_days": 0}}, headers=env.admin)
+    assert response.status_code == 200
+    env.gateway.deleted.clear()
+    assert await env.manager.torrent_cleanup() == 3
+    assert [d["hashes"] for d in env.gateway.deleted] == [["old"], ["fresh"], ["stopped"]]
+    response = await client.patch("/api/admin/config", json={"downloads": {"torrent_enabled": False}}, headers=env.admin)
+    assert response.status_code == 200
+    assert await env.manager.torrent_cleanup() == 0
 
 
 async def test_concurrent_claim_runs_one_search(client: httpx.AsyncClient, env: SimpleNamespace) -> None:

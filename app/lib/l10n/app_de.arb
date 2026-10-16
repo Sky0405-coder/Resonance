@@ -735,6 +735,8 @@
   "adminQbittorrentPassword": "qBittorrent-Passwort",
   "adminMinimumSeeders": "Mindestanzahl Seeder",
   "adminTorrentTimeout": "Aufgeben nach … Minuten ohne Fortschritt",
+  "adminTorrentSeedDays": "Torrents behalten für … Tage",
+  "adminTorrentSeedDaysHint": "Danach werden fertige Torrents samt Dateien aus qBittorrent gelöscht (die Songs in der Bibliothek bleiben). Von qBittorrent gestoppte Torrents werden sofort gelöscht. 0 = direkt nach dem Import.",
   "adminYouTubeSource": "YouTube Music als Quelle",
   "adminYouTubeSourceHint": "Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)",
   "adminQualityUpgrades": "Qualitäts-Upgrades",

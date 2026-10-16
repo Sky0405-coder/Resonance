@@ -2126,6 +2126,18 @@ abstract class AppLocalizations {
   /// **'Aufgeben nach … Minuten ohne Fortschritt'**
   String get adminTorrentTimeout;
 
+  /// No description provided for @adminTorrentSeedDays.
+  ///
+  /// In de, this message translates to:
+  /// **'Torrents behalten für … Tage'**
+  String get adminTorrentSeedDays;
+
+  /// No description provided for @adminTorrentSeedDaysHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Danach werden fertige Torrents samt Dateien aus qBittorrent gelöscht (die Songs in der Bibliothek bleiben). Von qBittorrent gestoppte Torrents werden sofort gelöscht. 0 = direkt nach dem Import.'**
+  String get adminTorrentSeedDaysHint;
+
   /// No description provided for @adminYouTubeSource.
   ///
   /// In de, this message translates to:

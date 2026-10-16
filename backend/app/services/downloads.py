@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import tempfile
+import time
 import uuid
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
@@ -296,8 +297,15 @@ class DownloadManager:
         )
 
     async def _torrent_monitor(self) -> None:
+        last_cleanup: float | None = None
         while True:
             await asyncio.sleep(10)
+            if last_cleanup is None or time.monotonic() - last_cleanup >= 3600:
+                last_cleanup = time.monotonic()
+                try:
+                    await self.torrent_cleanup()
+                except Exception:
+                    log.exception("Torrent cleanup failed")
             try:
                 async with SessionLocal() as db:
                     ids = list(
@@ -309,6 +317,33 @@ class DownloadManager:
                     await self._torrent_poll(request_id)
             except Exception:
                 log.exception("Torrent monitor failed")
+
+    async def torrent_cleanup(self) -> int:
+        """Delete finished torrents (and their files) once they seeded long enough; the library has its own copies."""
+        async with SessionLocal() as db:
+            cfg = await load_config(db)
+            if not cfg.downloads.torrent_enabled:
+                return 0
+            busy = {
+                str(i)
+                for i in await db.scalars(
+                    select(DownloadRequest.id).where(
+                        DownloadRequest.torrent_status.in_(["searching", "downloading", "importing"])
+                    )
+                )
+            }
+        cutoff = time.time() - cfg.downloads.torrent_seed_days * 86400
+        deleted = 0
+        async with QBittorrent(cfg) as qb:
+            for torrent in await qb.all():
+                tags = {t.strip() for t in str(torrent.get("tags") or "").split(",")}
+                completed = torrent.get("completion_on") or 0
+                if torrent.get("progress", 0) < 1 or completed <= 0 or tags & busy:
+                    continue
+                if torrent.get("state") in {"stoppedUP", "pausedUP"} or completed <= cutoff:
+                    await qb.delete(torrent["hash"], True)
+                    deleted += 1
+        return deleted
 
     async def _torrent_poll(self, request_id: uuid.UUID) -> None:
         try:

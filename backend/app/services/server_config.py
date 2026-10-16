@@ -41,6 +41,8 @@ class DownloadConfig(BaseModel):
     torrent_min_seeders: int = Field(1, ge=0, le=1000)
     # Give up (and fall back to YouTube) when a torrent makes no progress for this long.
     torrent_timeout_minutes: int = Field(60, ge=5, le=10080)
+    # Imported torrents are deleted (with their files) after seeding this many days or once qBittorrent stopped them.
+    torrent_seed_days: int = Field(7, ge=0, le=365)
     prowlarr_api_key: str = ""
     qbittorrent_username: str = "admin"
     qbittorrent_password: str = ""
