@@ -50,6 +50,20 @@ class BookPlayback {
   AbsChapter? chapterAt(double seconds) => chapters.where((c) => seconds >= c.start && seconds < c.end).firstOrNull;
 }
 
+/// Receives the player's actions while a Jam is active (the server owns the queue then).
+abstract class JamRouter {
+  Future<void> playTracks(List<Track> tracks, int index);
+  Future<void> add(Track track, {required bool next});
+  Future<void> removeAt(int index);
+  Future<void> jumpTo(int index);
+  Future<void> play();
+  Future<void> pause();
+  Future<void> next();
+  Future<void> previous();
+  Future<void> seek(Duration position);
+  bool get playing;
+}
+
 /// Snapshot of what the UI needs to render the engine.
 class PlayerView {
   const PlayerView({
@@ -64,6 +78,7 @@ class PlayerView {
     this.station,
     this.speed = 1,
     this.sleepAt,
+    this.jamRemote = false,
   });
 
   final List<Track> queue;
@@ -80,6 +95,10 @@ class PlayerView {
   final double speed;
   // Sleep timer: pause at this time (null = off).
   final DateTime? sleepAt;
+  // In a Jam without listening on this device: the view mirrors the Jam, the engine is idle.
+  final bool jamRemote;
+
+  bool get inJam => context?.startsWith('jam:') ?? false;
 
   Track? get current => index != null && index! < queue.length ? queue[index!] : null;
 }
@@ -110,6 +129,14 @@ class PlayerController extends Notifier<PlayerView> {
   bool _switching = false;
   Future<void> _pendingSwitch = Future.value();
 
+  /// Set by the Jam controller while in a Jam: user actions go to the server instead of the engine.
+  JamRouter? jam;
+  Duration Function()? _jamPosition;
+  int? _crossfadeBeforeJam;
+
+  /// Expected position of the Jam's current song (used while not listening on this device).
+  Duration get jamPosition => _jamPosition?.call() ?? Duration.zero;
+
   // Serialize replacements so a late load cannot overwrite another request.
   Future<void> _switch(Future<void> Function() action) {
     final result = _pendingSwitch.then((_) => action());
@@ -129,7 +156,7 @@ class PlayerController extends Notifier<PlayerView> {
     engine.targetVolumeForIndex = (index) => userVolume.value * _gainForTrack(state.queue[index]);
     _subs.addAll([
       engine.playerStateStream.listen((s) {
-        if (_switching) return;
+        if (_switching || state.jamRemote) return;
         // Save the audiobook position right away when pausing.
         if (state.playing && !s.playing && state.book != null) _syncBook().ignore();
         state = _copy(
@@ -138,7 +165,7 @@ class PlayerController extends Notifier<PlayerView> {
         );
       }),
       engine.currentIndexStream.listen((i) {
-        if (_switching) return;
+        if (_switching || state.jamRemote) return;
         if (state.book != null) {
           state = _copy(index: i);
           return;
@@ -215,6 +242,7 @@ class PlayerController extends Notifier<PlayerView> {
     station: state.station,
     speed: speed ?? state.speed,
     sleepAt: sleepAt == null ? state.sleepAt : sleepAt(),
+    jamRemote: state.jamRemote,
   );
 
   SourceFactory _source(Track t) => () {
@@ -225,7 +253,13 @@ class PlayerController extends Notifier<PlayerView> {
 
   /// Replace the queue and start playing at [index]. Shuffle is a global toggle (like Spotify): when it is on,
   /// the queue is shuffled around the start track, which is random if no [index] is given.
-  Future<void> playTracks(List<Track> tracks, {int? index, String? context}) => _switch(() async {
+  Future<void> playTracks(List<Track> tracks, {int? index, String? context}) {
+    final jam = this.jam;
+    if (jam != null) return jam.playTracks(tracks, index ?? 0);
+    return _playTracks(tracks, index: index, context: context);
+  }
+
+  Future<void> _playTracks(List<Track> tracks, {int? index, String? context}) => _switch(() async {
     if (tracks.isEmpty) return;
     final shuffle = state.shuffle;
     final chosen = index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0);
@@ -347,12 +381,13 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> playNext(Track t) async {
+    if (jam != null) return jam!.add(t, next: true);
     await engine.finishFade();
     final at = (state.index ?? -1) + 1;
     await _insert(at, t);
   }
 
-  Future<void> addToQueue(Track t) => _insert(state.queue.length, t);
+  Future<void> addToQueue(Track t) => jam != null ? jam!.add(t, next: false) : _insert(state.queue.length, t);
 
   Future<void> _insert(int at, Track t) async {
     if (state.queue.isEmpty || state.book != null) return playTracks([t]);
@@ -363,17 +398,19 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> removeAt(int i) async {
+    if (jam != null) return jam!.removeAt(i);
     await engine.finishFade();
     _unshuffled.remove(state.queue[i]);
     state = _copy(queue: List.unmodifiable([...state.queue]..removeAt(i)));
     await engine.removeAt(i);
   }
 
-  void togglePlay() => engine.playing ? pause() : play();
+  void togglePlay() => (jam != null ? jam!.playing : engine.playing) ? pause() : play();
 
-  Future<void> play() => engine.play();
+  Future<void> play() => jam != null ? jam!.play() : engine.play();
 
   Future<void> pause() async {
+    if (jam != null) return jam!.pause();
     _stationGeneration++;
     _stationRetry?.cancel();
     _stationRetry = null;
@@ -388,11 +425,13 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> next() async {
+    if (jam != null) return jam!.next();
     if (state.station == null) await engine.seekToNext();
   }
 
   /// Like Spotify: restart the track unless we're in its first 3 seconds.
   Future<void> previous() async {
+    if (jam != null) return jam!.previous();
     if (state.station != null) return;
     await engine.finishFade();
     if (engine.position > const Duration(seconds: 3) || !engine.hasPrevious) {
@@ -403,10 +442,12 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> jumpTo(int index) async {
+    if (jam != null) return jam!.jumpTo(index);
     if (state.station == null) await engine.seek(Duration.zero, index: index);
   }
 
   Future<void> seek(Duration d) async {
+    if (jam != null) return jam!.seek(d);
     if (state.station == null) await engine.seek(d);
   }
 
@@ -415,7 +456,7 @@ class PlayerController extends Notifier<PlayerView> {
   Future<void> setShuffle(bool enabled) => _switch(() => _setShuffle(enabled));
 
   Future<void> _setShuffle(bool enabled) async {
-    if (state.station != null) return;
+    if (state.station != null || jam != null) return;
     await engine.finishFade();
     if (enabled == state.shuffle) return;
     final current = state.current;
@@ -437,7 +478,7 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> setLoop(LoopMode mode) async {
-    if (state.station == null) await engine.setLoopMode(mode);
+    if (state.station == null && jam == null) await engine.setLoopMode(mode);
   }
 
   Future<void> cycleLoop() => setLoop(switch (engine.loopMode) {
@@ -489,6 +530,101 @@ class PlayerController extends Notifier<PlayerView> {
       }).ignore();
     });
   }
+
+  // --- jam -------------------------------------------------------------------
+
+  /// Make local playback follow the Jam's state. [expected] gives the position the current song should be at.
+  Future<void> applyJam(
+    List<Track> tracks,
+    int index,
+    Duration Function() expected,
+    bool playing, {
+    required bool listen,
+    required String context,
+  }) => _switch(() async {
+    _jamPosition = expected;
+    _crossfadeBeforeJam ??= engine.crossfadeSeconds;
+    engine.crossfadeSeconds = 0;
+    final queue = List<Track>.unmodifiable(tracks);
+    final current = index >= 0 && index < queue.length ? index : null;
+    if (!listen || current == null) {
+      if (!state.jamRemote || state.playing) {
+        await engine.finishFade();
+        await engine.pause();
+      }
+      _flushPlayReport();
+      state = PlayerView(
+        queue: queue,
+        index: current,
+        playing: listen ? false : playing && current != null,
+        context: context,
+        speed: state.speed,
+        sleepAt: state.sleepAt,
+        jamRemote: true,
+      );
+      return;
+    }
+    final sameQueue =
+        state.context == context &&
+        !state.jamRemote &&
+        state.queue.length == queue.length &&
+        Iterable.generate(queue.length).every((i) => state.queue[i].id == queue[i].id);
+    if (!sameQueue) {
+      final keepCurrent =
+          state.context == context &&
+          !state.jamRemote &&
+          state.current != null &&
+          state.current!.id == queue[current].id &&
+          engine.audioSources.isNotEmpty;
+      if (keepCurrent) {
+        // Someone changed the queue around the playing song: keep it playing without a gap.
+        _switching = true;
+        try {
+          await engine.setSources([for (final t in queue) _source(t)], initialIndex: current, preserveCurrent: true);
+          _unshuffled = [...queue];
+          state = _copy(queue: queue, index: current);
+        } finally {
+          _switching = false;
+        }
+      } else {
+        await _replacePlayback(
+          PlayerView(queue: queue, context: context, speed: 1, sleepAt: state.sleepAt),
+          [for (final t in queue) _source(t)],
+          index: current,
+          position: expected(),
+        );
+        _unshuffled = [...queue];
+        if (!playing) await engine.pause();
+        return;
+      }
+    }
+    if (engine.currentIndex != current) {
+      await engine.seek(expected(), index: current);
+    } else if (needsJamSeek(engine.position, expected())) {
+      await engine.seek(expected());
+    }
+    if (playing && !engine.playing) {
+      engine.play().ignore();
+    } else if (!playing && engine.playing) {
+      await engine.pause();
+    }
+  });
+
+  /// Back to normal playback after leaving a Jam (the Jam's songs stay loaded, paused).
+  Future<void> leaveJam() => _switch(() async {
+    jam = null;
+    _jamPosition = null;
+    if (_crossfadeBeforeJam != null) engine.crossfadeSeconds = _crossfadeBeforeJam!;
+    _crossfadeBeforeJam = null;
+    await engine.pause();
+    state = PlayerView(
+      queue: state.jamRemote ? const [] : state.queue,
+      index: state.jamRemote ? null : engine.currentIndex,
+      speed: state.speed,
+      sleepAt: state.sleepAt,
+    );
+    _unshuffled = [...state.queue];
+  });
 
   // --- audiobooks ------------------------------------------------------------
 
@@ -666,8 +802,24 @@ class PlayerController extends Notifier<PlayerView> {
 
 final playerProvider = NotifierProvider<PlayerController, PlayerView>(PlayerController.new);
 
-final positionProvider = StreamProvider<Duration>((ref) => ref.read(playerProvider.notifier).engine.positionStream);
-final durationProvider = StreamProvider<Duration?>((ref) => ref.read(playerProvider.notifier).engine.durationStream);
+/// Only correct audible drift in a Jam; small differences come from buffering and network jitter.
+bool needsJamSeek(Duration local, Duration expected) => (local - expected).abs() > const Duration(seconds: 1);
+
+final positionProvider = StreamProvider<Duration>((ref) {
+  final controller = ref.read(playerProvider.notifier);
+  if (ref.watch(playerProvider.select((p) => p.jamRemote))) {
+    return Stream.periodic(const Duration(milliseconds: 500), (_) => controller.jamPosition);
+  }
+  return controller.engine.positionStream;
+});
+
+final durationProvider = StreamProvider<Duration?>((ref) {
+  if (ref.watch(playerProvider.select((p) => p.jamRemote))) {
+    final current = ref.watch(playerProvider.select((p) => p.current));
+    return Stream.value(current == null ? null : Duration(milliseconds: (current.duration * 1000).round()));
+  }
+  return ref.read(playerProvider.notifier).engine.durationStream;
+});
 
 /// Position within the whole audiobook in seconds (updates with the player position).
 final bookPositionProvider = Provider<double>((ref) {

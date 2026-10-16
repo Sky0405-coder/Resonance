@@ -14,6 +14,8 @@ import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/player_bar.dart';
 import '../widgets/track_list.dart';
+import '../widgets/jam_sheet.dart';
+import '../../player/jam.dart';
 
 class NowPlayingPage extends ConsumerWidget {
   const NowPlayingPage({super.key});
@@ -65,6 +67,7 @@ class NowPlayingPage extends ConsumerWidget {
                                       style: const TextStyle(fontWeight: FontWeight.w700),
                                     ),
                                   ),
+                                  const JamButton(),
                                   IconButton(
                                     icon: const Icon(Icons.more_vert),
                                     onPressed: () => showTrackMenu(context, ref, track),
@@ -352,9 +355,20 @@ class QueuePage extends ConsumerWidget {
     final p = ref.watch(playerProvider);
     final ctrl = ref.read(playerProvider.notifier);
     final upcoming = p.index == null ? <int>[] : [for (var i = p.index! + 1; i < p.queue.length; i++) i];
+    final jam = ref.watch(jamProvider);
+    String? addedBy(int i) {
+      final queue = jam?.state.queue;
+      return queue != null && i < queue.length ? context.l10n.jamAddedBy(queue[i].addedByName) : null;
+    }
+
+    bool canRemove(int i) {
+      final queue = jam?.state.queue;
+      if (jam == null) return true;
+      return jam.isHost || (queue != null && i < queue.length && queue[i].addedById == jam.myId);
+    }
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.playerQueue)),
+      appBar: AppBar(title: Text(jam == null ? context.l10n.playerQueue : context.l10n.jamQueue)),
       body: p.current == null
           ? Center(
               child: Text(context.l10n.playerEmptyQueue, style: TextStyle(color: Palette.textMuted)),
@@ -364,24 +378,39 @@ class QueuePage extends ConsumerWidget {
               children: [
                 _QueueHeading(context.l10n.playerNowPlaying),
                 TrackRow(track: p.current!, onPlay: ctrl.togglePlay),
+                if (addedBy(p.index!) case final label?) _AddedBy(label),
                 if (upcoming.isNotEmpty) _QueueHeading(context.l10n.playerNextUp),
-                for (final i in upcoming)
+                for (final i in upcoming) ...[
                   TrackRow(
                     key: ValueKey('q$i-${p.queue[i].id}'),
                     track: p.queue[i],
                     onPlay: () => ctrl.jumpTo(i),
                     extraActions: [
-                      TrackAction(
-                        context.l10n.playerRemoveFromQueue,
-                        Icons.remove_circle_outline,
-                        () => ctrl.removeAt(i),
-                      ),
+                      if (canRemove(i))
+                        TrackAction(
+                          context.l10n.playerRemoveFromQueue,
+                          Icons.remove_circle_outline,
+                          () => ctrl.removeAt(i),
+                        ),
                     ],
                   ),
+                  if (addedBy(i) case final label?) _AddedBy(label),
+                ],
               ],
             ),
     );
   }
+}
+
+class _AddedBy extends StatelessWidget {
+  const _AddedBy(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+    child: Text(text, style: const TextStyle(color: Palette.textMuted, fontSize: 12)),
+  );
 }
 
 class _QueueHeading extends StatelessWidget {

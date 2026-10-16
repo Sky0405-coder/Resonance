@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+
+import 'jam_sheet.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
@@ -160,7 +163,7 @@ class TransportControls extends ConsumerWidget {
           tooltip: context.l10n.playerShuffle,
           icon: const Icon(Icons.shuffle),
           color: p.shuffle ? accent : Palette.textMuted,
-          onPressed: ctrl.toggleShuffle,
+          onPressed: p.inJam ? null : ctrl.toggleShuffle,
         ),
         IconButton(
           tooltip: context.l10n.playerPrevious,
@@ -181,7 +184,7 @@ class TransportControls extends ConsumerWidget {
           tooltip: context.l10n.playerRepeat,
           icon: Icon(p.loop == LoopMode.one ? Icons.repeat_one : Icons.repeat),
           color: p.loop == LoopMode.off ? Palette.textMuted : accent,
-          onPressed: ctrl.cycleLoop,
+          onPressed: p.inJam ? null : ctrl.cycleLoop,
         ),
       ],
     );
@@ -344,9 +347,16 @@ class DesktopPlayerBar extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            InkWell(
-                              onTap: () => context.push('/album/${track.album.id}'),
-                              child: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: InkWell(
+                                    onTap: () => context.push('/album/${track.album.id}'),
+                                    child: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  ),
+                                ),
+                                const JamChip(),
+                              ],
                             ),
                             InkWell(
                               onTap: () => context.push('/artist/${track.artist.id}'),
@@ -379,6 +389,7 @@ class DesktopPlayerBar extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                if (book == null && station == null) const JamButton(size: 20),
                 if (book == null && station == null)
                   IconButton(
                     tooltip: context.l10n.playerQueue,
@@ -449,11 +460,18 @@ class MiniPlayer extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              track.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    track.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                const JamChip(),
+                              ],
                             ),
                             Text(
                               track.artistCredit,

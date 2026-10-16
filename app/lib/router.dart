@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'ui/widgets/jam_sheet.dart';
+
 import 'core/session.dart';
 import 'ui/pages/admin/admin_page.dart';
 import 'ui/pages/audiobook_pages.dart';
@@ -89,6 +91,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, _) => const NoTransitionPage(child: LibraryPage()),
           ),
           GoRoute(path: '/world-radio', builder: (_, _) => const WorldRadioPage()),
+          GoRoute(
+            path: '/jam/:code',
+            builder: (_, state) => JoinJamPage(code: state.pathParameters['code']!),
+          ),
           GoRoute(path: '/liked', builder: (_, _) => const LikedPage()),
           GoRoute(
             path: '/album/:id',

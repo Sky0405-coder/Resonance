@@ -121,6 +121,32 @@ class ApiClient {
   Future<void> addWorldRadioFavorite(String id) => _put('/api/worldradio/favorites/$id');
   Future<void> removeWorldRadioFavorite(String id) => _delete('/api/worldradio/favorites/$id');
 
+  // --- jam ------------------------------------------------------------------
+
+  Future<Map<String, dynamic>> jamStart({
+    required List<String> trackIds,
+    required int index,
+    required int positionMs,
+    required bool playing,
+  }) async => Map<String, dynamic>.from(
+    await _post('/api/jam', {'track_ids': trackIds, 'index': index, 'position_ms': positionMs, 'playing': playing}),
+  );
+
+  Future<Map<String, dynamic>> jamCurrent() async => Map<String, dynamic>.from(await _get('/api/jam/current'));
+  Future<Map<String, dynamic>> jamJoin(String code) async =>
+      Map<String, dynamic>.from(await _post('/api/jam/${Uri.encodeComponent(code.trim())}/join'));
+  Future<void> jamLeave() => _post('/api/jam/leave');
+  Future<void> jamKick(String code, String userId) => _post('/api/jam/$code/kick/$userId');
+
+  Uri jamSocketUri() {
+    final base = Uri.parse(baseUrl);
+    return base.replace(
+      scheme: base.scheme == 'https' ? 'wss' : 'ws',
+      path: '${base.path.replaceFirst(RegExp(r'/$'), '')}/api/jam/ws',
+      queryParameters: {'token': token ?? ''},
+    );
+  }
+
   // --- auth -----------------------------------------------------------------
 
   Future<AuthStatus> status() async => AuthStatus.fromJson(await _get('/api/auth/status'));

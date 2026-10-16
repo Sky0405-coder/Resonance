@@ -1856,4 +1856,74 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get worldRadioSearchCountry => 'Land suchen';
+
+  @override
+  String get jamTitle => 'Jam';
+
+  @override
+  String get jamIntro => 'Gemeinsam hören: Freunde treten mit einem Code bei, alle können Songs hinzufügen.';
+
+  @override
+  String get jamStart => 'Jam starten';
+
+  @override
+  String get jamJoin => 'Jam beitreten';
+
+  @override
+  String get jamCodeHint => '6-stelliger Code';
+
+  @override
+  String get jamConnecting => 'Verbinde …';
+
+  @override
+  String get jamCopyLink => 'Link kopieren';
+
+  @override
+  String get jamLinkCopied => 'Link kopiert';
+
+  @override
+  String get jamMembers => 'Teilnehmer';
+
+  @override
+  String get jamHost => 'Host';
+
+  @override
+  String get jamKick => 'Entfernen';
+
+  @override
+  String get jamMembersControl => 'Mitglieder dürfen steuern';
+
+  @override
+  String get jamListenHere => 'Auf diesem Gerät mithören';
+
+  @override
+  String get jamListenHereHint => 'Aus: nur steuern, die Musik läuft auf einem anderen Gerät';
+
+  @override
+  String get jamLeave => 'Jam verlassen';
+
+  @override
+  String get jamEnd => 'Jam beenden';
+
+  @override
+  String get jamEndConfirm => 'Den Jam für alle beenden?';
+
+  @override
+  String get jamEnded => 'Der Jam wurde beendet';
+
+  @override
+  String get jamNotConnected => 'Keine Verbindung zum Jam';
+
+  @override
+  String get jamQueue => 'Jam-Warteschlange';
+
+  @override
+  String jamAddedBy(String name) {
+    return 'Hinzugefügt von $name';
+  }
+
+  @override
+  String jamChip(int count) {
+    return 'Jam · $count';
+  }
 }

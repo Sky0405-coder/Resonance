@@ -17,6 +17,7 @@ from app.api import (
     catalog,
     editor,
     imports,
+    jam,
     library,
     me,
     mixes,
@@ -34,6 +35,7 @@ from app.deps import DB, CurrentUser
 from app.i18n import language, translate
 from app.services import audiobookshelf as abs_service
 from app.services import importer, upgrades
+from app.services.jam import hub as jam_hub
 from app.services import mixes as mixes_service
 from app.services import radio as radio_service
 from app.services import spotify as spotify_service
@@ -54,9 +56,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await radio_service.start()
     await mixes_service.start()
     await upgrades.start()
+    await jam_hub.start()
     try:
         yield
     finally:
+        await jam_hub.stop()
         await upgrades.stop()
         await importer.stop()
         await manager.stop()
@@ -103,6 +107,7 @@ for module in (
     audiobookshelf,
     users,
     worldradio,
+    jam,
 ):
     app.include_router(module.router)
 app.include_router(audiobookshelf.admin_router)

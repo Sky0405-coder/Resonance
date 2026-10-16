@@ -1151,7 +1151,9 @@
   "discordPresenceArtist": "von {artist}",
   "@discordPresenceArtist": {
     "placeholders": {
-      "artist": {"type": "String"}
+      "artist": {
+        "type": "String"
+      }
     }
   },
   "playlistRemoveCover": "Cover entfernen",
@@ -1168,5 +1170,41 @@
   "worldRadioUnavailable": "Sender nicht erreichbar",
   "worldRadioLive": "LIVE",
   "worldRadioCountry": "Land",
-  "worldRadioSearchCountry": "Land suchen"
+  "worldRadioSearchCountry": "Land suchen",
+  "jamTitle": "Jam",
+  "jamIntro": "Gemeinsam hören: Freunde treten mit einem Code bei, alle können Songs hinzufügen.",
+  "jamStart": "Jam starten",
+  "jamJoin": "Jam beitreten",
+  "jamCodeHint": "6-stelliger Code",
+  "jamConnecting": "Verbinde …",
+  "jamCopyLink": "Link kopieren",
+  "jamLinkCopied": "Link kopiert",
+  "jamMembers": "Teilnehmer",
+  "jamHost": "Host",
+  "jamKick": "Entfernen",
+  "jamMembersControl": "Mitglieder dürfen steuern",
+  "jamListenHere": "Auf diesem Gerät mithören",
+  "jamListenHereHint": "Aus: nur steuern, die Musik läuft auf einem anderen Gerät",
+  "jamLeave": "Jam verlassen",
+  "jamEnd": "Jam beenden",
+  "jamEndConfirm": "Den Jam für alle beenden?",
+  "jamEnded": "Der Jam wurde beendet",
+  "jamNotConnected": "Keine Verbindung zum Jam",
+  "jamQueue": "Jam-Warteschlange",
+  "jamAddedBy": "Hinzugefügt von {name}",
+  "jamChip": "Jam · {count}",
+  "@jamAddedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@jamChip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

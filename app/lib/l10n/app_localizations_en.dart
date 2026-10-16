@@ -1882,4 +1882,74 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get worldRadioSearchCountry => 'Search countries';
+
+  @override
+  String get jamTitle => 'Jam';
+
+  @override
+  String get jamIntro => 'Listen together: friends join with a code and everyone can add songs.';
+
+  @override
+  String get jamStart => 'Start a Jam';
+
+  @override
+  String get jamJoin => 'Join a Jam';
+
+  @override
+  String get jamCodeHint => '6-character code';
+
+  @override
+  String get jamConnecting => 'Connecting …';
+
+  @override
+  String get jamCopyLink => 'Copy link';
+
+  @override
+  String get jamLinkCopied => 'Link copied';
+
+  @override
+  String get jamMembers => 'Participants';
+
+  @override
+  String get jamHost => 'Host';
+
+  @override
+  String get jamKick => 'Remove';
+
+  @override
+  String get jamMembersControl => 'Members can control playback';
+
+  @override
+  String get jamListenHere => 'Listen on this device';
+
+  @override
+  String get jamListenHereHint => 'Off: control only, the music plays on another device';
+
+  @override
+  String get jamLeave => 'Leave Jam';
+
+  @override
+  String get jamEnd => 'End Jam';
+
+  @override
+  String get jamEndConfirm => 'End the Jam for everyone?';
+
+  @override
+  String get jamEnded => 'The Jam has ended';
+
+  @override
+  String get jamNotConnected => 'Not connected to the Jam';
+
+  @override
+  String get jamQueue => 'Jam queue';
+
+  @override
+  String jamAddedBy(String name) {
+    return 'Added by $name';
+  }
+
+  @override
+  String jamChip(int count) {
+    return 'Jam · $count';
+  }
 }

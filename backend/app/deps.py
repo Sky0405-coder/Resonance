@@ -24,6 +24,16 @@ def _extract_token(request: Request, token: str | None) -> str | None:
     return token
 
 
+async def session_for_token(db: AsyncSession, raw: str) -> AuthSession | None:
+    """The valid session of an access token (None if unknown, expired or the user is disabled)."""
+    session = await db.scalar(
+        select(AuthSession).options(joinedload(AuthSession.user)).where(AuthSession.token_hash == hash_token(raw))
+    )
+    if session is None or session.expires_at < datetime.now(UTC) or session.user.is_disabled:
+        return None
+    return session
+
+
 async def current_user(
     request: Request,
     db: DB,
@@ -32,11 +42,9 @@ async def current_user(
     raw = _extract_token(request, token)
     if not raw:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
-    session = await db.scalar(
-        select(AuthSession).options(joinedload(AuthSession.user)).where(AuthSession.token_hash == hash_token(raw))
-    )
+    session = await session_for_token(db, raw)
     now = datetime.now(UTC)
-    if session is None or session.expires_at < now or session.user.is_disabled:
+    if session is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired session")
     if now - session.last_used_at > _TOUCH_INTERVAL:
         session.last_used_at = now

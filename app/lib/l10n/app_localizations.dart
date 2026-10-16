@@ -3325,6 +3325,138 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Land suchen'**
   String get worldRadioSearchCountry;
+
+  /// No description provided for @jamTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Jam'**
+  String get jamTitle;
+
+  /// No description provided for @jamIntro.
+  ///
+  /// In de, this message translates to:
+  /// **'Gemeinsam hören: Freunde treten mit einem Code bei, alle können Songs hinzufügen.'**
+  String get jamIntro;
+
+  /// No description provided for @jamStart.
+  ///
+  /// In de, this message translates to:
+  /// **'Jam starten'**
+  String get jamStart;
+
+  /// No description provided for @jamJoin.
+  ///
+  /// In de, this message translates to:
+  /// **'Jam beitreten'**
+  String get jamJoin;
+
+  /// No description provided for @jamCodeHint.
+  ///
+  /// In de, this message translates to:
+  /// **'6-stelliger Code'**
+  String get jamCodeHint;
+
+  /// No description provided for @jamConnecting.
+  ///
+  /// In de, this message translates to:
+  /// **'Verbinde …'**
+  String get jamConnecting;
+
+  /// No description provided for @jamCopyLink.
+  ///
+  /// In de, this message translates to:
+  /// **'Link kopieren'**
+  String get jamCopyLink;
+
+  /// No description provided for @jamLinkCopied.
+  ///
+  /// In de, this message translates to:
+  /// **'Link kopiert'**
+  String get jamLinkCopied;
+
+  /// No description provided for @jamMembers.
+  ///
+  /// In de, this message translates to:
+  /// **'Teilnehmer'**
+  String get jamMembers;
+
+  /// No description provided for @jamHost.
+  ///
+  /// In de, this message translates to:
+  /// **'Host'**
+  String get jamHost;
+
+  /// No description provided for @jamKick.
+  ///
+  /// In de, this message translates to:
+  /// **'Entfernen'**
+  String get jamKick;
+
+  /// No description provided for @jamMembersControl.
+  ///
+  /// In de, this message translates to:
+  /// **'Mitglieder dürfen steuern'**
+  String get jamMembersControl;
+
+  /// No description provided for @jamListenHere.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf diesem Gerät mithören'**
+  String get jamListenHere;
+
+  /// No description provided for @jamListenHereHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus: nur steuern, die Musik läuft auf einem anderen Gerät'**
+  String get jamListenHereHint;
+
+  /// No description provided for @jamLeave.
+  ///
+  /// In de, this message translates to:
+  /// **'Jam verlassen'**
+  String get jamLeave;
+
+  /// No description provided for @jamEnd.
+  ///
+  /// In de, this message translates to:
+  /// **'Jam beenden'**
+  String get jamEnd;
+
+  /// No description provided for @jamEndConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'Den Jam für alle beenden?'**
+  String get jamEndConfirm;
+
+  /// No description provided for @jamEnded.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Jam wurde beendet'**
+  String get jamEnded;
+
+  /// No description provided for @jamNotConnected.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Verbindung zum Jam'**
+  String get jamNotConnected;
+
+  /// No description provided for @jamQueue.
+  ///
+  /// In de, this message translates to:
+  /// **'Jam-Warteschlange'**
+  String get jamQueue;
+
+  /// No description provided for @jamAddedBy.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinzugefügt von {name}'**
+  String jamAddedBy(String name);
+
+  /// No description provided for @jamChip.
+  ///
+  /// In de, this message translates to:
+  /// **'Jam · {count}'**
+  String jamChip(int count);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

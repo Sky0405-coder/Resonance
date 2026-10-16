@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+
+import '../player/jam.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -29,6 +32,12 @@ class AppShell extends ConsumerWidget {
     ref.listen(playerErrorsProvider, (_, next) {
       final error = next.asData?.value;
       if (error != null) showError(context, error);
+    });
+    // Keeps the Jam connection alive app-wide and shows its messages.
+    ref.watch(jamProvider.select((v) => v?.state.code));
+    ref.listen(jamMessagesProvider, (_, next) {
+      final message = next.asData?.value;
+      if (message != null && message.isNotEmpty) showInfo(context, message);
     });
     final offline = !kIsWeb && ref.watch(sessionProvider.select((s) => s.offline));
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
