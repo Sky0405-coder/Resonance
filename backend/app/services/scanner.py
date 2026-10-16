@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import uuid
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -229,9 +230,10 @@ async def start_scan(db: AsyncSession, full: bool = False) -> Job:
     return job
 
 
-async def import_files(db: AsyncSession, rels: list[str]) -> dict[str, Track | None]:
+async def import_files(db: AsyncSession, rels: list[str], *, locked: bool = False) -> dict[str, Track | None]:
     global _imports
-    async with library_lock:
+    # Replacement callers hold the lock across file operations and this import.
+    async with nullcontext() if locked else library_lock:
         syncer = _Syncer(db, full=False)
         await syncer.load()
         out = {}

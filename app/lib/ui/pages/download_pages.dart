@@ -368,7 +368,14 @@ class _RequestTile extends ConsumerWidget {
           children: [
             SizedBox(
               width: 56,
-              child: NetworkCover(url: r.coverUrl, icon: r.kind == 'album' ? Icons.album : Icons.music_note),
+              child: NetworkCover(
+                url: r.coverUrl,
+                icon: r.kind == 'redownload'
+                    ? Icons.restart_alt
+                    : r.kind == 'album'
+                    ? Icons.album
+                    : Icons.music_note,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -378,7 +385,11 @@ class _RequestTile extends ConsumerWidget {
                   Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                   Text(
                     [
-                      r.kind == 'album' ? context.l10n.commonAlbum : context.l10n.commonSong,
+                      r.kind == 'redownload'
+                          ? context.l10n.downloadsRedownload
+                          : r.kind == 'album'
+                          ? context.l10n.commonAlbum
+                          : context.l10n.commonSong,
                       r.artist,
                       if (showUser) context.l10n.downloadsRequestedBySuffix((r.user.name).toString()),
                     ].join(' • '),
@@ -457,7 +468,13 @@ class RequestDetailPage extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  SizedBox(width: 120, child: NetworkCover(url: r.coverUrl)),
+                  SizedBox(
+                    width: 120,
+                    child: NetworkCover(
+                      url: r.coverUrl,
+                      icon: r.kind == 'redownload' ? Icons.restart_alt : Icons.album,
+                    ),
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(

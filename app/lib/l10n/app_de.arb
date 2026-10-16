@@ -1090,5 +1090,13 @@
   "lyricsNotFound": "Für diesen Song gibt es keinen Songtext.",
   "lyricsAttribution": "Songtext von LRCLIB",
   "adminLyricsOnline": "Songtexte online suchen (LRCLIB)",
-  "adminLyricsOnlineHint": "Für Songs ohne eigene Songtexte werden synchronisierte Texte von lrclib.net geladen."
+  "adminLyricsOnlineHint": "Für Songs ohne eigene Songtexte werden synchronisierte Texte von lrclib.net geladen.",
+  "redownloadMenu": "Falsche Version? Neu herunterladen",
+  "redownloadTitle": "Neu herunterladen",
+  "redownloadExplanation": "Der Song wird erneut gesucht und ersetzt. Die bisher verwendete Quelle wird übersprungen. Likes und Playlists bleiben erhalten.",
+  "redownloadYoutubeLabel": "YouTube-Link (optional)",
+  "redownloadYoutubeHint": "Falls du eine bestimmte Version willst",
+  "redownloadStarted": "Neu-Download gestartet",
+  "redownloadAwaitingApproval": "Anfrage gesendet – ein Admin muss sie freigeben",
+  "downloadsRedownload": "Neu-Download"
 }

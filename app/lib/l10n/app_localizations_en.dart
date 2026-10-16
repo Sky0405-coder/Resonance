@@ -1702,4 +1702,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminLyricsOnlineHint => 'Songs without their own lyrics get synced lyrics from lrclib.net.';
+
+  @override
+  String get redownloadMenu => 'Wrong version? Download again';
+
+  @override
+  String get redownloadTitle => 'Download again';
+
+  @override
+  String get redownloadExplanation =>
+      'The song is searched again and replaced. The source used before is skipped. Likes and playlists are kept.';
+
+  @override
+  String get redownloadYoutubeLabel => 'YouTube link (optional)';
+
+  @override
+  String get redownloadYoutubeHint => 'If you want a specific version';
+
+  @override
+  String get redownloadStarted => 'Re-download started';
+
+  @override
+  String get redownloadAwaitingApproval => 'Request sent – an admin has to approve it';
+
+  @override
+  String get downloadsRedownload => 'Re-download';
 }

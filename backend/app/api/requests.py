@@ -34,6 +34,7 @@ def _out(request: DownloadRequest) -> DownloadRequestDetail:
         kind=request.kind,
         mb_id=request.mb_id,
         catalog_id=request.catalog_id,
+        replace_track_id=request.replace_track_id,
         title=request.title,
         artist=request.artist,
         cover_url=request.cover_url,

@@ -365,6 +365,7 @@ class DownloadRequestOut(ORM):
     kind: str
     mb_id: str | None
     catalog_id: str | None
+    replace_track_id: uuid.UUID | None
     title: str
     artist: str
     cover_url: str | None
@@ -392,6 +393,10 @@ class RequestIn(BaseModel):
     kind: Literal["track", "album"]
     id: str = Field(min_length=1, max_length=20, pattern=r"^[0-9]+$")
     temporary: bool = False
+
+
+class RedownloadIn(BaseModel):
+    youtube_url: str | None = Field(None, max_length=500)
 
 
 class RejectIn(BaseModel):

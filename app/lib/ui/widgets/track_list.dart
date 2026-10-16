@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/library.dart';
+import '../../core/downloads.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
@@ -213,6 +214,12 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
                 title: Text(context.l10n.playerGoToArtist),
                 onTap: () => run(() => context.push('/artist/${t.artist.id}')),
               ),
+              if (!ref.read(sessionProvider).offline)
+                ListTile(
+                  leading: const Icon(Icons.restart_alt),
+                  title: Text(context.l10n.redownloadMenu),
+                  onTap: () => run(() => showRedownloadDialog(context, ref, t)),
+                ),
               for (final a in extra)
                 ListTile(leading: Icon(a.icon), title: Text(a.label), onTap: () => run(a.onSelected)),
               if (ref.read(sessionProvider).user?.isAdmin ?? false) ...[
@@ -233,6 +240,51 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
       );
     },
   );
+}
+
+Future<void> showRedownloadDialog(BuildContext context, WidgetRef ref, Track track) async {
+  var youtubeUrl = '';
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: Text(context.l10n.redownloadTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(context.l10n.redownloadExplanation),
+          const SizedBox(height: 16),
+          TextField(
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              labelText: context.l10n.redownloadYoutubeLabel,
+              hintText: context.l10n.redownloadYoutubeHint,
+            ),
+            onChanged: (value) => youtubeUrl = value,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(context.l10n.commonCancel)),
+        FilledButton(onPressed: () => Navigator.pop(dialog, true), child: Text(context.l10n.redownloadTitle)),
+      ],
+    ),
+  );
+  if (confirmed != true) return;
+  try {
+    final url = youtubeUrl.trim();
+    final request = await ref.read(apiProvider).redownload(track.id, youtubeUrl: url.isEmpty ? null : url);
+    ref.invalidate(requestsProvider);
+    ref.invalidate(requestDetailProvider);
+    ref.invalidate(downloadSummaryProvider);
+    if (context.mounted) {
+      showInfo(
+        context,
+        request.status == 'pending_approval' ? context.l10n.redownloadAwaitingApproval : context.l10n.redownloadStarted,
+      );
+    }
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
 }
 
 Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String> trackIds) async {
@@ -260,7 +312,9 @@ Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String>
               if (context.mounted) showInfo(context, context.l10n.libraryAddedToPlaylist((p.name).toString()));
             },
           ),
-          for (final p in playlists.where((p) => p.owner.id == ref.read(currentUserIdProvider) && !p.isRadio && !p.isMix))
+          for (final p in playlists.where(
+            (p) => p.owner.id == ref.read(currentUserIdProvider) && !p.isRadio && !p.isMix,
+          ))
             ListTile(
               leading: SizedBox(width: 40, child: PlaylistCover(albumIds: p.coverAlbumIds)),
               title: Text(p.name),

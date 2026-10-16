@@ -239,6 +239,9 @@ class ApiClient {
   Future<DownloadRequest> createRequest(String kind, String catalogId) async =>
       DownloadRequest.fromJson(await _post('/api/requests', {'kind': kind, 'id': catalogId}));
 
+  Future<DownloadRequest> redownload(String trackId, {String? youtubeUrl}) async =>
+      DownloadRequest.fromJson(await _post('/api/tracks/$trackId/redownload', {'youtube_url': youtubeUrl}));
+
   Future<List<DownloadRequest>> requests({String scope = 'mine', String state = 'all', int limit = 100}) async {
     final j = await _get('/api/requests', {'scope': scope, 'state': state, 'limit': limit});
     return [for (final r in j['items']) DownloadRequest.fromJson(r)];

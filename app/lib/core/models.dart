@@ -590,6 +590,7 @@ class DownloadRequest {
     required this.id,
     required this.kind,
     this.catalogId,
+    this.replaceTrackId,
     required this.title,
     required this.artist,
     required this.status,
@@ -611,6 +612,7 @@ class DownloadRequest {
   final String id;
   final String kind;
   final String? catalogId;
+  final String? replaceTrackId;
   final String title;
   final String artist;
   final String? coverUrl;
@@ -635,6 +637,7 @@ class DownloadRequest {
     id: j['id'],
     kind: j['kind'],
     catalogId: j['catalog_id'],
+    replaceTrackId: j['replace_track_id'],
     title: j['title'],
     artist: j['artist'],
     coverUrl: j['cover_url'],

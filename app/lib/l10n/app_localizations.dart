@@ -2989,6 +2989,54 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Für Songs ohne eigene Songtexte werden synchronisierte Texte von lrclib.net geladen.'**
   String get adminLyricsOnlineHint;
+
+  /// No description provided for @redownloadMenu.
+  ///
+  /// In de, this message translates to:
+  /// **'Falsche Version? Neu herunterladen'**
+  String get redownloadMenu;
+
+  /// No description provided for @redownloadTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Neu herunterladen'**
+  String get redownloadTitle;
+
+  /// No description provided for @redownloadExplanation.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Song wird erneut gesucht und ersetzt. Die bisher verwendete Quelle wird übersprungen. Likes und Playlists bleiben erhalten.'**
+  String get redownloadExplanation;
+
+  /// No description provided for @redownloadYoutubeLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'YouTube-Link (optional)'**
+  String get redownloadYoutubeLabel;
+
+  /// No description provided for @redownloadYoutubeHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Falls du eine bestimmte Version willst'**
+  String get redownloadYoutubeHint;
+
+  /// No description provided for @redownloadStarted.
+  ///
+  /// In de, this message translates to:
+  /// **'Neu-Download gestartet'**
+  String get redownloadStarted;
+
+  /// No description provided for @redownloadAwaitingApproval.
+  ///
+  /// In de, this message translates to:
+  /// **'Anfrage gesendet – ein Admin muss sie freigeben'**
+  String get redownloadAwaitingApproval;
+
+  /// No description provided for @downloadsRedownload.
+  ///
+  /// In de, this message translates to:
+  /// **'Neu-Download'**
+  String get downloadsRedownload;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

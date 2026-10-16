@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy import func, or_, select
 
 from app.api.catalog import _track as catalog_track
+from app.api.requests import _out as request_out
 from app.deps import DB, CurrentUser
 from app.models import Album, Artist, PlayEvent, Playlist, SavedAlbum, Track
 from app.schemas import (
@@ -15,15 +16,18 @@ from app.schemas import (
     AlbumOut,
     ArtistDetail,
     ArtistOut,
+    DownloadRequestDetail,
     HomeOut,
     LyricsOut,
     MissingTracksOut,
     Page,
+    RedownloadIn,
     SearchResult,
     TrackOut,
 )
 from app.services import covers, transcode
 from app.services.deezer import DeezerError, deezer
+from app.services.downloads import create_redownload
 from app.services.lyrics import get_lyrics
 from app.services.matching import match_tracks, name_key
 from app.services.views import (
@@ -267,6 +271,14 @@ async def get_track(track_id: uuid.UUID, user: CurrentUser, db: DB) -> TrackOut:
     if track is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Track not found")
     return (await tracks_out(db, user, [track]))[0]
+
+
+@router.post("/tracks/{track_id}/redownload", response_model=DownloadRequestDetail, status_code=201)
+async def redownload(track_id: uuid.UUID, body: RedownloadIn, user: CurrentUser, db: DB) -> DownloadRequestDetail:
+    track = await db.get(Track, track_id)
+    if track is None:
+        raise HTTPException(404, "Song nicht gefunden")
+    return request_out(await create_redownload(db, user, track, body.youtube_url))
 
 
 @router.get("/tracks/{track_id}/lyrics", response_model=LyricsOut)

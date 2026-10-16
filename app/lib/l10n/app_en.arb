@@ -523,5 +523,13 @@
   "lyricsNotFound": "No lyrics available for this song.",
   "lyricsAttribution": "Lyrics from LRCLIB",
   "adminLyricsOnline": "Look up lyrics online (LRCLIB)",
-  "adminLyricsOnlineHint": "Songs without their own lyrics get synced lyrics from lrclib.net."
+  "adminLyricsOnlineHint": "Songs without their own lyrics get synced lyrics from lrclib.net.",
+  "redownloadMenu": "Wrong version? Download again",
+  "redownloadTitle": "Download again",
+  "redownloadExplanation": "The song is searched again and replaced. The source used before is skipped. Likes and playlists are kept.",
+  "redownloadYoutubeLabel": "YouTube link (optional)",
+  "redownloadYoutubeHint": "If you want a specific version",
+  "redownloadStarted": "Re-download started",
+  "redownloadAwaitingApproval": "Request sent – an admin has to approve it",
+  "downloadsRedownload": "Re-download"
 }

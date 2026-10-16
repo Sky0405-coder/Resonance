@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import os
 import shutil
+import tempfile
 import uuid
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
@@ -11,15 +13,15 @@ from urllib.parse import urljoin
 import httpx
 from fastapi import HTTPException
 from rapidfuzz import fuzz
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import DownloadItem, DownloadRequest, User
+from app.models import Album, DownloadItem, DownloadRequest, Track, TrackLyrics, User
 from app.schemas import CatalogTrack
-from app.services import sources
+from app.services import scanner, sources
 from app.services.deezer import DeezerError, NotFound, artist_string, deezer
 from app.services.importer import quality
 from app.services.library_paths import target_relpath
@@ -30,9 +32,9 @@ from app.services.resolve import explicit_album_id, explicit_track_id, resolve_a
 from app.services.scanner import AUDIO_EXTENSIONS, import_file, import_files
 from app.services.server_config import load_config
 from app.services.sources.base import Cancelled
-from app.services.sources.youtube import norm
+from app.services.sources.youtube import norm, video_id
 from app.services.tagger import fetch_cover, write_tags
-from app.services.tags import TrackTags, read_tags
+from app.services.tags import TrackTags, embedded_cover, read_tags
 from app.services.torrents import TorrentError, prowlarr
 from app.services.torrents.qbittorrent import QBittorrent
 from app.services.torrents.select import choose, search_query
@@ -433,6 +435,42 @@ class DownloadManager:
                     )
                     await db.commit()
 
+    async def _replace(self, track_id: uuid.UUID | None, path: Path, meta: TrackMeta) -> Track | None:
+        async with scanner.library_lock, SessionLocal() as db:
+            track = await db.get(Track, track_id, with_for_update=True) if track_id else None
+            if track is None:
+                return None
+            old = get_settings().music_dir / track.path
+            new_rel = str(Path(track.path).with_suffix(path.suffix))
+            target = get_settings().music_dir / new_rel
+
+            def replace() -> None:
+                cover = embedded_cover(old)
+                folder_cover = old.parent / "cover.jpg"
+                if cover is None and folder_cover.is_file():
+                    cover = folder_cover.read_bytes()
+                write_tags(path, meta, cover)
+                with tempfile.NamedTemporaryFile(dir=target.parent, prefix=".redownload-", delete=False) as temp:
+                    staged = Path(temp.name)
+                try:
+                    shutil.move(str(path), str(staged))
+                    os.replace(staged, target)
+                finally:
+                    staged.unlink(missing_ok=True)
+                if new_rel != track.path:
+                    sidecar = sidecar_path(old)
+                    if sidecar is not None and sidecar != target.with_suffix(".lrc"):
+                        os.replace(sidecar, target.with_suffix(".lrc"))
+                    old.unlink(missing_ok=True)
+
+            await asyncio.to_thread(replace)
+            track.path = new_rel
+            await db.execute(delete(TrackLyrics).where(TrackLyrics.track_id == track.id))
+            imported = (await import_files(db, [new_rel], locked=True))[new_rel]
+            if imported is None:
+                raise ValueError("Audiodatei nicht importierbar")
+            return imported
+
     async def _run(self, item: DownloadItem) -> None:
         work = get_settings().downloads_dir / "resonance" / str(item.id)
         progress_task: asyncio.Task | None = None
@@ -440,30 +478,50 @@ class DownloadManager:
         try:
             meta = TrackMeta.model_validate(item.meta)
             async with SessionLocal() as db:
-                track = _catalog_track(meta)
-                await match_tracks(db, [track])
                 cfg = await load_config(db)
                 request = await db.get(DownloadRequest, item.request_id)
+                redownload = request.kind == "redownload"
                 temporary = request.is_temporary
+                track = _catalog_track(meta)
+                if not redownload:
+                    await match_tracks(db, [track])
+                replacement_exists = not redownload or (
+                    request.replace_track_id is not None and await db.get(Track, request.replace_track_id) is not None
+                )
             if item.id in self._cancelled:
                 raise Cancelled()
+            if not replacement_exists:
+                await self._change(item.id, status="failed", error="Song wurde gelöscht")
+                return
             if track.library_id:
                 await self._change(item.id, status="exists", track_id=track.library_id)
                 return
             enabled = sources.enabled_sources(cfg)
+            forced = redownload and item.source == "youtube" and item.source_ref
+            if forced:
+                enabled = [source for source in enabled if source.name == "youtube"]
             if not enabled:
                 await self._change(item.id, status="failed", error="Keine Download-Quelle aktiviert")
                 return
             chosen = None
             for source in enabled:
-                candidate = await source.find(meta)
+                if forced:
+                    candidate = source.candidate(item.source_ref)
+                elif redownload:
+                    candidate = await source.find(meta, frozenset(item.exclude_refs))
+                else:
+                    candidate = await source.find(meta)
                 if item.id in self._cancelled:
                     raise Cancelled()
                 if candidate is not None:
                     chosen = source, candidate
                     break
             if chosen is None:
-                await self._change(item.id, status="failed", error="Keine passende Quelle gefunden")
+                await self._change(
+                    item.id,
+                    status="failed",
+                    error="Keine andere Version gefunden" if redownload else "Keine passende Quelle gefunden",
+                )
                 return
             source, candidate = chosen
             await self._change(item.id, status="downloading", source=candidate.source, source_ref=candidate.ref)
@@ -483,6 +541,13 @@ class DownloadManager:
             if item.id in self._cancelled:
                 raise Cancelled()
             await self._change(item.id, status="processing")
+            if redownload:
+                imported = await self._replace(request.replace_track_id, path, meta)
+                if imported is None:
+                    await self._change(item.id, status="failed", error="Song wurde gelöscht")
+                    return
+                await self._change(item.id, status="done", track_id=imported.id, progress=1, error=None)
+                return
             cover = await fetch_cover(meta)
             await asyncio.to_thread(write_tags, path, meta, cover)
             rel = target_relpath(meta, path.suffix)
@@ -543,6 +608,100 @@ class DownloadManager:
 
 
 manager = DownloadManager()
+
+
+async def create_redownload(db: AsyncSession, user: User, track: Track, youtube_url: str | None) -> DownloadRequest:
+    ref = video_id(youtube_url) if youtube_url is not None else None
+    if youtube_url is not None and ref is None:
+        raise HTTPException(422, "Kein gültiger YouTube-Link")
+    existing = await db.scalar(
+        select(DownloadRequest)
+        .options(selectinload(DownloadRequest.items), joinedload(DownloadRequest.user))
+        .where(
+            DownloadRequest.user_id == user.id,
+            DownloadRequest.kind == "redownload",
+            DownloadRequest.replace_track_id == track.id,
+            DownloadRequest.status.in_(["pending_approval", "active"]),
+        )
+    )
+    if existing is not None:
+        return existing
+    cfg = await load_config(db)
+    if cfg.downloads.daily_limit_enabled and not user.is_admin:
+        count = (
+            await db.scalar(
+                select(func.count())
+                .select_from(DownloadItem)
+                .join(DownloadRequest)
+                .where(
+                    DownloadRequest.user_id == user.id,
+                    DownloadRequest.created_at >= datetime.now(UTC) - timedelta(hours=24),
+                    DownloadItem.status != "exists",
+                )
+            )
+            or 0
+        )
+        limit = cfg.downloads.daily_limit_per_user
+        if count + 1 > limit:
+            raise HTTPException(429, f"Tageslimit erreicht ({count} von {limit} Songs in 24 Stunden)")
+    album = await db.scalar(select(Album).options(joinedload(Album.artist)).where(Album.id == track.album_id))
+    meta = TrackMeta(
+        title=track.title,
+        artist=track.artist_credit,
+        artist_mbid=None,
+        album=album.title,
+        album_artist=album.artist.name,
+        album_artist_mbid=None,
+        track_no=track.track_no,
+        track_total=None,
+        disc_no=track.disc_no,
+        disc_total=None,
+        year=track.year,
+        date=None,
+        duration=track.duration,
+        isrc=track.isrc,
+        genre=track.genre,
+        label=None,
+        mb_recording_id=track.mb_recording_id,
+        mb_release_id=None,
+        mb_release_group_id=None,
+        cover_url=None,
+    )
+    refs = await db.scalars(
+        select(DownloadItem.source_ref)
+        .where(DownloadItem.source == "youtube", DownloadItem.track_id == track.id)
+        .order_by(DownloadItem.created_at)
+    )
+    approved = user.is_admin or cfg.downloads.auto_approve_requests
+    request = DownloadRequest(
+        user=user,
+        kind="redownload",
+        catalog_id=None,
+        replace_track_id=track.id,
+        title=track.title,
+        artist=track.artist_credit,
+        cover_url=None,
+        status="active" if approved else "pending_approval",
+        is_temporary=False,
+        items=[
+            DownloadItem(
+                position=0,
+                title=track.title,
+                artist=track.artist_credit,
+                duration=track.duration,
+                meta=meta.model_dump(),
+                exclude_refs=[] if ref else list(dict.fromkeys(r for r in refs if r)),
+                source="youtube" if ref else None,
+                source_ref=ref,
+                status="queued" if approved else "waiting",
+                track_id=None,
+            )
+        ],
+    )
+    db.add(request)
+    await db.commit()
+    manager.wake()
+    return request
 
 
 async def create_request(
