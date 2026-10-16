@@ -12,6 +12,7 @@ import '../core/library.dart';
 import '../core/models.dart';
 import '../core/session.dart';
 import '../core/theme.dart';
+import '../player/player.dart';
 import 'widgets/common.dart';
 import 'widgets/player_bar.dart';
 import 'widgets/update.dart';
@@ -25,6 +26,10 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(playerErrorsProvider, (_, next) {
+      final error = next.asData?.value;
+      if (error != null) showError(context, error);
+    });
     final offline = !kIsWeb && ref.watch(sessionProvider.select((s) => s.offline));
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
     final audiobooks = ref.watch(absStatusProvider).value?.enabled ?? false;

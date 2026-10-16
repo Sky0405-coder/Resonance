@@ -170,3 +170,15 @@ class LibraryActions {
 }
 
 final libraryActionsProvider = Provider((ref) => LibraryActions(ref));
+
+final worldRadioFavoritesProvider = FutureProvider<List<Station>>(
+  (ref) => ref.watch(apiProvider).worldRadioFavorites(),
+);
+
+final worldRadioCountriesProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
+  (ref) => ref.watch(apiProvider).worldRadioCountries(),
+);
+
+final worldRadioTagsProvider = FutureProvider.autoDispose<List<String>>(
+  (ref) => ref.watch(apiProvider).worldRadioTags(),
+);

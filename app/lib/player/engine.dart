@@ -77,6 +77,11 @@ class PlaybackEngine {
     for (final player in _players) {
       _forward(player, player.playerStateStream, _states);
       _subs.add(
+        player.errorStream.listen((error) {
+          if (player == _active && !_editing) _errors.add(error);
+        }),
+      );
+      _subs.add(
         player.currentIndexStream.listen((index) {
           if (player != _active || _editing) return;
           final fade = _fade;
@@ -116,6 +121,8 @@ class PlaybackEngine {
   final _durations = StreamController<Duration?>.broadcast(sync: true);
   final _loops = StreamController<LoopMode>.broadcast(sync: true);
   final _events = StreamController<PlaybackEvent>.broadcast(sync: true);
+  final _errors = StreamController<Object>.broadcast();
+  Stream<Object> get errorStream => _errors.stream;
   List<SourceFactory> _sources = [];
   bool _editing = false;
   bool _disposed = false;
@@ -136,8 +143,8 @@ class PlaybackEngine {
             controller.add(value);
           }
         },
-        onError: (Object _) {
-          // Loading futures handle replacement errors and failed fade preparation.
+        onError: (Object error) {
+          if (player == _active && !_editing && controller == _events) _errors.add(error);
         },
       ),
     );
@@ -370,7 +377,7 @@ class PlaybackEngine {
       await sub.cancel();
     }
     await Future.wait(_players.map((p) => p.dispose()));
-    for (final stream in [_states, _indices, _positions, _durations, _loops, _events]) {
+    for (final stream in [_states, _indices, _positions, _durations, _loops, _events, _errors]) {
       await stream.close();
     }
   }

@@ -53,10 +53,20 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     artUri: _cover(track.album.id),
   );
 
+  MediaItem _stationItem(Station station) => MediaItem(
+    id: 'station:${station.id}',
+    title: station.name,
+    artist: _l10n.worldRadioTitle,
+    displaySubtitle: _l10n.worldRadioTitle,
+    artUri: station.favicon == null ? null : Uri.parse(station.favicon!),
+  );
+
   void _publish() {
     final view = _view;
     final book = view.book;
-    final items = book == null
+    final items = view.station != null
+        ? [_stationItem(view.station!)]
+        : book == null
         ? [for (final track in view.queue) _trackItem(track, track.id)]
         : [
             for (final (index, part) in book.parts.indexed)
@@ -80,16 +90,18 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     final engine = _controller.engine;
     playbackState.add(
       PlaybackState(
-        controls: [
-          MediaControl.skipToPrevious,
-          engine.playing ? MediaControl.pause : MediaControl.play,
-          MediaControl.skipToNext,
-        ],
+        controls: view.station != null
+            ? [engine.playing ? MediaControl.pause : MediaControl.play, MediaControl.stop]
+            : [
+                MediaControl.skipToPrevious,
+                engine.playing ? MediaControl.pause : MediaControl.play,
+                MediaControl.skipToNext,
+              ],
         systemActions: {
-          MediaAction.seek,
+          if (view.station == null) MediaAction.seek,
           if (view.book != null) ...{MediaAction.seekForward, MediaAction.seekBackward},
         },
-        androidCompactActionIndices: const [0, 1, 2],
+        androidCompactActionIndices: view.station == null ? const [0, 1, 2] : const [0, 1],
         processingState: switch (engine.processingState) {
           ProcessingState.idle => AudioProcessingState.idle,
           ProcessingState.loading => AudioProcessingState.loading,
@@ -247,8 +259,12 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
         _folder('playlists', _l10n.libraryPlaylists),
         _folder('liked', _l10n.libraryLikedSongs),
         _folder('albums', _l10n.commonAlbums),
+        _folder('world-radio', _l10n.worldRadioTitle),
         if (_offline.collections.isNotEmpty) _folder('downloads', _l10n.offlineDownloaded),
       ];
+    }
+    if (id == 'world-radio') {
+      return [for (final station in await container.read(worldRadioFavoritesProvider.future)) _stationItem(station)];
     }
     if (id == 'downloads') return _offlineCollections();
     if (id == 'home' || id == 'playlists' || id == 'albums') {
@@ -294,6 +310,9 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
       if (_items.containsKey(mediaId)) return _items[mediaId];
       final queued = queue.value.where((item) => item.id == mediaId).firstOrNull;
       if (queued != null) return queued;
+      if (mediaId.startsWith('station:')) {
+        return (await getChildren('world-radio')).where((item) => item.id == mediaId).firstOrNull;
+      }
       if (mediaId.startsWith('track:')) {
         final end = mediaId.lastIndexOf(':');
         final collection = mediaId.substring(6, end);
@@ -323,6 +342,12 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
   @override
   Future<void> playFromMediaId(String mediaId, [Map<String, dynamic>? extras]) async {
     try {
+      if (mediaId.startsWith('station:')) {
+        final id = mediaId.substring(8);
+        final station = (await container.read(worldRadioFavoritesProvider.future)).where((s) => s.id == id).firstOrNull;
+        if (station != null) await _controller.playStation(station);
+        return;
+      }
       var collection = mediaId;
       String? trackId;
       if (mediaId.startsWith('track:')) {
@@ -380,7 +405,7 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
   Future<void> playFromSearch(String query, [Map<String, dynamic>? extras]) async {
     try {
       if (query.trim().isEmpty) {
-        if (_view.current != null || _view.book != null) {
+        if (_view.current != null || _view.book != null || _view.station != null) {
           _controller.play().ignore();
         } else {
           final tracks = await _tracks('liked');

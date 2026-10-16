@@ -76,6 +76,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 ),
               ),
             ),
+            if (_query.isEmpty)
+              ListTile(
+                leading: const Icon(Icons.public),
+                title: Text(context.l10n.worldRadioTitle),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/world-radio'),
+              ),
             Expanded(child: _query.isEmpty ? const _BrowseAll() : _Results(query: _query)),
           ],
         ),

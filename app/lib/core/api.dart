@@ -96,6 +96,31 @@ class ApiClient {
 
   String coverUrl(String albumId, {int size = 300}) => '$baseUrl/api/albums/$albumId/cover?size=$size&token=$token';
 
+  String stationStreamUrl(String id) => '$baseUrl/api/worldradio/stations/$id/stream?token=$token';
+
+  Future<List<Map<String, dynamic>>> worldRadioCountries() async => [
+    for (final item in await _get('/api/worldradio/countries')) Map<String, dynamic>.from(item),
+  ];
+
+  Future<List<String>> worldRadioTags() async => List<String>.from(await _get('/api/worldradio/tags'));
+
+  Future<List<Station>> worldRadioStations({String? country, String? tag, String? q, int offset = 0}) async => [
+    for (final item in await _get('/api/worldradio/stations', {
+      'country': ?country,
+      'tag': ?tag,
+      'q': ?q,
+      'offset': offset,
+    }))
+      Station.fromJson(item),
+  ];
+
+  Future<List<Station>> worldRadioFavorites() async => [
+    for (final item in await _get('/api/worldradio/favorites')) Station.fromJson(item),
+  ];
+
+  Future<void> addWorldRadioFavorite(String id) => _put('/api/worldradio/favorites/$id');
+  Future<void> removeWorldRadioFavorite(String id) => _delete('/api/worldradio/favorites/$id');
+
   // --- auth -----------------------------------------------------------------
 
   Future<AuthStatus> status() async => AuthStatus.fromJson(await _get('/api/auth/status'));

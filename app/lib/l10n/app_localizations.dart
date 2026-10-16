@@ -3277,6 +3277,54 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Downloads pro Woche und Nutzer'**
   String get adminDiscoverDownloads;
+
+  /// No description provided for @worldRadioTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Weltradio'**
+  String get worldRadioTitle;
+
+  /// No description provided for @worldRadioSearchHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Sender suchen'**
+  String get worldRadioSearchHint;
+
+  /// No description provided for @worldRadioFavorites.
+  ///
+  /// In de, this message translates to:
+  /// **'Favoriten'**
+  String get worldRadioFavorites;
+
+  /// No description provided for @worldRadioYourStations.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Radiosender'**
+  String get worldRadioYourStations;
+
+  /// No description provided for @worldRadioUnavailable.
+  ///
+  /// In de, this message translates to:
+  /// **'Sender nicht erreichbar'**
+  String get worldRadioUnavailable;
+
+  /// No description provided for @worldRadioLive.
+  ///
+  /// In de, this message translates to:
+  /// **'LIVE'**
+  String get worldRadioLive;
+
+  /// No description provided for @worldRadioCountry.
+  ///
+  /// In de, this message translates to:
+  /// **'Land'**
+  String get worldRadioCountry;
+
+  /// No description provided for @worldRadioSearchCountry.
+  ///
+  /// In de, this message translates to:
+  /// **'Land suchen'**
+  String get worldRadioSearchCountry;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

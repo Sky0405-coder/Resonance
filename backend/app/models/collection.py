@@ -12,6 +12,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -117,3 +118,12 @@ class PlayEvent(Base):
     seconds_played: Mapped[float] = mapped_column(Float, default=0)
     # Where playback was started from, e.g. "album:<id>", "playlist:<id>", "radio:<id>".
     context: Mapped[str | None] = mapped_column(String(128))
+
+
+class RadioStationFavorite(Base):
+    __tablename__ = "radio_station_favorites"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    station_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -58,7 +58,10 @@ final discordPresenceProvider = Provider<void>((ref) {
         player.engine.processingState == ProcessingState.completed ||
         player.engine.processingState == ProcessingState.idle,
   );
-  ref.listen(playerProvider.select((p) => (p.current, p.book, p.index, p.playing, p.speed)), (_, _) => update());
+  ref.listen(
+    playerProvider.select((p) => (p.current, p.book, p.station, p.index, p.playing, p.speed)),
+    (_, _) => update(),
+  );
   ref.listen(appLocaleProvider, (_, _) => update());
   final positions = player.engine.positionStream.listen((_) => presence.onPosition(position()));
   final states = player.engine.playerStateStream.listen((_) => update());
@@ -86,7 +89,7 @@ Map<String, dynamic>? buildDiscordActivity({
 }) {
   final track = player.current;
   final book = player.book;
-  if (!player.playing || (track == null && book == null)) return null;
+  if (player.station != null || !player.playing || (track == null && book == null)) return null;
   final duration = book == null ? track!.length.inMilliseconds : (book.duration * 1000).round();
   final start = now.millisecondsSinceEpoch - position.inMilliseconds;
   final chapter = book?.chapterAt(position.inMilliseconds / 1000)?.title;

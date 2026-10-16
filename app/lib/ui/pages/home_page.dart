@@ -13,6 +13,7 @@ import '../../core/theme.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
+import 'world_radio_page.dart';
 
 String _greeting(AppLocalizations l10n) {
   final h = DateTime.now().hour;
@@ -62,6 +63,7 @@ class HomePage extends ConsumerWidget {
     }
     final home = ref.watch(homeProvider);
     final mixes = ref.watch(mixesProvider).value;
+    final stations = ref.watch(worldRadioFavoritesProvider).value ?? <Station>[];
 
     return Container(
       decoration: BoxDecoration(
@@ -74,6 +76,7 @@ class HomePage extends ConsumerWidget {
       child: RefreshIndicator(
         onRefresh: () {
           ref.invalidate(mixesProvider);
+          ref.invalidate(worldRadioFavoritesProvider);
           return ref.refresh(homeProvider.future);
         },
         child: AsyncBody(
@@ -84,6 +87,11 @@ class HomePage extends ConsumerWidget {
             children: [
               heading,
               _QuickGrid(home: h),
+              if (stations.isNotEmpty)
+                Shelf(
+                  title: context.l10n.worldRadioYourStations,
+                  children: [for (final station in stations) StationCard(station: station)],
+                ),
               if (mixes != null)
                 Shelf(
                   title: context.l10n.homeMadeForYou,

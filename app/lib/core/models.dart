@@ -936,3 +936,39 @@ class ReviewTrack {
 
   factory ReviewTrack.fromJson(Map<String, dynamic> j) => ReviewTrack(track: Track.fromJson(j), path: j['path']);
 }
+
+class Station {
+  const Station({
+    required this.id,
+    required this.name,
+    required this.country,
+    required this.countryCode,
+    required this.tags,
+    required this.codec,
+    this.favicon,
+    this.bitrate,
+    this.homepage,
+  });
+
+  final String id;
+  final String name;
+  final String country;
+  final String countryCode;
+  final List<String> tags;
+  final String? favicon;
+  final String codec;
+  final int? bitrate;
+  final String? homepage;
+
+  factory Station.fromJson(Map<String, dynamic> json) => Station(
+    id: json['id'],
+    name: json['name'],
+    country: json['country'],
+    countryCode: json['country_code'],
+    tags: List<String>.from(json['tags']),
+    favicon: json['favicon'],
+    codec: json['codec'],
+    bitrate: (json['bitrate'] as num?)?.toInt(),
+    homepage: json['homepage'],
+  );
+}

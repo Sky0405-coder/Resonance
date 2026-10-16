@@ -61,6 +61,7 @@ class PlayerView {
     this.loop = LoopMode.off,
     this.context,
     this.book,
+    this.station,
     this.speed = 1,
     this.sleepAt,
   });
@@ -75,6 +76,7 @@ class PlayerView {
   final String? context;
   // Set while an audiobook is playing instead of music (queue is empty then).
   final BookPlayback? book;
+  final Station? station;
   final double speed;
   // Sleep timer: pause at this time (null = off).
   final DateTime? sleepAt;
@@ -84,7 +86,14 @@ class PlayerView {
 
 /// Owns the [PlaybackEngine]; one instance for the whole app.
 class PlayerController extends Notifier<PlayerView> {
-  final PlaybackEngine engine = PlaybackEngine();
+  PlayerController({PlaybackEngine? engine}) : engine = engine ?? PlaybackEngine();
+
+  final PlaybackEngine engine;
+  final errors = StreamController<Object>.broadcast();
+  Timer? _stationRetry;
+  bool _stationRetried = false;
+  bool _stationFailed = false;
+  int _stationGeneration = 0;
   List<Track> _unshuffled = [];
   final List<StreamSubscription> _subs = [];
 
@@ -143,6 +152,7 @@ class PlayerController extends Notifier<PlayerView> {
         if (!_switching) state = _copy(loop: v);
       }),
       engine.positionStream.listen(_trackListening),
+      engine.errorStream.listen(_stationError),
     ]);
     final radioFollow = RadioFollow(
       loadPlaylist: (id) async {
@@ -173,6 +183,9 @@ class PlayerController extends Notifier<PlayerView> {
         s.cancel();
       }
       _bookSync?.cancel();
+      _stationGeneration++;
+      _stationRetry?.cancel();
+      errors.close();
       _sleepTimer?.cancel();
       engine.dispose();
       userVolume.dispose();
@@ -199,6 +212,7 @@ class PlayerController extends Notifier<PlayerView> {
     loop: loop ?? state.loop,
     context: context ?? state.context,
     book: state.book,
+    station: state.station,
     speed: speed ?? state.speed,
     sleepAt: sleepAt == null ? state.sleepAt : sleepAt(),
   );
@@ -269,7 +283,7 @@ class PlayerController extends Notifier<PlayerView> {
       // Web only: on Android stop() ends the media session, and the playback
       // notification / lock screen controls would not come back.
       if (kIsWeb) await engine.stop();
-      engine.isBook = next.book != null;
+      engine.isBook = next.book != null || next.station != null;
       await engine.setLoopMode(next.loop);
       await engine.setSpeed(next.speed);
       await engine.setSources(sources, initialIndex: index, initialPosition: position);
@@ -277,7 +291,7 @@ class PlayerController extends Notifier<PlayerView> {
       debugPrint('Playback replacement failed: $e\n$st');
       try {
         await engine.stop();
-        engine.isBook = previous.book != null;
+        engine.isBook = previous.book != null || previous.station != null;
         await engine.setLoopMode(previous.loop);
         await engine.setSpeed(previous.speed);
         if (previousSources.isNotEmpty) {
@@ -291,11 +305,20 @@ class PlayerController extends Notifier<PlayerView> {
       state = _copy(playing: false, buffering: false);
       _lastPos = engine.position;
       if (previous.playing && engine.processingState == ProcessingState.ready) engine.play();
-      throw ApiException(next.book == null ? _l10n.playerMusicLoadError : _l10n.playerAudiobookLoadError);
+      throw ApiException(
+        next.station != null
+            ? _l10n.worldRadioUnavailable
+            : next.book == null
+            ? _l10n.playerMusicLoadError
+            : _l10n.playerAudiobookLoadError,
+      );
     }
     // Use the old position: the player's sources now belong to the new item.
     await _closeBook(position: previousBookPosition);
     _flushPlayReport();
+    _stationGeneration++;
+    _stationRetry?.cancel();
+    _stationRetry = null;
     state = PlayerView(
       queue: next.queue,
       index: engine.currentIndex,
@@ -304,6 +327,7 @@ class PlayerController extends Notifier<PlayerView> {
       loop: next.loop,
       context: next.context,
       book: next.book,
+      station: next.station,
       speed: next.speed,
       sleepAt: state.sleepAt,
     );
@@ -317,7 +341,9 @@ class PlayerController extends Notifier<PlayerView> {
         if (!_switching && engine.playing) _syncBook().ignore();
       });
     }
-    engine.play();
+    engine.play().catchError((Object error) {
+      if (state.station != null) _stationError(error);
+    });
   }
 
   Future<void> playNext(Track t) async {
@@ -347,14 +373,27 @@ class PlayerController extends Notifier<PlayerView> {
 
   Future<void> play() => engine.play();
 
-  Future<void> pause() => engine.pause();
+  Future<void> pause() async {
+    _stationGeneration++;
+    _stationRetry?.cancel();
+    _stationRetry = null;
+    await engine.pause();
+  }
 
-  Future<void> stop() => engine.stop();
+  Future<void> stop() async {
+    _stationGeneration++;
+    _stationRetry?.cancel();
+    _stationRetry = null;
+    await engine.stop();
+  }
 
-  Future<void> next() => engine.seekToNext();
+  Future<void> next() async {
+    if (state.station == null) await engine.seekToNext();
+  }
 
   /// Like Spotify: restart the track unless we're in its first 3 seconds.
   Future<void> previous() async {
+    if (state.station != null) return;
     await engine.finishFade();
     if (engine.position > const Duration(seconds: 3) || !engine.hasPrevious) {
       await engine.seek(Duration.zero);
@@ -363,15 +402,20 @@ class PlayerController extends Notifier<PlayerView> {
     }
   }
 
-  Future<void> jumpTo(int index) => engine.seek(Duration.zero, index: index);
+  Future<void> jumpTo(int index) async {
+    if (state.station == null) await engine.seek(Duration.zero, index: index);
+  }
 
-  Future<void> seek(Duration d) => engine.seek(d);
+  Future<void> seek(Duration d) async {
+    if (state.station == null) await engine.seek(d);
+  }
 
   Future<void> toggleShuffle() => _switch(() => _setShuffle(!state.shuffle));
 
   Future<void> setShuffle(bool enabled) => _switch(() => _setShuffle(enabled));
 
   Future<void> _setShuffle(bool enabled) async {
+    if (state.station != null) return;
     await engine.finishFade();
     if (enabled == state.shuffle) return;
     final current = state.current;
@@ -392,9 +436,11 @@ class PlayerController extends Notifier<PlayerView> {
     }
   }
 
-  Future<void> setLoop(LoopMode mode) => engine.setLoopMode(mode);
+  Future<void> setLoop(LoopMode mode) async {
+    if (state.station == null) await engine.setLoopMode(mode);
+  }
 
-  Future<void> cycleLoop() => engine.setLoopMode(switch (engine.loopMode) {
+  Future<void> cycleLoop() => setLoop(switch (engine.loopMode) {
     LoopMode.off => LoopMode.all,
     LoopMode.all => LoopMode.one,
     LoopMode.one => LoopMode.off,
@@ -404,6 +450,44 @@ class PlayerController extends Notifier<PlayerView> {
     final replacements = <Track, Track>{for (final t in state.queue) t: t.id == trackId ? t.copyWith(liked: liked) : t};
     _unshuffled = [for (final t in _unshuffled) replacements[t] ?? t];
     state = _copy(queue: List.unmodifiable([for (final t in state.queue) replacements[t]!]));
+  }
+
+  Future<void> playStation(Station station) => _switch(() async {
+    await _replacePlayback(PlayerView(station: station, context: 'station:${station.id}', sleepAt: state.sleepAt), [
+      () => AudioSource.uri(Uri.parse(_api.stationStreamUrl(station.id))),
+    ], index: 0);
+    _unshuffled = [];
+    _stationRetried = false;
+    _stationFailed = false;
+  });
+
+  void _stationError(Object error) {
+    final station = state.station;
+    if (_switching || station == null || _stationRetry != null || _stationFailed) return;
+    if (_stationRetried) {
+      _stationFailed = true;
+      stop().ignore();
+      errors.add(ApiException(_l10n.worldRadioUnavailable));
+      return;
+    }
+    _stationRetried = true;
+    final generation = _stationGeneration;
+    _stationRetry = Timer(const Duration(seconds: 3), () {
+      _stationRetry = null;
+      _switch(() async {
+        if (state.station?.id != station.id || generation != _stationGeneration) return;
+        try {
+          await engine.pause();
+          if (kIsWeb) await engine.stop();
+          await engine.setSources([
+            () => AudioSource.uri(Uri.parse(_api.stationStreamUrl(station.id))),
+          ], initialIndex: 0);
+          if (generation == _stationGeneration) engine.play().catchError(_stationError);
+        } catch (error) {
+          _stationError(error);
+        }
+      }).ignore();
+    });
   }
 
   // --- audiobooks ------------------------------------------------------------
@@ -516,7 +600,7 @@ class PlayerController extends Notifier<PlayerView> {
     }
     state = _copy(sleepAt: () => DateTime.now().add(duration));
     _sleepTimer = Timer(duration, () {
-      engine.pause();
+      pause();
       state = _copy(sleepAt: () => null);
     });
   }
@@ -554,7 +638,7 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   void _trackListening(Duration pos) {
-    if (_switching) return;
+    if (_switching || state.station != null) return;
     final delta = (pos - _lastPos).inMilliseconds / 1000;
     // Ignore seeks (big jumps or backwards); faster playback still counts as real time listened.
     if (delta > 0 && delta < 2 * state.speed && engine.playing) {
@@ -591,3 +675,5 @@ final bookPositionProvider = Provider<double>((ref) {
   ref.watch(playerProvider.select((p) => p.index));
   return ref.read(playerProvider.notifier).bookPosition;
 });
+
+final playerErrorsProvider = StreamProvider<Object>((ref) => ref.watch(playerProvider.notifier).errors.stream);

@@ -29,7 +29,9 @@ class _SeekBarState extends ConsumerState<SeekBar> {
   @override
   Widget build(BuildContext context) {
     final book = ref.watch(playerProvider.select((p) => p.book));
+    final station = ref.watch(playerProvider.select((p) => p.station));
     final track = ref.watch(playerProvider.select((p) => p.current));
+    if (station != null) return const Center(child: LiveBadge());
     // Audiobooks: the whole book, not the current file.
     final pos = book != null
         ? Duration(milliseconds: (ref.watch(bookPositionProvider) * 1000).round())
@@ -114,6 +116,17 @@ class TransportControls extends ConsumerWidget {
       ),
     );
     if (playPauseOnly) return playButton;
+    if (p.station != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(icon: const Icon(Icons.skip_previous), iconSize: iconSize, onPressed: null),
+          playButton,
+          IconButton(icon: const Icon(Icons.skip_next), iconSize: iconSize, onPressed: null),
+          if (big) const SleepTimerButton(),
+        ],
+      );
+    }
     if (p.book != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -304,6 +317,7 @@ class DesktopPlayerBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final track = ref.watch(playerProvider.select((p) => p.current));
     final book = ref.watch(playerProvider.select((p) => p.book));
+    final station = ref.watch(playerProvider.select((p) => p.station));
     return Container(
       height: 84,
       color: Palette.sidebar,
@@ -312,7 +326,9 @@ class DesktopPlayerBar extends ConsumerWidget {
         children: [
           Expanded(
             flex: 3,
-            child: book != null
+            child: station != null
+                ? StationInfo(station: station)
+                : book != null
                 ? _BookInfo(book: book)
                 : track == null
                 ? const SizedBox.shrink()
@@ -363,7 +379,7 @@ class DesktopPlayerBar extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (book == null)
+                if (book == null && station == null)
                   IconButton(
                     tooltip: context.l10n.playerQueue,
                     icon: const Icon(Icons.queue_music),
@@ -383,7 +399,9 @@ class DesktopPlayerBar extends ConsumerWidget {
                   tooltip: context.l10n.playerFullscreen,
                   icon: const Icon(Icons.open_in_full, size: 18),
                   color: Palette.textMuted,
-                  onPressed: track == null && book == null ? null : () => context.push('/now-playing'),
+                  onPressed: track == null && book == null && station == null
+                      ? null
+                      : () => context.push('/now-playing'),
                 ),
               ],
             ),
@@ -402,7 +420,7 @@ class MiniPlayer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = ref.watch(playerProvider);
     final track = p.current;
-    if (track == null && p.book == null) return const SizedBox.shrink();
+    if (track == null && p.book == null && p.station == null) return const SizedBox.shrink();
     final ctrl = ref.read(playerProvider.notifier);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -419,7 +437,9 @@ class MiniPlayer extends ConsumerWidget {
                 padding: const EdgeInsets.all(6),
                 child: Row(
                   children: [
-                    if (p.book != null) ...[
+                    if (p.station != null) ...[
+                      Expanded(child: StationInfo(station: p.station!, coverSize: 42)),
+                    ] else if (p.book != null) ...[
                       Expanded(child: _BookInfo(book: p.book!, coverSize: 42)),
                       IconButton(icon: const Icon(Icons.replay_30), onPressed: () => ctrl.skipBook(-30)),
                     ] else ...[
@@ -457,4 +477,62 @@ class MiniPlayer extends ConsumerWidget {
       ),
     );
   }
+}
+
+class LiveBadge extends StatelessWidget {
+  const LiveBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.circle, size: 8, color: Colors.redAccent),
+        const SizedBox(width: 5),
+        Text(context.l10n.worldRadioLive, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+      ],
+    ),
+  );
+}
+
+class StationInfo extends StatelessWidget {
+  const StationInfo({super.key, required this.station, this.coverSize = 56});
+  final Station station;
+  final double coverSize;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: () => context.push('/now-playing'),
+    child: Row(
+      children: [
+        SizedBox(
+          width: coverSize,
+          height: coverSize,
+          child: NetworkCover(url: station.favicon, radius: 6, icon: Icons.radio),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                station.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text(
+                '${context.l10n.worldRadioTitle} · ${station.country}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Palette.textMuted, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }

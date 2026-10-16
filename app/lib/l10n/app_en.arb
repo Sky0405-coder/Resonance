@@ -588,5 +588,13 @@
   "discoverWeekly": "Discover Weekly",
   "adminMixes": "Mixes",
   "adminDiscoverWeeklyHint": "30 new songs per user every Monday, missing ones are downloaded",
-  "adminDiscoverDownloads": "Downloads per week and user"
+  "adminDiscoverDownloads": "Downloads per week and user",
+  "worldRadioTitle": "World radio",
+  "worldRadioSearchHint": "Search stations",
+  "worldRadioFavorites": "Favourites",
+  "worldRadioYourStations": "Your radio stations",
+  "worldRadioUnavailable": "Station unavailable",
+  "worldRadioLive": "LIVE",
+  "worldRadioCountry": "Country",
+  "worldRadioSearchCountry": "Search countries"
 }

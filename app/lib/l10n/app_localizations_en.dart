@@ -1858,4 +1858,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminDiscoverDownloads => 'Downloads per week and user';
+
+  @override
+  String get worldRadioTitle => 'World radio';
+
+  @override
+  String get worldRadioSearchHint => 'Search stations';
+
+  @override
+  String get worldRadioFavorites => 'Favourites';
+
+  @override
+  String get worldRadioYourStations => 'Your radio stations';
+
+  @override
+  String get worldRadioUnavailable => 'Station unavailable';
+
+  @override
+  String get worldRadioLive => 'LIVE';
+
+  @override
+  String get worldRadioCountry => 'Country';
+
+  @override
+  String get worldRadioSearchCountry => 'Search countries';
 }

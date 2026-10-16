@@ -11,6 +11,7 @@ import 'ui/pages/browse_pages.dart';
 import 'ui/pages/collection_pages.dart';
 import 'ui/pages/download_pages.dart';
 import 'ui/pages/home_page.dart';
+import 'ui/pages/world_radio_page.dart';
 import 'ui/pages/now_playing_page.dart';
 import 'ui/pages/lyrics_page.dart';
 import 'ui/pages/settings_page.dart';
@@ -87,6 +88,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/library',
             pageBuilder: (_, _) => const NoTransitionPage(child: LibraryPage()),
           ),
+          GoRoute(path: '/world-radio', builder: (_, _) => const WorldRadioPage()),
           GoRoute(path: '/liked', builder: (_, _) => const LikedPage()),
           GoRoute(
             path: '/album/:id',

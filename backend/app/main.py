@@ -27,6 +27,7 @@ from app.api import (
     subsonic,
     torrents,
     users,
+    worldradio,
 )
 from app.config import get_settings
 from app.deps import DB, CurrentUser
@@ -101,6 +102,7 @@ for module in (
     editor,
     audiobookshelf,
     users,
+    worldradio,
 ):
     app.include_router(module.router)
 app.include_router(audiobookshelf.admin_router)

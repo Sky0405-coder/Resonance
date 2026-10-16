@@ -5,6 +5,9 @@ import re
 from fastapi import Request
 
 _EXACT: dict[str, str] = {
+    "Radiosender-Verzeichnis nicht erreichbar": "Radio station directory unavailable",
+    "Sender nicht gefunden": "Station not found",
+    "Sender nicht erreichbar": "Station unavailable",
     "Not authenticated": "Not authenticated",
     "Invalid or expired session": "Invalid or expired session",
     "Admin only": "Admin only",

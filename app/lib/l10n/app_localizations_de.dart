@@ -1832,4 +1832,28 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get adminDiscoverDownloads => 'Downloads pro Woche und Nutzer';
+
+  @override
+  String get worldRadioTitle => 'Weltradio';
+
+  @override
+  String get worldRadioSearchHint => 'Sender suchen';
+
+  @override
+  String get worldRadioFavorites => 'Favoriten';
+
+  @override
+  String get worldRadioYourStations => 'Deine Radiosender';
+
+  @override
+  String get worldRadioUnavailable => 'Sender nicht erreichbar';
+
+  @override
+  String get worldRadioLive => 'LIVE';
+
+  @override
+  String get worldRadioCountry => 'Land';
+
+  @override
+  String get worldRadioSearchCountry => 'Land suchen';
 }

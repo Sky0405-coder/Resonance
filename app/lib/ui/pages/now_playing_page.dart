@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/models.dart';
 import '../../core/library.dart';
 import '../../player/player.dart';
 import 'audiobook_pages.dart';
@@ -21,6 +22,7 @@ class NowPlayingPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final track = ref.watch(playerProvider.select((p) => p.current));
     final book = ref.watch(playerProvider.select((p) => p.book));
+    final station = ref.watch(playerProvider.select((p) => p.station));
     final accent = Theme.of(context).colorScheme.primary;
     return Scaffold(
       body: Container(
@@ -32,7 +34,9 @@ class NowPlayingPage extends ConsumerWidget {
           ),
         ),
         child: SafeArea(
-          child: book != null
+          child: station != null
+              ? _StationNowPlaying(station: station)
+              : book != null
               ? _BookNowPlaying(book: book)
               : track == null
               ? Center(child: Text(context.l10n.playerNothingPlaying))
@@ -149,6 +153,49 @@ class NowPlayingPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _StationNowPlaying extends StatelessWidget {
+  const _StationNowPlaying({required this.station});
+  final Station station;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 24),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            IconButton(icon: const Icon(Icons.keyboard_arrow_down, size: 32), onPressed: () => context.pop()),
+            Expanded(child: Text(context.l10n.worldRadioTitle, textAlign: TextAlign.center)),
+            const SizedBox(width: 48),
+          ],
+        ),
+        const Spacer(),
+        Flexible(
+          flex: 5,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
+            child: NetworkCover(url: station.favicon, radius: 8, icon: Icons.radio),
+          ),
+        ),
+        const Spacer(),
+        Text(
+          station.name,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        Text('${context.l10n.worldRadioTitle} · ${station.country}', style: const TextStyle(color: Palette.textMuted)),
+        const SizedBox(height: 16),
+        const LiveBadge(),
+        const SizedBox(height: 16),
+        const TransportControls(big: true),
+        const SizedBox(height: 24),
+      ],
+    ),
+  );
 }
 
 class _LyricsCard extends ConsumerWidget {
