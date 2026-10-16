@@ -1113,5 +1113,25 @@
         "type": "int"
       }
     }
+  },
+  "settingsSubsonicTitle": "Andere Musik-Apps (Subsonic)",
+  "settingsSubsonicSubtitle": "Nutze Resonance in Apps wie Symfonium oder Feishin",
+  "settingsSubsonicConnection": "Server: {serverUrl}\nBenutzername: {username}",
+  "settingsSubsonicConfigured": "Ein App-Passwort ist eingerichtet.",
+  "settingsSubsonicRegenerate": "Neues Passwort erzeugen",
+  "settingsSubsonicRemove": "Entfernen",
+  "settingsSubsonicHint": "Erzeuge ein App-Passwort und gib es in der anderen App als Passwort ein. Dein normales Passwort funktioniert dort nicht.",
+  "settingsSubsonicGenerate": "Passwort erzeugen",
+  "settingsSubsonicCopied": "Kopiert",
+  "settingsSubsonicShownOnce": "Wird nur jetzt angezeigt.",
+  "@settingsSubsonicConnection": {
+    "placeholders": {
+      "serverUrl": {
+        "type": "String"
+      },
+      "username": {
+        "type": "String"
+      }
+    }
   }
 }

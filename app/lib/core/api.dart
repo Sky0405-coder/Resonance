@@ -123,6 +123,10 @@ class ApiClient {
 
   Future<User> me() async => User.fromJson(await _get('/api/me'));
 
+  Future<String> generateSubsonicPassword() async => (await _post('/api/me/subsonic-password'))['password'] as String;
+
+  Future<void> removeSubsonicPassword() => _delete('/api/me/subsonic-password');
+
   Future<User> updateMe(Map<String, dynamic> patch) async => User.fromJson(await _patch('/api/me', patch));
 
   Future<List<Map<String, dynamic>>> sessions() async => [

@@ -24,6 +24,7 @@ class UserOut(ORM):
     role: Role
     accent_color: str
     is_disabled: bool
+    has_subsonic_password: bool
     created_at: datetime
     last_seen_at: datetime | None
 

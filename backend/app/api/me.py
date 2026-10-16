@@ -1,3 +1,4 @@
+import secrets
 import uuid
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -15,6 +16,19 @@ router = APIRouter(prefix="/api/me", tags=["me"])
 @router.get("", response_model=UserOut)
 async def me(user: CurrentUser) -> UserOut:
     return UserOut.model_validate(user)
+
+
+@router.post("/subsonic-password")
+async def generate_subsonic_password(user: CurrentUser, db: DB) -> dict[str, str]:
+    user.subsonic_password = secrets.token_urlsafe(18)
+    await db.commit()
+    return {"password": user.subsonic_password}
+
+
+@router.delete("/subsonic-password", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_subsonic_password(user: CurrentUser, db: DB) -> None:
+    user.subsonic_password = None
+    await db.commit()
 
 
 @router.patch("", response_model=UserOut)

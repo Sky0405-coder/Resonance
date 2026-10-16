@@ -22,6 +22,7 @@ class User {
     required this.isDisabled,
     required this.createdAt,
     this.lastSeenAt,
+    this.hasSubsonicPassword = false,
   });
 
   final String id;
@@ -30,6 +31,7 @@ class User {
   final String role;
   final String accentColor;
   final bool isDisabled;
+  final bool hasSubsonicPassword;
   final DateTime createdAt;
   final DateTime? lastSeenAt;
 
@@ -42,6 +44,7 @@ class User {
     'role': role,
     'accent_color': accentColor,
     'is_disabled': isDisabled,
+    'has_subsonic_password': hasSubsonicPassword,
     'created_at': createdAt.toIso8601String(),
     'last_seen_at': lastSeenAt?.toIso8601String(),
   };
@@ -53,6 +56,7 @@ class User {
     role: j['role'],
     accentColor: j['accent_color'],
     isDisabled: j['is_disabled'] ?? false,
+    hasSubsonicPassword: j['has_subsonic_password'] ?? false,
     createdAt: DateTime.parse(j['created_at']),
     lastSeenAt: _date(j['last_seen_at']),
   );

@@ -3085,6 +3085,66 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'{seconds} s'**
   String settingsCrossfadeSeconds(int seconds);
+
+  /// No description provided for @settingsSubsonicTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Andere Musik-Apps (Subsonic)'**
+  String get settingsSubsonicTitle;
+
+  /// No description provided for @settingsSubsonicSubtitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Nutze Resonance in Apps wie Symfonium oder Feishin'**
+  String get settingsSubsonicSubtitle;
+
+  /// No description provided for @settingsSubsonicConnection.
+  ///
+  /// In de, this message translates to:
+  /// **'Server: {serverUrl}\nBenutzername: {username}'**
+  String settingsSubsonicConnection(String serverUrl, String username);
+
+  /// No description provided for @settingsSubsonicConfigured.
+  ///
+  /// In de, this message translates to:
+  /// **'Ein App-Passwort ist eingerichtet.'**
+  String get settingsSubsonicConfigured;
+
+  /// No description provided for @settingsSubsonicRegenerate.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Passwort erzeugen'**
+  String get settingsSubsonicRegenerate;
+
+  /// No description provided for @settingsSubsonicRemove.
+  ///
+  /// In de, this message translates to:
+  /// **'Entfernen'**
+  String get settingsSubsonicRemove;
+
+  /// No description provided for @settingsSubsonicHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Erzeuge ein App-Passwort und gib es in der anderen App als Passwort ein. Dein normales Passwort funktioniert dort nicht.'**
+  String get settingsSubsonicHint;
+
+  /// No description provided for @settingsSubsonicGenerate.
+  ///
+  /// In de, this message translates to:
+  /// **'Passwort erzeugen'**
+  String get settingsSubsonicGenerate;
+
+  /// No description provided for @settingsSubsonicCopied.
+  ///
+  /// In de, this message translates to:
+  /// **'Kopiert'**
+  String get settingsSubsonicCopied;
+
+  /// No description provided for @settingsSubsonicShownOnce.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird nur jetzt angezeigt.'**
+  String get settingsSubsonicShownOnce;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

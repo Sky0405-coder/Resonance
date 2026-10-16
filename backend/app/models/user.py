@@ -22,6 +22,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(128))
     password_hash: Mapped[str] = mapped_column(String(255))
+    # Plaintext generated secret, valid only for Subsonic; token auth needs the readable password.
+    subsonic_password: Mapped[str | None] = mapped_column(String(64))
     role: Mapped[Role] = mapped_column(Enum(Role, name="role"), default=Role.user)
     accent_color: Mapped[str] = mapped_column(String(9), default=DEFAULT_ACCENT)
     is_disabled: Mapped[bool] = mapped_column(default=False)
@@ -29,6 +31,10 @@ class User(Base):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     sessions: Mapped[list["AuthSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+    @property
+    def has_subsonic_password(self) -> bool:
+        return self.subsonic_password is not None
 
     @property
     def is_admin(self) -> bool:

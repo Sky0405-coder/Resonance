@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../l10n/l10n.dart';
@@ -91,6 +92,12 @@ class SettingsPage extends ConsumerWidget {
             leading: const Icon(Icons.lock_outline),
             title: Text(context.l10n.settingsChangePassword),
             onTap: () => _changePassword(context, ref),
+          ),
+          ListTile(
+            leading: const Icon(Icons.apps),
+            title: Text(context.l10n.settingsSubsonicTitle),
+            subtitle: Text(context.l10n.settingsSubsonicSubtitle),
+            onTap: () => showDialog<void>(context: context, builder: (_) => const _SubsonicDialog()),
           ),
           _Section(context.l10n.settingsAppearance),
           Padding(
@@ -271,6 +278,92 @@ class SettingsPage extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) showError(context, e);
     }
+  }
+}
+
+class _SubsonicDialog extends ConsumerStatefulWidget {
+  const _SubsonicDialog();
+
+  @override
+  ConsumerState<_SubsonicDialog> createState() => _SubsonicDialogState();
+}
+
+class _SubsonicDialogState extends ConsumerState<_SubsonicDialog> {
+  String? _password;
+  bool _busy = false;
+
+  Future<void> _change({required bool remove}) async {
+    setState(() => _busy = true);
+    try {
+      final api = ref.read(apiProvider);
+      if (remove) {
+        await api.removeSubsonicPassword();
+        if (mounted) setState(() => _password = null);
+      } else {
+        final password = await api.generateSubsonicPassword();
+        if (mounted) setState(() => _password = password);
+      }
+      final user = await api.me();
+      if (mounted) ref.read(sessionProvider.notifier).updateUser(user);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(sessionProvider);
+    final user = session.user!;
+    final l10n = context.l10n;
+    final hasPassword = user.hasSubsonicPassword || _password != null;
+    return PopScope(
+      canPop: !_busy,
+      child: AlertDialog(
+        title: Text(l10n.settingsSubsonicTitle),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(l10n.settingsSubsonicConnection(session.serverUrl ?? '', user.username)),
+              const SizedBox(height: 16),
+              Text(hasPassword ? l10n.settingsSubsonicConfigured : l10n.settingsSubsonicHint),
+              if (_password != null) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(_password!, style: const TextStyle(fontFamily: 'monospace')),
+                    ),
+                    IconButton(
+                      tooltip: l10n.commonCopy,
+                      icon: const Icon(Icons.copy),
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: _password!));
+                        if (context.mounted) showInfo(context, l10n.settingsSubsonicCopied);
+                      },
+                    ),
+                  ],
+                ),
+                Text(l10n.settingsSubsonicShownOnce),
+              ],
+              if (_busy) ...[const SizedBox(height: 16), const LinearProgressIndicator()],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: _busy ? null : () => Navigator.pop(context), child: Text(l10n.commonClose)),
+          if (hasPassword)
+            TextButton(onPressed: _busy ? null : () => _change(remove: true), child: Text(l10n.settingsSubsonicRemove)),
+          FilledButton(
+            onPressed: _busy ? null : () => _change(remove: false),
+            child: Text(hasPassword ? l10n.settingsSubsonicRegenerate : l10n.settingsSubsonicGenerate),
+          ),
+        ],
+      ),
+    );
   }
 }
 

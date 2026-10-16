@@ -1729,4 +1729,37 @@ class AppLocalizationsDe extends AppLocalizations {
   String settingsCrossfadeSeconds(int seconds) {
     return '$seconds s';
   }
+
+  @override
+  String get settingsSubsonicTitle => 'Andere Musik-Apps (Subsonic)';
+
+  @override
+  String get settingsSubsonicSubtitle => 'Nutze Resonance in Apps wie Symfonium oder Feishin';
+
+  @override
+  String settingsSubsonicConnection(String serverUrl, String username) {
+    return 'Server: $serverUrl\nBenutzername: $username';
+  }
+
+  @override
+  String get settingsSubsonicConfigured => 'Ein App-Passwort ist eingerichtet.';
+
+  @override
+  String get settingsSubsonicRegenerate => 'Neues Passwort erzeugen';
+
+  @override
+  String get settingsSubsonicRemove => 'Entfernen';
+
+  @override
+  String get settingsSubsonicHint =>
+      'Erzeuge ein App-Passwort und gib es in der anderen App als Passwort ein. Dein normales Passwort funktioniert dort nicht.';
+
+  @override
+  String get settingsSubsonicGenerate => 'Passwort erzeugen';
+
+  @override
+  String get settingsSubsonicCopied => 'Kopiert';
+
+  @override
+  String get settingsSubsonicShownOnce => 'Wird nur jetzt angezeigt.';
 }

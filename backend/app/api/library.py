@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import FileResponse, Response, StreamingResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import Select, func, or_, select
 
 from app.api.catalog import _track as catalog_track
 from app.api.requests import _out as request_out
@@ -322,6 +322,18 @@ async def stream_track(
 # --- search -----------------------------------------------------------------
 
 
+def search_queries(q: str) -> tuple[Select[tuple[Artist]], Select[tuple[Album]], Select[tuple[Track]]]:
+    pattern = f"%{q.strip()}%"
+    return (
+        select(Artist).where(Artist.name.ilike(pattern)).order_by(Artist.name),
+        select(Album).options(*album_options()).where(Album.title.ilike(pattern)).order_by(Album.title),
+        select(Track)
+        .options(*track_options())
+        .where(or_(Track.title.ilike(pattern), Track.artist_credit.ilike(pattern)))
+        .order_by(Track.title),
+    )
+
+
 @router.get("/search", response_model=SearchResult)
 async def search(
     user: CurrentUser,
@@ -329,24 +341,10 @@ async def search(
     q: str = Query(min_length=1, max_length=200),
     limit: int = Query(20, ge=1, le=100),
 ) -> SearchResult:
-    pattern = f"%{q.strip()}%"
-    artists = list(
-        await db.scalars(select(Artist).where(Artist.name.ilike(pattern)).order_by(Artist.name).limit(limit))
-    )
-    albums = list(
-        await db.scalars(
-            select(Album).options(*album_options()).where(Album.title.ilike(pattern)).order_by(Album.title).limit(limit)
-        )
-    )
-    tracks = list(
-        await db.scalars(
-            select(Track)
-            .options(*track_options())
-            .where(or_(Track.title.ilike(pattern), Track.artist_credit.ilike(pattern)))
-            .order_by(Track.title)
-            .limit(limit)
-        )
-    )
+    artist_query, album_query, track_query = search_queries(q)
+    artists = list(await db.scalars(artist_query.limit(limit)))
+    albums = list(await db.scalars(album_query.limit(limit)))
+    tracks = list(await db.scalars(track_query.limit(limit)))
     return SearchResult(
         artists=await artists_out(db, artists),
         albums=await albums_out(db, albums),

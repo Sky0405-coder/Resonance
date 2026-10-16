@@ -1754,4 +1754,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String settingsCrossfadeSeconds(int seconds) {
     return '$seconds s';
   }
+
+  @override
+  String get settingsSubsonicTitle => 'Other music apps (Subsonic)';
+
+  @override
+  String get settingsSubsonicSubtitle => 'Use Resonance in apps like Symfonium or Feishin';
+
+  @override
+  String settingsSubsonicConnection(String serverUrl, String username) {
+    return 'Server: $serverUrl\nUsername: $username';
+  }
+
+  @override
+  String get settingsSubsonicConfigured => 'An app password is set up.';
+
+  @override
+  String get settingsSubsonicRegenerate => 'Generate new password';
+
+  @override
+  String get settingsSubsonicRemove => 'Remove';
+
+  @override
+  String get settingsSubsonicHint =>
+      'Generate an app password and enter it as the password in the other app. Your normal password does not work there.';
+
+  @override
+  String get settingsSubsonicGenerate => 'Generate password';
+
+  @override
+  String get settingsSubsonicCopied => 'Copied';
+
+  @override
+  String get settingsSubsonicShownOnce => 'Shown only now.';
 }

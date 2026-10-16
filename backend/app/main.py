@@ -23,6 +23,7 @@ from app.api import (
     radio,
     requests,
     spotify,
+    subsonic,
     torrents,
     users,
 )
@@ -79,6 +80,7 @@ for module in (
     catalog,
     requests,
     spotify,
+    subsonic,
     imports,
     torrents,
     editor,
