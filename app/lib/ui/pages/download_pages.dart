@@ -376,6 +376,8 @@ class _RequestTile extends ConsumerWidget {
                     ? Icons.restart_alt
                     : r.kind == 'album'
                     ? Icons.album
+                    : r.kind == 'search'
+                    ? Icons.travel_explore
                     : Icons.music_note,
               ),
             ),
@@ -393,6 +395,8 @@ class _RequestTile extends ConsumerWidget {
                           ? context.l10n.downloadsRedownload
                           : r.kind == 'album'
                           ? context.l10n.commonAlbum
+                          : r.kind == 'search'
+                          ? context.l10n.downloadsSearch
                           : context.l10n.commonSong,
                       r.artist,
                       if (showUser) context.l10n.downloadsRequestedBySuffix((r.user.name).toString()),
@@ -480,6 +484,8 @@ class RequestDetailPage extends ConsumerWidget {
                           ? Icons.high_quality
                           : r.kind == 'redownload'
                           ? Icons.restart_alt
+                          : r.kind == 'search'
+                          ? Icons.travel_explore
                           : Icons.album,
                     ),
                   ),

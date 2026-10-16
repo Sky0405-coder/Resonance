@@ -1,6 +1,5 @@
 import asyncio
 import re
-import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -11,7 +10,7 @@ from ytmusicapi import YTMusic
 
 from app.config import get_settings
 from app.services.musicbrainz import TrackMeta
-from app.services.sources.base import Cancelled, Candidate
+from app.services.sources.base import Cancelled, Candidate, finish_download
 
 
 def video_id(url: str) -> str | None:
@@ -164,29 +163,7 @@ class YouTubeMusicSource:
             if cancelled():
                 raise Cancelled()
             codec = info.get("acodec", "")
-            if codec.startswith("opus"):
-                dest, args = dest_dir / "audio.opus", ["-c:a", "copy"]
-            elif codec.startswith("mp4a"):
-                dest, args = dest_dir / "audio.m4a", ["-c:a", "copy"]
-            else:
-                dest, args = dest_dir / "audio.opus", ["-c:a", "libopus", "-b:a", "192k"]
-            subprocess.run(
-                [
-                    settings.ffmpeg_path,
-                    "-nostdin",
-                    "-loglevel",
-                    "error",
-                    "-i",
-                    str(src),
-                    "-map",
-                    "0:a:0",
-                    "-vn",
-                    *args,
-                    str(dest),
-                ],
-                check=True,
-            )
-            src.unlink()
-            return dest
+            extension = ".opus" if codec.startswith("opus") else ".m4a" if codec.startswith("mp4a") else None
+            return finish_download(src, dest_dir, extension)
 
         return await asyncio.to_thread(run)

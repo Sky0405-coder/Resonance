@@ -30,8 +30,10 @@ from app.models import (
 from app.services import spotify
 from app.services.deezer import deezer
 from app.services.downloads import manager
+from app.services.musicbrainz import TrackMeta
 from app.services.server_config import ServerConfig, update_config
 from tests.conftest import auth, register
+from tests.test_downloads import FakeSource
 
 ADDED = datetime(2026, 10, 1, 12, tzinfo=UTC)
 
@@ -845,6 +847,9 @@ async def test_missing_deezer_requests_and_pending(env):
             return httpx.Response(200, json={"error": {"code": 800}})
         assert request.url.path == "/search/track" and request.url.params["limit"] == "5"
         searches.append(request.url.params["q"])
+        if 'track:"' not in request.url.params["q"]:
+            assert request.url.params["q"] == "Artist Unavailable"
+            return httpx.Response(200, json={"data": []})
         title = request.url.params["q"].split('track:"')[1][:-1]
         results = (
             []
@@ -859,15 +864,19 @@ async def test_missing_deezer_requests_and_pending(env):
 
     env.deezer_handler = handler
     batch = await run(env, playlist_ids=["own"], download_missing=True)
-    assert (batch.total, batch.missing, batch.requested) == (5, 5, 4) and batch.status == "done"
+    assert (batch.total, batch.missing, batch.requested) == (5, 5, 5) and batch.status == "done"
     assert [r[2] for r in env.requests] == ["1", "2", "3", "1"]
     assert all(r[0] == env.user_id and r[1] == "track" and r[3] is False for r in env.requests)
-    assert searches[0] == 'artist:"Artist, Guest" track:"Search"'
+    assert searches[0] == 'artist:"Artist" track:"Search"'
     async with SessionLocal() as db:
         rows = list(await db.scalars(select(SpotifyPending).order_by(SpotifyPending.created_at)))
-        assert len(rows) == 4
+        assert len(rows) == 5
         likes = [r for r in rows if r.like]
-        assert len(likes) == 3 and all(r.like_at == ADDED and r.playlist_id is None for r in likes)
+        assert len(likes) == 4 and all(r.like_at == ADDED and r.playlist_id is None for r in likes)
+        search_row = next(r for r in rows if r.download_item_id is not None)
+        assert search_row.deezer_id is None and search_row.title == "Unavailable"
+        item = await db.get(DownloadItem, search_row.download_item_id)
+        assert (await db.get(DownloadRequest, item.request_id)).kind == "search"
         playlist_row = next(r for r in rows if not r.like)
         assert playlist_row.position == 0 and playlist_row.playlist_id and playlist_row.like_at is None
         assert playlist_row.isrc == likes[0].isrc
@@ -895,6 +904,76 @@ async def test_download_request_errors(env, monkeypatch, status):
     )
     async with SessionLocal() as db:
         assert await db.scalar(select(func.count()).select_from(SpotifyPending)) == 0
+
+
+@pytest.mark.parametrize("isrc", [None, "USNICHE00001"])
+async def test_niche_search_download_resolves_playlist(
+    env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, isrc: str | None
+) -> None:
+    from app.services import downloads, sources
+
+    await connect(env)
+    env.items["own"] = [entry(song("Underground", isrc=isrc, duration=3000), key="item")]
+    env.deezer_handler = lambda request: httpx.Response(
+        200, json={"error": {"code": 800}} if request.url.path.startswith("/track/isrc:") else {"data": []}
+    )
+    fake = FakeSource()
+    fake.name = "soundcloud"
+    monkeypatch.setattr(sources, "enabled_sources", lambda cfg: [fake])
+    monkeypatch.setattr(spotify, "resolve_after_download", lambda: None)
+
+    async def cover(meta: TrackMeta) -> bytes | None:
+        return None
+
+    monkeypatch.setattr(downloads, "fetch_cover", cover)
+    batch = await run(env, liked=False, playlist_ids=["own"], download_missing=True)
+    assert (batch.status, batch.total, batch.missing, batch.requested) == ("done", 1, 1, 1)
+    assert env.requests == []
+    async with SessionLocal() as db:
+        pending = await db.scalar(select(SpotifyPending))
+        assert pending.download_item_id is not None and pending.deezer_id is None
+        item_id, playlist_id = pending.download_item_id, pending.playlist_id
+        item = await db.get(DownloadItem, item_id)
+        request = await db.get(DownloadRequest, item.request_id)
+        assert request.kind == "search" and request.title == "Underground" and request.is_temporary is False
+        assert item.meta["artist"] == item.meta["album_artist"] == "Artist"
+        assert item.meta["album"] == "Album" and item.meta["duration"] == 3
+        assert await spotify.resolve_pending(db) == 0
+    assert await downloads.DownloadManager().process_one()
+    async with SessionLocal() as db:
+        item = await db.get(DownloadItem, item_id)
+        track = await db.get(Track, item.track_id)
+        assert item.status == "done" and item.source == "soundcloud" and not track.is_temporary
+        track.is_temporary = True
+        await db.commit()
+        assert await spotify.resolve_pending(db) == 0
+        track.is_temporary = False
+        await db.commit()
+        assert await spotify.resolve_pending(db) == 1
+        assert await spotify.resolve_pending(db) == 0
+        entries = list(await db.scalars(select(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist_id)))
+        assert len(entries) == 1 and entries[0].track_id == track.id and entries[0].position == 0
+        assert await db.scalar(select(func.count()).select_from(SpotifyPending)) == 0
+
+
+async def test_niche_search_daily_limit_stops_requests(env: SimpleNamespace) -> None:
+    await connect(env, env.user)
+    env.liked = [entry(song(str(i), isrc=None)) for i in range(3)]
+    env.deezer_handler = lambda request: httpx.Response(200, json={"data": []})
+    async with SessionLocal() as db:
+        await update_config(db, {"downloads": {"daily_limit_per_user": 1}})
+        user_id = uuid.UUID(env.user["user"]["id"])
+        batch = SpotifyImport(user_id=user_id, status="queued", liked=True, playlist_ids=[], download_missing=True)
+        db.add(batch)
+        await db.commit()
+        batch_id = batch.id
+    await spotify.run_import(batch_id)
+    async with SessionLocal() as db:
+        batch = await db.get(SpotifyImport, batch_id)
+        assert batch.status == "done" and batch.missing == 3 and batch.requested == 1
+        assert batch.message == "Tageslimit erreicht – weitere fehlende Songs wurden nicht angefragt"
+        assert await db.scalar(select(func.count()).select_from(SpotifyPending)) == 1
+        assert await db.scalar(select(func.count()).select_from(DownloadRequest)) == 1
 
 
 async def test_resolve_pending_isrc_deezer_positions_expiry_and_duplicates(env):

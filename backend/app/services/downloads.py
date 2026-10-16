@@ -27,12 +27,13 @@ from app.services.deezer import DeezerError, NotFound, artist_string, deezer
 from app.services.importer import quality
 from app.services.library_paths import target_relpath
 from app.services.lyrics import sidecar_path
-from app.services.matching import match_tracks
+from app.services.matching import match_tracks, name_key
 from app.services.musicbrainz import TrackMeta
 from app.services.resolve import explicit_album_id, explicit_track_id, resolve_album, resolve_track
 from app.services.scanner import AUDIO_EXTENSIONS, import_file, import_files
 from app.services.server_config import load_config
 from app.services.sources.base import Cancelled
+from app.services.sources.soundcloud import track_url
 from app.services.sources.youtube import norm, video_id
 from app.services.tagger import fetch_cover, write_tags
 from app.services.tags import TrackTags, embedded_cover, read_tags
@@ -614,9 +615,9 @@ class DownloadManager:
                 await self._change(item.id, status="exists", track_id=track.library_id)
                 return
             enabled = sources.enabled_sources(cfg)
-            forced = redownload and item.source == "youtube" and item.source_ref
+            forced = redownload and item.source in {"youtube", "soundcloud"} and item.source_ref
             if forced:
-                enabled = [source for source in enabled if source.name == "youtube"]
+                enabled = [source for source in enabled if source.name == item.source]
             if not enabled:
                 await self._change(item.id, status="failed", error="Keine Download-Quelle aktiviert")
                 return
@@ -734,8 +735,12 @@ manager = DownloadManager()
 
 async def create_redownload(db: AsyncSession, user: User, track: Track, youtube_url: str | None) -> DownloadRequest:
     ref = video_id(youtube_url) if youtube_url is not None else None
+    source = "youtube" if ref else None
     if youtube_url is not None and ref is None:
-        raise HTTPException(422, "Kein gültiger YouTube-Link")
+        ref = track_url(youtube_url)
+        source = "soundcloud" if ref else None
+    if youtube_url is not None and ref is None:
+        raise HTTPException(422, "Kein gültiger YouTube- oder SoundCloud-Link")
     existing = await db.scalar(
         select(DownloadRequest)
         .options(selectinload(DownloadRequest.items), joinedload(DownloadRequest.user))
@@ -813,7 +818,7 @@ async def create_redownload(db: AsyncSession, user: User, track: Track, youtube_
                 duration=track.duration,
                 meta=meta.model_dump(),
                 exclude_refs=[] if ref else list(dict.fromkeys(r for r in refs if r)),
-                source="youtube" if ref else None,
+                source=source,
                 source_ref=ref,
                 status="queued" if approved else "waiting",
                 track_id=None,
@@ -826,10 +831,8 @@ async def create_redownload(db: AsyncSession, user: User, track: Track, youtube_
     return request
 
 
-async def create_request(
-    db: AsyncSession, user: User, kind: str, catalog_id: str, temporary: bool, *, radio: bool = False
-) -> DownloadRequest:
-    existing = await db.scalar(
+async def _active_request(db: AsyncSession, user: User, kind: str, catalog_id: str) -> DownloadRequest | None:
+    return await db.scalar(
         select(DownloadRequest)
         .options(selectinload(DownloadRequest.items), joinedload(DownloadRequest.user))
         .where(
@@ -839,23 +842,21 @@ async def create_request(
             DownloadRequest.status.in_(["pending_approval", "active"]),
         )
     )
-    if existing is not None:
-        return existing
-    try:
-        # Censored releases sound wrong; always fetch the explicit original when Deezer has one.
-        catalog_id = await (explicit_track_id if kind == "track" else explicit_album_id)(catalog_id)
-        if kind == "track":
-            metas = [await resolve_track(catalog_id)]
-            track = await deezer.track(catalog_id)
-            album = await deezer.album(str(track["album"]["id"]))
-            title, artist = track["title"], artist_string(track)
-        else:
-            album, metas = await resolve_album(catalog_id)
-            title, artist = album["title"], album.get("artist", {}).get("name", "")
-    except NotFound as e:
-        raise HTTPException(404, "Nicht im Katalog gefunden") from e
-    except DeezerError as e:
-        raise HTTPException(502, "Katalog nicht erreichbar") from e
+
+
+async def _create_request(
+    db: AsyncSession,
+    user: User,
+    *,
+    kind: str,
+    catalog_id: str,
+    title: str,
+    artist: str,
+    cover_url: str | None,
+    metas: list[TrackMeta],
+    temporary: bool,
+    radio: bool = False,
+) -> DownloadRequest:
     tracks = [_catalog_track(meta) for meta in metas]
     await match_tracks(db, tracks)
     cfg = await load_config(db)
@@ -886,7 +887,7 @@ async def create_request(
         mb_release_id=first.mb_release_id if first else None,
         title=title,
         artist=artist,
-        cover_url=album.get("cover_medium"),
+        cover_url=cover_url,
         status="active" if approved else "pending_approval",
         is_temporary=temporary and (user.is_admin or radio),
         items=[
@@ -909,3 +910,87 @@ async def create_request(
     await db.refresh(request, ["updated_at"])
     manager.wake()
     return request
+
+
+async def create_request(
+    db: AsyncSession, user: User, kind: str, catalog_id: str, temporary: bool, *, radio: bool = False
+) -> DownloadRequest:
+    existing = await _active_request(db, user, kind, catalog_id)
+    if existing is not None:
+        return existing
+    try:
+        # Censored releases sound wrong; always fetch the explicit original when Deezer has one.
+        catalog_id = await (explicit_track_id if kind == "track" else explicit_album_id)(catalog_id)
+        if kind == "track":
+            metas = [await resolve_track(catalog_id)]
+            track = await deezer.track(catalog_id)
+            album = await deezer.album(str(track["album"]["id"]))
+            title, artist = track["title"], artist_string(track)
+        else:
+            album, metas = await resolve_album(catalog_id)
+            title, artist = album["title"], album.get("artist", {}).get("name", "")
+    except NotFound as e:
+        raise HTTPException(404, "Nicht im Katalog gefunden") from e
+    except DeezerError as e:
+        raise HTTPException(502, "Katalog nicht erreichbar") from e
+    return await _create_request(
+        db,
+        user,
+        kind=kind,
+        catalog_id=catalog_id,
+        title=title,
+        artist=artist,
+        cover_url=album.get("cover_medium"),
+        metas=metas,
+        temporary=temporary,
+        radio=radio,
+    )
+
+
+async def create_search_request(
+    db: AsyncSession,
+    user: User,
+    *,
+    title: str,
+    artist: str,
+    album: str | None,
+    duration: float | None,
+    temporary: bool,
+) -> DownloadRequest:
+    catalog_id = f"search:{name_key(artist)}:{name_key(title)}"[:64]
+    existing = await _active_request(db, user, "search", catalog_id)
+    if existing is not None:
+        return existing
+    first_artist = artist.split(", ")[0]
+    meta = TrackMeta(
+        title=title,
+        artist=first_artist,
+        artist_mbid=None,
+        album=album or title,
+        album_artist=first_artist,
+        album_artist_mbid=None,
+        track_no=1,
+        track_total=1,
+        disc_no=1,
+        disc_total=1,
+        year=None,
+        date=None,
+        duration=duration,
+        isrc=None,
+        genre=None,
+        label=None,
+        mb_recording_id=None,
+        mb_release_id=None,
+        mb_release_group_id=None,
+    )
+    return await _create_request(
+        db,
+        user,
+        kind="search",
+        catalog_id=catalog_id,
+        title=title,
+        artist=artist,
+        cover_url=None,
+        metas=[meta],
+        temporary=temporary,
+    )

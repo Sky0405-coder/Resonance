@@ -2150,6 +2150,24 @@ abstract class AppLocalizations {
   /// **'Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)'**
   String get adminYouTubeSourceHint;
 
+  /// No description provided for @adminSoundCloudSource.
+  ///
+  /// In de, this message translates to:
+  /// **'SoundCloud als Quelle'**
+  String get adminSoundCloudSource;
+
+  /// No description provided for @adminSoundCloudSourceHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird versucht, wenn YouTube nichts findet'**
+  String get adminSoundCloudSourceHint;
+
+  /// No description provided for @downloadsSearch.
+  ///
+  /// In de, this message translates to:
+  /// **'Suche'**
+  String get downloadsSearch;
+
   /// No description provided for @adminQualityUpgrades.
   ///
   /// In de, this message translates to:
@@ -3065,7 +3083,7 @@ abstract class AppLocalizations {
   /// No description provided for @redownloadYoutubeLabel.
   ///
   /// In de, this message translates to:
-  /// **'YouTube-Link (optional)'**
+  /// **'YouTube- oder SoundCloud-Link (optional)'**
   String get redownloadYoutubeLabel;
 
   /// No description provided for @redownloadYoutubeHint.

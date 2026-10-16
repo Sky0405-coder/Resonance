@@ -60,6 +60,7 @@ class SpotifyPending(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     isrc: Mapped[str | None] = mapped_column(String(16), index=True)
     deezer_id: Mapped[str | None] = mapped_column(String(32))
+    download_item_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("download_items.id", ondelete="SET NULL"))
     title: Mapped[str] = mapped_column(String(512))
     artist: Mapped[str] = mapped_column(String(1024))
     duration: Mapped[float | None] = mapped_column(Float)

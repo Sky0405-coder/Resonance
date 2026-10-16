@@ -16,7 +16,7 @@ class DownloadRequest(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     kind: Mapped[str] = mapped_column(String(16))
     mb_id: Mapped[str | None] = mapped_column(String(36))
-    catalog_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    catalog_id: Mapped[str | None] = mapped_column(String(64), index=True)
     replace_track_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tracks.id", ondelete="SET NULL"))
     mb_release_id: Mapped[str | None] = mapped_column(String(36))
     title: Mapped[str] = mapped_column(String(512))

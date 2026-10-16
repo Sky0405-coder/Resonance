@@ -29,7 +29,7 @@ from app.models import (
 from app.schemas import CatalogTrack
 from app.services import matching
 from app.services.deezer import deezer
-from app.services.downloads import create_request
+from app.services.downloads import create_request, create_search_request
 from app.services.server_config import SpotifyConfig, load_config
 from app.services.sources.youtube import norm
 
@@ -387,31 +387,42 @@ async def run_import(import_id: uuid.UUID) -> None:
                             ]
                         if request_more:
                             deezer_id = await _deezer_id(track)
-                            if deezer_id is not None:
-                                try:
-                                    await create_request(db, user, "track", deezer_id, temporary=False)
-                                except HTTPException as e:
-                                    if e.status_code == 429:
-                                        request_more = False
-                                        _message(
-                                            batch, "Tageslimit erreicht – weitere fehlende Songs wurden nicht angefragt"
-                                        )
+                            try:
+                                if deezer_id is not None:
+                                    request = await create_request(db, user, "track", deezer_id, temporary=False)
                                 else:
-                                    batch.requested += 1
-                                    db.add(
-                                        SpotifyPending(
-                                            user_id=user.id,
-                                            isrc=track.isrc,
-                                            deezer_id=deezer_id,
-                                            title=track.title,
-                                            artist=track.artist,
-                                            duration=track.duration,
-                                            like=playlist_id is None,
-                                            like_at=track.added_at if playlist_id is None else None,
-                                            playlist_id=playlist_id,
-                                            position=float(track.position) if playlist_id is not None else None,
-                                        )
+                                    request = await create_search_request(
+                                        db,
+                                        user,
+                                        title=track.title,
+                                        artist=track.artist,
+                                        album=track.album,
+                                        duration=track.duration,
+                                        temporary=False,
                                     )
+                            except HTTPException as e:
+                                if e.status_code == 429:
+                                    request_more = False
+                                    _message(
+                                        batch, "Tageslimit erreicht – weitere fehlende Songs wurden nicht angefragt"
+                                    )
+                            else:
+                                batch.requested += 1
+                                db.add(
+                                    SpotifyPending(
+                                        user_id=user.id,
+                                        isrc=track.isrc,
+                                        deezer_id=deezer_id,
+                                        download_item_id=request.items[0].id if deezer_id is None else None,
+                                        title=track.title,
+                                        artist=track.artist,
+                                        duration=track.duration,
+                                        like=playlist_id is None,
+                                        like_at=track.added_at if playlist_id is None else None,
+                                        playlist_id=playlist_id,
+                                        position=float(track.position) if playlist_id is not None else None,
+                                    )
+                                )
                     if batch.total % 200 == 0:
                         await db.commit()
                 await db.commit()
@@ -509,7 +520,13 @@ async def resolve_pending(db: AsyncSession) -> int:
         if row.created_at < cutoff:
             await db.delete(row)
             continue
-        if row.isrc:
+        if row.download_item_id is not None:
+            track_id = await db.scalar(
+                select(DownloadItem.track_id)
+                .join(Track, Track.id == DownloadItem.track_id)
+                .where(DownloadItem.id == row.download_item_id, Track.is_temporary.is_(False))
+            )
+        elif row.isrc:
             track_id = await db.scalar(
                 select(Track.id).where(Track.isrc == row.isrc, Track.is_temporary.is_(False)).limit(1)
             )

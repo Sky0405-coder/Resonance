@@ -817,6 +817,14 @@ class _ServerTab extends ConsumerWidget {
               }),
             ),
             SwitchListTile(
+              title: Text(context.l10n.adminSoundCloudSource),
+              subtitle: Text(context.l10n.adminSoundCloudSourceHint),
+              value: dl['soundcloud_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'downloads': {'soundcloud_enabled': v},
+              }),
+            ),
+            SwitchListTile(
               title: Text(context.l10n.adminQualityUpgrades),
               subtitle: Text(context.l10n.adminQualityUpgradesHint),
               value: dl['quality_upgrade_enabled'],

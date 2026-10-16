@@ -36,6 +36,8 @@ class RadioConfig(BaseModel):
 class DownloadConfig(BaseModel):
     # YouTube Music via yt-dlp as a download source.
     youtube_enabled: bool = True
+    # SoundCloud via yt-dlp as a fallback download source.
+    soundcloud_enabled: bool = True
     # Try public torrents (Prowlarr + qBittorrent) first for album requests.
     torrent_enabled: bool = False
     torrent_min_seeders: int = Field(1, ge=0, le=1000)

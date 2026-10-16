@@ -220,12 +220,26 @@ async def test_creation_excludes_and_meta(client: httpx.AsyncClient, env: Simple
         assert meta.date is None and meta.cover_url is None and meta.deezer_track_id is None
 
 
-@pytest.mark.parametrize("url", ["bad link", "", "https://youtu.be/too-short", "x" * 501])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "bad link",
+        "",
+        "https://youtu.be/too-short",
+        "x" * 501,
+        "https://on.soundcloud.com/short",
+        "http://soundcloud.com/artist/song",
+        "https://soundcloud.com/artist",
+        "https://soundcloud.com/artist/sets/album",
+        "https://soundcloud.com.evil.test/artist/song",
+        "https://soundcloud.com@evil.test/artist/song",
+    ],
+)
 async def test_invalid_link(client: httpx.AsyncClient, env: SimpleNamespace, url: str) -> None:
     response = await client.post(f"/api/tracks/{env.track_id}/redownload", json={"youtube_url": url}, headers=env.user)
     assert response.status_code == 422
     if len(url) <= 500:
-        assert response.json()["detail"] == "Kein gültiger YouTube-Link"
+        assert response.json()["detail"] == "Kein gültiger YouTube- oder SoundCloud-Link"
 
 
 async def test_forced_link_and_retry(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
@@ -244,6 +258,26 @@ async def test_forced_link_and_retry(client: httpx.AsyncClient, env: SimpleNames
     assert env.fake.excludes == [] and env.fake.picks == ["old_video01"]
     detail = (await client.get(f"/api/requests/{result['id']}", headers=env.user)).json()
     assert detail["status"] == "done"
+
+
+@pytest.mark.parametrize("host", ["soundcloud.com", "m.soundcloud.com"])
+async def test_forced_soundcloud_link(
+    client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, host: str
+) -> None:
+    soundcloud = FakeSource(env.fake.audio)
+    soundcloud.name = "soundcloud"
+    monkeypatch.setattr(sources, "enabled_sources", lambda cfg: [env.fake, soundcloud])
+    url = f"https://{host}/artist/song"
+    result = await create(client, env, youtube_url=url)
+    async with SessionLocal() as db:
+        item = await db.get(DownloadItem, uuid.UUID(result["items"][0]["id"]))
+        assert item.source == "soundcloud" and item.source_ref == url and item.exclude_refs == []
+    await approve(client, env, result)
+    assert await DownloadManager().process_one()
+    assert soundcloud.picks == [url] and soundcloud.excludes == []
+    assert env.fake.picks == [] and env.fake.excludes == []
+    detail = (await client.get(f"/api/requests/{result['id']}", headers=env.user)).json()
+    assert detail["status"] == "done" and detail["items"][0]["source"] == "soundcloud"
 
 
 @pytest.mark.parametrize("approved", [False, True])

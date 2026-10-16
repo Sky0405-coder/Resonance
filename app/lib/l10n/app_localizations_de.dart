@@ -1170,6 +1170,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminYouTubeSourceHint => 'Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)';
 
   @override
+  String get adminSoundCloudSource => 'SoundCloud als Quelle';
+
+  @override
+  String get adminSoundCloudSourceHint => 'Wird versucht, wenn YouTube nichts findet';
+
+  @override
+  String get downloadsSearch => 'Suche';
+
+  @override
   String get adminQualityUpgrades => 'Qualitäts-Upgrades';
 
   @override
@@ -1718,7 +1727,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Der Song wird erneut gesucht und ersetzt. Die bisher verwendete Quelle wird übersprungen. Likes und Playlists bleiben erhalten.';
 
   @override
-  String get redownloadYoutubeLabel => 'YouTube-Link (optional)';
+  String get redownloadYoutubeLabel => 'YouTube- oder SoundCloud-Link (optional)';
 
   @override
   String get redownloadYoutubeHint => 'Falls du eine bestimmte Version willst';

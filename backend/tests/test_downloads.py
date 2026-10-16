@@ -8,15 +8,17 @@ import uuid
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Self
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from PIL import Image
 from sqlalchemy import select
 
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
-from app.models import Album, Artist, DownloadItem, DownloadRequest, Job, Track
+from app.models import Album, Artist, DownloadItem, DownloadRequest, Job, Track, User
 from app.services import downloads, scanner, sources
 from app.services.deezer import DeezerClient, DeezerError, artist_string, deezer
 from app.services.deezer import NotFound as DeezerNotFound
@@ -25,7 +27,10 @@ from app.services.library_paths import target_relpath
 from app.services.musicbrainz import MusicBrainzClient, MusicBrainzError, NotFound, TrackMeta, mb
 from app.services.resolve import meta_from_deezer, resolve_album, resolve_track
 from app.services.scanner import import_file
+from app.services.server_config import ServerConfig, update_config
+from app.services.sources import enabled_sources
 from app.services.sources.base import Cancelled, Candidate
+from app.services.sources.soundcloud import SoundCloudSource
 from app.services.sources.youtube import YouTubeMusicSource, score_candidate
 from app.services.tagger import write_tags
 from app.services.tags import embedded_cover, read_tags
@@ -750,6 +755,233 @@ async def test_youtube_download(
     assert options_seen["cookiefile"] == str(cookies)
     with pytest.raises(Cancelled):
         await source.download(candidate, tmp_path, seen_progress.append, lambda: True)
+
+
+@pytest.mark.parametrize("split", [False, True])
+async def test_soundcloud_find_scoring(meta: TrackMeta, monkeypatch: pytest.MonkeyPatch, split: bool) -> None:
+    ref = "https://soundcloud.com/artist/song"
+
+    class Downloader:
+        def __init__(self, options: dict) -> None:
+            assert options == {"quiet": True, "no_warnings": True, "extract_flat": True}
+
+        def __enter__(self) -> Self:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def extract_info(self, query: str, download: bool) -> dict:
+            assert query == f"scsearch10:{meta.artist} {meta.title}" and download is False
+            return {
+                "entries": [
+                    None,
+                    {"title": meta.title},
+                    {"url": "wrong", "title": "Unrelated", "uploader": meta.artist, "duration": 3},
+                    {"url": "live", "title": f"{meta.title} (Live)", "uploader": meta.artist},
+                    {"url": "long", "title": meta.title, "uploader": meta.artist, "duration": 60},
+                    {"url": "near", "title": meta.title, "uploader": meta.artist, "duration": 10},
+                    {
+                        "url": ref,
+                        "title": f"{meta.artist} - {meta.title}" if split else meta.title,
+                        "uploader": "Repost channel" if split else meta.artist,
+                        "duration": 3,
+                    },
+                ]
+            }
+
+    monkeypatch.setattr("app.services.sources.soundcloud.yt_dlp.YoutubeDL", Downloader)
+    source = SoundCloudSource()
+    assert await source.find(meta) == Candidate("soundcloud", ref, meta.title, meta.artist, 3, 100)
+    excluded = await source.find(meta, frozenset({ref}))
+    assert excluded is not None and excluded.ref == "near" and excluded.score < 100
+    assert await source.find(meta, frozenset({ref, "near"})) is None
+    assert source.candidate(ref) == Candidate("soundcloud", ref, "", "", None, 100)
+
+
+async def test_soundcloud_find_extractor_error(
+    meta: TrackMeta, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def fail(options: dict) -> None:
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr("app.services.sources.soundcloud.yt_dlp.YoutubeDL", fail)
+    with caplog.at_level("DEBUG", logger="app.services.sources.soundcloud"):
+        assert await SoundCloudSource().find(meta) is None
+    assert "SoundCloud search failed" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "codec,extension,expected",
+    [
+        ("opus", ".opus", ".opus"),
+        ("mp3", ".mp3", ".mp3"),
+        ("aac", ".aac", ".m4a"),
+        ("mp4a.40.2", ".m4a", ".m4a"),
+        ("flac", ".flac", ".opus"),
+    ],
+)
+async def test_soundcloud_download(
+    codec: str, extension: str, expected: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_file = make_track(f"soundcloud-source{extension}")
+    options_seen = {}
+    ref = "https://soundcloud.com/artist/song"
+
+    class Downloader:
+        def __init__(self, options: dict) -> None:
+            options_seen.update(options)
+
+        def __enter__(self) -> Self:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def extract_info(self, url: str, download: bool) -> dict:
+            assert url == ref and download
+            options_seen["progress_hooks"][0]({"downloaded_bytes": 5, "total_bytes_estimate": 10})
+            return {"acodec": codec}
+
+        def prepare_filename(self, info: dict) -> str:
+            return str(source_file)
+
+    monkeypatch.setattr("app.services.sources.soundcloud.yt_dlp.YoutubeDL", Downloader)
+    seen_progress = []
+    source = SoundCloudSource()
+    candidate = source.candidate(ref)
+    path = await source.download(candidate, tmp_path, seen_progress.append, lambda: False)
+    assert path.name == f"audio{expected}" and path.is_file() and not source_file.exists()
+    assert read_tags(path).codec == {".mp3": "mp3", ".m4a": "aac", ".opus": "opus"}[expected]
+    assert seen_progress == [0.5]
+    assert options_seen["format"] == "bestaudio[ext=opus]/bestaudio[ext=mp3]/bestaudio"
+    assert "cookiefile" not in options_seen
+    with pytest.raises(Cancelled):
+        await source.download(candidate, tmp_path, seen_progress.append, lambda: True)
+
+    # Cancellation during a progress callback must abort before conversion.
+    with pytest.raises(Cancelled):
+        await source.download(candidate, tmp_path, seen_progress.append, iter([False, True]).__next__)
+
+
+@pytest.mark.parametrize(
+    "youtube_enabled,soundcloud_enabled", [(True, True), (True, False), (False, True), (False, False)]
+)
+async def test_soundcloud_source_order(
+    client: httpx.AsyncClient,
+    env: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    youtube_enabled: bool,
+    soundcloud_enabled: bool,
+) -> None:
+    youtube = FakeSource()
+    youtube.no_match = True
+    soundcloud = FakeSource()
+    soundcloud.name = "soundcloud"
+    calls = []
+    youtube.on_find = lambda: calls.append("youtube")
+    soundcloud.on_find = lambda: calls.append("soundcloud")
+    monkeypatch.setattr(sources, "_youtube", youtube)
+    monkeypatch.setattr(sources, "_soundcloud", soundcloud)
+    monkeypatch.setattr(sources, "enabled_sources", enabled_sources)
+    cfg = ServerConfig()
+    cfg.downloads.youtube_enabled = youtube_enabled
+    cfg.downloads.soundcloud_enabled = soundcloud_enabled
+    expected = ([youtube] if youtube_enabled else []) + ([soundcloud] if soundcloud_enabled else [])
+    assert enabled_sources(cfg) == expected
+    assert enabled_sources(cfg) == expected
+    async with SessionLocal() as db:
+        await update_config(
+            db,
+            {
+                "downloads": {
+                    "youtube_enabled": youtube_enabled,
+                    "soundcloud_enabled": soundcloud_enabled,
+                    "torrent_enabled": True,
+                }
+            },
+        )
+        user = await db.scalar(select(User).where(User.username == "download-user"))
+        request = await downloads.create_search_request(
+            db, user, title="Underground", artist="Niche Artist", album=None, duration=3, temporary=False
+        )
+    assert await DownloadManager().process_one()
+    assert calls == (["youtube"] if youtube_enabled else []) + (["soundcloud"] if soundcloud_enabled else [])
+    response = await client.get(f"/api/requests/{request.id}", headers=env.user)
+    detail = response.json()
+    assert detail["kind"] == "search" and detail["torrent_status"] is None
+    assert detail["status"] == ("done" if soundcloud_enabled else "failed")
+    if soundcloud_enabled:
+        assert detail["items"][0]["source"] == "soundcloud"
+        assert detail["items"][0]["track_id"] is not None
+
+
+@pytest.mark.parametrize("approved,admin", [(False, False), (True, False), (False, True)])
+async def test_search_request_dedupe_metadata_approval(env: SimpleNamespace, approved: bool, admin: bool) -> None:
+    async with SessionLocal() as db:
+        await update_config(db, {"downloads": {"auto_approve_requests": approved}})
+        user = await db.scalar(select(User).where(User.username == ("download-admin" if admin else "download-user")))
+        request = await downloads.create_search_request(
+            db, user, title="Underground", artist="Niche Artist, Guest", album=None, duration=None, temporary=True
+        )
+        duplicate = await downloads.create_search_request(
+            db, user, title="UNDERGROUND", artist="niche  artist, guest", album="Other", duration=10, temporary=False
+        )
+        assert duplicate.id == request.id
+        assert request.kind == "search" and request.catalog_id == "search:niche artist, guest:underground"
+        assert request.cover_url is None and request.mb_id is None and request.mb_release_id is None
+        assert (request.title, request.artist) == ("Underground", "Niche Artist, Guest")
+        assert request.status == ("active" if approved or admin else "pending_approval")
+        assert request.is_temporary is admin
+        assert len(request.items) == 1
+        item = request.items[0]
+        assert item.position == 0 and item.status == ("queued" if approved or admin else "waiting")
+        meta = TrackMeta.model_validate(item.meta)
+        assert meta.artist == meta.album_artist == "Niche Artist"
+        assert meta.album == meta.title == "Underground"
+        assert meta.track_no == meta.track_total == meta.disc_no == meta.disc_total == 1
+        assert all(
+            value is None
+            for key, value in item.meta.items()
+            if key
+            not in {"title", "artist", "album", "album_artist", "track_no", "track_total", "disc_no", "disc_total"}
+        )
+
+
+async def test_search_request_limit_existing_and_long_key(env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        await update_config(db, {"downloads": {"daily_limit_per_user": 1}})
+        user = await db.scalar(select(User).where(User.username == "download-user"))
+        title = "Niche song " * 10
+        request = await downloads.create_search_request(
+            db, user, title=title, artist="Niche Artist", album="Underground Album", duration=3, temporary=False
+        )
+        assert request.catalog_id == f"search:niche artist:{title.casefold().strip()}"[:64]
+        assert request.items[0].meta["album"] == "Underground Album"
+        assert (
+            await downloads.create_search_request(
+                db, user, title=title, artist="Niche Artist", album=None, duration=3, temporary=False
+            )
+        ).id == request.id
+        with pytest.raises(HTTPException) as error:
+            await downloads.create_search_request(
+                db, user, title="Another", artist="Niche Artist", album=None, duration=3, temporary=False
+            )
+        assert error.value.status_code == 429
+        assert error.value.detail == "Tageslimit erreicht (1 von 1 Songs in 24 Stunden)"
+        path = make_track("Niche Artist/Album/existing.opus", title="Existing", artist="Niche Artist", album="Album")
+        track = await import_file(db, str(path.relative_to(MUSIC_DIR)))
+        existing = await downloads.create_search_request(
+            db, user, title="Existing", artist="Niche Artist", album=None, duration=2, temporary=False
+        )
+        assert existing.status == "done" and existing.items[0].status == "exists"
+        assert existing.items[0].track_id == track.id
+        admin = await db.scalar(select(User).where(User.username == "download-admin"))
+        assert (
+            await downloads.create_search_request(
+                db, admin, title=title, artist="Niche Artist", album=None, duration=3, temporary=False
+            )
+        ).id != request.id
 
 
 async def test_fetch_cover_cache(

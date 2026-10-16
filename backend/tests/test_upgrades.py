@@ -60,6 +60,51 @@ def test_needs_upgrade(codec: str | None, bitrate: int | None, temporary: bool, 
     assert upgrades.needs_upgrade(Track(codec=codec, bitrate=bitrate, is_temporary=temporary)) is expected
 
 
+async def test_soundcloud_mp3_needs_upgrade(torrent_env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        artist = Artist(name="SoundCloud Artist", name_key="soundcloud artist")
+        db.add(artist)
+        await db.flush()
+        album = Album(title="SoundCloud Album", title_key="soundcloud album", artist_id=artist.id)
+        db.add(album)
+        await db.flush()
+        track = Track(
+            path="soundcloud.mp3",
+            title="Song",
+            artist_id=artist.id,
+            album_id=album.id,
+            artist_credit=artist.name,
+            codec="mp3",
+            bitrate=128,
+            is_temporary=False,
+        )
+        db.add(track)
+        await db.flush()
+        admin = await db.scalar(select(User).where(User.username == "torrent-admin"))
+        request = DownloadRequest(
+            user_id=admin.id,
+            kind="search",
+            title=track.title,
+            artist=artist.name,
+            status="done",
+            items=[
+                DownloadItem(
+                    position=0,
+                    title=track.title,
+                    artist=artist.name,
+                    meta={},
+                    status="done",
+                    source="soundcloud",
+                    source_ref="https://soundcloud.com/artist/song",
+                    track_id=track.id,
+                )
+            ],
+        )
+        db.add(request)
+        await db.commit()
+        assert request.items[0].source == "soundcloud" and upgrades.needs_upgrade(track)
+
+
 @pytest.fixture
 async def upgrade_env(torrent_env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[SimpleNamespace]:
     assert engine.url.database.startswith("app_test")
