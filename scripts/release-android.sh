@@ -1,8 +1,8 @@
 #!/bin/sh
-# Release: bumps the version (1.0.N, N = build number), builds the signed APK, uploads it to the Resonance
+# Release: bumps the version (patch +1, or VERSION=x.y.z; the build number always +1), builds the signed APK, uploads it to the Resonance
 # server (installed apps offer it as an in-app update), commits + tags the version and creates a GitHub
 # release with the APK. Publishing the release triggers .github/workflows/desktop-release.yml, which adds
-# the Linux and Windows builds.
+# the Linux, Windows and iOS builds.
 #
 # Needs: app/android/key.properties (release keystore), JAVA_HOME with JDK 17/21,
 #        RESONANCE_URL (default https://resonance.k-node.de) and an admin token in RESONANCE_TOKEN
@@ -15,10 +15,11 @@ TOKEN=${RESONANCE_TOKEN:-$(cat ~/.config/resonance/server-token)}
 FLUTTER=${FLUTTER:-$HOME/flutter/bin/flutter}
 GH=${GH:-$(command -v gh || echo "$HOME/.local/bin/gh")}
 
-# version: 1.0.6+6 -> 1.0.7+7
+# version: 1.1.0+22 -> 1.1.1+23 (build number always +1); VERSION=1.2.0 sets the version name explicitly.
 current=$(sed -n 's/^version: //p' pubspec.yaml)
 code=$(( ${current#*+} + 1 ))
-name="1.0.$code"
+base=${current%+*}
+name=${VERSION:-${base%.*}.$(( ${base##*.} + 1 ))}
 sed -i "s/^version: .*/version: $name+$code/" pubspec.yaml
 echo "Building $name ..."
 

@@ -14,10 +14,12 @@ import 'common.dart';
 /// Downloads the APK from the server with progress and hands it to the Android installer.
 /// Desktop: downloads the installer / AppImage from GitHub (Linux tarball installs get the release page).
 Future<void> installAppUpdate(BuildContext context, WidgetRef ref) async {
-  if (isDesktop) {
+  if (isDesktop || defaultTargetPlatform == TargetPlatform.iOS) {
     final update = ref.read(appUpdateProvider).value;
     if (update == null) return;
-    if (defaultTargetPlatform == TargetPlatform.linux && runningAppImage == null) {
+    // iOS: the .ipa is installed with a sideloading tool; Linux tarball: no self-update.
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        (defaultTargetPlatform == TargetPlatform.linux && runningAppImage == null)) {
       final page = update.releaseUrl;
       if (page != null) await launchUrl(Uri.parse(page), mode: LaunchMode.externalApplication);
       return;

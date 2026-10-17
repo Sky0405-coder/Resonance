@@ -12,7 +12,7 @@ import 'session.dart';
 const githubRepo = 'Sky0405-coder/Resonance';
 
 /// Installed version and, if there is a newer release, that release.
-/// Android: the APK on the Resonance server. Linux/Windows: the GitHub release's AppImage / installer.
+/// Android: the APK on the Resonance server. Linux/Windows/iOS: the GitHub release's AppImage / installer / .ipa.
 class AppUpdate {
   const AppUpdate({
     required this.installed,
@@ -35,11 +35,18 @@ class AppUpdate {
 }
 
 /// The asset of a release that updates this installation, e.g. `Resonance-v1.0.18-windows-setup.exe`.
-String desktopAssetName(String tag, TargetPlatform platform) =>
-    platform == TargetPlatform.windows ? 'Resonance-$tag-windows-setup.exe' : 'Resonance-$tag-linux-x86_64.AppImage';
+String desktopAssetName(String tag, TargetPlatform platform) => switch (platform) {
+  TargetPlatform.windows => 'Resonance-$tag-windows-setup.exe',
+  TargetPlatform.iOS => 'Resonance-$tag-ios.ipa',
+  _ => 'Resonance-$tag-linux-x86_64.AppImage',
+};
 
-/// Build number of a release tag: v1.0.18 → 18 (versions are 1.0.N with N = build number).
-int? releaseCode(String tag) => int.tryParse(tag.split('.').last);
+/// Comparable number of a version or tag: 1.1.0 / v1.1.0 → 1001000 (major.minor.patch, build suffix ignored).
+int? versionCode(String version) {
+  final parts = version.replaceFirst('v', '').split('+').first.split('.').map(int.tryParse).toList();
+  if (parts.length != 3 || parts.contains(null)) return null;
+  return parts[0]! * 1000000 + parts[1]! * 1000 + parts[2]!;
+}
 
 /// Parses GitHub's `releases/latest` answer into the update offered to this platform.
 AppUpdate desktopUpdateFrom(Map<String, dynamic> release, PackageInfo info, TargetPlatform platform) {
@@ -51,10 +58,10 @@ AppUpdate desktopUpdateFrom(Map<String, dynamic> release, PackageInfo info, Targ
   ].firstOrNull;
   return AppUpdate(
     installed: info.version,
-    installedCode: int.tryParse(info.buildNumber) ?? 0,
+    installedCode: versionCode(info.version) ?? 0,
     // Only offer releases whose build for this platform is already uploaded.
     availableName: url == null ? null : tag.replaceFirst('v', ''),
-    availableCode: url == null ? null : releaseCode(tag),
+    availableCode: url == null ? null : versionCode(tag),
     downloadUrl: url,
     releaseUrl: release['html_url'] as String?,
   );
@@ -65,7 +72,8 @@ final appUpdateProvider = FutureProvider<AppUpdate?>((ref) async {
   final api = ref.watch(apiProvider);
   if (api.token == null) return null;
   final info = await PackageInfo.fromPlatform();
-  if (isDesktop) {
+  // Desktop and iOS (sideloaded .ipa) get their builds from the GitHub release.
+  if (isDesktop || defaultTargetPlatform == TargetPlatform.iOS) {
     final response = await Dio().get<Map<String, dynamic>>(
       'https://api.github.com/repos/$githubRepo/releases/latest',
       options: Options(headers: {'Accept': 'application/vnd.github+json'}),

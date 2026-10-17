@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,8 +42,14 @@ Future<void> main() async {
     overrides: [prefsProvider.overrideWithValue(prefs), audioHandlerProvider.overrideWithValue(null)],
   );
   if (!kIsWeb) await container.read(offlineProvider.notifier).load();
-  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || isDesktop)) {
-    // Android: media notification, lock screen controls and background playback.
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    // Playback category: keeps playing when locked / in the background and ignores the silent switch.
+    await (await AudioSession.instance).configure(const AudioSessionConfiguration.music());
+  }
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS || isDesktop)) {
+    // Android: media notification, lock screen controls and background playback. iOS: lock screen / Control
+    // Center (Now Playing) and remote commands.
     // Linux (MPRIS) and Windows (media overlay): media keys and the system's player controls.
     final handler = await AudioService.init(
       builder: () => ResonanceAudioHandler(container),

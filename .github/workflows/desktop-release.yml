@@ -1,4 +1,4 @@
-# Builds the Linux and Windows apps when a GitHub release is published and attaches them to it.
+# Builds the Linux, Windows and iOS apps when a GitHub release is published and attaches them to it.
 # The Android APK is built and attached locally by scripts/release-android.sh (the signing key stays local).
 name: Desktop release
 
@@ -91,3 +91,34 @@ jobs:
         with:
           name: windows
           path: Resonance-*-windows-*
+
+  ios:
+    # Unsigned .ipa: installed with a sideloading tool (SideStore, iloader, PlumeImpactor, Sideloadly), which signs
+    # it with the user's Apple ID.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Build
+        working-directory: app
+        run: flutter build ios --release --no-codesign
+      - name: Package and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          name="Resonance-${TAG}-ios.ipa"
+          mkdir Payload
+          cp -R app/build/ios/iphoneos/Runner.app Payload/
+          zip -qry "$name" Payload
+          if [ "${{ inputs.dry_run }}" != "true" ]; then gh release upload "$TAG" "$name" --clobber; fi
+      - if: inputs.dry_run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: Resonance-*.ipa

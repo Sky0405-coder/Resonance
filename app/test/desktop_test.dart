@@ -45,6 +45,15 @@ void main() {
     expect(u.available, isFalse);
   });
 
+  test('versions compare across minor releases', () {
+    expect(versionCode('1.1.0')! > versionCode('1.0.21')!, isTrue);
+    expect(versionCode('v1.0.9')! < versionCode('v1.0.10')!, isTrue);
+    expect(versionCode('1.1.0+22'), versionCode('1.1.0'));
+    expect(versionCode('main'), isNull);
+    final u = desktopUpdateFrom(release('v1.1.0', ['Resonance-v1.1.0-ios.ipa']), info, TargetPlatform.iOS);
+    expect(u.available, isTrue);
+  });
+
   test('window bounds round trip and validation', () {
     const rect = Rect.fromLTWH(100, 50, 1280, 800);
     expect(parseBounds(formatBounds(rect)), rect);
