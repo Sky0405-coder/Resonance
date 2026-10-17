@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'l10n/l10n.dart';
 import 'l10n/locale.dart';
 
@@ -31,7 +33,10 @@ Future<void> main() async {
     JustAudioMediaKit.ensureInitialized(linux: true, windows: true);
   }
   final prefs = await SharedPreferences.getInstance();
-  if (isDesktop) await initDesktopWindow(prefs);
+  if (isDesktop) {
+    await initDesktopWindow(prefs);
+    unawaited(registerAppImage());
+  }
   final container = ProviderContainer(
     overrides: [prefsProvider.overrideWithValue(prefs), audioHandlerProvider.overrideWithValue(null)],
   );

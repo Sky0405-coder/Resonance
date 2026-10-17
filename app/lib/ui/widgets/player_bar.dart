@@ -392,6 +392,13 @@ class DesktopPlayerBar extends ConsumerWidget {
                 if (book == null && station == null) const JamButton(size: 20),
                 if (book == null && station == null)
                   IconButton(
+                    tooltip: context.l10n.lyricsTitle,
+                    icon: const Icon(Icons.lyrics_outlined),
+                    color: Palette.textMuted,
+                    onPressed: () => context.push('/lyrics'),
+                  ),
+                if (book == null && station == null)
+                  IconButton(
                     tooltip: context.l10n.playerQueue,
                     icon: const Icon(Icons.queue_music),
                     color: Palette.textMuted,

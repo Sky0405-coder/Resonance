@@ -581,7 +581,7 @@ class RequestDetailPage extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              for (final item in r.items) _ItemRow(item: item),
+              for (final item in r.items) _ItemRow(request: r, item: item),
             ],
           );
         },
@@ -590,12 +590,44 @@ class RequestDetailPage extends ConsumerWidget {
   }
 }
 
-class _ItemRow extends StatelessWidget {
-  const _ItemRow({required this.item});
+Future<void> _ownSource(BuildContext context, WidgetRef ref, DownloadRequest r, DownloadItem item) async {
+  final controller = TextEditingController();
+  final url = await showDialog<String>(
+    context: context,
+    builder: (dialog) => AlertDialog(
+      title: Text(context.l10n.downloadsOwnSource),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        keyboardType: TextInputType.url,
+        decoration: InputDecoration(
+          labelText: context.l10n.downloadsOwnSourceLabel,
+          helperText: context.l10n.downloadsOwnSourceHint,
+          helperMaxLines: 2,
+        ),
+        onSubmitted: (v) => Navigator.pop(dialog, v.trim()),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialog), child: Text(context.l10n.commonCancel)),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialog, controller.text.trim()),
+          child: Text(context.l10n.downloadsDownload),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  if (url == null || url.isEmpty || !context.mounted) return;
+  await _run(context, () => ref.read(downloadActionsProvider).setItemSource(r.id, item.id, url));
+}
+
+class _ItemRow extends ConsumerWidget {
+  const _ItemRow({required this.request, required this.item});
+  final DownloadRequest request;
   final DownloadItem item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const muted = TextStyle(color: Palette.textMuted, fontSize: 13);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -636,6 +668,13 @@ class _ItemRow extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 12),
               child: Text(formatDuration(Duration(seconds: item.duration!.round())), style: muted),
+            ),
+          if (item.status == 'failed' && request.status != 'rejected')
+            IconButton(
+              tooltip: context.l10n.downloadsOwnSource,
+              icon: const Icon(Icons.add_link),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _ownSource(context, ref, request, item),
             ),
         ],
       ),

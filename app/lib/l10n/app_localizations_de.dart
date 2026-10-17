@@ -420,6 +420,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get downloadsRetryFailed => 'Fehlgeschlagene erneut versuchen';
 
   @override
+  String get downloadsOwnSource => 'Eigenen Link angeben';
+
+  @override
+  String get downloadsOwnSourceLabel => 'YouTube- oder SoundCloud-Link';
+
+  @override
+  String get downloadsOwnSourceHint => 'Auch normale YouTube-Videos – geladen wird nur die Tonspur.';
+
+  @override
   String get downloadsDeleteEntry => 'Eintrag löschen';
 
   @override

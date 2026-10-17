@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -64,4 +65,44 @@ class _WindowSaver extends WindowListener {
 
   @override
   void onWindowUnmaximize() => prefs.setBool(_maximizedKey, false);
+}
+
+/// Menu entry for an AppImage started directly (Exec = the AppImage's path). Wayland desktops look up the taskbar
+/// icon by app id in the .desktop files, so without it KDE/GNOME show a generic icon.
+String appImageDesktopEntry(String appImage) {
+  final exec = appImage.replaceAllMapped(RegExp(r'["`$\\]'), (m) => '\\${m[0]}').replaceAll('\\', '\\\\');
+  return """[Desktop Entry]
+Type=Application
+Name=Resonance
+GenericName=Music player
+Comment=Your self-hosted music library
+Exec="$exec" %U
+Icon=de.knode.resonance
+Categories=AudioVideo;Audio;Player;
+StartupWMClass=de.knode.resonance
+Terminal=false
+""";
+}
+
+/// Installs/updates the menu entry and icon of the running AppImage in ~/.local/share (also after it was moved).
+Future<void> registerAppImage() async {
+  final appImage = Platform.environment['APPIMAGE'];
+  final home = Platform.environment['HOME'];
+  if (defaultTargetPlatform != TargetPlatform.linux || appImage == null || home == null) return;
+  final dataHome = Platform.environment['XDG_DATA_HOME'] ?? '$home/.local/share';
+  try {
+    final icon = File('${File(Platform.resolvedExecutable).parent.path}/data/resonance.png');
+    final iconTarget = File('$dataHome/icons/hicolor/512x512/apps/de.knode.resonance.png');
+    if (!await iconTarget.exists() || await iconTarget.length() != await icon.length()) {
+      await iconTarget.parent.create(recursive: true);
+      await icon.copy(iconTarget.path);
+    }
+    final entry = File('$dataHome/applications/de.knode.resonance.desktop');
+    final content = appImageDesktopEntry(appImage);
+    if (await entry.exists() && await entry.readAsString() == content) return;
+    await entry.parent.create(recursive: true);
+    await entry.writeAsString(content);
+  } on FileSystemException catch (e) {
+    debugPrint('AppImage desktop integration failed: $e');
+  }
 }

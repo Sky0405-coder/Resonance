@@ -464,3 +464,79 @@ async def test_source_excludes_both_passes(env: SimpleNamespace, available_filte
     assert candidate is not None and candidate.ref == "new_video01"
     assert calls == (["songs"] if available_filter == "songs" else ["songs", "videos"])
     assert source.candidate("old_video01") == Candidate("youtube", "old_video01", "", "", None, 100.0)
+
+
+async def failed_track_request(env: SimpleNamespace) -> tuple[uuid.UUID, uuid.UUID]:
+    meta = TrackMeta(
+        title="Fallen Kingdom",
+        artist="CaptainSparklez",
+        artist_mbid=None,
+        album="Fallen Kingdom",
+        album_artist="CaptainSparklez",
+        album_artist_mbid=None,
+        track_no=1,
+        track_total=1,
+        disc_no=1,
+        disc_total=1,
+        year=2012,
+        date=None,
+        duration=247,
+        isrc=None,
+        genre=None,
+        label=None,
+        mb_recording_id=None,
+        mb_release_id=None,
+        mb_release_group_id=None,
+    )
+    async with SessionLocal() as db:
+        item = DownloadItem(
+            position=0,
+            title=meta.title,
+            artist=meta.artist,
+            meta=meta.model_dump(),
+            status="failed",
+            error="Keine passende Quelle gefunden",
+            attempts=1,
+        )
+        request = DownloadRequest(
+            user_id=env.user_id, kind="track", title=meta.title, artist=meta.artist, status="failed", items=[item]
+        )
+        db.add(request)
+        await db.commit()
+        return request.id, item.id
+
+
+async def test_failed_song_with_own_link(
+    client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def no_cover(meta: TrackMeta) -> None:
+        return None
+
+    monkeypatch.setattr(downloads, "fetch_cover", no_cover)
+    request_id, item_id = await failed_track_request(env)
+    url = f"/api/requests/{request_id}/items/{item_id}/source"
+
+    bad = await client.post(url, json={"url": "https://example.com/song"}, headers=env.user)
+    assert bad.status_code == 422
+    foreign = await client.post(url, json={"url": "https://youtu.be/I-sH53vXP2A"}, headers=auth("invalid"))
+    assert foreign.status_code == 401
+
+    response = await client.post(url, json={"url": "https://www.youtube.com/watch?v=I-sH53vXP2A"}, headers=env.user)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "active"
+    item = response.json()["items"][0]
+    assert (item["status"], item["source"], item["error"]) == ("queued", "youtube", None)
+
+    again = await client.post(url, json={"url": "https://youtu.be/I-sH53vXP2A"}, headers=env.user)
+    assert again.status_code == 409
+
+    env.fake.no_match = True  # the link is used as is, no search
+    assert await DownloadManager().process_one()
+    assert env.fake.picks == ["I-sH53vXP2A"]
+    assert env.fake.excludes == []
+    async with SessionLocal() as db:
+        item = await db.get(DownloadItem, item_id)
+        request = await db.get(DownloadRequest, request_id)
+        assert (item.status, item.source_ref, request.status) == ("done", "I-sH53vXP2A", "done")
+        track = await db.get(Track, item.track_id)
+        assert track.title == "Fallen Kingdom"

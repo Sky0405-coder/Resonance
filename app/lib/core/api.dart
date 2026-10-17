@@ -320,6 +320,10 @@ class ApiClient {
   /// [action] is one of approve, cancel, retry.
   Future<void> requestAction(String id, String action) => _post('/api/requests/$id/$action');
 
+  /// Retries a failed song with a YouTube/SoundCloud link instead of searching.
+  Future<void> setItemSource(String requestId, String itemId, String url) =>
+      _post('/api/requests/$requestId/items/$itemId/source', {'url': url});
+
   Future<void> rejectRequest(String id, {String? note}) => _post('/api/requests/$id/reject', {'note': note});
 
   Future<void> deleteRequest(String id) => _delete('/api/requests/$id');

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, false, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,6 +55,8 @@ class DownloadItem(Base):
     progress: Mapped[float] = mapped_column(Float, default=0)
     source: Mapped[str | None] = mapped_column(String(32))
     source_ref: Mapped[str | None] = mapped_column(Text)
+    # The user picked source/source_ref (a link) instead of the search.
+    source_pinned: Mapped[bool] = mapped_column(server_default=false(), default=False)
     exclude_refs: Mapped[list[str]] = mapped_column(JSONB, nullable=False, server_default="[]", default=list)
     error: Mapped[str | None] = mapped_column(Text)
     attempts: Mapped[int] = mapped_column(default=0)

@@ -17,9 +17,10 @@ from app.schemas import (
     Page,
     RejectIn,
     RequestIn,
+    SourceIn,
     UserRef,
 )
-from app.services.downloads import create_request, manager, recompute_request
+from app.services.downloads import create_request, manager, recompute_request, set_item_source
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
@@ -201,6 +202,20 @@ async def retry(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request)
             item.error = None
             item.progress = 0
     await recompute_request(db, request)
+    await db.commit()
+    manager.wake()
+    return _out(request, language(http_request))
+
+
+@router.post("/{id}/items/{item_id}/source", response_model=DownloadRequestDetail)
+async def item_source(
+    id: uuid.UUID, item_id: uuid.UUID, body: SourceIn, user: CurrentUser, db: DB, http_request: Request
+) -> DownloadRequestDetail:
+    request = await _get(db, user, id, lock=True)
+    item = next((i for i in request.items if i.id == item_id), None)
+    if item is None:
+        raise HTTPException(404, "Song nicht gefunden")
+    await set_item_source(db, request, item, body.url)
     await db.commit()
     manager.wake()
     return _out(request, language(http_request))

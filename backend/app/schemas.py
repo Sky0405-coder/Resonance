@@ -429,6 +429,10 @@ class RejectIn(BaseModel):
     note: str | None = Field(None, max_length=500)
 
 
+class SourceIn(BaseModel):
+    url: str = Field(max_length=500)
+
+
 class DownloadSummary(BaseModel):
     active: int
     queued: int

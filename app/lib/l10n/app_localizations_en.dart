@@ -430,6 +430,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadsRetryFailed => 'Retry failed downloads';
 
   @override
+  String get downloadsOwnSource => 'Use your own link';
+
+  @override
+  String get downloadsOwnSourceLabel => 'YouTube or SoundCloud link';
+
+  @override
+  String get downloadsOwnSourceHint => 'Regular YouTube videos work too – only the audio is downloaded.';
+
+  @override
   String get downloadsDeleteEntry => 'Delete entry';
 
   @override

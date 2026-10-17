@@ -42,7 +42,7 @@ Comment=Your self-hosted music library
 Exec=resonance %U
 Icon=de.knode.resonance
 Categories=AudioVideo;Audio;Player;
-StartupWMClass=resonance
+StartupWMClass=de.knode.resonance
 Terminal=false
 EOF
 cp "$ROOT/app/linux/runner/resources/resonance.png" "$APPDIR/usr/share/icons/hicolor/512x512/apps/de.knode.resonance.png"

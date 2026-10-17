@@ -616,7 +616,7 @@ class DownloadManager:
                 await self._change(item.id, status="exists", track_id=track.library_id)
                 return
             enabled = sources.enabled_sources(cfg)
-            forced = redownload and item.source in {"youtube", "soundcloud"} and item.source_ref
+            forced = item.source in {"youtube", "soundcloud"} and item.source_ref and (redownload or item.source_pinned)
             if forced:
                 enabled = [source for source in enabled if source.name == item.source]
             if not enabled:
@@ -748,14 +748,30 @@ class DownloadManager:
 manager = DownloadManager()
 
 
+def parse_source_url(url: str) -> tuple[str, str]:
+    """A YouTube (also plain youtube.com videos, audio only) or SoundCloud link → (source, ref)."""
+    if ref := video_id(url):
+        return "youtube", ref
+    if ref := track_url(url):
+        return "soundcloud", ref
+    raise HTTPException(422, "Kein gültiger YouTube- oder SoundCloud-Link")
+
+
+async def set_item_source(db: AsyncSession, request: DownloadRequest, item: DownloadItem, url: str) -> None:
+    """Retries a failed song with a link the user picked instead of searching."""
+    if item.status != "failed" or request.status == "rejected":
+        raise HTTPException(409, "Nur fehlgeschlagene Songs können eine eigene Quelle bekommen")
+    item.source, item.source_ref = parse_source_url(url)
+    item.source_pinned = True
+    item.status = "queued"
+    item.error = None
+    item.progress = 0
+    item.attempts = 0
+    await recompute_request(db, request)
+
+
 async def create_redownload(db: AsyncSession, user: User, track: Track, youtube_url: str | None) -> DownloadRequest:
-    ref = video_id(youtube_url) if youtube_url is not None else None
-    source = "youtube" if ref else None
-    if youtube_url is not None and ref is None:
-        ref = track_url(youtube_url)
-        source = "soundcloud" if ref else None
-    if youtube_url is not None and ref is None:
-        raise HTTPException(422, "Kein gültiger YouTube- oder SoundCloud-Link")
+    source, ref = parse_source_url(youtube_url) if youtube_url is not None else (None, None)
     existing = await db.scalar(
         select(DownloadRequest)
         .options(selectinload(DownloadRequest.items), joinedload(DownloadRequest.user))

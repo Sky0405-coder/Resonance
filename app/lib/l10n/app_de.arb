@@ -247,6 +247,9 @@
     }
   },
   "downloadsRetryFailed": "Fehlgeschlagene erneut versuchen",
+  "downloadsOwnSource": "Eigenen Link angeben",
+  "downloadsOwnSourceLabel": "YouTube- oder SoundCloud-Link",
+  "downloadsOwnSourceHint": "Auch normale YouTube-Videos – geladen wird nur die Tonspur.",
   "downloadsDeleteEntry": "Eintrag löschen",
   "catalogYouTubeMusic": "YouTube Music",
   "downloadsTorrent": "Torrent",

@@ -53,4 +53,10 @@ void main() {
     expect(parseBounds('a,b,c,d'), isNull);
     expect(parseBounds('0,0,300,200'), isNull); // smaller than the minimum window
   });
+
+  test('AppImage menu entry quotes the path', () {
+    final entry = appImageDesktopEntry(r'/home/a b/Res"onance$.AppImage');
+    expect(entry, contains(r'Exec="/home/a b/Res\\"onance\\$.AppImage" %U'));
+    expect(entry, contains('StartupWMClass=de.knode.resonance'));
+  });
 }

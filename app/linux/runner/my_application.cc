@@ -25,21 +25,15 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Use a header bar when running in GNOME as this is the common style used
-  // by applications and is the setup most users will be using (e.g. Ubuntu
-  // desktop).
-  // If running on X and not using GNOME then just use a traditional title bar
-  // in case the window manager does more exotic layout, e.g. tiling.
-  // If running on Wayland assume the header bar will work (may need changing
-  // if future cases occur).
-  gboolean use_header_bar = TRUE;
+  // GTK header bar only under GNOME, where it is the native style. Everywhere else (KDE, tiling WMs; X11 and
+  // Wayland) the desktop draws its own, slimmer title bar.
+  const gchar* desktop = g_getenv("XDG_CURRENT_DESKTOP");
+  gboolean use_header_bar = desktop != nullptr && g_strrstr(desktop, "GNOME") != nullptr;
 #ifdef GDK_WINDOWING_X11
   GdkScreen* screen = gtk_window_get_screen(window);
   if (GDK_IS_X11_SCREEN(screen)) {
     const gchar* wm_name = gdk_x11_screen_get_window_manager_name(screen);
-    if (g_strcmp0(wm_name, "GNOME Shell") != 0) {
-      use_header_bar = FALSE;
-    }
+    use_header_bar = g_strcmp0(wm_name, "GNOME Shell") == 0;
   }
 #endif
   if (use_header_bar) {

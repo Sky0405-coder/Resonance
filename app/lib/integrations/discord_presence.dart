@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -15,12 +17,18 @@ final discordClientIdProvider = FutureProvider<String>((ref) async {
   if (!isDiscordDesktop) return '';
   final session = ref.watch(sessionProvider.select((s) => (s.loggedIn, s.serverUrl, s.token, s.offline)));
   if (!session.$1) return '';
+  var id = '';
   try {
-    return await ref.read(apiProvider).discordClientId();
+    id = await ref.read(apiProvider).discordClientId();
   } catch (e) {
     debugPrint('Discord client configuration failed: $e');
-    return '';
   }
+  // The admin may enter the application ID while the app runs (or the server was unreachable): ask again later.
+  if (id.isEmpty) {
+    final retry = Timer(const Duration(minutes: 2), ref.invalidateSelf);
+    ref.onDispose(retry.cancel);
+  }
+  return id;
 });
 
 class DiscordPresenceSetting extends Notifier<bool> {

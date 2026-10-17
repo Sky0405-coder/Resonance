@@ -836,6 +836,24 @@ abstract class AppLocalizations {
   /// **'Fehlgeschlagene erneut versuchen'**
   String get downloadsRetryFailed;
 
+  /// No description provided for @downloadsOwnSource.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigenen Link angeben'**
+  String get downloadsOwnSource;
+
+  /// No description provided for @downloadsOwnSourceLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'YouTube- oder SoundCloud-Link'**
+  String get downloadsOwnSourceLabel;
+
+  /// No description provided for @downloadsOwnSourceHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Auch normale YouTube-Videos – geladen wird nur die Tonspur.'**
+  String get downloadsOwnSourceHint;
+
   /// No description provided for @downloadsDeleteEntry.
   ///
   /// In de, this message translates to:

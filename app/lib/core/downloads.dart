@@ -90,6 +90,11 @@ class DownloadActions {
     _refresh();
   }
 
+  Future<void> setItemSource(String requestId, String itemId, String url) async {
+    await ref.read(apiProvider).setItemSource(requestId, itemId, url);
+    _refresh();
+  }
+
   Future<void> delete(String id) async {
     await ref.read(apiProvider).deleteRequest(id);
     _refresh();
