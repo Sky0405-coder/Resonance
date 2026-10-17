@@ -11,6 +11,8 @@ ENV PATH=/opt/flutter/bin:$PATH \
 RUN flutter config --no-analytics --enable-web && flutter precache --web
 WORKDIR /src/app
 COPY app/pubspec.yaml app/pubspec.lock ./
+# Vendored plugins (path dependencies) are needed to resolve packages.
+COPY app/packages ./packages
 RUN flutter pub get
 COPY app/ ./
 # --wasm: the skwasm renderer keeps decoded images across rebuilds; with CanvasKit, covers went blank after
