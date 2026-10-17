@@ -1926,4 +1926,31 @@ class AppLocalizationsDe extends AppLocalizations {
   String jamChip(int count) {
     return 'Jam · $count';
   }
+
+  @override
+  String get updateRestarting => 'Wird installiert, Resonance startet gleich neu …';
+
+  @override
+  String get shortcutsTitle => 'Tastenkürzel';
+
+  @override
+  String get shortcutPlayPause => 'Abspielen / Pause';
+
+  @override
+  String get shortcutNextPrevious => 'Nächster / vorheriger Song';
+
+  @override
+  String get shortcutSeek => '10 Sekunden vor / zurück';
+
+  @override
+  String get shortcutVolume => 'Lauter / leiser';
+
+  @override
+  String get shortcutShuffle => 'Zufallswiedergabe';
+
+  @override
+  String get shortcutRepeat => 'Wiederholen';
+
+  @override
+  String get shortcutSearch => 'Suchen';
 }

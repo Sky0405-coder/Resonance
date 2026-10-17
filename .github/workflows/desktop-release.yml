@@ -8,8 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to attach the builds to (e.g. v1.0.7)
+        description: Release tag to attach the builds to (e.g. v1.0.7); for a dry run any branch
         required: true
+      dry_run:
+        description: Only build and keep the files as workflow artifacts (no release upload)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -20,7 +24,8 @@ env:
 
 jobs:
   linux:
-    runs-on: ubuntu-24.04
+    # Oldest supported base: the AppImage runs on distributions with this glibc or newer.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v5
         with:
@@ -28,7 +33,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libmpv-dev
+          sudo apt-get install -y build-essential clang cmake ninja-build pkg-config libgtk-3-dev libmpv-dev file
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -41,9 +46,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          name="Resonance-${TAG}-linux-x64.tar.gz"
-          tar -C app/build/linux/x64/release/bundle -czf "$name" .
-          gh release upload "$TAG" "$name" --clobber
+          name="Resonance-${TAG}-linux-x86_64.AppImage"
+          scripts/package-linux-appimage.sh app/build/linux/x64/release/bundle "$name"
+          if [ "${{ inputs.dry_run }}" != "true" ]; then gh release upload "$TAG" "$name" --clobber; fi
+      - if: inputs.dry_run
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: Resonance-*.AppImage
 
   windows:
     runs-on: windows-latest
@@ -64,6 +74,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $name = "Resonance-$env:TAG-windows-x64.zip"
-          Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath $name
-          gh release upload $env:TAG $name --clobber
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; if ($LASTEXITCODE) { exit 1 } }
+          $version = $env:TAG.TrimStart("v")
+          $release = (Resolve-Path app/build/windows/x64/runner/Release).Path
+          & $iscc "/DAppVersion=$version" "/DSourceDir=$release" "/O$PWD" app/windows/installer/resonance.iss
+          if ($LASTEXITCODE) { exit 1 }
+          $setup = "Resonance-$env:TAG-windows-setup.exe"
+          Move-Item Resonance-setup.exe $setup
+          # Portable build for people who do not want to install.
+          $zip = "Resonance-$env:TAG-windows-x64-portable.zip"
+          Compress-Archive -Path "$release\*" -DestinationPath $zip
+          if ("${{ inputs.dry_run }}" -ne "true") { gh release upload $env:TAG $setup $zip --clobber }
+      - if: inputs.dry_run
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: Resonance-*-windows-*

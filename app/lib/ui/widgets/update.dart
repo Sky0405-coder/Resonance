@@ -1,15 +1,35 @@
 import '../../l10n/l10n.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ota_update/ota_update.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/desktop.dart';
 import '../../core/session.dart';
 import '../../core/updates.dart';
 import 'common.dart';
 
 /// Downloads the APK from the server with progress and hands it to the Android installer.
+/// Desktop: downloads the installer / AppImage from GitHub (Linux tarball installs get the release page).
 Future<void> installAppUpdate(BuildContext context, WidgetRef ref) async {
+  if (isDesktop) {
+    final update = ref.read(appUpdateProvider).value;
+    if (update == null) return;
+    if (defaultTargetPlatform == TargetPlatform.linux && runningAppImage == null) {
+      final page = update.releaseUrl;
+      if (page != null) await launchUrl(Uri.parse(page), mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _DesktopUpdateDialog(update: update),
+    );
+    return;
+  }
   final url = ref.read(apiProvider).androidApkUrl;
   await showDialog<void>(
     context: context,
@@ -72,6 +92,57 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               Text(
                 _progress == null
                     ? context.l10n.updateDownloadStarting
+                    : context.l10n.updateDownloadProgress((_progress! * 100).round()),
+              ),
+            ],
+          ),
+    actions: [
+      if (_error != null) TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.commonClose)),
+    ],
+  );
+}
+
+class _DesktopUpdateDialog extends StatefulWidget {
+  const _DesktopUpdateDialog({required this.update});
+  final AppUpdate update;
+
+  @override
+  State<_DesktopUpdateDialog> createState() => _DesktopUpdateDialogState();
+}
+
+class _DesktopUpdateDialogState extends State<_DesktopUpdateDialog> {
+  double? _progress;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    installDesktopUpdate(widget.update, (value) {
+      if (mounted) setState(() => _progress = value);
+    }).then(
+      (_) {},
+      onError: (Object e) {
+        if (mounted) setState(() => _error = context.l10n.updateFailedMessage(e.toString()));
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(context.l10n.updateInProgress),
+    content: _error != null
+        ? Text(_error!)
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LinearProgressIndicator(value: _progress),
+              const SizedBox(height: 8),
+              Text(
+                _progress == null
+                    ? context.l10n.updateDownloadStarting
+                    : _progress! >= 1
+                    ? context.l10n.updateRestarting
                     : context.l10n.updateDownloadProgress((_progress! * 100).round()),
               ),
             ],

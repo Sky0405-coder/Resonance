@@ -9,6 +9,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/desktop.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../integrations/discord_presence.dart';
@@ -17,6 +18,7 @@ import '../../offline/offline_store.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
+import '../widgets/shortcuts.dart';
 import '../widgets/update.dart';
 import '../widgets/track_list.dart';
 
@@ -208,6 +210,13 @@ class SettingsPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/spotify'),
           ),
+          if (isDesktop)
+            ListTile(
+              leading: const Icon(Icons.keyboard),
+              title: Text(context.l10n.shortcutsTitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showShortcutsDialog(context),
+            ),
           if (!kIsWeb) const _OfflineSettings(),
           const AppVersionTile(),
           _Section(context.l10n.settingsSignedInDevices),

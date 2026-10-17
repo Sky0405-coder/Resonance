@@ -3457,6 +3457,60 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Jam · {count}'**
   String jamChip(int count);
+
+  /// No description provided for @updateRestarting.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird installiert, Resonance startet gleich neu …'**
+  String get updateRestarting;
+
+  /// No description provided for @shortcutsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Tastenkürzel'**
+  String get shortcutsTitle;
+
+  /// No description provided for @shortcutPlayPause.
+  ///
+  /// In de, this message translates to:
+  /// **'Abspielen / Pause'**
+  String get shortcutPlayPause;
+
+  /// No description provided for @shortcutNextPrevious.
+  ///
+  /// In de, this message translates to:
+  /// **'Nächster / vorheriger Song'**
+  String get shortcutNextPrevious;
+
+  /// No description provided for @shortcutSeek.
+  ///
+  /// In de, this message translates to:
+  /// **'10 Sekunden vor / zurück'**
+  String get shortcutSeek;
+
+  /// No description provided for @shortcutVolume.
+  ///
+  /// In de, this message translates to:
+  /// **'Lauter / leiser'**
+  String get shortcutVolume;
+
+  /// No description provided for @shortcutShuffle.
+  ///
+  /// In de, this message translates to:
+  /// **'Zufallswiedergabe'**
+  String get shortcutShuffle;
+
+  /// No description provided for @shortcutRepeat.
+  ///
+  /// In de, this message translates to:
+  /// **'Wiederholen'**
+  String get shortcutRepeat;
+
+  /// No description provided for @shortcutSearch.
+  ///
+  /// In de, this message translates to:
+  /// **'Suchen'**
+  String get shortcutSearch;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
