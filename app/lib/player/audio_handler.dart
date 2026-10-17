@@ -85,44 +85,65 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     _publishState();
   }
 
+  PlaybackState? _lastState;
+
+  /// Only publishes real changes: media_kit reports the position ~20×/s, and every published state is a D-Bus
+  /// signal (MPRIS) / media session update. Listeners extrapolate the position from updatePosition + updateTime.
   void _publishState() {
     final view = _view;
     final engine = _controller.engine;
-    playbackState.add(
-      PlaybackState(
-        controls: view.station != null
-            ? [engine.playing ? MediaControl.pause : MediaControl.play, MediaControl.stop]
-            : [
-                MediaControl.skipToPrevious,
-                engine.playing ? MediaControl.pause : MediaControl.play,
-                MediaControl.skipToNext,
-              ],
-        systemActions: {
-          if (view.station == null) MediaAction.seek,
-          if (view.book != null) ...{MediaAction.seekForward, MediaAction.seekBackward},
-        },
-        androidCompactActionIndices: view.station == null ? const [0, 1, 2] : const [0, 1],
-        processingState: switch (engine.processingState) {
-          ProcessingState.idle => AudioProcessingState.idle,
-          ProcessingState.loading => AudioProcessingState.loading,
-          ProcessingState.buffering => AudioProcessingState.buffering,
-          ProcessingState.ready => AudioProcessingState.ready,
-          ProcessingState.completed => AudioProcessingState.completed,
-        },
-        playing: engine.playing,
-        updatePosition: engine.position,
-        bufferedPosition: engine.bufferedPosition,
-        speed: engine.speed,
-        queueIndex: view.index,
-        shuffleMode: view.shuffle ? AudioServiceShuffleMode.all : AudioServiceShuffleMode.none,
-        repeatMode: switch (view.loop) {
-          LoopMode.off => AudioServiceRepeatMode.none,
-          LoopMode.one => AudioServiceRepeatMode.one,
-          LoopMode.all => AudioServiceRepeatMode.all,
-        },
-      ),
+    final next = PlaybackState(
+      controls: view.station != null
+          ? [engine.playing ? MediaControl.pause : MediaControl.play, MediaControl.stop]
+          : [
+              MediaControl.skipToPrevious,
+              engine.playing ? MediaControl.pause : MediaControl.play,
+              MediaControl.skipToNext,
+            ],
+      systemActions: {
+        if (view.station == null) MediaAction.seek,
+        if (view.book != null) ...{MediaAction.seekForward, MediaAction.seekBackward},
+      },
+      androidCompactActionIndices: view.station == null ? const [0, 1, 2] : const [0, 1],
+      processingState: switch (engine.processingState) {
+        ProcessingState.idle => AudioProcessingState.idle,
+        ProcessingState.loading => AudioProcessingState.loading,
+        ProcessingState.buffering => AudioProcessingState.buffering,
+        ProcessingState.ready => AudioProcessingState.ready,
+        ProcessingState.completed => AudioProcessingState.completed,
+      },
+      playing: engine.playing,
+      updatePosition: engine.position,
+      bufferedPosition: engine.bufferedPosition,
+      speed: engine.speed,
+      queueIndex: view.index,
+      shuffleMode: view.shuffle ? AudioServiceShuffleMode.all : AudioServiceShuffleMode.none,
+      repeatMode: switch (view.loop) {
+        LoopMode.off => AudioServiceRepeatMode.none,
+        LoopMode.one => AudioServiceRepeatMode.one,
+        LoopMode.all => AudioServiceRepeatMode.all,
+      },
     );
+    final last = _lastState;
+    if (last != null &&
+        _sameButPosition(last, next) &&
+        (next.updatePosition - last.position).abs() < const Duration(seconds: 1)) {
+      return;
+    }
+    _lastState = next;
+    playbackState.add(next);
   }
+
+  static bool _sameButPosition(PlaybackState a, PlaybackState b) =>
+      a.playing == b.playing &&
+      a.processingState == b.processingState &&
+      a.speed == b.speed &&
+      a.queueIndex == b.queueIndex &&
+      a.shuffleMode == b.shuffleMode &&
+      a.repeatMode == b.repeatMode &&
+      a.controls.map((c) => c.action).join() == b.controls.map((c) => c.action).join() &&
+      a.systemActions.length == b.systemActions.length &&
+      a.systemActions.containsAll(b.systemActions);
 
   @override
   Future<void> play() => _controller.play();

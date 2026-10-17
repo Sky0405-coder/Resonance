@@ -103,7 +103,16 @@ class PlaybackEngine {
             finishFade().ignore();
             return;
           }
-          _positions.add(position);
+          // media_kit reports ~20×/s; the UI, Discord and play counting need ~5×/s. Seeks pass right away.
+          final last = _lastPosition;
+          if (last == null ||
+              _positionClock.elapsedMilliseconds >= 200 ||
+              position < last ||
+              position - last > const Duration(seconds: 1)) {
+            _lastPosition = position;
+            _positionClock.reset();
+            _positions.add(position);
+          }
           _checkFade();
         }),
       );
@@ -118,6 +127,8 @@ class PlaybackEngine {
   final _states = StreamController<PlayerState>.broadcast(sync: true);
   final _indices = StreamController<int?>.broadcast(sync: true);
   final _positions = StreamController<Duration>.broadcast(sync: true);
+  final _positionClock = Stopwatch()..start();
+  Duration? _lastPosition;
   final _durations = StreamController<Duration?>.broadcast(sync: true);
   final _loops = StreamController<LoopMode>.broadcast(sync: true);
   final _events = StreamController<PlaybackEvent>.broadcast(sync: true);

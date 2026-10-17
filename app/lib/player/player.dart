@@ -165,8 +165,10 @@ class PlayerController extends Notifier<PlayerView> {
           buffering: s.processingState == ProcessingState.loading || s.processingState == ProcessingState.buffering,
         );
       }),
+      // just_audio repeats the index (and loop mode) with every playback event – ~16×/s with media_kit. Only real
+      // changes may rebuild the UI and close the play report of the previous song.
       engine.currentIndexStream.listen((i) {
-        if (_switching || state.jamRemote) return;
+        if (_switching || state.jamRemote || i == state.index) return;
         if (state.book != null) {
           state = _copy(index: i);
           return;
@@ -177,7 +179,7 @@ class PlayerController extends Notifier<PlayerView> {
         _reportTrackId = state.current?.id;
       }),
       engine.loopModeStream.listen((v) {
-        if (!_switching) state = _copy(loop: v);
+        if (!_switching && v != state.loop) state = _copy(loop: v);
       }),
       engine.positionStream.listen(_trackListening),
       engine.errorStream.listen(_stationError),
