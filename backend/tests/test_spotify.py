@@ -421,8 +421,7 @@ async def test_link_import_track_limit_notice(env: SimpleNamespace, count: int) 
     batch = await run(env, liked=False, links=["37i9dQZF1DXcBWIGoYBM5M"])
     assert batch.status == "done" and batch.total == count
     assert batch.message == (
-        "„Public playlist“: nur die ersten 100 Songs übernommen "
-        "(ohne verbundenes Spotify-Konto liefert Spotify nicht mehr)"
+        "„Public playlist“: nur die ersten 100 Songs übernommen – fremde Playlists gibt Spotify nicht vollständig heraus. Tipp: In Spotify alle Songs markieren (Strg+A), zu einer neuen eigenen Playlist hinzufügen und diese mit verbundenem Spotify-Konto unter „Deine Playlists“ importieren"
         if count == 100
         else None
     )

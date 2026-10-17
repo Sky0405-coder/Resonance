@@ -16,7 +16,7 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.models import ImportBatch, ImportFile, Job, Track, User
 from app.services import acoustid
-from app.services.duplicates import _same_stem_track, merge_group, track_quality
+from app.services.duplicates import _same_stem_track, merge_group, merge_new_duplicates, track_quality
 from app.services.fingerprint import fingerprint
 from app.services.identify import FileInfo, album_context, assign_releases, candidates, group_key, identify_file
 from app.services.library_paths import target_relpath
@@ -244,8 +244,10 @@ async def run_batch(batch_id: uuid.UUID) -> None:
                             row.status = "failed"
                             row.error = "Audiodatei nicht importierbar"
                         else:
-                            row.track_id = track.id
-                            row.status = "imported"
+                            # Cleanup (inplace) only reorganizes the library; its duplicates go through the admin page.
+                            kept = track if batch.mode == "inplace" else await merge_new_duplicates(db, track)
+                            row.track_id = kept.id
+                            row.status = "imported" if kept.id == track.id else "duplicate"
                 if batch.mode != "copy":
                     await asyncio.to_thread(_prune, root, directories, batch.mode == "inplace")
                 await _counters(db, batch)

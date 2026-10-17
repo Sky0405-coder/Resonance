@@ -86,6 +86,30 @@ async def find_groups(db: AsyncSession) -> list[list[Track]]:
     return groups
 
 
+async def merge_new_duplicates(db: AsyncSession, track: Track) -> Track:
+    """Merges a freshly imported track with copies of the same song already on its album (same rule as
+    `find_groups`, e.g. FLAC + MP3, "1-15" vs "15" file names, two folders of one album). Returns the track that was
+    kept – the new one only when it has the better quality. Commits (via `delete_tracks`) when it merges."""
+    if track.track_no is None:
+        return track
+    disc = track.disc_no if track.disc_no is not None else 1
+    candidates = await db.scalars(
+        select(Track).where(
+            Track.album_id == track.album_id,
+            func.coalesce(Track.disc_no, 1) == disc,
+            Track.track_no == track.track_no,
+            Track.id != track.id,
+        )
+    )
+    key = name_key(track.title)
+    same = [t for t in candidates if name_key(t.title) == key and abs(t.duration - track.duration) <= 5]
+    if not same:
+        return track
+    group = sorted([track, *same], key=lambda t: (-track_quality(t), t.is_temporary, t.created_at, t.id))
+    await merge_group(db, group[0], group[1:])
+    return group[0]
+
+
 async def merge_group(db: AsyncSession, keeper: Track, losers: list[Track]) -> None:
     keeper_likes = set(await db.scalars(select(TrackLike.user_id).where(TrackLike.track_id == keeper.id)))
     has_lyrics = await db.get(TrackLyrics, keeper.id) is not None

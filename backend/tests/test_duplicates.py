@@ -27,7 +27,7 @@ from app.models import (
     TrackLyrics,
 )
 from app.services import downloads, importer, sources
-from app.services.duplicates import _same_stem_track, find_groups, merge_group, track_quality
+from app.services.duplicates import _same_stem_track, find_groups, merge_group, merge_new_duplicates, track_quality
 from app.services.library_paths import target_relpath
 from app.services.musicbrainz import TrackMeta
 from app.services.sources.base import Candidate
@@ -425,3 +425,36 @@ async def test_stem_check_escapes_like_wildcards(env: SimpleNamespace) -> None:
     async with SessionLocal() as db:
         assert (await _same_stem_track(db, "Artist/Album/01 - 100% a_b.mp3")).id == tracks[0].id
         assert await _same_stem_track(db, "Artist/Album/01 - 100x aYb.mp3") is None
+
+
+@pytest.mark.parametrize("new_codec", ["flac", "mp3"])
+async def test_new_import_merges_copy_with_other_name(env: SimpleNamespace, new_codec: str) -> None:
+    # Different folder and disc prefix: the file-name check cannot see these, the album rule does.
+    old_codec = "mp3" if new_codec == "flac" else "flac"
+    tracks = await library(
+        env,
+        [
+            {"path": f"Artist/Album (2003)/01 - Song.{old_codec}", "codec": old_codec},
+            {"path": "Artist/Album/1-02 - Other.mp3", "codec": "mp3", "track_no": 2, "title": "Other"},
+            {"path": f"Artist/Album/1-01 - Song.{new_codec}", "codec": new_codec, "duration": 4.0},
+        ],
+    )
+    old, other, new = tracks
+    async with SessionLocal() as db:
+        db.add(TrackLike(user_id=env.user_id, track_id=old.id))
+        await db.commit()
+        kept = await merge_new_duplicates(db, await db.get(Track, new.id))
+        expected, removed = (new, old) if new_codec == "flac" else (old, new)
+        assert kept.id == expected.id
+        assert {t.id for t in await db.scalars(select(Track))} == {expected.id, other.id}
+        assert await db.scalar(select(TrackLike.track_id)) == expected.id
+    assert not (env.settings.music_dir / removed.path).exists()
+    assert (env.settings.music_dir / expected.path).exists()
+
+
+async def test_new_import_without_copy_is_kept(env: SimpleNamespace) -> None:
+    tracks = await library(env, [{"codec": "flac"}, {"codec": "mp3", "duration": 30.0}])
+    async with SessionLocal() as db:
+        kept = await merge_new_duplicates(db, await db.get(Track, tracks[1].id))
+        assert kept.id == tracks[1].id
+        assert len(list(await db.scalars(select(Track)))) == 2

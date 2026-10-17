@@ -63,8 +63,8 @@ PATTERN_CASES = [
         "“Meine Songs”: Spotify does not provide the songs in this playlist",
     ),
     (
-        "„Meine Songs“: nur die ersten 100 Songs übernommen (ohne verbundenes Spotify-Konto liefert Spotify nicht mehr)",
-        "“Meine Songs”: only the first 100 songs were imported (Spotify does not provide more without a connected Spotify account)",
+        "„Meine Songs“: nur die ersten 100 Songs übernommen – fremde Playlists gibt Spotify nicht vollständig heraus. Tipp: In Spotify alle Songs markieren (Strg+A), zu einer neuen eigenen Playlist hinzufügen und diese mit verbundenem Spotify-Konto unter „Deine Playlists“ importieren",
+        "“Meine Songs”: only the first 100 songs were imported – Spotify does not hand out other people's playlists in full. Tip: in Spotify select all songs (Ctrl+A), add them to a new playlist of your own and import that one with your connected Spotify account under “Your playlists”",
     ),
     ("Parameter fehlt: query", "Missing parameter: query"),
     ("Ungültiger Parameter: count", "Invalid parameter: count"),

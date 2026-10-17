@@ -24,7 +24,7 @@ from app.models import Album, DownloadItem, DownloadRequest, QualityUpgradeAttem
 from app.schemas import CatalogTrack
 from app.services import scanner, sources
 from app.services.deezer import DeezerError, NotFound, artist_string, deezer
-from app.services.duplicates import _same_stem_track, merge_group, track_quality
+from app.services.duplicates import _same_stem_track, merge_group, merge_new_duplicates, track_quality
 from app.services.importer import quality
 from app.services.library_paths import target_relpath
 from app.services.lyrics import sidecar_path
@@ -697,6 +697,7 @@ class DownloadManager:
                 imported.is_temporary = temporary
                 if existing is not None:
                     await merge_group(db, imported, [existing])
+                imported = await merge_new_duplicates(db, imported)
                 await db.commit()
             await self._change(item.id, status="done", track_id=imported.id, progress=1, error=None)
         except Cancelled:

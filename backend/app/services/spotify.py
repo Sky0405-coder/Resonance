@@ -541,8 +541,10 @@ async def run_import(import_id: uuid.UUID) -> None:
                     if len(tracks) == 100:
                         _message(
                             batch,
-                            f"„{metadata['name']}“: nur die ersten 100 Songs übernommen "
-                            "(ohne verbundenes Spotify-Konto liefert Spotify nicht mehr)",
+                            f"„{metadata['name']}“: nur die ersten 100 Songs übernommen – fremde Playlists gibt Spotify nicht "
+                            "vollständig heraus. Tipp: In Spotify alle Songs markieren (Strg+A), zu einer neuen eigenen "
+                            "Playlist hinzufügen und diese mit verbundenem Spotify-Konto unter „Deine Playlists“ "
+                            "importieren",
                         )
                 await import_playlist(id, metadata["name"], tracks)
             batch.status = "done"

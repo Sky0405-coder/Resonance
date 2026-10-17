@@ -184,9 +184,12 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
     ),
     (
         re.compile(
-            r"„(?P<name>.*)“: nur die ersten 100 Songs übernommen \(ohne verbundenes Spotify-Konto liefert Spotify nicht mehr\)"
+            r"„(?P<name>.*)“: "
+            + re.escape(
+                "nur die ersten 100 Songs übernommen – fremde Playlists gibt Spotify nicht vollständig heraus. Tipp: In Spotify alle Songs markieren (Strg+A), zu einer neuen eigenen Playlist hinzufügen und diese mit verbundenem Spotify-Konto unter „Deine Playlists“ importieren"
+            )
         ),
-        r"“\g<name>”: only the first 100 songs were imported (Spotify does not provide more without a connected Spotify account)",
+        r"“\g<name>”: only the first 100 songs were imported – Spotify does not hand out other people's playlists in full. Tip: in Spotify select all songs (Ctrl+A), add them to a new playlist of your own and import that one with your connected Spotify account under “Your playlists”",
     ),
     (re.compile(r"Parameter fehlt: (?P<name>.*)"), r"Missing parameter: \g<name>"),
     (re.compile(r"Ungültiger Parameter: (?P<name>.*)"), r"Invalid parameter: \g<name>"),
