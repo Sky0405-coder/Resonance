@@ -347,7 +347,7 @@ async def review(
 ) -> Page[ReviewTrackOut]:
     query = select(Track).join(Track.artist).join(Track.album)
     if kind == "unidentified":
-        query = query.where(Track.mb_recording_id.is_(None), Track.reviewed.is_(False))
+        query = query.where(Track.mb_recording_id.is_(None), Track.isrc.is_(None), Track.reviewed.is_(False))
     else:
         first = (
             select(Track.id)

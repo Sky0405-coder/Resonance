@@ -196,8 +196,15 @@ async def test_mark_reviewed(env: SimpleNamespace) -> None:
         track = await db.get(Track, track_id)
         assert track.reviewed is False
         track.mb_recording_id = None
+        track.isrc = "DEUM71400001"
         album = await db.get(Album, album_id)
         album.cover_file = None
+        await db.commit()
+    # An ISRC (e.g. from Deezer) identifies the song well enough without a MusicBrainz link.
+    result = await env.client.get("/api/editor/review", headers=env.headers)
+    assert result.status_code == 200 and result.json()["total"] == 0
+    async with SessionLocal() as db:
+        (await db.get(Track, track_id)).isrc = None
         await db.commit()
     result = await env.client.get("/api/editor/review", headers=env.headers)
     assert result.status_code == 200 and result.json()["total"] == 1
@@ -413,6 +420,7 @@ async def test_options_fingerprint_and_review(env, monkeypatch):
         await update_config(db, {"library": {"acoustid_api_key": "key"}})
         track = await db.get(Track, track_id)
         track.mb_recording_id = None
+        track.isrc = None
         album = await db.get(Album, album_id)
         album.cover_file = None
         await db.commit()
@@ -532,7 +540,8 @@ async def test_review_counts_albums_once(env):
     async with SessionLocal() as db:
         second = await scanner.import_file(db, str(path.relative_to(env.settings.music_dir)))
         for id in (track_id, second.id):
-            (await db.get(Track, id)).mb_recording_id = None
+            track = await db.get(Track, id)
+            track.mb_recording_id = track.isrc = None
         (await db.get(Album, album_id)).cover_file = None
         await db.commit()
     unidentified = (await env.client.get("/api/admin/library/review", headers=env.headers, params={"limit": 1})).json()
