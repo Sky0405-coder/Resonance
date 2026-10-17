@@ -68,7 +68,10 @@ class AppShell extends ConsumerWidget {
                     Expanded(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: ColoredBox(color: Palette.background, child: child),
+                        child: ColoredBox(
+                          color: Palette.background,
+                          child: UpdateNotifier(child: child),
+                        ),
                       ),
                     ),
                   ],
