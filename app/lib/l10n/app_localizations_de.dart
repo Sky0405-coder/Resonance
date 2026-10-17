@@ -1514,6 +1514,94 @@ class AppLocalizationsDe extends AppLocalizations {
   String get spotifyShowMissing => 'Fehlende anzeigen';
 
   @override
+  String get spotifySyncMenu => 'Mit Spotify abgleichen';
+
+  @override
+  String get spotifySyncTitle => 'Mit Spotify abgleichen';
+
+  @override
+  String get spotifySyncConnectHint =>
+      'Verbinde dein Spotify-Konto, um diese Playlist nach Spotify zu exportieren oder mit einer Spotify-Playlist abzugleichen.';
+
+  @override
+  String get spotifySyncReconnectHint =>
+      'Für den Export braucht Resonance zusätzlich Schreibrechte bei Spotify. Verbinde Spotify dafür einmal neu.';
+
+  @override
+  String get spotifySyncIntro =>
+      'Die Songs dieser Playlist werden auf Spotify gesucht und dort in eine Playlist übernommen. Songs, die Spotify nicht hat, werden übersprungen und unten angezeigt.';
+
+  @override
+  String get spotifySyncNew => 'Neue Spotify-Playlist anlegen';
+
+  @override
+  String get spotifySyncExisting => 'Mit bestehender Spotify-Playlist verknüpfen';
+
+  @override
+  String get spotifySyncPick => 'Spotify-Playlist';
+
+  @override
+  String get spotifySyncTwoWay => 'In beide Richtungen abgleichen';
+
+  @override
+  String get spotifySyncTwoWayHint =>
+      'Alle 10 Minuten: Änderungen auf Spotify kommen nach Resonance (fehlende Songs werden heruntergeladen), Änderungen in Resonance nach Spotify.';
+
+  @override
+  String get spotifySyncOneWayHint =>
+      'Nur Export: Songs aus Resonance werden zu Spotify übertragen, wenn du auf „Jetzt abgleichen“ tippst.';
+
+  @override
+  String get spotifySyncExport => 'Nach Spotify exportieren';
+
+  @override
+  String get spotifySyncLink => 'Verknüpfen';
+
+  @override
+  String get spotifySyncFriendsHint =>
+      'Tipp: Lade Freunde in Spotify als Mitarbeitende zu der Playlist ein. Mit dem Abgleich in beide Richtungen landen ihre Songs dann auch hier.';
+
+  @override
+  String get spotifySyncLinked => 'Mit Spotify verknüpft';
+
+  @override
+  String get spotifySyncRunning => 'Wird abgeglichen …';
+
+  @override
+  String spotifySyncFailed(String error) {
+    return 'Fehler: $error';
+  }
+
+  @override
+  String spotifySyncLast(String time) {
+    return 'Zuletzt abgeglichen: $time';
+  }
+
+  @override
+  String get spotifySyncNow => 'Jetzt abgleichen';
+
+  @override
+  String get spotifySyncOpen => 'In Spotify öffnen';
+
+  @override
+  String get spotifySyncUnlink => 'Verknüpfung lösen';
+
+  @override
+  String get spotifySyncUnlinkConfirm =>
+      'Die Playlist wird nicht mehr abgeglichen. Die Playlist auf Spotify bleibt bestehen.';
+
+  @override
+  String spotifySyncUnmatched(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Songs nicht auf Spotify gefunden',
+      one: '1 Song nicht auf Spotify gefunden',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get spotifyMissingTitle => 'Nicht in der Bibliothek';
 
   @override

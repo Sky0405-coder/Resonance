@@ -11,7 +11,14 @@ from app.models.collection import (
 from app.models.downloads import DownloadItem, DownloadRequest, QualityUpgradeAttempt
 from app.models.imports import ImportBatch, ImportFile
 from app.models.library import Album, Artist, Track, TrackLyrics
-from app.models.spotify import SpotifyAccount, SpotifyImport, SpotifyPending, SpotifyPlaylistLink
+from app.models.spotify import (
+    SpotifyAccount,
+    SpotifyImport,
+    SpotifyPending,
+    SpotifyPlaylistLink,
+    SpotifySync,
+    SpotifyTrackMap,
+)
 from app.models.system import Job, ServerSetting
 from app.models.user import DEFAULT_ACCENT, AudiobookshelfAccount, AuthSession, Invite, Role, User
 
@@ -41,6 +48,8 @@ __all__ = [
     "SpotifyImport",
     "SpotifyPending",
     "SpotifyPlaylistLink",
+    "SpotifySync",
+    "SpotifyTrackMap",
     "Track",
     "TrackLike",
     "TrackLyrics",

@@ -1541,6 +1541,93 @@ class AppLocalizationsEn extends AppLocalizations {
   String get spotifyShowMissing => 'Show missing';
 
   @override
+  String get spotifySyncMenu => 'Sync with Spotify';
+
+  @override
+  String get spotifySyncTitle => 'Sync with Spotify';
+
+  @override
+  String get spotifySyncConnectHint =>
+      'Connect your Spotify account to export this playlist to Spotify or keep it in sync with a Spotify playlist.';
+
+  @override
+  String get spotifySyncReconnectHint =>
+      'To export, Resonance also needs permission to change your Spotify playlists. Connect Spotify once more for that.';
+
+  @override
+  String get spotifySyncIntro =>
+      'The songs of this playlist are looked up on Spotify and added to a playlist there. Songs Spotify doesn\'t have are skipped and listed below.';
+
+  @override
+  String get spotifySyncNew => 'Create a new Spotify playlist';
+
+  @override
+  String get spotifySyncExisting => 'Link an existing Spotify playlist';
+
+  @override
+  String get spotifySyncPick => 'Spotify playlist';
+
+  @override
+  String get spotifySyncTwoWay => 'Sync both ways';
+
+  @override
+  String get spotifySyncTwoWayHint =>
+      'Every 10 minutes: changes on Spotify come to Resonance (missing songs get downloaded), changes in Resonance go to Spotify.';
+
+  @override
+  String get spotifySyncOneWayHint =>
+      'Export only: songs from Resonance are sent to Spotify when you tap \"Sync now\".';
+
+  @override
+  String get spotifySyncExport => 'Export to Spotify';
+
+  @override
+  String get spotifySyncLink => 'Link';
+
+  @override
+  String get spotifySyncFriendsHint =>
+      'Tip: invite friends to the playlist as collaborators in Spotify. With two-way sync their songs show up here too.';
+
+  @override
+  String get spotifySyncLinked => 'Linked with Spotify';
+
+  @override
+  String get spotifySyncRunning => 'Syncing …';
+
+  @override
+  String spotifySyncFailed(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String spotifySyncLast(String time) {
+    return 'Last synced: $time';
+  }
+
+  @override
+  String get spotifySyncNow => 'Sync now';
+
+  @override
+  String get spotifySyncOpen => 'Open in Spotify';
+
+  @override
+  String get spotifySyncUnlink => 'Unlink';
+
+  @override
+  String get spotifySyncUnlinkConfirm => 'The playlist will no longer be synced. The playlist on Spotify stays.';
+
+  @override
+  String spotifySyncUnmatched(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count songs not found on Spotify',
+      one: '1 song not found on Spotify',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get spotifyMissingTitle => 'Not in the library';
 
   @override

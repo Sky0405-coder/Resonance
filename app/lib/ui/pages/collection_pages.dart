@@ -364,6 +364,7 @@ class PlaylistPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final value = ref.watch(playlistDetailProvider(id));
+    final userId = ref.watch(sessionProvider.select((s) => s.user?.id));
     final ctx = 'playlist:$id';
     final playing = _isPlayingContext(ref, ctx);
     return Scaffold(
@@ -489,6 +490,12 @@ class PlaylistPage extends ConsumerWidget {
                                   onSelected: () => showShareWithUsers(context, ref, d.playlist),
                                 ),
                               ],
+                              if (d.playlist.kind == 'user' && d.playlist.owner.id == userId)
+                                SheetAction(
+                                  icon: Icons.sync,
+                                  label: context.l10n.spotifySyncMenu,
+                                  onSelected: () => context.push('/playlist/$id/spotify'),
+                                ),
                               if (d.playlist.kind == 'user')
                                 SheetAction(
                                   icon: Icons.image,

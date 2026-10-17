@@ -25,6 +25,7 @@ from app.api import (
     radio,
     requests,
     spotify,
+    spotify_sync,
     subsonic,
     torrents,
     users,
@@ -39,6 +40,7 @@ from app.services.jam import hub as jam_hub
 from app.services import mixes as mixes_service
 from app.services import radio as radio_service
 from app.services import spotify as spotify_service
+from app.services import spotify_sync as spotify_sync_service
 from app.services.downloads import manager
 from app.services.server_config import load_config
 
@@ -53,6 +55,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await manager.start()
     await importer.start()
     await spotify_service.start()
+    await spotify_sync_service.start()
     await radio_service.start()
     await mixes_service.start()
     await upgrades.start()
@@ -65,6 +68,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await importer.stop()
         await manager.stop()
         await spotify_service.stop()
+        await spotify_sync_service.stop()
         await radio_service.stop()
         await mixes_service.stop()
         await abs_service.close()
@@ -100,6 +104,7 @@ for module in (
     catalog,
     requests,
     spotify,
+    spotify_sync,
     subsonic,
     imports,
     torrents,

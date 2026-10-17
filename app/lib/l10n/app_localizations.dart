@@ -2732,6 +2732,144 @@ abstract class AppLocalizations {
   /// **'Fehlende anzeigen'**
   String get spotifyShowMissing;
 
+  /// No description provided for @spotifySyncMenu.
+  ///
+  /// In de, this message translates to:
+  /// **'Mit Spotify abgleichen'**
+  String get spotifySyncMenu;
+
+  /// No description provided for @spotifySyncTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Mit Spotify abgleichen'**
+  String get spotifySyncTitle;
+
+  /// No description provided for @spotifySyncConnectHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Verbinde dein Spotify-Konto, um diese Playlist nach Spotify zu exportieren oder mit einer Spotify-Playlist abzugleichen.'**
+  String get spotifySyncConnectHint;
+
+  /// No description provided for @spotifySyncReconnectHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Für den Export braucht Resonance zusätzlich Schreibrechte bei Spotify. Verbinde Spotify dafür einmal neu.'**
+  String get spotifySyncReconnectHint;
+
+  /// No description provided for @spotifySyncIntro.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Songs dieser Playlist werden auf Spotify gesucht und dort in eine Playlist übernommen. Songs, die Spotify nicht hat, werden übersprungen und unten angezeigt.'**
+  String get spotifySyncIntro;
+
+  /// No description provided for @spotifySyncNew.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Spotify-Playlist anlegen'**
+  String get spotifySyncNew;
+
+  /// No description provided for @spotifySyncExisting.
+  ///
+  /// In de, this message translates to:
+  /// **'Mit bestehender Spotify-Playlist verknüpfen'**
+  String get spotifySyncExisting;
+
+  /// No description provided for @spotifySyncPick.
+  ///
+  /// In de, this message translates to:
+  /// **'Spotify-Playlist'**
+  String get spotifySyncPick;
+
+  /// No description provided for @spotifySyncTwoWay.
+  ///
+  /// In de, this message translates to:
+  /// **'In beide Richtungen abgleichen'**
+  String get spotifySyncTwoWay;
+
+  /// No description provided for @spotifySyncTwoWayHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle 10 Minuten: Änderungen auf Spotify kommen nach Resonance (fehlende Songs werden heruntergeladen), Änderungen in Resonance nach Spotify.'**
+  String get spotifySyncTwoWayHint;
+
+  /// No description provided for @spotifySyncOneWayHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur Export: Songs aus Resonance werden zu Spotify übertragen, wenn du auf „Jetzt abgleichen“ tippst.'**
+  String get spotifySyncOneWayHint;
+
+  /// No description provided for @spotifySyncExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach Spotify exportieren'**
+  String get spotifySyncExport;
+
+  /// No description provided for @spotifySyncLink.
+  ///
+  /// In de, this message translates to:
+  /// **'Verknüpfen'**
+  String get spotifySyncLink;
+
+  /// No description provided for @spotifySyncFriendsHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Tipp: Lade Freunde in Spotify als Mitarbeitende zu der Playlist ein. Mit dem Abgleich in beide Richtungen landen ihre Songs dann auch hier.'**
+  String get spotifySyncFriendsHint;
+
+  /// No description provided for @spotifySyncLinked.
+  ///
+  /// In de, this message translates to:
+  /// **'Mit Spotify verknüpft'**
+  String get spotifySyncLinked;
+
+  /// No description provided for @spotifySyncRunning.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird abgeglichen …'**
+  String get spotifySyncRunning;
+
+  /// No description provided for @spotifySyncFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehler: {error}'**
+  String spotifySyncFailed(String error);
+
+  /// No description provided for @spotifySyncLast.
+  ///
+  /// In de, this message translates to:
+  /// **'Zuletzt abgeglichen: {time}'**
+  String spotifySyncLast(String time);
+
+  /// No description provided for @spotifySyncNow.
+  ///
+  /// In de, this message translates to:
+  /// **'Jetzt abgleichen'**
+  String get spotifySyncNow;
+
+  /// No description provided for @spotifySyncOpen.
+  ///
+  /// In de, this message translates to:
+  /// **'In Spotify öffnen'**
+  String get spotifySyncOpen;
+
+  /// No description provided for @spotifySyncUnlink.
+  ///
+  /// In de, this message translates to:
+  /// **'Verknüpfung lösen'**
+  String get spotifySyncUnlink;
+
+  /// No description provided for @spotifySyncUnlinkConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Playlist wird nicht mehr abgeglichen. Die Playlist auf Spotify bleibt bestehen.'**
+  String get spotifySyncUnlinkConfirm;
+
+  /// No description provided for @spotifySyncUnmatched.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Song nicht auf Spotify gefunden} other{{count} Songs nicht auf Spotify gefunden}}'**
+  String spotifySyncUnmatched(int count);
+
   /// No description provided for @spotifyMissingTitle.
   ///
   /// In de, this message translates to:

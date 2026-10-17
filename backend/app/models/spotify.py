@@ -17,6 +17,7 @@ class SpotifyAccount(Base):
     access_token: Mapped[str] = mapped_column(Text)
     refresh_token: Mapped[str] = mapped_column(Text)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    scope: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -69,3 +70,32 @@ class SpotifyPending(Base):
     playlist_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("playlists.id", ondelete="CASCADE"))
     position: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SpotifySync(Base):
+    __tablename__ = "spotify_syncs"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    playlist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("playlists.id", ondelete="CASCADE"), unique=True)
+    spotify_playlist_id: Mapped[str] = mapped_column(String(64))
+    spotify_url: Mapped[str | None] = mapped_column(Text)
+    two_way: Mapped[bool]
+    status: Mapped[str] = mapped_column(String(16))
+    error: Mapped[str | None] = mapped_column(Text)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    prev_spotify: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    prev_tracks: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    unmatched: Mapped[list[dict]] = mapped_column(JSONB, default=list, server_default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SpotifyTrackMap(Base):
+    __tablename__ = "spotify_track_map"
+
+    track_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True)
+    spotify_uri: Mapped[str | None] = mapped_column(String(64))
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

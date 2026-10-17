@@ -534,13 +534,16 @@ async def test_api_links_without_account_validation_and_defaults(
 async def test_login_callback_status_and_disconnect(env):
     assert ServerConfig().spotify.client_id == ""
     response = await env.client.get("/api/spotify/status", headers=env.headers)
-    assert response.json() == {"configured": True, "connected": False, "display_name": None}
+    assert response.json() == {"configured": True, "connected": False, "display_name": None, "can_write": False}
     response = await env.client.get("/api/spotify/login", headers=env.headers)
     url = urlparse(response.json()["url"])
     query = parse_qs(url.query)
     assert url.netloc == "accounts.spotify.com" and url.path == "/authorize"
     assert query["response_type"] == ["code"] and query["client_id"] == ["client"]
-    assert query["scope"] == ["playlist-read-private playlist-read-collaborative user-library-read"]
+    assert query["scope"] == [
+        "playlist-read-private playlist-read-collaborative user-library-read "
+        "playlist-modify-private playlist-modify-public"
+    ]
     assert query["redirect_uri"] == ["http://test/api/spotify/callback"]
     state = query["state"][0]
     assert spotify._states[state][0] == env.user_id and len(state) == 32

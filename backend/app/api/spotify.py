@@ -74,6 +74,8 @@ async def status(user: CurrentUser, db: DB) -> dict:
     return {
         "configured": bool(cfg.client_id and cfg.client_secret),
         "connected": account is not None,
+        "can_write": account is not None
+        and {"playlist-modify-private", "playlist-modify-public"}.issubset((account.scope or "").split()),
         "display_name": account.display_name if account else None,
     }
 
@@ -95,7 +97,8 @@ async def login(request: Request, user: CurrentUser, db: DB) -> dict:
             {
                 "response_type": "code",
                 "client_id": cfg.client_id,
-                "scope": "playlist-read-private playlist-read-collaborative user-library-read",
+                "scope": "playlist-read-private playlist-read-collaborative user-library-read "
+                "playlist-modify-private playlist-modify-public",
                 "redirect_uri": spotify.redirect_uri(request),
                 "state": state,
             }
@@ -122,6 +125,7 @@ async def callback(db: DB, request: Request, code: str = "", state: str = "", er
                 access_token=tokens["access_token"],
                 refresh_token=tokens["refresh_token"],
                 expires_at=datetime.now(UTC) + timedelta(seconds=tokens["expires_in"] - 60),
+                scope=tokens.get("scope"),
             )
             profile = await spotify._get(db, account, client, "me")
             account.spotify_user_id = profile["id"]

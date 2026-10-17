@@ -19,6 +19,7 @@ import 'ui/pages/now_playing_page.dart';
 import 'ui/pages/lyrics_page.dart';
 import 'ui/pages/settings_page.dart';
 import 'ui/pages/spotify_page.dart';
+import 'ui/pages/spotify_sync_page.dart';
 import 'ui/shell.dart';
 
 const _publicRoutes = {'/login', '/register', '/server'};
@@ -108,6 +109,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/playlist/:id',
             builder: (_, s) => PlaylistPage(id: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/playlist/:id/spotify',
+            builder: (_, s) => SpotifySyncPage(playlistId: s.pathParameters['id']!),
           ),
           GoRoute(
             path: '/catalog/album/:id',

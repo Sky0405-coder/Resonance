@@ -22,6 +22,7 @@ from app.models import (
     SpotifyImport,
     SpotifyPending,
     SpotifyPlaylistLink,
+    SpotifyTrackMap,
     Track,
     TrackLike,
     User,
@@ -110,6 +111,8 @@ async def _refresh(db: AsyncSession, account: SpotifyAccount, client: httpx.Asyn
     account.access_token = tokens["access_token"]
     if "refresh_token" in tokens:
         account.refresh_token = tokens["refresh_token"]
+    if "scope" in tokens:
+        account.scope = tokens["scope"]
     account.expires_at = datetime.now(UTC) + timedelta(seconds=tokens["expires_in"] - 60)
     await db.commit()
 
@@ -126,6 +129,45 @@ async def _get(
             response = await client.get(
                 "https://api.spotify.com/v1/" + path,
                 params=params,
+                headers={"authorization": f"Bearer {account.access_token}"},
+            )
+        except httpx.HTTPError as e:
+            raise SpotifyError(502, "Spotify nicht erreichbar") from e
+        if response.status_code == 401 and not refreshed:
+            await _refresh(db, account, client)
+            refreshed = True
+            continue
+        if response.status_code == 429:
+            if retries >= 5:
+                raise SpotifyError(429, "Spotify-Limit erreicht – bitte später erneut versuchen")
+            try:
+                delay = float(response.headers.get("Retry-After", "5"))
+            except ValueError:
+                delay = 5
+            await asyncio.sleep(max(0, min(delay, 60)))
+            retries += 1
+            continue
+        if not response.is_success:
+            raise SpotifyError(response.status_code, f"Spotify-Fehler (HTTP {response.status_code})")
+        try:
+            return response.json()
+        except ValueError as e:
+            raise SpotifyError(502, "Spotify nicht erreichbar") from e
+
+
+async def _send(
+    db: AsyncSession, account: SpotifyAccount, client: httpx.AsyncClient, method: str, path: str, json: dict
+) -> dict:
+    if account.expires_at <= datetime.now(UTC):
+        await _refresh(db, account, client)
+    refreshed = False
+    retries = 0
+    while True:
+        try:
+            response = await client.request(
+                method,
+                "https://api.spotify.com/v1/" + path,
+                json=json,
                 headers={"authorization": f"Bearer {account.access_token}"},
             )
         except httpx.HTTPError as e:
@@ -190,6 +232,7 @@ class SpotifyTrack:
     duration: float | None
     added_at: datetime | None
     position: int
+    uri: str | None = None
 
 
 async def fetch_embed_playlist(id: str) -> tuple[dict, list[SpotifyTrack]]:
@@ -251,7 +294,12 @@ async def _fetch_tracks(
     offset = 0
     params = {"additional_types": "track"} if key == "item" else {}
     while True:
-        page = await _get(db, account, client, path, limit=limit, offset=offset, **params)
+        try:
+            page = await _get(db, account, client, path, limit=limit, offset=offset, **params)
+        except SpotifyError as e:
+            if e.status == 403 and key == "item":
+                raise SpotifyError(403, "Spotify gibt die Songs dieser Playlist nicht frei") from e
+            raise
         for index, entry in enumerate(page["items"], offset):
             item = entry.get(key)
             if item is None or item.get("type") != "track" or item.get("is_local"):
@@ -268,6 +316,7 @@ async def _fetch_tracks(
                     duration=duration / 1000 if duration is not None else None,
                     added_at=datetime.fromisoformat(added_at) if added_at else None,
                     position=index,
+                    uri=item.get("uri"),
                 )
             )
         if not page.get("next"):
@@ -307,7 +356,7 @@ async def match(db: AsyncSession, tracks: list[SpotifyTrack]) -> list[uuid.UUID 
     rows = await db.execute(select(Track.id, Track.duration, Track.isrc).where(Track.id.in_(ids)))
     library = {id: (duration, isrc) for id, duration, isrc in rows}
     result = []
-    for track in catalog:
+    for track, source in zip(catalog, tracks, strict=True):
         id = track.library_id
         if id is not None:
             duration, isrc = library[id]
@@ -318,6 +367,11 @@ async def match(db: AsyncSession, tracks: list[SpotifyTrack]) -> list[uuid.UUID 
                 and abs(track.duration - duration) > 10
             ):
                 id = None
+        if id is not None and source.uri:
+            values = {"track_id": id, "spotify_uri": source.uri, "checked_at": datetime.now(UTC)}
+            await db.execute(
+                insert(SpotifyTrackMap).values(**values).on_conflict_do_update(index_elements=["track_id"], set_=values)
+            )
         result.append(id)
     return result
 

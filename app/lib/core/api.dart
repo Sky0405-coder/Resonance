@@ -453,6 +453,23 @@ class ApiClient {
     for (final i in await _get('/api/spotify/imports')) Map<String, dynamic>.from(i),
   ];
 
+  /// Spotify link of a playlist (export / two-way sync); null when not linked.
+  Future<Map<String, dynamic>?> spotifySync(String playlistId) async {
+    final j = await _get('/api/playlists/$playlistId/spotify');
+    return j == null ? null : Map<String, dynamic>.from(j);
+  }
+
+  /// [spotifyPlaylistId] null creates a new Spotify playlist.
+  Future<void> linkSpotify(String playlistId, {String? spotifyPlaylistId, required bool twoWay}) =>
+      _post('/api/playlists/$playlistId/spotify', {'spotify_playlist_id': spotifyPlaylistId, 'two_way': twoWay});
+
+  Future<void> updateSpotifySync(String playlistId, {required bool twoWay}) =>
+      _patch('/api/playlists/$playlistId/spotify', {'two_way': twoWay});
+
+  Future<void> runSpotifySync(String playlistId) => _post('/api/playlists/$playlistId/spotify/sync');
+
+  Future<void> unlinkSpotify(String playlistId) => _delete('/api/playlists/$playlistId/spotify');
+
   Future<Map<String, dynamic>> spotifyImport(String id) async =>
       Map<String, dynamic>.from(await _get('/api/spotify/imports/$id'));
 
