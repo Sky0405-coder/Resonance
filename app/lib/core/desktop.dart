@@ -68,8 +68,10 @@ class _WindowSaver extends WindowListener {
 }
 
 /// Menu entry for an AppImage started directly (Exec = the AppImage's path). Wayland desktops look up the taskbar
-/// icon by app id in the .desktop files, so without it KDE/GNOME show a generic icon.
-String appImageDesktopEntry(String appImage) {
+/// icon by app id (de.knode.resonance) in the .desktop files, so without it KDE/GNOME show a generic icon.
+/// The icon is an absolute path: icon theme caches would hide a freshly added theme icon. [hidden] keeps the entry
+/// out of menus and search when another tool (AppImageLauncher, Gear Lever) already added one for this AppImage.
+String appImageDesktopEntry(String appImage, String icon, {bool hidden = false}) {
   final exec = appImage.replaceAllMapped(RegExp(r'["`$\\]'), (m) => '\\${m[0]}').replaceAll('\\', '\\\\');
   return """[Desktop Entry]
 Type=Application
@@ -77,14 +79,14 @@ Name=Resonance
 GenericName=Music player
 Comment=Your self-hosted music library
 Exec="$exec" %U
-Icon=de.knode.resonance
+Icon=$icon
 Categories=AudioVideo;Audio;Player;
 StartupWMClass=de.knode.resonance
 Terminal=false
-""";
+${hidden ? 'NoDisplay=true\n' : ''}""";
 }
 
-/// Installs/updates the menu entry and icon of the running AppImage in ~/.local/share (also after it was moved).
+/// Installs/updates the taskbar entry and icon of the running AppImage in ~/.local/share (also after it was moved).
 Future<void> registerAppImage() async {
   final appImage = Platform.environment['APPIMAGE'];
   final home = Platform.environment['HOME'];
@@ -97,10 +99,18 @@ Future<void> registerAppImage() async {
       await iconTarget.parent.create(recursive: true);
       await icon.copy(iconTarget.path);
     }
-    final entry = File('$dataHome/applications/de.knode.resonance.desktop');
-    final content = appImageDesktopEntry(appImage);
+    final applications = Directory('$dataHome/applications');
+    final entry = File('${applications.path}/de.knode.resonance.desktop');
+    var integrated = false;
+    if (await applications.exists()) {
+      await for (final file in applications.list()) {
+        if (file is! File || file.path == entry.path || !file.path.endsWith('.desktop')) continue;
+        if ((await file.readAsString()).contains(appImage)) integrated = true;
+      }
+    }
+    final content = appImageDesktopEntry(appImage, iconTarget.path, hidden: integrated);
     if (await entry.exists() && await entry.readAsString() == content) return;
-    await entry.parent.create(recursive: true);
+    await applications.create(recursive: true);
     await entry.writeAsString(content);
   } on FileSystemException catch (e) {
     debugPrint('AppImage desktop integration failed: $e');

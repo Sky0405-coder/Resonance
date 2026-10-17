@@ -55,8 +55,11 @@ void main() {
   });
 
   test('AppImage menu entry quotes the path', () {
-    final entry = appImageDesktopEntry(r'/home/a b/Res"onance$.AppImage');
+    final entry = appImageDesktopEntry(r'/home/a b/Res"onance$.AppImage', '/i/r.png');
     expect(entry, contains(r'Exec="/home/a b/Res\\"onance\\$.AppImage" %U'));
     expect(entry, contains('StartupWMClass=de.knode.resonance'));
+    expect(entry, contains('Icon=/i/r.png'));
+    expect(entry, isNot(contains('NoDisplay')));
+    expect(appImageDesktopEntry('/a', '/i', hidden: true), endsWith('NoDisplay=true\n'));
   });
 }
