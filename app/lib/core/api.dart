@@ -348,6 +348,13 @@ class ApiClient {
 
   Future<LibraryStats> libraryStats() async => LibraryStats.fromJson(await _get('/api/admin/library/stats'));
 
+  Future<List<DuplicateGroup>> duplicates() async => [
+    for (final group in await _get('/api/admin/library/duplicates')) DuplicateGroup.fromJson(group),
+  ];
+
+  Future<DuplicateMergeResult> mergeDuplicates(List<String> keepIds) async =>
+      DuplicateMergeResult.fromJson(await _post('/api/admin/library/duplicates/merge', {'keep_ids': keepIds}));
+
   Future<Job> startScan({bool full = false}) async => Job.fromJson(
     await _call(() async => (await _dio.post('/api/admin/library/scan', queryParameters: {'full': full})).data),
   );

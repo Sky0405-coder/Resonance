@@ -618,5 +618,67 @@
   "jamNotConnected": "Not connected to the Jam",
   "jamQueue": "Jam queue",
   "jamAddedBy": "Added by {name}",
-  "jamChip": "Jam · {count}"
+  "jamChip": "Jam · {count}",
+  "adminDuplicates": "Duplicates",
+  "adminDuplicatesEmpty": "No duplicates found",
+  "adminDuplicatesHint": "{groups} songs have multiple files. The best file for each song will be kept and the others deleted. Likes, playlists and listening history will be transferred to the kept file.",
+  "@adminDuplicatesHint": {
+    "placeholders": {
+      "groups": {
+        "type": "int"
+      }
+    }
+  },
+  "adminDuplicatesGroupTitle": "{artist} – {album}: {title}",
+  "@adminDuplicatesGroupTitle": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "album": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "adminDuplicatesFile": "{marker} {codec} · {bitrate} kbps · {size}",
+  "@adminDuplicatesFile": {
+    "placeholders": {
+      "marker": {
+        "type": "String"
+      },
+      "codec": {
+        "type": "String"
+      },
+      "bitrate": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "adminDuplicatesDelete": "Delete {n} duplicates",
+  "@adminDuplicatesDelete": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "adminDuplicatesConfirmTitle": "Delete duplicates?",
+  "adminDuplicatesConfirmHint": "The lower-quality files will be permanently deleted.",
+  "adminDuplicatesMerged": "{deleted} files deleted, {freed} freed",
+  "@adminDuplicatesMerged": {
+    "placeholders": {
+      "deleted": {
+        "type": "int"
+      },
+      "freed": {
+        "type": "String"
+      }
+    }
+  }
 }

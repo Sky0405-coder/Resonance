@@ -7,6 +7,7 @@ import 'ui/widgets/jam_sheet.dart';
 
 import 'core/session.dart';
 import 'ui/pages/admin/admin_page.dart';
+import 'ui/pages/admin/duplicates_page.dart';
 import 'ui/pages/audiobook_pages.dart';
 import 'ui/pages/auth_pages.dart';
 import 'ui/pages/browse_pages.dart';
@@ -138,6 +139,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/admin',
             pageBuilder: (_, _) => const NoTransitionPage(child: AdminPage()),
           ),
+          GoRoute(path: '/admin/duplicates', builder: (_, _) => const DuplicatesPage()),
         ],
       ),
     ],

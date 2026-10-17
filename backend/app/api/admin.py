@@ -9,6 +9,9 @@ from app.deps import DB, AdminUser
 from app.i18n import language, translate
 from app.models import Album, Artist, AuthSession, Invite, Job, Role, Track, User
 from app.schemas import (
+    DuplicateGroupOut,
+    DuplicateMergeIn,
+    DuplicateTrackOut,
     InviteCreated,
     InviteIn,
     InviteOut,
@@ -19,6 +22,7 @@ from app.schemas import (
 from app.security import hash_password, hash_token, new_token
 from app.services import scanner, upgrades
 from app.services.deletion import delete_empty_album, delete_tracks
+from app.services.duplicates import find_groups, merge_group
 from app.services.server_config import ServerConfig, load_config, update_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -138,6 +142,45 @@ async def delete_user(user_id: uuid.UUID, admin: AdminUser, db: DB) -> None:
 
 
 # --- library ----------------------------------------------------------------
+
+
+@router.get("/library/duplicates", response_model=list[DuplicateGroupOut])
+async def library_duplicates(admin: AdminUser, db: DB) -> list[DuplicateGroupOut]:
+    return [
+        DuplicateGroupOut(
+            album_id=group[0].album_id,
+            album_title=group[0].album.title,
+            artist_name=group[0].album.artist.name,
+            tracks=[
+                DuplicateTrackOut(
+                    id=track.id,
+                    title=track.title,
+                    path=track.path,
+                    codec=track.codec,
+                    bitrate=track.bitrate,
+                    size=track.size,
+                    duration=track.duration,
+                    keep=index == 0,
+                )
+                for index, track in enumerate(group)
+            ],
+        )
+        for group in await find_groups(db)
+    ]
+
+
+@router.post("/library/duplicates/merge")
+async def merge_library_duplicates(body: DuplicateMergeIn, admin: AdminUser, db: DB) -> dict[str, int]:
+    keep_ids = set(body.keep_ids)
+    merged_groups = deleted_tracks = freed_bytes = 0
+    for group in await find_groups(db):
+        if group[0].id not in keep_ids:
+            continue
+        await merge_group(db, group[0], group[1:])
+        merged_groups += 1
+        deleted_tracks += len(group) - 1
+        freed_bytes += sum(track.size for track in group[1:])
+    return {"merged_groups": merged_groups, "deleted_tracks": deleted_tracks, "freed_bytes": freed_bytes}
 
 
 @router.get("/library/stats")

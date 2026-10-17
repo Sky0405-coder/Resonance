@@ -3457,6 +3457,60 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Jam · {count}'**
   String jamChip(int count);
+
+  /// No description provided for @adminDuplicates.
+  ///
+  /// In de, this message translates to:
+  /// **'Duplikate'**
+  String get adminDuplicates;
+
+  /// No description provided for @adminDuplicatesEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Duplikate gefunden'**
+  String get adminDuplicatesEmpty;
+
+  /// No description provided for @adminDuplicatesHint.
+  ///
+  /// In de, this message translates to:
+  /// **'{groups} Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über.'**
+  String adminDuplicatesHint(int groups);
+
+  /// No description provided for @adminDuplicatesGroupTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'{artist} – {album}: {title}'**
+  String adminDuplicatesGroupTitle(String artist, String album, String title);
+
+  /// No description provided for @adminDuplicatesFile.
+  ///
+  /// In de, this message translates to:
+  /// **'{marker} {codec} · {bitrate} kbps · {size}'**
+  String adminDuplicatesFile(String marker, String codec, int bitrate, String size);
+
+  /// No description provided for @adminDuplicatesDelete.
+  ///
+  /// In de, this message translates to:
+  /// **'{n} Duplikate löschen'**
+  String adminDuplicatesDelete(int n);
+
+  /// No description provided for @adminDuplicatesConfirmTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Duplikate löschen?'**
+  String get adminDuplicatesConfirmTitle;
+
+  /// No description provided for @adminDuplicatesConfirmHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Die schlechteren Dateien werden endgültig gelöscht.'**
+  String get adminDuplicatesConfirmHint;
+
+  /// No description provided for @adminDuplicatesMerged.
+  ///
+  /// In de, this message translates to:
+  /// **'{deleted} Dateien gelöscht, {freed} frei geworden'**
+  String adminDuplicatesMerged(int deleted, String freed);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

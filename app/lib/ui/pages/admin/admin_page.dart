@@ -5,6 +5,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/audiobooks.dart';
 import '../../../core/models.dart';
@@ -52,15 +54,19 @@ class AdminPage extends StatelessWidget {
 final _statsProvider = FutureProvider.autoDispose<LibraryStats>((ref) => ref.watch(apiProvider).libraryStats());
 final _jobsProvider = FutureProvider.autoDispose<List<Job>>((ref) => ref.watch(apiProvider).jobs());
 
-String _bytes(int b) {
+String formatBytes(int b, {String? locale, bool megabytes = false}) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  if (megabytes) return '${NumberFormat('0.0', locale).format(b / (1024 * 1024))} MB';
   var v = b.toDouble();
   var i = 0;
   while (v >= 1024 && i < units.length - 1) {
     v /= 1024;
     i++;
   }
-  return '${v.toStringAsFixed(i == 0 ? 0 : 1)} ${units[i]}';
+  final value = locale == null
+      ? v.toStringAsFixed(i == 0 ? 0 : 1)
+      : NumberFormat(i == 0 ? '0' : '0.0', locale).format(v);
+  return '$value ${units[i]}';
 }
 
 class _OverviewTab extends ConsumerStatefulWidget {
@@ -120,7 +126,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
               _StatCard(context.l10n.commonSongsTitle, '${s.tracks}', Icons.music_note),
               _StatCard(context.l10n.commonAlbums, '${s.albums}', Icons.album),
               _StatCard(context.l10n.commonArtists, '${s.artists}', Icons.person),
-              _StatCard(context.l10n.adminStorage, _bytes(s.totalBytes), Icons.storage),
+              _StatCard(context.l10n.adminStorage, formatBytes(s.totalBytes), Icons.storage),
               _StatCard(
                 context.l10n.adminPlaytime,
                 context.l10n.commonDurationHours(((s.totalSeconds / 3600).toStringAsFixed(0)).toString()),
@@ -147,6 +153,11 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
               onPressed: () => _scan(true),
               icon: const Icon(Icons.manage_search),
               label: Text(context.l10n.adminFullScan),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => context.push('/admin/duplicates'),
+              icon: const Icon(Icons.copy_all),
+              label: Text(context.l10n.adminDuplicates),
             ),
           ],
         ),

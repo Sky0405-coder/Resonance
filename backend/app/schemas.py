@@ -116,6 +116,28 @@ class JobOut(ORM):
     finished_at: datetime | None
 
 
+class DuplicateTrackOut(ORM):
+    id: uuid.UUID
+    title: str
+    path: str
+    codec: str | None
+    bitrate: int | None
+    size: int
+    duration: float
+    keep: bool
+
+
+class DuplicateGroupOut(BaseModel):
+    album_id: uuid.UUID
+    album_title: str
+    artist_name: str
+    tracks: list[DuplicateTrackOut]
+
+
+class DuplicateMergeIn(BaseModel):
+    keep_ids: list[uuid.UUID] = Field(max_length=5000)
+
+
 # --- library ----------------------------------------------------------------
 
 

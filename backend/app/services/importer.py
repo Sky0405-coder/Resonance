@@ -16,12 +16,13 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.models import ImportBatch, ImportFile, Job, Track, User
 from app.services import acoustid
+from app.services.duplicates import _same_stem_track, merge_group, track_quality
 from app.services.fingerprint import fingerprint
 from app.services.identify import FileInfo, album_context, assign_releases, candidates, group_key, identify_file
 from app.services.library_paths import target_relpath
 from app.services.lyrics import sidecar_path
 from app.services.musicbrainz import TrackMeta
-from app.services.scanner import _walk, import_files, relocate_track
+from app.services.scanner import _walk, import_file, import_files, relocate_track
 from app.services.server_config import load_config
 from app.services.tagger import fetch_cover, write_tags
 from app.services.tags import TrackTags, folder_cover, read_tags
@@ -73,6 +74,10 @@ async def _place(db: AsyncSession, batch: ImportBatch, row: ImportFile, tags: Tr
     target = target_relpath(meta, source.suffix, unique=False)
     row.target = target
     dest = get_settings().music_dir / target
+    other_format = await _same_stem_track(db, target, row.path if batch.mode == "inplace" else None)
+    if other_format is not None and quality(tags) <= track_quality(other_format):
+        row.status = "duplicate"
+        return False
     same = source.resolve() == dest.resolve()
     replace = dest.exists() and not same
     if replace and quality(tags) <= quality(await asyncio.to_thread(read_tags, dest)):
@@ -115,6 +120,13 @@ async def _place(db: AsyncSession, batch: ImportBatch, row: ImportFile, tags: Tr
                 await asyncio.to_thread(shutil.copy2, original_cover, cover_dest)
         if batch.mode == "inplace" and not same:
             await relocate_track(db, row.path, target)
+        if other_format is not None:
+            new_track = await db.scalar(select(Track).where(Track.path == target))
+            if new_track is None:
+                new_track = await import_file(db, target)
+            if new_track is None:
+                raise ValueError("Audiodatei nicht importierbar")
+            await merge_group(db, new_track, [other_format])
         return True
     finally:
         if temp.exists():

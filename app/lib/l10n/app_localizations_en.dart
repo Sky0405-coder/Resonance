@@ -1952,4 +1952,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String jamChip(int count) {
     return 'Jam · $count';
   }
+
+  @override
+  String get adminDuplicates => 'Duplicates';
+
+  @override
+  String get adminDuplicatesEmpty => 'No duplicates found';
+
+  @override
+  String adminDuplicatesHint(int groups) {
+    return '$groups songs have multiple files. The best file for each song will be kept and the others deleted. Likes, playlists and listening history will be transferred to the kept file.';
+  }
+
+  @override
+  String adminDuplicatesGroupTitle(String artist, String album, String title) {
+    return '$artist – $album: $title';
+  }
+
+  @override
+  String adminDuplicatesFile(String marker, String codec, int bitrate, String size) {
+    return '$marker $codec · $bitrate kbps · $size';
+  }
+
+  @override
+  String adminDuplicatesDelete(int n) {
+    return 'Delete $n duplicates';
+  }
+
+  @override
+  String get adminDuplicatesConfirmTitle => 'Delete duplicates?';
+
+  @override
+  String get adminDuplicatesConfirmHint => 'The lower-quality files will be permanently deleted.';
+
+  @override
+  String adminDuplicatesMerged(int deleted, String freed) {
+    return '$deleted files deleted, $freed freed';
+  }
 }

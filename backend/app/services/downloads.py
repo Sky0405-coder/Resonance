@@ -24,6 +24,7 @@ from app.models import Album, DownloadItem, DownloadRequest, QualityUpgradeAttem
 from app.schemas import CatalogTrack
 from app.services import scanner, sources
 from app.services.deezer import DeezerError, NotFound, artist_string, deezer
+from app.services.duplicates import _same_stem_track, merge_group, track_quality
 from app.services.importer import quality
 from app.services.library_paths import target_relpath
 from app.services.lyrics import sidecar_path
@@ -668,6 +669,18 @@ class DownloadManager:
                 return
             cover = await fetch_cover(meta)
             await asyncio.to_thread(write_tags, path, meta, cover)
+            rel = target_relpath(meta, path.suffix, unique=False)
+            async with SessionLocal() as db:
+                existing = await _same_stem_track(db, rel)
+                if existing is not None and track_quality(existing) >= quality(
+                    await asyncio.to_thread(read_tags, path)
+                ):
+                    if not temporary:
+                        existing.is_temporary = False
+                    await db.commit()
+                    path.unlink()
+                    await self._change(item.id, status="done", track_id=existing.id, progress=1, error=None)
+                    return
             rel = target_relpath(meta, path.suffix)
             target = get_settings().music_dir / rel
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -682,6 +695,8 @@ class DownloadManager:
                 if imported is None:
                     raise ValueError("Audiodatei nicht importierbar")
                 imported.is_temporary = temporary
+                if existing is not None:
+                    await merge_group(db, imported, [existing])
                 await db.commit()
             await self._change(item.id, status="done", track_id=imported.id, progress=1, error=None)
         except Cancelled:

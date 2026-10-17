@@ -384,6 +384,74 @@ class Job {
   );
 }
 
+class DuplicateTrack {
+  const DuplicateTrack({
+    required this.id,
+    required this.title,
+    required this.path,
+    required this.codec,
+    required this.bitrate,
+    required this.size,
+    required this.duration,
+    required this.keep,
+  });
+
+  final String id;
+  final String title;
+  final String path;
+  final String? codec;
+  final int? bitrate;
+  final int size;
+  final double duration;
+  final bool keep;
+
+  factory DuplicateTrack.fromJson(Map<String, dynamic> j) => DuplicateTrack(
+    id: j['id'],
+    title: j['title'],
+    path: j['path'],
+    codec: j['codec'],
+    bitrate: j['bitrate'],
+    size: j['size'],
+    duration: (j['duration'] as num).toDouble(),
+    keep: j['keep'],
+  );
+}
+
+class DuplicateGroup {
+  const DuplicateGroup({
+    required this.albumId,
+    required this.albumTitle,
+    required this.artistName,
+    required this.tracks,
+  });
+
+  final String albumId;
+  final String albumTitle;
+  final String artistName;
+  final List<DuplicateTrack> tracks;
+
+  factory DuplicateGroup.fromJson(Map<String, dynamic> j) => DuplicateGroup(
+    albumId: j['album_id'],
+    albumTitle: j['album_title'],
+    artistName: j['artist_name'],
+    tracks: [for (final track in j['tracks']) DuplicateTrack.fromJson(track)],
+  );
+}
+
+class DuplicateMergeResult {
+  const DuplicateMergeResult({required this.mergedGroups, required this.deletedTracks, required this.freedBytes});
+
+  final int mergedGroups;
+  final int deletedTracks;
+  final int freedBytes;
+
+  factory DuplicateMergeResult.fromJson(Map<String, dynamic> j) => DuplicateMergeResult(
+    mergedGroups: j['merged_groups'],
+    deletedTracks: j['deleted_tracks'],
+    freedBytes: j['freed_bytes'],
+  );
+}
+
 class LibraryStats {
   const LibraryStats(this.artists, this.albums, this.tracks, this.totalBytes, this.totalSeconds);
   final int artists;

@@ -1206,5 +1206,67 @@
         "type": "int"
       }
     }
+  },
+  "adminDuplicates": "Duplikate",
+  "adminDuplicatesEmpty": "Keine Duplikate gefunden",
+  "adminDuplicatesHint": "{groups} Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über.",
+  "@adminDuplicatesHint": {
+    "placeholders": {
+      "groups": {
+        "type": "int"
+      }
+    }
+  },
+  "adminDuplicatesGroupTitle": "{artist} – {album}: {title}",
+  "@adminDuplicatesGroupTitle": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "album": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "adminDuplicatesFile": "{marker} {codec} · {bitrate} kbps · {size}",
+  "@adminDuplicatesFile": {
+    "placeholders": {
+      "marker": {
+        "type": "String"
+      },
+      "codec": {
+        "type": "String"
+      },
+      "bitrate": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "adminDuplicatesDelete": "{n} Duplikate löschen",
+  "@adminDuplicatesDelete": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "adminDuplicatesConfirmTitle": "Duplikate löschen?",
+  "adminDuplicatesConfirmHint": "Die schlechteren Dateien werden endgültig gelöscht.",
+  "adminDuplicatesMerged": "{deleted} Dateien gelöscht, {freed} frei geworden",
+  "@adminDuplicatesMerged": {
+    "placeholders": {
+      "deleted": {
+        "type": "int"
+      },
+      "freed": {
+        "type": "String"
+      }
+    }
   }
 }

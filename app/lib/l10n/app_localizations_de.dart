@@ -1926,4 +1926,41 @@ class AppLocalizationsDe extends AppLocalizations {
   String jamChip(int count) {
     return 'Jam · $count';
   }
+
+  @override
+  String get adminDuplicates => 'Duplikate';
+
+  @override
+  String get adminDuplicatesEmpty => 'Keine Duplikate gefunden';
+
+  @override
+  String adminDuplicatesHint(int groups) {
+    return '$groups Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über.';
+  }
+
+  @override
+  String adminDuplicatesGroupTitle(String artist, String album, String title) {
+    return '$artist – $album: $title';
+  }
+
+  @override
+  String adminDuplicatesFile(String marker, String codec, int bitrate, String size) {
+    return '$marker $codec · $bitrate kbps · $size';
+  }
+
+  @override
+  String adminDuplicatesDelete(int n) {
+    return '$n Duplikate löschen';
+  }
+
+  @override
+  String get adminDuplicatesConfirmTitle => 'Duplikate löschen?';
+
+  @override
+  String get adminDuplicatesConfirmHint => 'Die schlechteren Dateien werden endgültig gelöscht.';
+
+  @override
+  String adminDuplicatesMerged(int deleted, String freed) {
+    return '$deleted Dateien gelöscht, $freed frei geworden';
+  }
 }
