@@ -422,6 +422,8 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> stop() async {
+    if (state.book != null) await _syncBook();
+    _flushPlayReport();
     _stationGeneration++;
     _stationRetry?.cancel();
     _stationRetry = null;

@@ -157,6 +157,10 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     await super.stop();
   }
 
+  /// Swiping the app away on Android ends playback instead of leaving the service running.
+  @override
+  Future<void> onTaskRemoved() => stop();
+
   @override
   Future<void> seek(Duration position) => _controller.seek(position);
 
