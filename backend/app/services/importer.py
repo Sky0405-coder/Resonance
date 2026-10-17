@@ -312,6 +312,13 @@ async def _auto_import_once() -> None:
         if await db.scalar(select(ImportBatch.id).where(ImportBatch.status.in_(_ACTIVE)).limit(1)):
             return
         files = await asyncio.to_thread(_walk, get_settings().import_dir)
+        # Files the last import left behind (duplicates, failures) only count again once they change.
+        last = await db.scalar(
+            select(ImportBatch).where(ImportBatch.kind == "import").order_by(ImportBatch.created_at.desc()).limit(1)
+        )
+        if last is not None:
+            seen = set(await db.scalars(select(ImportFile.path).where(ImportFile.batch_id == last.id)))
+            files = [f for f in files if f[0] not in seen or f[1] >= last.created_at.timestamp()]
         if any(mtime < time.time() - 120 for _, mtime, _ in files):
             try:
                 await start_batch(db, "import", None)

@@ -839,6 +839,26 @@ async def test_auto_import_conditions(env):
     assert not source.exists()
 
 
+async def test_auto_import_skips_unchanged_leftovers(env):
+    source = audio(env.settings.import_dir / "Album/song.flac")
+    os.utime(source, (1, 1))
+    await configure(import_mode="move", auto_import=True)
+    async with SessionLocal() as db:
+        row = ImportBatch(kind="import", mode="move", source_dir=str(env.settings.import_dir), status="done")
+        db.add(row)
+        await db.flush()
+        db.add(ImportFile(batch_id=row.id, path="Album/song.flac", group_key="Album", status="duplicate"))
+        await db.commit()
+    # The duplicate the last run left behind does not start a new run every five minutes.
+    await importer._auto_import_once()
+    assert importer._running is None
+    audio(env.settings.import_dir / "Other/new.flac")
+    os.utime(env.settings.import_dir / "Other/new.flac", (1, 1))
+    await importer._auto_import_once()
+    assert importer._running is not None
+    await importer._running
+
+
 async def test_unexpected_batch_exception(env, monkeypatch):
     audio(env.settings.import_dir / "song.flac")
 
