@@ -680,5 +680,14 @@
         "type": "String"
       }
     }
-  }
+  },
+  "updateRestarting": "Installing, Resonance restarts in a moment …",
+  "shortcutsTitle": "Keyboard shortcuts",
+  "shortcutPlayPause": "Play / pause",
+  "shortcutNextPrevious": "Next / previous song",
+  "shortcutSeek": "Forward / back 10 seconds",
+  "shortcutVolume": "Volume up / down",
+  "shortcutShuffle": "Shuffle",
+  "shortcutRepeat": "Repeat",
+  "shortcutSearch": "Search"
 }

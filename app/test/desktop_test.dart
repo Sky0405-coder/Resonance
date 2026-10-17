@@ -1,0 +1,56 @@
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:resonance/core/desktop.dart';
+import 'package:resonance/core/updates.dart';
+
+void main() {
+  final info = PackageInfo(appName: 'Resonance', packageName: 'resonance', version: '1.0.17', buildNumber: '17');
+
+  Map<String, dynamic> release(String tag, List<String> assets) => {
+    'tag_name': tag,
+    'html_url': 'https://github.com/$githubRepo/releases/tag/$tag',
+    'assets': [
+      for (final name in assets)
+        {'name': name, 'browser_download_url': 'https://github.com/$githubRepo/releases/download/$tag/$name'},
+    ],
+  };
+
+  test('desktop update: newer release with this platform\'s build', () {
+    final u = desktopUpdateFrom(
+      release('v1.0.18', ['Resonance-v1.0.18-android.apk', 'Resonance-v1.0.18-windows-setup.exe']),
+      info,
+      TargetPlatform.windows,
+    );
+    expect(u.available, isTrue);
+    expect(u.availableName, '1.0.18');
+    expect(u.downloadUrl, endsWith('/v1.0.18/Resonance-v1.0.18-windows-setup.exe'));
+  });
+
+  test('desktop update: not offered before the build is attached', () {
+    final u = desktopUpdateFrom(release('v1.0.18', ['Resonance-v1.0.18-android.apk']), info, TargetPlatform.linux);
+    expect(u.available, isFalse);
+    expect(u.releaseUrl, contains('v1.0.18'));
+  });
+
+  test('desktop update: same version is current', () {
+    final u = desktopUpdateFrom(
+      release('v1.0.17', ['Resonance-v1.0.17-linux-x86_64.AppImage']),
+      info,
+      TargetPlatform.linux,
+    );
+    expect(u.downloadUrl, isNotNull);
+    expect(u.available, isFalse);
+  });
+
+  test('window bounds round trip and validation', () {
+    const rect = Rect.fromLTWH(100, 50, 1280, 800);
+    expect(parseBounds(formatBounds(rect)), rect);
+    expect(parseBounds(null), isNull);
+    expect(parseBounds('1,2,3'), isNull);
+    expect(parseBounds('a,b,c,d'), isNull);
+    expect(parseBounds('0,0,300,200'), isNull); // smaller than the minimum window
+  });
+}

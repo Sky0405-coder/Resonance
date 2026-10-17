@@ -1989,4 +1989,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String adminDuplicatesMerged(int deleted, String freed) {
     return '$deleted files deleted, $freed freed';
   }
+
+  @override
+  String get updateRestarting => 'Installing, Resonance restarts in a moment …';
+
+  @override
+  String get shortcutsTitle => 'Keyboard shortcuts';
+
+  @override
+  String get shortcutPlayPause => 'Play / pause';
+
+  @override
+  String get shortcutNextPrevious => 'Next / previous song';
+
+  @override
+  String get shortcutSeek => 'Forward / back 10 seconds';
+
+  @override
+  String get shortcutVolume => 'Volume up / down';
+
+  @override
+  String get shortcutShuffle => 'Shuffle';
+
+  @override
+  String get shortcutRepeat => 'Repeat';
+
+  @override
+  String get shortcutSearch => 'Search';
 }

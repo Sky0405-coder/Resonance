@@ -152,6 +152,7 @@ class PlayerController extends Notifier<PlayerView> {
   PlayerView build() {
     final prefs = ref.read(prefsProvider);
     normalize = prefs.getBool('normalize_volume') ?? true;
+    userVolume.value = (prefs.getDouble('user_volume') ?? 1).clamp(0, 1);
     engine.crossfadeSeconds = (prefs.getInt('crossfade_seconds') ?? 0).clamp(0, 12);
     engine.targetVolumeForIndex = (index) => userVolume.value * _gainForTrack(state.queue[index]);
     _subs.addAll([
@@ -215,6 +216,7 @@ class PlayerController extends Notifier<PlayerView> {
       errors.close();
       _sleepTimer?.cancel();
       engine.dispose();
+      _saveVolume?.cancel();
       userVolume.dispose();
     });
     return const PlayerView();
@@ -766,7 +768,14 @@ class PlayerController extends Notifier<PlayerView> {
   void setUserVolume(double v) {
     userVolume.value = v.clamp(0, 1);
     engine.setVolume(_gainFactor * userVolume.value);
+    _saveVolume?.cancel();
+    _saveVolume = Timer(
+      const Duration(milliseconds: 500),
+      () => ref.read(prefsProvider).setDouble('user_volume', userVolume.value),
+    );
   }
+
+  Timer? _saveVolume;
 
   void setNormalize(bool enabled) {
     normalize = enabled;

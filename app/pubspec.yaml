@@ -57,6 +57,11 @@ dependencies:
   path_provider: ^2.1.6
   connectivity_plus: ^7.3.2
   web_socket_channel: ^3.0.3
+  audio_service_mpris:
+    path: packages/audio_service_mpris
+  audio_service_win:
+    path: packages/audio_service_win
+  window_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:

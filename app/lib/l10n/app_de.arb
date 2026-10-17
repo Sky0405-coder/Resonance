@@ -1268,5 +1268,14 @@
         "type": "String"
       }
     }
-  }
+  },
+  "updateRestarting": "Wird installiert, Resonance startet gleich neu …",
+  "shortcutsTitle": "Tastenkürzel",
+  "shortcutPlayPause": "Abspielen / Pause",
+  "shortcutNextPrevious": "Nächster / vorheriger Song",
+  "shortcutSeek": "10 Sekunden vor / zurück",
+  "shortcutVolume": "Lauter / leiser",
+  "shortcutShuffle": "Zufallswiedergabe",
+  "shortcutRepeat": "Wiederholen",
+  "shortcutSearch": "Suchen"
 }
