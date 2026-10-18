@@ -1,7 +1,6 @@
 # Resonance
 
 Selbst gehosteter Musik-Streaming-Server im Spotify-Stil mit integrierter Download-Pipeline.
-Der Name ist ein Arbeitstitel.
 
 ```
 backend/   Python 3.12 · FastAPI · SQLAlchemy (async) · PostgreSQL + pgvector · Alembic
