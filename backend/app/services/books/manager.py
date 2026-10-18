@@ -161,7 +161,20 @@ class BookManager:
             if chosen is None:
                 await self._fail(request_id, "Kein passender Download gefunden")
                 return
-            source = await obtain_source(chosen)
+            try:
+                source = await obtain_source(chosen)
+            except TorrentError as e:
+                # Broken link of this result: exclude it and search again (the worker picks the request up).
+                async with SessionLocal() as db:
+                    request = await db.scalar(select(BookRequest).where(BookRequest.id == request_id).with_for_update())
+                    if request is not None and request.status == "searching":
+                        request.exclude_guids = [*request.exclude_guids, chosen.get("guid", "")]
+                        request.attempts += 1
+                        request.status = "queued" if request.attempts < 3 else "failed"
+                        request.error = str(e)
+                        await db.commit()
+                self.wake()
+                return
             async with SessionLocal() as db:
                 request = await db.scalar(select(BookRequest).where(BookRequest.id == request_id).with_for_update())
                 if request is None or request.status != "searching":

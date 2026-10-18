@@ -625,3 +625,17 @@ def test_choose_edition_and_html_entities() -> None:
     assert chosen["title"] == "Kraftwerk - Radio-Aktivität / Radio-Activity 1975 / 2004"
     compilation = result(title="Trainspotting Soundtrack FLAC", size=300_000_000)
     assert choose([compilation], "Various Artists", "Trainspotting (Music From the Motion Picture)", 3600, 1)
+
+
+async def test_obtain_source_prowlarr_link_variants() -> None:
+    from app.services.torrents import obtain_source
+
+    magnet = "magnet:?xt=urn:btih:ABC"
+    # Some indexers only put the magnet link into guid (magnetUrl is Prowlarr's http proxy link).
+    assert await obtain_source({"guid": magnet, "magnetUrl": "http://prowlarr/5/download"}) == magnet
+    # No usable link at all: build the magnet link from the info hash.
+    assert await obtain_source({"infoHash": "ABC", "title": "Pride and Prejudice"}) == (
+        "magnet:?xt=urn:btih:ABC&dn=Pride%20and%20Prejudice"
+    )
+    with pytest.raises(TorrentError):
+        await obtain_source({"title": "x"})
