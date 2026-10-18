@@ -1,3 +1,4 @@
+from app.models.books import Book, BookProgress, BookRequest
 from app.models.collection import (
     PlayEvent,
     Playlist,
@@ -24,6 +25,9 @@ from app.models.user import DEFAULT_ACCENT, AudiobookshelfAccount, AuthSession, 
 
 __all__ = [
     "DEFAULT_ACCENT",
+    "Book",
+    "BookProgress",
+    "BookRequest",
     "Album",
     "Artist",
     "AudiobookshelfAccount",

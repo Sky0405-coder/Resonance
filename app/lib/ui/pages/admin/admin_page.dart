@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/audiobooks.dart';
+import '../../../core/books.dart';
 import '../../../core/models.dart';
 import '../../../core/session.dart';
 import '../../../integrations/discord_presence.dart';
@@ -538,6 +539,7 @@ class _ServerTab extends ConsumerWidget {
         final dl = c['downloads'] as Map;
         final lib = (c['library'] ?? const {}) as Map;
         final abs = (c['audiobookshelf'] ?? const {}) as Map;
+        final books = (c['books'] ?? const {}) as Map;
         final spotify = (c['spotify'] ?? const {}) as Map;
         final integrations = (c['integrations'] ?? const {}) as Map;
         return ListView(
@@ -749,6 +751,55 @@ class _ServerTab extends ConsumerWidget {
                 },
               ),
               const _AbsCheckTile(),
+            ],
+            _Group(context.l10n.booksEbooks),
+            SwitchListTile(
+              title: Text(context.l10n.adminBooksEnable),
+              subtitle: Text(context.l10n.adminBooksEnableHint),
+              value: books['enabled'] ?? false,
+              onChanged: (v) async {
+                await patch({
+                  'books': {'enabled': v},
+                });
+                ref.invalidate(booksStatusProvider);
+              },
+            ),
+            if (books['enabled'] ?? false) ...[
+              ListTile(
+                title: Text(context.l10n.adminBooksLanguage),
+                subtitle: Text(context.l10n.adminBooksTorrentsHint),
+                trailing: DropdownButton<String>(
+                  value: books['default_language'] ?? 'de',
+                  items: [
+                    DropdownMenuItem(value: 'de', child: Text(context.l10n.booksLanguageDe)),
+                    DropdownMenuItem(value: 'en', child: Text(context.l10n.booksLanguageEn)),
+                    DropdownMenuItem(value: 'any', child: Text(context.l10n.booksLanguageAny)),
+                  ],
+                  onChanged: (v) async {
+                    await patch({
+                      'books': {'default_language': v},
+                    });
+                    ref.invalidate(booksStatusProvider);
+                  },
+                ),
+              ),
+              _NumberTile(
+                title: context.l10n.adminBooksDailyLimit,
+                value: books['daily_limit_per_user'] ?? 10,
+                onChanged: (v) => patch({
+                  'books': {'daily_limit_per_user': v},
+                }),
+              ),
+              _TextTile(
+                title: context.l10n.adminBooksGoogleKey,
+                value: books['google_books_api_key'] ?? '',
+                secret: true,
+                hint: context.l10n.adminBooksGoogleKeyHint,
+                onChanged: (v) => patch({
+                  'books': {'google_books_api_key': v},
+                }),
+              ),
+              const _BooksCheckTile(),
             ],
             _Group(context.l10n.adminIntegrations),
             _TextTile(
@@ -1114,6 +1165,74 @@ class _TorrentCheckTileState extends ConsumerState<_TorrentCheckTile> {
             const SizedBox(height: 4),
             line(context.l10n.adminQbittorrent, _result!['qbittorrent'] as Map?),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Checks the metadata sources and the library folder.
+class _BooksCheckTile extends ConsumerStatefulWidget {
+  const _BooksCheckTile();
+
+  @override
+  ConsumerState<_BooksCheckTile> createState() => _BooksCheckTileState();
+}
+
+class _BooksCheckTileState extends ConsumerState<_BooksCheckTile> {
+  Map<String, dynamic>? _result;
+  bool _busy = false;
+
+  Future<void> _check() async {
+    setState(() => _busy = true);
+    try {
+      final r = await ref.read(apiProvider).booksAdminStatus();
+      if (mounted) setState(() => _result = r);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _check,
+            icon: _busy
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.network_check),
+            label: Text(context.l10n.adminTestConnection),
+          ),
+          for (final entry in (_result ?? const {}).entries)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Icon(
+                    entry.value['ok'] == true ? Icons.check_circle : Icons.error_outline,
+                    size: 18,
+                    color: entry.value['ok'] == true ? theme.colorScheme.primary : theme.colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${switch (entry.key) {
+                        'google' => 'Google Books',
+                        'audible' => 'Audible',
+                        _ => context.l10n.booksEbooks,
+                      }}: ${entry.value['message'] ?? ''}',
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

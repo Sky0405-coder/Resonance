@@ -3721,6 +3721,372 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Suchen'**
   String get shortcutSearch;
+
+  /// No description provided for @navBooks.
+  ///
+  /// In de, this message translates to:
+  /// **'Bücher'**
+  String get navBooks;
+
+  /// No description provided for @booksEbooks.
+  ///
+  /// In de, this message translates to:
+  /// **'Ebooks'**
+  String get booksEbooks;
+
+  /// No description provided for @booksSearchHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Buch, Autor oder Serie suchen'**
+  String get booksSearchHint;
+
+  /// No description provided for @booksRecent.
+  ///
+  /// In de, this message translates to:
+  /// **'Neu in der Bibliothek'**
+  String get booksRecent;
+
+  /// No description provided for @booksAuthors.
+  ///
+  /// In de, this message translates to:
+  /// **'Autoren'**
+  String get booksAuthors;
+
+  /// No description provided for @booksSeries.
+  ///
+  /// In de, this message translates to:
+  /// **'Serien'**
+  String get booksSeries;
+
+  /// No description provided for @booksRequests.
+  ///
+  /// In de, this message translates to:
+  /// **'Anfragen'**
+  String get booksRequests;
+
+  /// No description provided for @booksImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Importieren'**
+  String get booksImport;
+
+  /// No description provided for @booksAll.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Bücher'**
+  String get booksAll;
+
+  /// No description provided for @booksEmptyLibrary.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine Bücher. Suche nach einem Buch, um es anzufragen, oder importiere eigene Dateien.'**
+  String get booksEmptyLibrary;
+
+  /// No description provided for @booksInLibrary.
+  ///
+  /// In de, this message translates to:
+  /// **'In deiner Bibliothek'**
+  String get booksInLibrary;
+
+  /// No description provided for @booksFromCatalog.
+  ///
+  /// In de, this message translates to:
+  /// **'Zum Anfragen'**
+  String get booksFromCatalog;
+
+  /// No description provided for @booksNoResults.
+  ///
+  /// In de, this message translates to:
+  /// **'Nichts gefunden'**
+  String get booksNoResults;
+
+  /// No description provided for @booksRequestFree.
+  ///
+  /// In de, this message translates to:
+  /// **'Nicht dabei? Selbst anfragen'**
+  String get booksRequestFree;
+
+  /// No description provided for @booksRequest.
+  ///
+  /// In de, this message translates to:
+  /// **'Anfragen'**
+  String get booksRequest;
+
+  /// No description provided for @booksRequested.
+  ///
+  /// In de, this message translates to:
+  /// **'Angefragt: {title}'**
+  String booksRequested(String title);
+
+  /// No description provided for @booksRequestsDisabled.
+  ///
+  /// In de, this message translates to:
+  /// **'Automatische Downloads sind auf diesem Server aus. Du kannst Bücher aber importieren.'**
+  String get booksRequestsDisabled;
+
+  /// No description provided for @booksLanguage.
+  ///
+  /// In de, this message translates to:
+  /// **'Sprache'**
+  String get booksLanguage;
+
+  /// No description provided for @booksLanguageDe.
+  ///
+  /// In de, this message translates to:
+  /// **'Deutsch'**
+  String get booksLanguageDe;
+
+  /// No description provided for @booksLanguageEn.
+  ///
+  /// In de, this message translates to:
+  /// **'Englisch'**
+  String get booksLanguageEn;
+
+  /// No description provided for @booksLanguageAny.
+  ///
+  /// In de, this message translates to:
+  /// **'Egal'**
+  String get booksLanguageAny;
+
+  /// No description provided for @booksVolume.
+  ///
+  /// In de, this message translates to:
+  /// **'Band {number}'**
+  String booksVolume(String number);
+
+  /// No description provided for @booksDownload.
+  ///
+  /// In de, this message translates to:
+  /// **'Herunterladen'**
+  String get booksDownload;
+
+  /// No description provided for @booksEdit.
+  ///
+  /// In de, this message translates to:
+  /// **'Bearbeiten'**
+  String get booksEdit;
+
+  /// No description provided for @booksDelete.
+  ///
+  /// In de, this message translates to:
+  /// **'Löschen'**
+  String get booksDelete;
+
+  /// No description provided for @booksDeleteConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'„{title}“ aus der Bibliothek löschen?'**
+  String booksDeleteConfirm(String title);
+
+  /// No description provided for @booksTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Titel'**
+  String get booksTitle;
+
+  /// No description provided for @booksAuthorsField.
+  ///
+  /// In de, this message translates to:
+  /// **'Autoren (mit Komma getrennt)'**
+  String get booksAuthorsField;
+
+  /// No description provided for @booksSeriesField.
+  ///
+  /// In de, this message translates to:
+  /// **'Serie'**
+  String get booksSeriesField;
+
+  /// No description provided for @booksSeriesIndex.
+  ///
+  /// In de, this message translates to:
+  /// **'Band'**
+  String get booksSeriesIndex;
+
+  /// No description provided for @booksStatusPending.
+  ///
+  /// In de, this message translates to:
+  /// **'Wartet auf Freigabe'**
+  String get booksStatusPending;
+
+  /// No description provided for @booksStatusQueued.
+  ///
+  /// In de, this message translates to:
+  /// **'In der Warteschlange'**
+  String get booksStatusQueued;
+
+  /// No description provided for @booksStatusSearching.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird gesucht'**
+  String get booksStatusSearching;
+
+  /// No description provided for @booksStatusDownloading.
+  ///
+  /// In de, this message translates to:
+  /// **'Lädt'**
+  String get booksStatusDownloading;
+
+  /// No description provided for @booksStatusImporting.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird importiert'**
+  String get booksStatusImporting;
+
+  /// No description provided for @booksStatusDone.
+  ///
+  /// In de, this message translates to:
+  /// **'Fertig'**
+  String get booksStatusDone;
+
+  /// No description provided for @booksStatusFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlgeschlagen'**
+  String get booksStatusFailed;
+
+  /// No description provided for @booksStatusCancelled.
+  ///
+  /// In de, this message translates to:
+  /// **'Abgebrochen'**
+  String get booksStatusCancelled;
+
+  /// No description provided for @booksStatusRejected.
+  ///
+  /// In de, this message translates to:
+  /// **'Abgelehnt'**
+  String get booksStatusRejected;
+
+  /// No description provided for @booksCancelRequest.
+  ///
+  /// In de, this message translates to:
+  /// **'Anfrage abbrechen'**
+  String get booksCancelRequest;
+
+  /// No description provided for @booksRemoveRequest.
+  ///
+  /// In de, this message translates to:
+  /// **'Entfernen'**
+  String get booksRemoveRequest;
+
+  /// No description provided for @booksApprove.
+  ///
+  /// In de, this message translates to:
+  /// **'Freigeben'**
+  String get booksApprove;
+
+  /// No description provided for @booksReject.
+  ///
+  /// In de, this message translates to:
+  /// **'Ablehnen'**
+  String get booksReject;
+
+  /// No description provided for @booksNoRequests.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Anfragen'**
+  String get booksNoRequests;
+
+  /// No description provided for @booksAllUsers.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Nutzer'**
+  String get booksAllUsers;
+
+  /// No description provided for @booksImportFiles.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateien hochladen'**
+  String get booksImportFiles;
+
+  /// No description provided for @booksImportFilesHint.
+  ///
+  /// In de, this message translates to:
+  /// **'EPUB, AZW3, MOBI oder PDF'**
+  String get booksImportFilesHint;
+
+  /// No description provided for @booksImportUrl.
+  ///
+  /// In de, this message translates to:
+  /// **'Von Link importieren'**
+  String get booksImportUrl;
+
+  /// No description provided for @booksImportUrlLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Link zur Buchdatei'**
+  String get booksImportUrlLabel;
+
+  /// No description provided for @booksImporting.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird importiert …'**
+  String get booksImporting;
+
+  /// No description provided for @booksImported.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Buch importiert} other{{count} Bücher importiert}}'**
+  String booksImported(int count);
+
+  /// No description provided for @booksImportFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'{name}: {error}'**
+  String booksImportFailed(String name, String error);
+
+  /// No description provided for @booksShowTab.
+  ///
+  /// In de, this message translates to:
+  /// **'Ebooks anzeigen'**
+  String get booksShowTab;
+
+  /// No description provided for @booksShowTabHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Ebooks im Bücher-Tab'**
+  String get booksShowTabHint;
+
+  /// No description provided for @adminBooksEnable.
+  ///
+  /// In de, this message translates to:
+  /// **'Ebooks aktivieren'**
+  String get adminBooksEnable;
+
+  /// No description provided for @adminBooksEnableHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Bücher-Tab, OPDS-Katalog (/opds) und KOReader-Sync (/kosync). Anmeldung dort mit dem App-Passwort.'**
+  String get adminBooksEnableHint;
+
+  /// No description provided for @adminBooksLanguage.
+  ///
+  /// In de, this message translates to:
+  /// **'Standardsprache für Anfragen'**
+  String get adminBooksLanguage;
+
+  /// No description provided for @adminBooksGoogleKey.
+  ///
+  /// In de, this message translates to:
+  /// **'Google-Books-API-Schlüssel'**
+  String get adminBooksGoogleKey;
+
+  /// No description provided for @adminBooksGoogleKeyHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Optional – ohne Schlüssel wird nur Audible durchsucht'**
+  String get adminBooksGoogleKeyHint;
+
+  /// No description provided for @adminBooksDailyLimit.
+  ///
+  /// In de, this message translates to:
+  /// **'Bücher pro Nutzer und Tag (0 = unbegrenzt)'**
+  String get adminBooksDailyLimit;
+
+  /// No description provided for @adminBooksTorrentsHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Automatische Downloads nutzen die Torrent-Einstellungen unter Downloads.'**
+  String get adminBooksTorrentsHint;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

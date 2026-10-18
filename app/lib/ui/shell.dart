@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/audiobooks.dart';
+import '../core/books.dart';
 import '../core/downloads.dart';
 import '../core/library.dart';
 import '../core/models.dart';
@@ -42,6 +43,7 @@ class AppShell extends ConsumerWidget {
     final offline = !kIsWeb && ref.watch(sessionProvider.select((s) => s.offline));
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
     final audiobooks = ref.watch(absStatusProvider).value?.enabled ?? false;
+    final ebooks = ref.watch(ebooksVisibleProvider);
     final pendingApproval = isAdmin ? ref.watch(downloadSummaryProvider).value?.pendingApproval ?? 0 : 0;
     // Refresh library views whenever downloads finish.
     ref.listen(downloadSummaryProvider, (prev, next) {
@@ -89,10 +91,15 @@ class AppShell extends ConsumerWidget {
       ('/', Icons.home_outlined, Icons.home, context.l10n.navHome),
       ('/search', Icons.search, Icons.search, context.l10n.navSearch),
       ('/library', Icons.library_music_outlined, Icons.library_music, context.l10n.navLibrary),
-      if (audiobooks) ('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
+      // Ebooks and audiobooks share one tab so the bar stays short.
+      if (ebooks)
+        ('/books', Icons.menu_book_outlined, Icons.menu_book, context.l10n.navBooks)
+      else if (audiobooks)
+        ('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
       if (isAdmin) ('/admin', Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, context.l10n.navAdmin),
     ];
-    var selected = tabs.lastIndexWhere((t) => t.$1 != '/' && location.startsWith(t.$1));
+    final tabLocation = ebooks && location.startsWith('/audiobooks') ? '/books' : location;
+    var selected = tabs.lastIndexWhere((t) => t.$1 != '/' && tabLocation.startsWith(t.$1));
     if (selected < 0) selected = 0;
 
     return Scaffold(
@@ -174,7 +181,9 @@ class _Sidebar extends ConsumerWidget {
                 context.l10n.navDownloads,
                 badge: summary.running,
               ),
-              if (ref.watch(absStatusProvider).value?.enabled ?? false)
+              if (ref.watch(ebooksVisibleProvider))
+                nav('/books', Icons.menu_book_outlined, Icons.menu_book, context.l10n.navBooks)
+              else if (ref.watch(absStatusProvider).value?.enabled ?? false)
                 nav('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
               if (isAdmin)
                 nav(

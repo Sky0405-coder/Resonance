@@ -5,12 +5,12 @@ from app.services.server_config import ServerConfig
 from app.services.torrents import TorrentError
 
 
-async def search(cfg: ServerConfig, query: str) -> list[dict]:
+async def search(cfg: ServerConfig, query: str, categories: list[int] = [3000]) -> list[dict]:
     try:
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.get(
                 f"{get_settings().prowlarr_url.rstrip('/')}/api/v1/search",
-                params={"query": query, "categories": 3000, "type": "search"},
+                params=[("query", query), *(("categories", category) for category in categories), ("type", "search")],
                 headers={"X-Api-Key": cfg.downloads.prowlarr_api_key},
             )
             response.raise_for_status()

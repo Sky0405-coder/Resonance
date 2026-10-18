@@ -975,15 +975,33 @@
   "spotifySyncLinked": "Mit Spotify verknüpft",
   "spotifySyncRunning": "Wird abgeglichen …",
   "spotifySyncFailed": "Fehler: {error}",
-  "@spotifySyncFailed": {"placeholders": {"error": {"type": "String"}}},
+  "@spotifySyncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "spotifySyncLast": "Zuletzt abgeglichen: {time}",
-  "@spotifySyncLast": {"placeholders": {"time": {"type": "String"}}},
+  "@spotifySyncLast": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "spotifySyncNow": "Jetzt abgleichen",
   "spotifySyncOpen": "In Spotify öffnen",
   "spotifySyncUnlink": "Verknüpfung lösen",
   "spotifySyncUnlinkConfirm": "Die Playlist wird nicht mehr abgeglichen. Die Playlist auf Spotify bleibt bestehen.",
   "spotifySyncUnmatched": "{count, plural, =1{1 Song nicht auf Spotify gefunden} other{{count} Songs nicht auf Spotify gefunden}}",
-  "@spotifySyncUnmatched": {"placeholders": {"count": {"type": "int"}}},
+  "@spotifySyncUnmatched": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "spotifyMissingTitle": "Nicht in der Bibliothek",
   "adminSpotifyGroup": "Spotify-Import",
   "adminSpotifyClientId": "Spotify Client ID",
@@ -1306,5 +1324,104 @@
   "shortcutVolume": "Lauter / leiser",
   "shortcutShuffle": "Zufallswiedergabe",
   "shortcutRepeat": "Wiederholen",
-  "shortcutSearch": "Suchen"
+  "shortcutSearch": "Suchen",
+  "navBooks": "Bücher",
+  "booksEbooks": "Ebooks",
+  "booksSearchHint": "Buch, Autor oder Serie suchen",
+  "booksRecent": "Neu in der Bibliothek",
+  "booksAuthors": "Autoren",
+  "booksSeries": "Serien",
+  "booksRequests": "Anfragen",
+  "booksImport": "Importieren",
+  "booksAll": "Alle Bücher",
+  "booksEmptyLibrary": "Noch keine Bücher. Suche nach einem Buch, um es anzufragen, oder importiere eigene Dateien.",
+  "booksInLibrary": "In deiner Bibliothek",
+  "booksFromCatalog": "Zum Anfragen",
+  "booksNoResults": "Nichts gefunden",
+  "booksRequestFree": "Nicht dabei? Selbst anfragen",
+  "booksRequest": "Anfragen",
+  "booksRequested": "Angefragt: {title}",
+  "@booksRequested": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "booksRequestsDisabled": "Automatische Downloads sind auf diesem Server aus. Du kannst Bücher aber importieren.",
+  "booksLanguage": "Sprache",
+  "booksLanguageDe": "Deutsch",
+  "booksLanguageEn": "Englisch",
+  "booksLanguageAny": "Egal",
+  "booksVolume": "Band {number}",
+  "@booksVolume": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "booksDownload": "Herunterladen",
+  "booksEdit": "Bearbeiten",
+  "booksDelete": "Löschen",
+  "booksDeleteConfirm": "„{title}“ aus der Bibliothek löschen?",
+  "@booksDeleteConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "booksTitle": "Titel",
+  "booksAuthorsField": "Autoren (mit Komma getrennt)",
+  "booksSeriesField": "Serie",
+  "booksSeriesIndex": "Band",
+  "booksStatusPending": "Wartet auf Freigabe",
+  "booksStatusQueued": "In der Warteschlange",
+  "booksStatusSearching": "Wird gesucht",
+  "booksStatusDownloading": "Lädt",
+  "booksStatusImporting": "Wird importiert",
+  "booksStatusDone": "Fertig",
+  "booksStatusFailed": "Fehlgeschlagen",
+  "booksStatusCancelled": "Abgebrochen",
+  "booksStatusRejected": "Abgelehnt",
+  "booksCancelRequest": "Anfrage abbrechen",
+  "booksRemoveRequest": "Entfernen",
+  "booksApprove": "Freigeben",
+  "booksReject": "Ablehnen",
+  "booksNoRequests": "Keine Anfragen",
+  "booksAllUsers": "Alle Nutzer",
+  "booksImportFiles": "Dateien hochladen",
+  "booksImportFilesHint": "EPUB, AZW3, MOBI oder PDF",
+  "booksImportUrl": "Von Link importieren",
+  "booksImportUrlLabel": "Link zur Buchdatei",
+  "booksImporting": "Wird importiert …",
+  "booksImported": "{count, plural, =1{1 Buch importiert} other{{count} Bücher importiert}}",
+  "@booksImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "booksImportFailed": "{name}: {error}",
+  "@booksImportFailed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "booksShowTab": "Ebooks anzeigen",
+  "booksShowTabHint": "Ebooks im Bücher-Tab",
+  "adminBooksEnable": "Ebooks aktivieren",
+  "adminBooksEnableHint": "Bücher-Tab, OPDS-Katalog (/opds) und KOReader-Sync (/kosync). Anmeldung dort mit dem App-Passwort.",
+  "adminBooksLanguage": "Standardsprache für Anfragen",
+  "adminBooksGoogleKey": "Google-Books-API-Schlüssel",
+  "adminBooksGoogleKeyHint": "Optional – ohne Schlüssel wird nur Audible durchsucht",
+  "adminBooksDailyLimit": "Bücher pro Nutzer und Tag (0 = unbegrenzt)",
+  "adminBooksTorrentsHint": "Automatische Downloads nutzen die Torrent-Einstellungen unter Downloads."
 }

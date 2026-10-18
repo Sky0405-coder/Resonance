@@ -9,6 +9,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/books.dart';
 import '../../core/desktop.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
@@ -149,6 +150,13 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
+          if (ref.watch(booksStatusProvider).value?.enabled ?? false)
+            SwitchListTile(
+              title: Text(context.l10n.booksShowTab),
+              subtitle: Text(context.l10n.booksShowTabHint),
+              value: !ref.watch(booksTabHiddenProvider),
+              onChanged: (v) => ref.read(booksTabHiddenProvider.notifier).set(!v),
+            ),
           _Section(context.l10n.settingsPlayback),
           if (isDiscordDesktop)
             SwitchListTile(

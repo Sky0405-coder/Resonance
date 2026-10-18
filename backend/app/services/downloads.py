@@ -9,9 +9,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
 
-import httpx
 from fastapi import HTTPException
 from rapidfuzz import fuzz
 from sqlalchemy import delete, func, select, update
@@ -38,7 +36,7 @@ from app.services.sources.soundcloud import track_url
 from app.services.sources.youtube import norm, video_id
 from app.services.tagger import fetch_cover, write_tags
 from app.services.tags import TrackTags, embedded_cover, read_tags
-from app.services.torrents import TorrentError, prowlarr
+from app.services.torrents import TorrentError, obtain_source, prowlarr
 from app.services.torrents.qbittorrent import QBittorrent
 from app.services.torrents.select import choose, search_query
 
@@ -218,31 +216,7 @@ class DownloadManager:
             if chosen is None:
                 await self._torrent_fallback(request_id, "Kein passender Torrent gefunden")
                 return
-            source = chosen.get("magnetUrl") or ""
-            if not source.startswith("magnet:"):
-                url = chosen.get("downloadUrl")
-                if not url:
-                    raise TorrentError("Torrent-Downloadadresse fehlt")
-                try:
-                    async with httpx.AsyncClient(timeout=60, follow_redirects=False) as client:
-                        for _ in range(20):
-                            response = await client.get(url)
-                            location = response.headers.get("Location", "")
-                            if location.startswith("magnet:"):
-                                source = location
-                                break
-                            if response.is_redirect and location:
-                                url = urljoin(str(response.url), location)
-                                continue
-                            response.raise_for_status()
-                            if response.status_code != 200:
-                                raise TorrentError("Torrent-Download fehlgeschlagen")
-                            source = response.content
-                            break
-                        else:
-                            raise TorrentError("Zu viele Torrent-Weiterleitungen")
-                except httpx.HTTPError as e:
-                    raise TorrentError("Torrent-Download fehlgeschlagen") from e
+            source = await obtain_source(chosen)
             async with SessionLocal() as db:
                 request = await db.scalar(
                     select(DownloadRequest).where(DownloadRequest.id == request_id).with_for_update()

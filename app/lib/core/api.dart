@@ -385,6 +385,29 @@ class ApiClient {
 
   Future<void> runQualityUpgrades() => _post('/api/admin/upgrades/run');
 
+  // --- Ebooks (/api/books) ------------------------------------------------
+
+  Future<dynamic> booksGet(String path, [Map<String, dynamic>? query]) => _get('/api/books$path', query);
+  Future<dynamic> booksPost(String path, [Object? body]) => _post('/api/books$path', body);
+  Future<dynamic> booksPatch(String path, Object body) => _patch('/api/books$path', body);
+  Future<dynamic> booksDelete(String path) => _delete('/api/books$path');
+  Future<Map<String, dynamic>> booksAdminStatus() async =>
+      Map<String, dynamic>.from(await _get('/api/admin/books/status'));
+
+  Future<List<dynamic>> booksUpload(List<({String name, List<int> bytes})> files) async => await _call(
+    () async => (await _dio.post(
+      '/api/books/import/upload',
+      data: FormData.fromMap({
+        'files': [for (final f in files) MultipartFile.fromBytes(f.bytes, filename: f.name)],
+      }),
+      options: Options(sendTimeout: const Duration(minutes: 10), receiveTimeout: const Duration(minutes: 10)),
+    )).data,
+  );
+
+  /// File and cover URLs carry the token so browsers and image widgets can load them.
+  String bookFileUrl(String id) => '$baseUrl/api/books/library/$id/file?token=$token';
+  String bookCoverUrl(String id) => '$baseUrl/api/books/library/$id/cover?token=$token';
+
   // --- Audiobookshelf (proxied by the server, see /api/abs) ---------------
 
   Future<Map<String, dynamic>> absStatus() async => Map<String, dynamic>.from(await _get('/api/abs/status'));

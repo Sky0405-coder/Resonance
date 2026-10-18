@@ -49,6 +49,8 @@ def test_exact(message: str, english: str) -> None:
 
 
 PATTERN_CASES = [
+    ("Tageslimit erreicht (3 von 10 Büchern in 24 Stunden)", "Daily limit reached (3 of 10 books in 24 hours)"),
+    ("2 Bücher", "2 books"),
     ("Tageslimit erreicht (3 von 10 Songs in 24 Stunden)", "Daily limit reached (3 of 10 songs in 24 hours)"),
     ("Download fehlgeschlagen: Fehler: \\g<name>", "Download failed: Fehler: \\g<name>"),
     ("Import fehlgeschlagen: broken file", "Import failed: broken file"),

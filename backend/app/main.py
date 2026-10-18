@@ -14,13 +14,16 @@ from app.api import (
     app_updates,
     audiobookshelf,
     auth,
+    books,
     catalog,
     editor,
     imports,
     jam,
+    kosync,
     library,
     me,
     mixes,
+    opds,
     playlists,
     radio,
     requests,
@@ -41,6 +44,7 @@ from app.services import mixes as mixes_service
 from app.services import radio as radio_service
 from app.services import spotify as spotify_service
 from app.services import spotify_sync as spotify_sync_service
+from app.services.books.manager import book_manager
 from app.services.downloads import manager
 from app.services.server_config import load_config
 
@@ -53,6 +57,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.download_workers > 0:
         await manager.start()
+        await book_manager.start()
     await importer.start()
     await spotify_service.start()
     await spotify_sync_service.start()
@@ -67,6 +72,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await upgrades.stop()
         await importer.stop()
         await manager.stop()
+        await book_manager.stop()
         await spotify_service.stop()
         await spotify_sync_service.stop()
         await radio_service.stop()
@@ -102,6 +108,9 @@ for module in (
     mixes,
     admin,
     catalog,
+    books,
+    kosync,
+    opds,
     requests,
     spotify,
     spotify_sync,
@@ -115,6 +124,8 @@ for module in (
     jam,
 ):
     app.include_router(module.router)
+app.include_router(books.admin_router)
+app.add_exception_handler(kosync.KosyncError, kosync.error_response)
 app.include_router(audiobookshelf.admin_router)
 app.include_router(editor.editor_router)
 

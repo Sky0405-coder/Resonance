@@ -48,10 +48,12 @@ class QBittorrent:
         except httpx.HTTPError as e:
             raise TorrentError("qBittorrent nicht erreichbar") from e
 
-    async def add(self, source: str | bytes, tag: str) -> None:
+    async def add(
+        self, source: str | bytes, tag: str, category: str = "resonance", savepath: str = "/data/downloads/torrents"
+    ) -> None:
         fields = {
-            "savepath": (None, "/data/downloads/torrents"),
-            "category": (None, "resonance"),
+            "savepath": (None, savepath),
+            "category": (None, category),
             "tags": (None, tag),
         }
         if isinstance(source, str):
@@ -60,8 +62,8 @@ class QBittorrent:
             fields["torrents"] = ("file.torrent", source)
         await self._request("POST", "/api/v2/torrents/add", files=fields)
 
-    async def info(self, tag: str) -> dict | None:
-        response = await self._request("GET", "/api/v2/torrents/info", params={"category": "resonance", "tag": tag})
+    async def info(self, tag: str, category: str = "resonance") -> dict | None:
+        response = await self._request("GET", "/api/v2/torrents/info", params={"category": category, "tag": tag})
         try:
             rows = response.json()
             if not isinstance(rows, list):
@@ -70,8 +72,8 @@ class QBittorrent:
         except (ValueError, KeyError, TypeError) as e:
             raise TorrentError("Ungültige qBittorrent-Antwort") from e
 
-    async def all(self) -> list[dict]:
-        response = await self._request("GET", "/api/v2/torrents/info", params={"category": "resonance"})
+    async def all(self, category: str = "resonance") -> list[dict]:
+        response = await self._request("GET", "/api/v2/torrents/info", params={"category": category})
         try:
             rows = response.json()
             if not isinstance(rows, list):
@@ -79,6 +81,15 @@ class QBittorrent:
             return rows
         except (ValueError, TypeError) as e:
             raise TorrentError("Ungültige qBittorrent-Antwort") from e
+
+    async def create_category(self, name: str, save_path: str) -> None:
+        try:
+            await self._request(
+                "POST", "/api/v2/torrents/createCategory", data={"category": name, "savePath": save_path}
+            )
+        except TorrentError as e:
+            if not isinstance(e.__cause__, httpx.HTTPStatusError) or e.__cause__.response.status_code != 409:
+                raise
 
     async def files(self, hash: str) -> list[dict]:
         response = await self._request("GET", "/api/v2/torrents/files", params={"hash": hash})

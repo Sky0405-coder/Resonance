@@ -5,6 +5,7 @@ from pathlib import Path
 
 _tmp = Path(tempfile.mkdtemp(prefix="resonance-test-"))
 os.environ.setdefault("RESONANCE_DATABASE_URL", "postgresql+asyncpg://app:app@localhost:55432/app_test")
+os.environ["RESONANCE_BOOKS_DIR"] = str(_tmp / "books")
 os.environ["RESONANCE_MUSIC_DIR"] = str(_tmp / "music")
 os.environ["RESONANCE_IMPORT_DIR"] = str(_tmp / "import")
 os.environ["RESONANCE_DATA_DIR"] = str(_tmp / "data")

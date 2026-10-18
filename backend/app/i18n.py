@@ -5,6 +5,31 @@ import re
 from fastapi import Request
 
 _EXACT: dict[str, str] = {
+    "Bücher sind nicht aktiviert": "Books are not enabled",
+    "Automatische Downloads sind deaktiviert": "Automatic downloads are disabled",
+    "Das Buch ist schon in der Bibliothek": "The book is already in the library",
+    "Buchkatalog nicht erreichbar": "Book catalog is unavailable",
+    "Keine gültige Buchdatei": "Invalid book file",
+    "Diese Datei ist schon in der Bibliothek": "This file is already in the library",
+    "Kein passender Download gefunden": "No matching download found",
+    "Falsche Sprache": "Wrong language",
+    "Keine Buchdatei im Download": "No book file in the download",
+    "Format wird nicht unterstützt": "Format is not supported",
+    "Datei ist zu groß": "File is too large",
+    "Download fehlgeschlagen": "Download failed",
+    "Registrierung nur in Resonance": "Registration is only available in Resonance",
+    "Anfrage läuft noch": "Request is still running",
+    "Keine Berechtigung": "Permission denied",
+    "Buch nicht gefunden": "Book not found",
+    "Kein Schlüssel eingetragen": "No key configured",
+    "Bibliothek nicht beschreibbar": "Library is not writable",
+    "Neu hinzugefügt": "Recently added",
+    "Autoren": "Authors",
+    "Serien": "Series",
+    "Meine Anfragen": "My requests",
+    "Bücher": "Books",
+    "Buch": "Book",
+
     "Radiosender-Verzeichnis nicht erreichbar": "Radio station directory unavailable",
     "Sender nicht gefunden": "Station not found",
     "Sender nicht erreichbar": "Station unavailable",
@@ -205,6 +230,11 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
 ]
 
 # Spotify embeds its own errors after a playlist id; keep that id untouched.
+_PATTERNS.extend([
+    (re.compile(r"Tageslimit erreicht \((?P<count>\d+) von (?P<limit>\d+) Büchern in 24 Stunden\)"), r"Daily limit reached (\g<count> of \g<limit> books in 24 hours)"),
+    (re.compile(r"(?P<count>\d+) Bücher"), r"\g<count> books"),
+])
+
 _PATTERNS.extend(
     (re.compile(r"(?P<id>[A-Za-z0-9]+): " + re.escape(message)), r"\g<id>: " + english)
     for message, english in _EXACT.items()

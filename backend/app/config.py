@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://app:app@localhost:55432/app"
     # Root of the sorted music library (read by the scanner, written by the importer later on).
     music_dir: Path = Path("/data/music")
+    # Ebook library (`library/`) and drop folder (`import/`).
+    books_dir: Path = Path("/data/books")
     # Drop folder for new music (import).
     import_dir: Path = Path("/data/import")
     # Writable directory for caches (covers, transcodes) and other app state.

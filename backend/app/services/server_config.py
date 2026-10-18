@@ -90,6 +90,17 @@ class AudiobookshelfConfig(BaseModel):
         return value
 
 
+class BooksConfig(BaseModel):
+    # Show the "Bücher" tab, the OPDS catalog and the KOReader sync server.
+    enabled: bool = False
+    # Language for catalog search and torrent selection unless the request says otherwise.
+    default_language: Literal["de", "en", "any"] = "de"
+    # Optional key from https://console.cloud.google.com (Books API) – without it only Audible is searched.
+    google_books_api_key: str = ""
+    # Book requests per user and 24 hours (admins unlimited); 0 = no limit.
+    daily_limit_per_user: int = Field(10, ge=0, le=1000)
+
+
 class SpotifyConfig(BaseModel):
     # From https://developer.spotify.com/dashboard – Redirect URI: <server>/api/spotify/callback
     client_id: str = ""
@@ -115,6 +126,7 @@ class ServerConfig(BaseModel):
     downloads: DownloadConfig = DownloadConfig()
     library: LibraryConfig = LibraryConfig()
     audiobookshelf: AudiobookshelfConfig = AudiobookshelfConfig()
+    books: BooksConfig = BooksConfig()
     spotify: SpotifyConfig = SpotifyConfig()
     integrations: IntegrationsConfig = IntegrationsConfig()
 

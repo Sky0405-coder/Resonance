@@ -10,6 +10,7 @@ import 'ui/pages/admin/admin_page.dart';
 import 'ui/pages/admin/duplicates_page.dart';
 import 'ui/pages/audiobook_pages.dart';
 import 'ui/pages/auth_pages.dart';
+import 'ui/pages/book_pages.dart';
 import 'ui/pages/browse_pages.dart';
 import 'ui/pages/collection_pages.dart';
 import 'ui/pages/download_pages.dart';
@@ -138,6 +139,26 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/audiobooks/item/:id',
             builder: (_, s) => AudiobookPage(id: s.pathParameters['id']!),
           ),
+          GoRoute(
+            path: '/books',
+            pageBuilder: (_, _) => const NoTransitionPage(child: BooksHubPage()),
+          ),
+          GoRoute(
+            path: '/books/search',
+            builder: (_, s) => BookSearchPage(query: s.uri.queryParameters['q'] ?? ''),
+          ),
+          GoRoute(
+            path: '/books/item/:id',
+            builder: (_, s) => BookPage(id: s.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/books/list',
+            builder: (_, s) =>
+                BookListPage(author: s.uri.queryParameters['author'], series: s.uri.queryParameters['series']),
+          ),
+          GoRoute(path: '/books/authors', builder: (_, _) => const BookGroupsPage(series: false)),
+          GoRoute(path: '/books/series', builder: (_, _) => const BookGroupsPage(series: true)),
+          GoRoute(path: '/books/requests', builder: (_, _) => const BookRequestsPage()),
           GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
           GoRoute(path: '/spotify', builder: (_, _) => const SpotifyImportPage()),
           GoRoute(

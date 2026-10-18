@@ -19,6 +19,7 @@ dependencies = [
     "yt-dlp[default]>=2025.10",
     "ytmusicapi>=1.10",
     "rapidfuzz>=3.9",
+    "defusedxml>=0.7",
 ]
 
 [project.optional-dependencies]

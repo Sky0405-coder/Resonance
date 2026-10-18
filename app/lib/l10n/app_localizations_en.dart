@@ -2112,4 +2112,204 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shortcutSearch => 'Search';
+
+  @override
+  String get navBooks => 'Books';
+
+  @override
+  String get booksEbooks => 'Ebooks';
+
+  @override
+  String get booksSearchHint => 'Search books, authors or series';
+
+  @override
+  String get booksRecent => 'Recently added';
+
+  @override
+  String get booksAuthors => 'Authors';
+
+  @override
+  String get booksSeries => 'Series';
+
+  @override
+  String get booksRequests => 'Requests';
+
+  @override
+  String get booksImport => 'Import';
+
+  @override
+  String get booksAll => 'All books';
+
+  @override
+  String get booksEmptyLibrary => 'No books yet. Search for a book to request it, or import your own files.';
+
+  @override
+  String get booksInLibrary => 'In your library';
+
+  @override
+  String get booksFromCatalog => 'Available to request';
+
+  @override
+  String get booksNoResults => 'Nothing found';
+
+  @override
+  String get booksRequestFree => 'Not listed? Request it yourself';
+
+  @override
+  String get booksRequest => 'Request';
+
+  @override
+  String booksRequested(String title) {
+    return 'Requested: $title';
+  }
+
+  @override
+  String get booksRequestsDisabled => 'Automatic downloads are turned off on this server. You can still import books.';
+
+  @override
+  String get booksLanguage => 'Language';
+
+  @override
+  String get booksLanguageDe => 'German';
+
+  @override
+  String get booksLanguageEn => 'English';
+
+  @override
+  String get booksLanguageAny => 'Any';
+
+  @override
+  String booksVolume(String number) {
+    return 'Book $number';
+  }
+
+  @override
+  String get booksDownload => 'Download';
+
+  @override
+  String get booksEdit => 'Edit';
+
+  @override
+  String get booksDelete => 'Delete';
+
+  @override
+  String booksDeleteConfirm(String title) {
+    return 'Delete “$title” from the library?';
+  }
+
+  @override
+  String get booksTitle => 'Title';
+
+  @override
+  String get booksAuthorsField => 'Authors (comma separated)';
+
+  @override
+  String get booksSeriesField => 'Series';
+
+  @override
+  String get booksSeriesIndex => 'Volume';
+
+  @override
+  String get booksStatusPending => 'Waiting for approval';
+
+  @override
+  String get booksStatusQueued => 'Queued';
+
+  @override
+  String get booksStatusSearching => 'Searching';
+
+  @override
+  String get booksStatusDownloading => 'Downloading';
+
+  @override
+  String get booksStatusImporting => 'Importing';
+
+  @override
+  String get booksStatusDone => 'Done';
+
+  @override
+  String get booksStatusFailed => 'Failed';
+
+  @override
+  String get booksStatusCancelled => 'Cancelled';
+
+  @override
+  String get booksStatusRejected => 'Rejected';
+
+  @override
+  String get booksCancelRequest => 'Cancel request';
+
+  @override
+  String get booksRemoveRequest => 'Remove';
+
+  @override
+  String get booksApprove => 'Approve';
+
+  @override
+  String get booksReject => 'Reject';
+
+  @override
+  String get booksNoRequests => 'No requests';
+
+  @override
+  String get booksAllUsers => 'All users';
+
+  @override
+  String get booksImportFiles => 'Upload files';
+
+  @override
+  String get booksImportFilesHint => 'EPUB, AZW3, MOBI or PDF';
+
+  @override
+  String get booksImportUrl => 'Import from link';
+
+  @override
+  String get booksImportUrlLabel => 'Link to the book file';
+
+  @override
+  String get booksImporting => 'Importing …';
+
+  @override
+  String booksImported(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count books imported',
+      one: '1 book imported',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String booksImportFailed(String name, String error) {
+    return '$name: $error';
+  }
+
+  @override
+  String get booksShowTab => 'Show ebooks';
+
+  @override
+  String get booksShowTabHint => 'Ebooks in the books tab';
+
+  @override
+  String get adminBooksEnable => 'Enable ebooks';
+
+  @override
+  String get adminBooksEnableHint =>
+      'Books tab, OPDS catalog (/opds) and KOReader sync (/kosync). Sign in there with the app password.';
+
+  @override
+  String get adminBooksLanguage => 'Default request language';
+
+  @override
+  String get adminBooksGoogleKey => 'Google Books API key';
+
+  @override
+  String get adminBooksGoogleKeyHint => 'Optional – without a key only Audible is searched';
+
+  @override
+  String get adminBooksDailyLimit => 'Books per user and day (0 = unlimited)';
+
+  @override
+  String get adminBooksTorrentsHint => 'Automatic downloads use the torrent settings under Downloads.';
 }

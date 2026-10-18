@@ -4,6 +4,7 @@
 #   POSTGRES_PASSWORD        random string
 #   MUSIC_PATH               host path of the music library on the HDD, e.g. /mnt/hdd/music
 #   DOWNLOADS_PATH           host path for incoming downloads (same disk as MUSIC_PATH), e.g. /mnt/hdd/downloads
+#   BOOKS_PATH               host path for ebooks (library + import drop folder), e.g. /mnt/hdd/books
 #   IMPORT_PATH              drop folder: music copied here is identified, tagged and moved into the library, e.g. /mnt/hdd/import
 #   APPDATA_PATH             host path on the SSD for DB + caches, e.g. /mnt/ssd/resonance
 #   WIREGUARD_PRIVATE_KEY    from the ProtonVPN WireGuard config (enable "NAT-PMP / port forwarding" when creating it)
@@ -40,6 +41,9 @@ services:
       - type: bind
         source: ${DOWNLOADS_PATH}
         target: /data/downloads
+      - type: bind
+        source: ${BOOKS_PATH}
+        target: /data/books
       - type: bind
         source: ${IMPORT_PATH}
         target: /data/import
