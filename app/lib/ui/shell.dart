@@ -231,7 +231,8 @@ class _Sidebar extends ConsumerWidget {
                         active: location == '/liked',
                         onTap: () => context.go('/liked'),
                       ),
-                      ...?playlists.value?.map(
+                      // Only the user's own and shared playlists; mixes and radios live on the home page.
+                      ...?playlists.value?.where((p) => !p.isMix && !p.isRadio).map(
                         (p) => _SidebarItem(
                           image: PlaylistCover(playlistId: p.id, coverKey: p.coverKey, albumIds: p.coverAlbumIds),
                           title: p.name,
