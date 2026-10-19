@@ -279,6 +279,8 @@ class PlaylistEntryOut(BaseModel):
     entry_id: uuid.UUID
     added_at: datetime
     track: TrackOut
+    # Chart playlists: the song's place in the charts (songs still downloading leave gaps).
+    rank: int | None = None
 
 
 class PlaylistDetail(PlaylistOut):

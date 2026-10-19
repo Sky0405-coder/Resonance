@@ -17,7 +17,8 @@ import '../pages/admin/metadata_editor.dart';
 import 'common.dart';
 import 'action_sheet.dart';
 
-/// One row in a track list. [number] shows a track number instead of the cover.
+/// One row in a track list. [number] shows a track number instead of the cover, or before it (chart places) when
+/// [showCover] stays on.
 class TrackRow extends ConsumerStatefulWidget {
   const TrackRow({
     super.key,
@@ -72,6 +73,25 @@ class _TrackRowState extends ConsumerState<TrackRow> {
               ? Icon(Icons.graphic_eq, size: 18, color: accent)
               : Text('${widget.number}', style: muted?.copyWith(color: current ? accent : null)),
         ),
+      );
+    } else if (widget.number != null) {
+      leading = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 30,
+            child: Text(
+              '${widget.number}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: current ? accent : Palette.textMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(width: 44, child: CoverImage(albumId: t.album.id, size: 64)),
+        ],
       );
     } else {
       leading = SizedBox(width: 44, child: CoverImage(albumId: t.album.id, size: 64));

@@ -317,7 +317,10 @@ async def generate_discover(db: AsyncSession, user: User) -> Playlist | None:
     chosen: list[uuid.UUID] = []
     pending: list[str] = []
     download_limit = cfg.mixes.discover_downloads
-    for track in eligible[:30]:
+    for track in eligible:
+        # Fill up to the configured size; songs beyond the download limit are skipped, not counted.
+        if len(chosen) + len(pending) >= cfg.mixes.discover_size:
+            break
         if track.library_id is not None:
             if track.library_id not in chosen:
                 chosen.append(track.library_id)

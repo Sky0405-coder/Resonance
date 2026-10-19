@@ -543,6 +543,7 @@ class PlaylistPage extends ConsumerWidget {
                       return TrackRow(
                         key: ValueKey(e.entryId),
                         track: e.track,
+                        number: e.rank,
                         onPlay: () => playMusic(context, ref, tracks, index: i, contextId: ctx),
                         extraActions: [
                           if (d.editable && !d.playlist.isMix)

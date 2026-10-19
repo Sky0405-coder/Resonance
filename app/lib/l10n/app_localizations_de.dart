@@ -1944,6 +1944,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminDiscoverDownloads => 'Downloads pro Woche und Nutzer';
 
   @override
+  String get adminDiscoverSize => 'Songs im Mix der Woche (10–100)';
+
+  @override
   String get adminChartsEnabled => 'Charts-Playlists';
 
   @override

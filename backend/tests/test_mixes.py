@@ -1001,3 +1001,20 @@ async def test_app_requests_leave_chart_downloads_to_the_scheduler(charts: Simpl
     async with SessionLocal() as db:
         await mixes.generate_mixes(db, await db.get(User, charts.user_id))
     assert [download[0] for download in charts.downloads] == ["201"]
+
+
+async def test_chart_playlist_entries_carry_their_rank(charts: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        tracks = await library(db, "Chart", None, 2)
+        charts.charts = {
+            id: [chart_candidate("101", tracks[1].title), chart_candidate("201"), chart_candidate("102", tracks[0].title)]
+            for _, id in mixes.CHARTS.values()
+        }
+        await mixes.generate_mixes(db, await db.get(User, charts.user_id))
+        chart_id = (await generated(db, charts.user_id))["chart:de"].id
+    response = await charts.client.get(f"/api/playlists/{chart_id}", headers=charts.headers)
+    assert response.status_code == 200, response.text
+    assert [(row["track"]["title"], row["rank"]) for row in response.json()["entries"]] == [
+        (tracks[1].title, 1),
+        (tracks[0].title, 3),
+    ]

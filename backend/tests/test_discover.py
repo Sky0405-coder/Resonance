@@ -158,8 +158,11 @@ async def test_any_play_or_like_excluded_unplayed_and_other_users_tracks_allowed
         assert not playlist.is_public and playlist.generated_at is not None
 
 
-async def test_thirty_limit_and_two_per_artist(discover: SimpleNamespace) -> None:
+@pytest.mark.parametrize("size,expected_count", [(30, 30), (None, 40)])
+async def test_size_limit_and_two_per_artist(discover: SimpleNamespace, size: int | None, expected_count: int) -> None:
     async with SessionLocal() as db:
+        if size is not None:
+            await update_config(db, {"mixes": {"discover_size": size}})
         await seed(db, discover, "Seed A")
         await seed(db, discover, "Seed B", 10)
         expected = []
@@ -173,10 +176,11 @@ async def test_thirty_limit_and_two_per_artist(discover: SimpleNamespace) -> Non
         await db.commit()
         playlist = await mixes.generate_discover(db, await db.get(User, discover.user_id))
         rows = await entries(db, playlist)
-        assert len(rows) == len({row.track_id for row in rows}) == 30
+        # Default size 50: all 40 candidates (two per related artist) fit.
+        assert len(rows) == len({row.track_id for row in rows}) == expected_count
         assert max(Counter([(await db.get(Track, row.track_id)).artist_id for row in rows]).values()) == 2
         assert rows[0].track_id == expected[0][0].id and rows[1].track_id == expected[10][0].id
-        assert [row.position for row in rows] == list(range(1, 31))
+        assert [row.position for row in rows] == list(range(1, expected_count + 1))
 
 
 @pytest.mark.parametrize("limit,temporary", [(0, True), (2, True), (20, False)])
@@ -411,11 +415,15 @@ def test_monday_boundary_uses_local_midnight_including_dst(monkeypatch: pytest.M
         time.tzset()
 
 
-@pytest.mark.parametrize("limit", [-1, 51])
+@pytest.mark.parametrize("limit", [-1, 101])
 def test_config_download_bounds(limit: int) -> None:
     from pydantic import ValidationError
 
     assert ServerConfig().mixes.discover_enabled
     assert ServerConfig().mixes.discover_downloads == 20
+    assert ServerConfig().mixes.discover_size == 50
     with pytest.raises(ValidationError):
         ServerConfig.model_validate({"mixes": {"discover_downloads": limit}})
+    for size in (9, 101):
+        with pytest.raises(ValidationError):
+            ServerConfig.model_validate({"mixes": {"discover_size": size}})

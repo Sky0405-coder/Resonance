@@ -119,8 +119,10 @@ async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB, reques
     detail = PlaylistDetail.model_validate(
         (await playlists_out(db, [playlist], user.id, language(request)))[0].model_dump()
     )
+    chart = (playlist.mix_key or "").startswith("chart:")
     detail.entries = [
-        PlaylistEntryOut(entry_id=e.id, added_at=e.added_at, track=t) for e, t in zip(entries, tracks, strict=True)
+        PlaylistEntryOut(entry_id=e.id, added_at=e.added_at, track=t, rank=round(e.position) if chart else None)
+        for e, t in zip(entries, tracks, strict=True)
     ]
     detail.editable = playlist.owner_id == user.id and playlist.kind != "mix"
     return detail

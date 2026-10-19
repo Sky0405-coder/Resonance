@@ -1214,6 +1214,7 @@
   "adminMixes": "Mixes",
   "adminDiscoverWeeklyHint": "Jeden Montag 30 neue Songs pro Nutzer, fehlende werden heruntergeladen",
   "adminDiscoverDownloads": "Downloads pro Woche und Nutzer",
+  "adminDiscoverSize": "Songs im Mix der Woche (10–100)",
   "adminChartsEnabled": "Charts-Playlists",
   "adminChartsEnabledHint": "Top 100 Deutschland und Global, täglich aktualisiert",
   "adminChartsDownloads": "Fehlende Chart-Songs pro Tag laden",

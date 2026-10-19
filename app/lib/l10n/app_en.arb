@@ -640,6 +640,7 @@
   "adminMixes": "Mixes",
   "adminDiscoverWeeklyHint": "30 new songs per user every Monday, missing ones are downloaded",
   "adminDiscoverDownloads": "Downloads per week and user",
+  "adminDiscoverSize": "Songs in Discover Weekly (10–100)",
   "adminChartsEnabled": "Chart playlists",
   "adminChartsEnabledHint": "Top 100 Germany and Global, updated daily",
   "adminChartsDownloads": "Missing chart songs downloaded per day",

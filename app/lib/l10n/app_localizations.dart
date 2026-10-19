@@ -3458,6 +3458,12 @@ abstract class AppLocalizations {
   /// **'Downloads pro Woche und Nutzer'**
   String get adminDiscoverDownloads;
 
+  /// No description provided for @adminDiscoverSize.
+  ///
+  /// In de, this message translates to:
+  /// **'Songs im Mix der Woche (10–100)'**
+  String get adminDiscoverSize;
+
   /// No description provided for @adminChartsEnabled.
   ///
   /// In de, this message translates to:

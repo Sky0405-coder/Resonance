@@ -679,6 +679,14 @@ class _ServerTab extends ConsumerWidget {
               }),
             ),
             _NumberTile(
+              title: context.l10n.adminDiscoverSize,
+              value: mixes['discover_size'] ?? 50,
+              enabled: mixes['discover_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'mixes': {'discover_size': v},
+              }),
+            ),
+            _NumberTile(
               title: context.l10n.adminDiscoverDownloads,
               value: mixes['discover_downloads'] ?? 20,
               enabled: mixes['discover_enabled'] ?? true,

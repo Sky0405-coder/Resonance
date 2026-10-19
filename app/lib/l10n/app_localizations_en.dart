@@ -1969,6 +1969,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminDiscoverDownloads => 'Downloads per week and user';
 
   @override
+  String get adminDiscoverSize => 'Songs in Discover Weekly (10–100)';
+
+  @override
   String get adminChartsEnabled => 'Chart playlists';
 
   @override

@@ -280,9 +280,12 @@ class Playlist {
 }
 
 class PlaylistEntry {
-  const PlaylistEntry(this.entryId, this.track);
+  const PlaylistEntry(this.entryId, this.track, {this.rank});
   final String entryId;
   final Track track;
+
+  /// Place in the charts (chart playlists only).
+  final int? rank;
 }
 
 class PlaylistDetail {
@@ -292,7 +295,7 @@ class PlaylistDetail {
   final bool editable;
 
   factory PlaylistDetail.fromJson(Map<String, dynamic> j) => PlaylistDetail(Playlist.fromJson(j), [
-    for (final e in j['entries']) PlaylistEntry(e['entry_id'], Track.fromJson(e['track'])),
+    for (final e in j['entries']) PlaylistEntry(e['entry_id'], Track.fromJson(e['track']), rank: e['rank']),
   ], j['editable'] ?? false);
 }
 
