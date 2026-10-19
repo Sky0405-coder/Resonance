@@ -211,6 +211,7 @@ class SearchResult(BaseModel):
     artists: list[ArtistOut]
     albums: list[AlbumOut]
     tracks: list[TrackOut]
+    playlists: list["PlaylistOut"] = []
 
 
 class Page[T](BaseModel):
@@ -270,6 +271,7 @@ class MixesOut(BaseModel):
     made_for_you: list[PlaylistOut]
     genres: list[PlaylistOut]
     discover: PlaylistOut | None
+    decades: list[PlaylistOut] = []
 
 
 class PlaylistEntryOut(BaseModel):

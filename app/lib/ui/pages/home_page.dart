@@ -115,6 +115,11 @@ class HomePage extends ConsumerWidget {
                   title: context.l10n.homeGenreMixes,
                   children: [for (final p in mixes.$2) PlaylistCard(playlist: p)],
                 ),
+              if (mixes != null)
+                Shelf(
+                  title: context.l10n.homeDecadeMixes,
+                  children: [for (final p in mixes.$4) PlaylistCard(playlist: p)],
+                ),
               Shelf(
                 title: context.l10n.homeRecentlyAdded,
                 children: [

@@ -3170,6 +3170,12 @@ abstract class AppLocalizations {
   /// **'Deine Genres'**
   String get homeGenreMixes;
 
+  /// No description provided for @homeDecadeMixes.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Jahrzehnte'**
+  String get homeDecadeMixes;
+
   /// No description provided for @lyricsTitle.
   ///
   /// In de, this message translates to:

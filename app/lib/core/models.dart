@@ -312,17 +312,19 @@ class Home {
 }
 
 class SearchResult {
-  const SearchResult(this.artists, this.albums, this.tracks);
+  const SearchResult(this.artists, this.albums, this.tracks, [this.playlists = const []]);
   final List<Artist> artists;
   final List<Album> albums;
   final List<Track> tracks;
+  final List<Playlist> playlists;
 
-  bool get isEmpty => artists.isEmpty && albums.isEmpty && tracks.isEmpty;
+  bool get isEmpty => artists.isEmpty && albums.isEmpty && tracks.isEmpty && playlists.isEmpty;
 
   factory SearchResult.fromJson(Map<String, dynamic> j) => SearchResult(
     [for (final a in j['artists']) Artist.fromJson(a)],
     [for (final a in j['albums']) Album.fromJson(a)],
     [for (final t in j['tracks']) Track.fromJson(t)],
+    [for (final p in j['playlists'] ?? const []) Playlist.fromJson(p)],
   );
 }
 

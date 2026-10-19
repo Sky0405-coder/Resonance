@@ -10,7 +10,7 @@ from sqlalchemy import Select, func, or_, select
 from app.api.catalog import _track as catalog_track
 from app.api.requests import _out as request_out
 from app.deps import DB, CurrentUser
-from app.i18n import language
+from app.i18n import language, translate
 from app.models import Album, Artist, PlayEvent, Playlist, SavedAlbum, Track
 from app.schemas import (
     AlbumDetail,
@@ -31,6 +31,7 @@ from app.services.deezer import DeezerError, deezer
 from app.services.downloads import create_redownload
 from app.services.lyrics import get_lyrics
 from app.services.matching import match_tracks, name_key
+from app.services.mixes import mix_search_terms
 from app.services.views import (
     album_options,
     albums_out,
@@ -341,6 +342,7 @@ def search_queries(q: str) -> tuple[Select[tuple[Artist]], Select[tuple[Album]],
 async def search(
     user: CurrentUser,
     db: DB,
+    request: Request,
     q: str = Query(min_length=1, max_length=200),
     limit: int = Query(20, ge=1, le=100),
 ) -> SearchResult:
@@ -348,8 +350,25 @@ async def search(
     artists = list(await db.scalars(artist_query.limit(limit)))
     albums = list(await db.scalars(album_query.limit(limit)))
     tracks = list(await db.scalars(track_query.limit(limit)))
+    # Own playlists and mixes (also by their translated name or e.g. "80s"), plus other users' public playlists.
+    lang = language(request)
+    needle = q.strip().casefold()
+    candidates = await db.scalars(
+        select(Playlist)
+        .where(or_(Playlist.owner_id == user.id, (Playlist.is_public) & (Playlist.kind == "user")))
+        .order_by(Playlist.kind != "mix", Playlist.name)
+    )
+    playlists = [
+        playlist
+        for playlist in candidates
+        if any(
+            needle in text.casefold()
+            for text in (playlist.name, translate(playlist.name, lang), *mix_search_terms(playlist.mix_key))
+        )
+    ][:limit]
     return SearchResult(
         artists=await artists_out(db, artists),
         albums=await albums_out(db, albums),
         tracks=await tracks_out(db, user, tracks),
+        playlists=await playlists_out(db, playlists, user.id, lang),
     )

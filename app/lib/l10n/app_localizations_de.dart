@@ -1789,6 +1789,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get homeGenreMixes => 'Deine Genres';
 
   @override
+  String get homeDecadeMixes => 'Deine Jahrzehnte';
+
+  @override
   String get lyricsTitle => 'Songtext';
 
   @override

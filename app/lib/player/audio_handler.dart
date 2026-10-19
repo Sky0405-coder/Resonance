@@ -313,7 +313,7 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
         final home = await container.read(homeProvider.future);
         final seen = <String>{};
         return [
-          for (final playlist in [...?mixes?.$1, ...home.playlists, ...?mixes?.$2])
+          for (final playlist in [...?mixes?.$1, ...home.playlists, ...?mixes?.$2, ...?mixes?.$4])
             if (playlist.trackCount > 0 && seen.add(playlist.id)) _playlist(playlist),
         ].take(20).toList();
       } catch (_) {

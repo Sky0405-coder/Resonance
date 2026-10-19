@@ -23,16 +23,19 @@ async def _out(db: DB, user: CurrentUser, lang: str) -> MixesOut:
     items = await playlists_out(db, playlists, user.id, lang)
     made_for_you = []
     genres = []
+    decades = []
     discover = None
     for playlist, item in zip(playlists, items, strict=True):
         if playlist.mix_key == "discover-weekly":
             discover = item
         elif (playlist.mix_key or "").startswith("genre:"):
             genres.append(item)
+        elif (playlist.mix_key or "").startswith("decade:"):
+            decades.append(item)
         else:
             made_for_you.append(item)
     genres.sort(key=lambda item: -item.track_count)
-    return MixesOut(made_for_you=made_for_you, genres=genres, discover=discover)
+    return MixesOut(made_for_you=made_for_you, genres=genres, discover=discover, decades=decades)
 
 
 @router.get("", response_model=MixesOut)

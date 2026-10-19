@@ -72,6 +72,8 @@ PATTERN_CASES = [
     ("Ungültiger Parameter: count", "Invalid parameter: count"),
     ("Artist, Other und mehr", "Artist, Other and more"),
     ("Das Beste aus Rock in deiner Bibliothek", "The best of Rock in your library"),
+    ("Das Beste aus den 80ern in deiner Bibliothek", "The best of the 80s in your library"),
+    ("2000er Mix", "2000s Mix"),
     ("Durchsuche /data/music …", "Scanning /data/music …"),
     ("2/5 Dateien verarbeitet", "2/5 files processed"),
     ("9 Dateien, 2 neu/geändert, 1 entfernt", "9 files, 2 new/changed, 1 removed"),

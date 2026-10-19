@@ -219,7 +219,7 @@ async def test_daily_fallback_uses_all_favourites_and_dominant_genre_ties(env: S
         await db.commit()
         await mixes.generate_mixes(db, await db.get(User, env.user_id))
         result = await generated(db, env.user_id)
-        assert list(result) == ["daily:1"]
+        assert [key for key in result if key.startswith("daily:")] == ["daily:1"]
         assert {row.track_id for row in await entries(db, result["daily:1"])} == {track.id for track in [*a, *b, *c]}
         d = await library(db, "D", "Jazz", 6)
         like(db, env.user_id, d[0])
@@ -239,7 +239,7 @@ async def test_deezer_failure_keeps_daily_library_tracks(env: SimpleNamespace, f
         await db.commit()
         await mixes.generate_mixes(db, await db.get(User, env.user_id))
         result = await generated(db, env.user_id)
-        assert set(result) == {"daily:1"}
+        assert {key for key in result if key.startswith("daily:")} == {"daily:1"}
         assert {row.track_id for row in await entries(db, result["daily:1"])} == {track.id for track in tracks}
 
 
@@ -463,7 +463,7 @@ async def test_mix_privacy_immutable_entries_dated_keep_and_home(env: SimpleName
     response = await env.client.get("/api/playlists", headers=env.other_headers)
     assert str(playlist.id) not in {row["id"] for row in response.json()}
     response = await env.client.get("/api/mixes", headers=env.other_headers)
-    assert response.json() == {"made_for_you": [], "genres": [], "discover": None}
+    assert response.json() == {"made_for_you": [], "genres": [], "discover": None, "decades": []}
     response = await env.client.get("/api/playlists", headers=env.headers)
     assert {row["kind"] for row in response.json()} == {"mix", "user"}
     detail = (await env.client.get(url, headers=env.headers)).json()
@@ -528,6 +528,8 @@ async def test_get_generates_once_per_day_refresh_order_and_auth(
         "Daily Mix 2",
         "Daily Mix 3",
         "Neu für dich",
+        "Deine Favoriten",
+        "Neuheiten-Mix",
         "Lange nicht gehört",
     ]
     assert [row["track_count"] for row in first["genres"]] == sorted(
@@ -560,7 +562,7 @@ async def test_no_history_only_genre_mixes_and_too_small_library(env: SimpleName
         await db.execute(delete(Track))
         await db.commit()
     response = await env.client.post("/api/mixes/refresh", headers=env.headers)
-    assert response.json() == {"made_for_you": [], "genres": [], "discover": None}
+    assert response.json() == {"made_for_you": [], "genres": [], "discover": None, "decades": []}
 
 
 async def test_scheduler_selects_due_active_users_and_isolates_errors(
@@ -634,3 +636,71 @@ async def test_scheduler_interval_recovery_start_stop_and_lifespan(
     async with app.router.lifespan_context(app):
         assert mixes._loop_task is not None and not mixes._loop_task.done()
     assert mixes._loop_task is None
+
+
+async def test_decade_favourites_and_new_music_mixes(env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        eighties = await library(db, "Eighties", None, 16)
+        for i, track in enumerate(eighties):
+            track.year = 1980 + i % 10
+        noughties = await library(db, "Noughties", None, 15)
+        (await db.get(Album, noughties[0].album_id)).year = 2004
+        few = await library(db, "Few", None, 14)
+        for track in few:
+            track.year = 1975
+        fresh = await library(db, "Fresh", None, 6)
+        for track in fresh:
+            track.year = datetime.now(UTC).year
+            like(db, env.user_id, track)
+        for track in eighties[:5]:
+            plays(db, env.user_id, track, 3)
+        await db.commit()
+        await mixes.generate_mixes(db, await db.get(User, env.user_id))
+        result = await generated(db, env.user_id)
+        assert {key for key in result if key.startswith("decade:")} == {"decade:1980", "decade:2000"}
+        assert (result["decade:1980"].name, result["decade:2000"].name) == ("80er Mix", "2000er Mix")
+        assert result["decade:1980"].description == "Das Beste aus den 80ern in deiner Bibliothek"
+        assert len(await entries(db, result["decade:1980"])) == 16
+        favourites = {row.track_id for row in await entries(db, result["favourites"])}
+        assert favourites == {track.id for track in [*fresh, *eighties[:5]]}
+        # Songs played three times already are not new any more.
+        new_music = {row.track_id for row in await entries(db, result["new-music"])}
+        assert {track.id for track in fresh} <= new_music
+        assert not new_music & {track.id for track in eighties[:5]}
+    response = await env.client.get("/api/mixes", headers={**env.headers, "Accept-Language": "en"})
+    body = response.json()
+    assert [row["name"] for row in body["decades"]] == ["80s Mix", "2000s Mix"]
+    assert body["decades"][0]["description"] == "The best of the 80s in your library"
+    assert {"Favourites Mix", "New Music Mix"} <= {row["name"] for row in body["made_for_you"]}
+
+
+@pytest.mark.parametrize(
+    ("decade", "label", "terms"),
+    [(1980, "80er", ["1980", "1980s", "80s", "80er", "achtziger", "eighties"]), (2010, "2010er", ["2010", "2010s"])],
+)
+def test_decade_label_and_search_terms(decade: int, label: str, terms: list[str]) -> None:
+    assert mixes.decade_label(decade) == label
+    assert set(terms) <= set(mixes.mix_search_terms(f"decade:{decade}"))
+    assert mixes.mix_search_terms("genre:rock") == []
+
+
+async def test_search_finds_mixes_and_playlists(env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        tracks = await library(db, "Eighties", "Rock", 16)
+        for track in tracks:
+            track.year = 1985
+        db.add(Playlist(owner_id=env.other_id, name="Party 80s", kind="user", is_public=True))
+        db.add(Playlist(owner_id=env.other_id, name="Secret 80s", kind="user", is_public=False))
+        await db.commit()
+        await mixes.generate_mixes(db, await db.get(User, env.user_id))
+    for q, expected in [
+        ("80s", ["80er Mix", "Party 80s"]),
+        ("achtziger", ["80er Mix"]),
+        ("rock", ["Rock Mix"]),
+        ("best of rock", []),
+    ]:
+        response = await env.client.get("/api/search", params={"q": q}, headers=env.headers)
+        assert response.status_code == 200, response.text
+        assert [row["name"] for row in response.json()["playlists"]] == expected, q
+    response = await env.client.get("/api/search", params={"q": "80s"}, headers={**env.headers, "Accept-Language": "en"})
+    assert [row["name"] for row in response.json()["playlists"]] == ["80s Mix", "Party 80s"]

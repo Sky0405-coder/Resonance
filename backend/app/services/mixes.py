@@ -66,6 +66,30 @@ def genre_keys(raw: str | None) -> list[str]:
     return keys
 
 
+def decade_label(decade: int) -> str:
+    """1980 → "80er", 2010 → "2010er" (as the decades are usually called)."""
+    return f"{decade % 100:02d}er" if decade < 2000 else f"{decade}er"
+
+
+def mix_search_terms(mix_key: str | None) -> list[str]:
+    """Extra words a mix is found by in the search, e.g. "80s" or "achtziger" for the 80er Mix."""
+    if not mix_key or not mix_key.startswith("decade:"):
+        return []
+    decade = int(mix_key.split(":", 1)[1])
+    short = f"{decade % 100:02d}"
+    words = {
+        1950: ["fünfziger", "fifties"],
+        1960: ["sechziger", "sixties"],
+        1970: ["siebziger", "seventies"],
+        1980: ["achtziger", "eighties"],
+        1990: ["neunziger", "nineties"],
+        2000: ["nullerjahre", "noughties"],
+        2010: ["zehnerjahre"],
+        2020: ["zwanziger"],
+    }.get(decade, [])
+    return [str(decade), f"{decade}s", f"{short}s", f"{short}er", *words]
+
+
 @dataclass
 class _Taste:
     tracks: list[Track]
@@ -380,6 +404,46 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
             rewound.append(track)
     random.Random(f"{user.id}:{date.today()}:rewind").shuffle(rewound)
     await write("rewind", "Lange nicht gehört", "Songs, die du lange nicht gehört hast", rewound)
+
+    favourite_tracks = sorted((track for track in tracks if scores[track.id] > 0), key=lambda track: -scores[track.id])
+    rng = random.Random(f"{user.id}:{date.today()}:favourites")
+    favourite_tracks = favourite_tracks[:50]
+    rng.shuffle(favourite_tracks)
+    await write("favourites", "Deine Favoriten", "Deine meistgehörten und gelikten Songs", favourite_tracks)
+
+    # New releases (this or last year) and recent library additions by favourite artists, like a "New Music Mix".
+    favourite_set = set(favourites)
+    recent = now - timedelta(days=30)
+    fresh = [
+        track
+        for track in tracks
+        if track.artist_id in favourite_set
+        and ((track.year or track.album.year or 0) >= now.year - 1 or (track.created_at and track.created_at >= recent))
+        and (history[track.id].total if track.id in history else 0) < 3
+    ]
+    random.Random(f"{user.id}:{date.today()}:new-music").shuffle(fresh)
+    await write(
+        "new-music", "Neuheiten-Mix", "Neue Songs deiner Lieblingskünstler und frisch in der Bibliothek", fresh
+    )
+
+    by_decade: dict[int, list[Track]] = defaultdict(list)
+    for track in tracks:
+        year = track.year or track.album.year
+        if year and 1950 <= year <= now.year:
+            by_decade[year // 10 * 10].append(track)
+    for decade in sorted(decade for decade, decade_tracks in by_decade.items() if len(decade_tracks) >= 15):
+        key = f"decade:{decade}"
+        rng = random.Random(f"{user.id}:{date.today()}:{key}")
+        candidates = list(by_decade[decade])
+        rng.shuffle(candidates)
+        preferred = sorted(
+            (track for track in candidates if scores[track.id] > 0), key=lambda track: -scores[track.id]
+        )[:15]
+        preferred_ids = {track.id for track in preferred}
+        chosen = [*preferred, *(track for track in candidates if track.id not in preferred_ids)][:50]
+        rng.shuffle(chosen)
+        label = decade_label(decade)
+        await write(key, f"{label} Mix", f"Das Beste aus den {label}n in deiner Bibliothek", chosen)
 
     genres = sorted(
         (key for key, genre_tracks in by_genre.items() if len(genre_tracks) >= 15),

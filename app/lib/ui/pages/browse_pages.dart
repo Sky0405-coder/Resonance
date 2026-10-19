@@ -131,6 +131,10 @@ class _Results extends ConsumerWidget {
               title: context.l10n.commonAlbums,
               children: [for (final a in r.albums) AlbumCard(album: a, onPlay: () => playAlbum(context, ref, a.id))],
             ),
+            Shelf(
+              title: context.l10n.libraryPlaylists,
+              children: [for (final p in r.playlists) PlaylistCard(playlist: p)],
+            ),
             CatalogSearchSection(query: query),
           ],
         );
@@ -157,10 +161,27 @@ class _BrowseAll extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final artists = ref.watch(allArtistsProvider);
+    final mixes = ref.watch(mixesProvider).value;
     return AsyncBody(
       value: artists,
       builder: (list) => CustomScrollView(
         slivers: [
+          // Genre and decade mixes to browse, like Spotify's categories.
+          if (mixes != null)
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  Shelf(
+                    title: context.l10n.homeGenreMixes,
+                    children: [for (final p in mixes.$2) PlaylistCard(playlist: p)],
+                  ),
+                  Shelf(
+                    title: context.l10n.homeDecadeMixes,
+                    children: [for (final p in mixes.$4) PlaylistCard(playlist: p)],
+                  ),
+                ],
+              ),
+            ),
           SliverToBoxAdapter(child: _Heading(context.l10n.libraryAllArtists)),
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
