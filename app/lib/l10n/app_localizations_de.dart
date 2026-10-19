@@ -1412,17 +1412,17 @@ class AppLocalizationsDe extends AppLocalizations {
   String get authServerAddressExample => 'musik.example.com';
 
   @override
-  String get spotifyTitle => 'Von Spotify importieren';
+  String get spotifyTitle => 'Von Spotify oder Apple Music importieren';
 
   @override
   String get spotifyLinkHeading => 'Playlist per Link importieren';
 
   @override
   String get spotifyLinksHint =>
-      'Füge Links zu öffentlichen Spotify-Playlists ein, einen pro Zeile. Ohne verbundenes Spotify-Konto werden höchstens 100 Songs pro Playlist übernommen.';
+      'Füge Links zu öffentlichen Spotify- oder Apple-Music-Playlists ein, einen pro Zeile. Apple-Music-Playlists werden vollständig übernommen, bei Spotify ohne verbundenes Konto höchstens 100 Songs pro Playlist.';
 
   @override
-  String get spotifyLinkPlaceholder => 'https://open.spotify.com/playlist/…';
+  String get spotifyLinkPlaceholder => 'https://open.spotify.com/playlist/… oder https://music.apple.com/…';
 
   @override
   String get spotifyImport => 'Importieren';

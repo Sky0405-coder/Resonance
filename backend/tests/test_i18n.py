@@ -78,6 +78,7 @@ PATTERN_CASES = [
     ("  Value error, Ungültige Adresse [type=value_error]", "  Value error, Invalid address [type=value_error]"),
     ("abc: Spotify nicht erreichbar", "abc: Spotify is unavailable"),
     ("abc: Playlist nicht gefunden oder privat", "abc: Playlist not found or private"),
+    ("pl.u-Ab1: Apple Music nicht erreichbar", "pl.u-Ab1: Apple Music is unavailable"),
     ("Verbindung fehlgeschlagen: Spotify nicht erreichbar", "Connection failed: Spotify is unavailable"),
     (
         "Verbindung fehlgeschlagen: Spotify-Verbindung abgelaufen – bitte neu verbinden",

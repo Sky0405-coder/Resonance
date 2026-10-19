@@ -27,7 +27,7 @@ from app.models import (
     Track,
     TrackLike,
 )
-from app.services import spotify
+from app.services import apple_music, spotify
 from app.services.deezer import deezer
 from app.services.downloads import manager
 from app.services.musicbrainz import TrackMeta
@@ -1227,3 +1227,99 @@ async def test_resolution_errors_are_only_logged(env, monkeypatch, caplog):
     spotify.resolve_after_download()
     await asyncio.gather(*spotify._tasks)
     assert "Spotify pending resolution failed" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("link", "ref"),
+    [
+        ("https://music.apple.com/de/playlist/top-100/pl.c10a2c113db14685a0b09fa5834d8e8b", "apple:de:pl.c10a2c113db14685a0b09fa5834d8e8b"),
+        ("music.apple.com/us/playlist/mix/pl.u-AkAmPlyUxJ7mPVX?l=en", "apple:us:pl.u-AkAmPlyUxJ7mPVX"),
+        ("https://music.apple.com/de/playlist/pl.u-AkAmPlyUxJ7mPVX", "apple:de:pl.u-AkAmPlyUxJ7mPVX"),
+        ("https://music.apple.com/de/album/x/123", None),
+        ("https://music.apple.com.evil.example/de/playlist/x/pl.abcdef", None),
+        ("37i9dQZF1DXcBWIGoYBM5M", None),
+    ],
+)
+def test_apple_music_ref_from_link(link: str, ref: str | None) -> None:
+    assert apple_music.playlist_ref_from_link(link) == ref
+
+
+def apple_transport(env, pages: dict[str, dict], *, playlist_status: int = 200):
+    token = "eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjQxMDI0NDQ4MDB9.c2ln"
+
+    def dispatch(request: httpx.Request) -> httpx.Response:
+        env.apple_seen.append(request)
+        if request.url.host == "music.apple.com":
+            if request.url.path == "/us/browse":
+                return httpx.Response(200, text='<script type="module" src="/assets/index~abc.js"></script>')
+            return httpx.Response(200, text=f'const a="eyJbroken.x.y",b="{token}";')
+        assert request.url.host == "amp-api.music.apple.com"
+        if request.headers["Authorization"] != f"Bearer {token}":
+            return httpx.Response(401)
+        path = request.url.path
+        if path == "/v1/catalog/us/search":
+            return httpx.Response(200, json={"results": {}})
+        if path == "/v1/catalog/de/playlists/pl.test":
+            return httpx.Response(playlist_status, json={"data": [{"attributes": {"name": "Achtziger"}}]})
+        return httpx.Response(200, json=pages[str(request.url.params.get("offset", "0"))])
+
+    return lambda: httpx.AsyncClient(transport=httpx.MockTransport(dispatch), timeout=30)
+
+
+def apple_song(title: str, isrc: str | None) -> dict:
+    return {
+        "type": "songs",
+        "attributes": {"name": title, "artistName": "Artist", "albumName": "Album", "isrc": isrc, "durationInMillis": 180000},
+    }
+
+
+async def test_apple_music_link_import(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    async with SessionLocal() as db:
+        first = await library_track(db, isrc="USABC1234567")
+        await library_track(db, "Second", isrc="USABC7654321")
+        await db.commit()
+    env.apple_seen = []
+    pages = {
+        "0": {
+            "data": [apple_song("Song", "USABC1234567"), {"type": "music-videos", "attributes": {"name": "Video"}}],
+            "next": "/v1/catalog/de/playlists/pl.test/tracks?offset=100",
+        },
+        "100": {"data": [apple_song("Second", "USABC7654321"), apple_song("Missing", None)]},
+    }
+    monkeypatch.setattr(apple_music, "_client_factory", apple_transport(env, pages))
+    monkeypatch.setattr(apple_music, "_token", None)
+    ref = "apple:de:pl.test"
+    batch = await run(env, liked=False, links=[ref])
+    assert (batch.status, batch.total, batch.matched, batch.missing) == ("done", 3, 2, 1)
+    assert batch.missing_tracks == [{"title": "Missing", "artist": "Artist", "source": "Achtziger"}]
+    async with SessionLocal() as db:
+        link = await db.scalar(select(SpotifyPlaylistLink))
+        playlist = await db.get(Playlist, link.playlist_id)
+        assert (link.spotify_playlist_id, playlist.name, playlist.description) == (
+            ref,
+            "Achtziger",
+            "Von Apple Music importiert",
+        )
+        entries = list(await db.scalars(select(PlaylistEntry).order_by(PlaylistEntry.position)))
+        assert entries[0].track_id == first.id and len(entries) == 2
+    # The developer token is reused for the next import.
+    browsed = sum(r.url.path == "/us/browse" for r in env.apple_seen)
+    await run(env, liked=False, links=[ref])
+    assert sum(r.url.path == "/us/browse" for r in env.apple_seen) == browsed == 1
+
+
+async def test_apple_music_missing_playlist(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    env.apple_seen = []
+    monkeypatch.setattr(apple_music, "_client_factory", apple_transport(env, {}, playlist_status=404))
+    monkeypatch.setattr(apple_music, "_token", None)
+    batch = await run(env, liked=False, links=["apple:de:pl.test"])
+    assert batch.status == "done" and batch.message == "pl.test: Playlist nicht gefunden oder privat"
+
+
+async def test_api_accepts_apple_music_links(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(spotify, "launch_import", lambda id: None)
+    link = "https://music.apple.com/de/playlist/x/pl.c10a2c113db14685a0b09fa5834d8e8b"
+    response = await env.client.post("/api/spotify/imports", headers=env.headers, json={"links": [link]})
+    assert response.status_code == 202, response.text
+    async with SessionLocal() as db:
+        assert (await db.scalar(select(SpotifyImport))).links == ["apple:de:pl.c10a2c113db14685a0b09fa5834d8e8b"]

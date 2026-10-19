@@ -481,7 +481,9 @@ async def run_import(import_id: uuid.UUID) -> None:
                         await db.commit()
                 await db.commit()
 
-            async def import_playlist(id: str, name: str, tracks: list[SpotifyTrack]) -> None:
+            async def import_playlist(
+                id: str, name: str, tracks: list[SpotifyTrack], description: str = "Von Spotify importiert"
+            ) -> None:
                 link = await db.scalar(
                     select(SpotifyPlaylistLink).where(
                         SpotifyPlaylistLink.user_id == user.id, SpotifyPlaylistLink.spotify_playlist_id == id
@@ -489,7 +491,7 @@ async def run_import(import_id: uuid.UUID) -> None:
                 )
                 if link is None:
                     playlist = Playlist(
-                        owner_id=user.id, name=name, description="Von Spotify importiert", is_public=False
+                        owner_id=user.id, name=name, description=description, is_public=False
                     )
                     db.add(playlist)
                     await db.flush()
@@ -521,6 +523,16 @@ async def run_import(import_id: uuid.UUID) -> None:
                         continue
                     await import_playlist(id, metadata["name"], tracks)
             for id in batch.links:
+                if id.startswith("apple:"):
+                    from app.services import apple_music
+
+                    try:
+                        metadata, tracks = await apple_music.fetch_playlist(id)
+                    except SpotifyError as e:
+                        _message(batch, f"{id.rsplit(':', 1)[1]}: {e.message}")
+                        continue
+                    await import_playlist(id, metadata["name"], tracks, "Von Apple Music importiert")
+                    continue
                 used_embed = account is None
                 if account is not None:
                     try:

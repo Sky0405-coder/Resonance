@@ -1440,17 +1440,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authServerAddressExample => 'music.example.com';
 
   @override
-  String get spotifyTitle => 'Import from Spotify';
+  String get spotifyTitle => 'Import from Spotify or Apple Music';
 
   @override
   String get spotifyLinkHeading => 'Import a playlist by link';
 
   @override
   String get spotifyLinksHint =>
-      'Paste links to public Spotify playlists, one per line. Without a connected Spotify account at most 100 songs per playlist are imported.';
+      'Paste links to public Spotify or Apple Music playlists, one per line. Apple Music playlists are imported in full; Spotify without a connected account imports at most 100 songs per playlist.';
 
   @override
-  String get spotifyLinkPlaceholder => 'https://open.spotify.com/playlist/…';
+  String get spotifyLinkPlaceholder => 'https://open.spotify.com/playlist/… or https://music.apple.com/…';
 
   @override
   String get spotifyImport => 'Import';

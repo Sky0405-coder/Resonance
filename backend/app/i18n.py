@@ -146,6 +146,8 @@ _EXACT: dict[str, str] = {
     "Tageslimit erreicht – weitere fehlende Songs wurden nicht angefragt": "Daily limit reached – no more missing songs were requested",
     "Lieblingssongs": "Liked Songs",
     "Von Spotify importiert": "Imported from Spotify",
+    "Von Apple Music importiert": "Imported from Apple Music",
+    "Apple Music nicht erreichbar": "Apple Music is unavailable",
     "Aus Resonance exportiert": "Exported from Resonance",
     "Spotify gibt die Songs dieser Playlist nicht frei": "Spotify does not provide the songs in this playlist",
     "Spotify-Schreibrechte fehlen – bitte Spotify in den Einstellungen neu verbinden": "Spotify write permissions are missing – please reconnect Spotify in settings",
@@ -236,9 +238,9 @@ _PATTERNS.extend([
 ])
 
 _PATTERNS.extend(
-    (re.compile(r"(?P<id>[A-Za-z0-9]+): " + re.escape(message)), r"\g<id>: " + english)
+    (re.compile(r"(?P<id>[A-Za-z0-9.-]+): " + re.escape(message)), r"\g<id>: " + english)
     for message, english in _EXACT.items()
-    if message in {"Spotify nicht erreichbar", "Playlist nicht gefunden oder privat"}
+    if message in {"Spotify nicht erreichbar", "Playlist nicht gefunden oder privat", "Apple Music nicht erreichbar"}
 )
 _PATTERNS.extend(
     (re.compile("Verbindung fehlgeschlagen: " + re.escape(message)), "Connection failed: " + english)
