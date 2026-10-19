@@ -7,7 +7,22 @@ import mutagen
 from mutagen.apev2 import APEBinaryValue, APEv2
 from mutagen.asf import ASF, ASFByteArrayAttribute
 from mutagen.flac import FLAC, Picture
-from mutagen.id3 import APIC, ID3, TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TPUB, TRCK, TSRC, TXXX, UFID
+from mutagen.id3 import (
+    APIC,
+    ID3,
+    TALB,
+    TCON,
+    TDRC,
+    TIT2,
+    TPE1,
+    TPE2,
+    TPOS,
+    TPUB,
+    TRCK,
+    TSRC,
+    TXXX,
+    UFID,
+)
 from mutagen.mp4 import MP4, MP4Cover
 
 from app.config import get_settings
@@ -188,23 +203,29 @@ def _set_cover(audio: mutagen.FileType, cover: bytes) -> None:
 
 
 async def fetch_cover(meta: TrackMeta) -> bytes | None:
+    # Deezer's artwork is the album's standard cover. On the Cover Art Archive the release group's front (chosen
+    # for the album as a whole) beats the exact release's, which is often a regional or special edition.
     candidates = []
-    if meta.mb_release_id:
+    if meta.cover_url:
+        candidates.append((f"dz-{meta.deezer_album_id}.jpg", [meta.cover_url]))
+    if meta.mb_release_group_id:
         candidates.append(
             (
-                f"{meta.mb_release_id}.jpg",
+                f"rg-{meta.mb_release_group_id}.jpg",
                 [
-                    f"https://coverartarchive.org/release/{meta.mb_release_id}/front-1200",
+                    f"https://coverartarchive.org/release-group/{meta.mb_release_group_id}/front-1200",
                     *(
-                        [f"https://coverartarchive.org/release-group/{meta.mb_release_group_id}/front-1200"]
-                        if meta.mb_release_group_id
+                        [f"https://coverartarchive.org/release/{meta.mb_release_id}/front-1200"]
+                        if meta.mb_release_id
                         else []
                     ),
                 ],
             )
         )
-    if meta.cover_url:
-        candidates.append((f"dz-{meta.deezer_album_id}.jpg", [meta.cover_url]))
+    elif meta.mb_release_id:
+        candidates.append(
+            (f"{meta.mb_release_id}.jpg", [f"https://coverartarchive.org/release/{meta.mb_release_id}/front-1200"])
+        )
     for filename, urls in candidates:
         cache = get_settings().data_dir / "caa" / filename
         try:

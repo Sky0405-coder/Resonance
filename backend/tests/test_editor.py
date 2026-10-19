@@ -550,3 +550,46 @@ async def test_review_counts_albums_once(env):
         await env.client.get("/api/admin/library/review", headers=env.headers, params={"kind": "no_cover"})
     ).json()
     assert uncovered["total"] == 1 and uncovered["items"][0]["id"] == str(track_id)
+
+
+async def test_rematch_replaces_the_albums_existing_cover(env):
+    track_id, album_id, _, metadata = await library_track(env)
+    async with SessionLocal() as db:
+        old_cover = (await db.get(Album, album_id)).cover_file
+        assert old_cover is not None
+        track = await db.get(Track, track_id)
+        track = await apply_meta(db, track, metadata, image("blue", "PNG"))
+        album = await db.get(Album, track.album_id, populate_existing=True)
+        assert album.cover_file not in {None, old_cover}
+
+
+async def test_fetch_cover_prefers_deezer_then_release_group(env, monkeypatch):
+    from app.services import tagger
+
+    requested = []
+
+    def dispatch(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        if "release-group" in request.url.path and "missing" in request.url.path:
+            return httpx.Response(404)
+        return httpx.Response(200, content=request.url.path.encode())
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        tagger.httpx, "AsyncClient", lambda **kwargs: real(transport=httpx.MockTransport(dispatch), **kwargs)
+    )
+    monkeypatch.setattr(get_settings(), "data_dir", env.settings.music_dir.parent / "cover-test")
+    deezer_meta = meta(mb_release_id="rel", mb_release_group_id="group")
+    deezer_meta.cover_url, deezer_meta.deezer_album_id = "https://cdn-images.dzcdn.net/x.jpg", "42"
+    assert await tagger.fetch_cover(deezer_meta) == b"/x.jpg"
+    assert await tagger.fetch_cover(meta(mb_release_id="rel", mb_release_group_id="group")) == (
+        b"/release-group/group/front-1200"
+    )
+    assert await tagger.fetch_cover(meta(mb_release_id="rel", mb_release_group_id="missing")) == (
+        b"/release/rel/front-1200"
+    )
+    assert await tagger.fetch_cover(meta(mb_release_id="only", mb_release_group_id=None)) == b"/release/only/front-1200"
+    # Cached per source: no second download.
+    count = len(requested)
+    await tagger.fetch_cover(deezer_meta)
+    assert len(requested) == count

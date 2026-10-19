@@ -1005,12 +1005,10 @@ async def test_fetch_cover_cache(
 
     monkeypatch.setattr(tagger.httpx, "AsyncClient", client)
     assert await tagger.fetch_cover(meta) == cover
-    assert seen == [
-        f"/release/{meta.mb_release_id}/front-1200",
-        f"/release-group/{meta.mb_release_group_id}/front-1200",
-    ]
-    assert await tagger.fetch_cover(meta) == cover and len(seen) == 2
-    (tmp_path / "caa" / f"{meta.mb_release_id}.jpg").unlink()
+    # The release group's cover comes first; the exact release is only the fallback.
+    assert seen == [f"/release-group/{meta.mb_release_group_id}/front-1200"]
+    assert await tagger.fetch_cover(meta) == cover and len(seen) == 1
+    (tmp_path / "caa" / f"rg-{meta.mb_release_group_id}.jpg").unlink()
     monkeypatch.setattr(
         tagger.httpx,
         "AsyncClient",
@@ -1497,15 +1495,12 @@ async def test_deezer_cover_fallback(
     monkeypatch.setattr(
         tagger.httpx, "AsyncClient", lambda **kwargs: original(transport=httpx.MockTransport(respond), **kwargs)
     )
+    # Deezer's standard artwork wins over the Cover Art Archive.
     assert await tagger.fetch_cover(meta) == cover
-    assert seen == [
-        f"https://coverartarchive.org/release/{meta.mb_release_id}/front-1200",
-        f"https://coverartarchive.org/release-group/{meta.mb_release_group_id}/front-1200",
-        meta.cover_url,
-    ]
+    assert seen == [meta.cover_url]
     assert (tmp_path / "caa" / "dz-201.jpg").read_bytes() == cover
     fallback = meta.model_copy(update={"mb_release_id": None, "mb_release_group_id": None})
-    assert await tagger.fetch_cover(fallback) == cover and len(seen) == 3
+    assert await tagger.fetch_cover(fallback) == cover and len(seen) == 1
     (tmp_path / "caa" / "dz-201.jpg").unlink()
     seen.clear()
     assert await tagger.fetch_cover(fallback) == cover and seen == [meta.cover_url]

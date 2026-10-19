@@ -654,20 +654,20 @@ async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool 
         chosen = pick(key, by_genre[genre], shuffle=False)
         await write(key, f"{display} Mix", f"Das Beste aus {display} in deiner Bibliothek", chosen)
 
-    # Genre by decade ("90er Hip-Hop", like Spotify's and Apple Music's era playlists). Skipped where the genre or
-    # the decade mix would hold practically the same songs.
+    # Genre by decade ("90er Hip-Hop", like Spotify's and Apple Music's era playlists), for every genre with enough
+    # songs. Skipped where it would be practically the genre's own mix.
     eras: list[tuple[int, str, list[Track]]] = []
-    for genre in genres:
+    for genre in (key for key, genre_tracks in by_genre.items() if len(genre_tracks) >= 10):
         per_decade: dict[int, list[Track]] = defaultdict(list)
         for track in by_genre[genre]:
             if track.id in decade_of:
                 per_decade[decade_of[track.id]].append(track)
         for decade, era_tracks in per_decade.items():
-            if len(era_tracks) < 15 or len(era_tracks) >= 0.9 * min(len(by_genre[genre]), len(by_decade[decade])):
+            if len(era_tracks) < 10 or len(era_tracks) >= 0.95 * len(by_genre[genre]):
                 continue
             eras.append((decade, genre, era_tracks))
     eras.sort(key=lambda era: (-len(era[2]), era[0], era[1]))
-    for decade, genre, era_tracks in eras[:16]:
+    for decade, genre, era_tracks in eras[:40]:
         label = decade_label(decade)
         display = GENRE_NAMES.get(genre, genre.title())
         key = f"era:{decade}:{genre}"

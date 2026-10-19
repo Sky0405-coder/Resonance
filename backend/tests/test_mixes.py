@@ -743,8 +743,8 @@ async def test_era_artist_and_on_repeat_mixes(env: SimpleNamespace) -> None:
         await update_config(db, {"mixes": {"discover_enabled": False}})
         await mixes.generate_mixes(db, await db.get(User, env.user_id))
         result = await generated(db, env.user_id)
-        # The 90s rock is all of the rock and the 2010s hip-hop all of that decade: no "90er Rock" or "2010er Hip-Hop".
-        assert {key for key in result if key.startswith("era:")} == {"era:1990:hip hop"}
+        # The 90s rock is all of the rock, so no extra "90er Rock".
+        assert {key for key in result if key.startswith("era:")} == {"era:1990:hip hop", "era:2010:hip hop"}
         era = result["era:1990:hip hop"]
         assert (era.name, era.description) == ("90er Hip-Hop", "Hip-Hop aus den 90ern in deiner Bibliothek")
         assert {row.track_id for row in await entries(db, era)} == {track.id for track in rap90}
@@ -764,7 +764,7 @@ async def test_era_artist_and_on_repeat_mixes(env: SimpleNamespace) -> None:
         assert {t.id for t in rap90} <= ids and len(ids & {t.id for t in rap10}) == 3
     body = (await env.client.get("/api/mixes", headers={**env.headers, "Accept-Language": "en"})).json()
     names = [row["name"] for row in body["decades"]]
-    assert "90s Hip-Hop" in names and "2010s Mix" in names
+    assert "90s Hip-Hop" in names and "2010s Hip-Hop" in names
     assert "On Repeat" in [row["name"] for row in body["made_for_you"]]
     response = await env.client.get("/api/search", params={"q": "90s hip hop"}, headers=env.headers)
     assert [row["name"] for row in response.json()["playlists"]] == ["90er Hip-Hop"]
