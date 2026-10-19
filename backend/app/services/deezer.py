@@ -97,6 +97,9 @@ class DeezerClient:
     async def album_tracks(self, id: str) -> list[dict]:
         return (await self._get(f"album/{id}/tracks", limit=500)).get("data", [])
 
+    async def playlist_tracks(self, id: str, limit: int = 100) -> list[dict]:
+        return (await self._get(f"playlist/{id}/tracks", limit=limit))["data"]
+
     async def artist(self, id: str) -> dict:
         return await self._get(f"artist/{id}")
 

@@ -272,6 +272,7 @@ class MixesOut(BaseModel):
     genres: list[PlaylistOut]
     discover: PlaylistOut | None
     decades: list[PlaylistOut] = []
+    charts: list[PlaylistOut] = []
 
 
 class PlaylistEntryOut(BaseModel):

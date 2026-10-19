@@ -211,10 +211,13 @@ async def resolve_radio_pending(db: AsyncSession) -> int:
             )
         )
         if existing is None:
-            position = await db.scalar(
-                select(func.max(PlaylistEntry.position)).where(PlaylistEntry.playlist_id == row.playlist_id)
-            )
-            db.add(PlaylistEntry(playlist_id=row.playlist_id, track_id=track_id, position=(position or 0) + 1))
+            position = row.position
+            if position is None:
+                last = await db.scalar(
+                    select(func.max(PlaylistEntry.position)).where(PlaylistEntry.playlist_id == row.playlist_id)
+                )
+                position = (last or 0) + 1
+            db.add(PlaylistEntry(playlist_id=row.playlist_id, track_id=track_id, position=position))
         await db.delete(row)
         resolved += 1
     await db.commit()

@@ -7,7 +7,7 @@ from app.deps import DB, CurrentUser
 from app.i18n import language
 from app.models import Playlist
 from app.schemas import MixesOut
-from app.services.mixes import discover_due, generate_discover, generate_mixes
+from app.services.mixes import CHARTS, discover_due, generate_discover, generate_mixes
 from app.services.server_config import load_config
 from app.services.views import playlists_out
 
@@ -24,6 +24,7 @@ async def _out(db: DB, user: CurrentUser, lang: str) -> MixesOut:
     made_for_you = []
     genres = []
     decades = []
+    charts = []
     discover = None
     for playlist, item in zip(playlists, items, strict=True):
         if playlist.mix_key == "discover-weekly":
@@ -32,10 +33,23 @@ async def _out(db: DB, user: CurrentUser, lang: str) -> MixesOut:
             genres.append(item)
         elif (playlist.mix_key or "").startswith(("decade:", "era:")):
             decades.append(item)
+        elif (playlist.mix_key or "").startswith("chart:"):
+            charts.append((playlist.mix_key, item))
         else:
             made_for_you.append(item)
     genres.sort(key=lambda item: -item.track_count)
-    return MixesOut(made_for_you=made_for_you, genres=genres, discover=discover, decades=decades)
+    # Daily mixes first and artist mixes last, like Spotify's "Made for you".
+    order = ["daily:", "discover", "on-repeat", "favourites", "new-music", "rewind", "artist:"]
+    keys = {item.id: playlist.mix_key or "" for playlist, item in zip(playlists, items, strict=True)}
+    made_for_you.sort(
+        key=lambda item: (next((i for i, p in enumerate(order) if keys[item.id].startswith(p)), len(order)), keys[item.id])
+    )
+    chart_order = {key: index for index, key in enumerate(CHARTS)}
+    charts.sort(key=lambda pair: chart_order.get(pair[0], len(CHARTS)))
+    return MixesOut(
+        made_for_you=made_for_you, genres=genres, discover=discover, decades=decades,
+        charts=[item for _, item in charts],
+    )
 
 
 @router.get("", response_model=MixesOut)

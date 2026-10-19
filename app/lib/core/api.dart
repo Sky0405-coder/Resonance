@@ -269,14 +269,15 @@ class ApiClient {
   Future<Playlist> keepPlaylist(String playlistId) async =>
       Playlist.fromJson(await _post('/api/playlists/$playlistId/keep'));
 
-  /// Generated playlists of the current user: (made for you, genre mixes, Discover Weekly, decade mixes).
-  Future<(List<Playlist>, List<Playlist>, Playlist?, List<Playlist>)> mixes() async {
+  /// Generated playlists of the current user: (made for you, genre mixes, Discover Weekly, decade mixes, charts).
+  Future<(List<Playlist>, List<Playlist>, Playlist?, List<Playlist>, List<Playlist>)> mixes() async {
     final j = await _get('/api/mixes');
     return (
       [for (final p in j['made_for_you']) Playlist.fromJson(p)],
       [for (final p in j['genres']) Playlist.fromJson(p)],
       j['discover'] == null ? null : Playlist.fromJson(j['discover']),
       [for (final p in j['decades'] ?? const []) Playlist.fromJson(p)],
+      [for (final p in j['charts'] ?? const []) Playlist.fromJson(p)],
     );
   }
 

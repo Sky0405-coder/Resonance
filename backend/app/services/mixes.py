@@ -19,6 +19,7 @@ from app.api.catalog import _track
 from app.db import SessionLocal
 from app.models import (
     Artist,
+    DownloadItem,
     PlayEvent,
     Playlist,
     PlaylistEntry,
@@ -34,8 +35,38 @@ from app.services.server_config import load_config
 from app.services.tags import primary_artist
 
 GENRE_NAMES = {"hip hop": "Hip-Hop", "r&b": "R&B", "edm": "EDM"}
+CHARTS = {"chart:de": ("Top 100 Deutschland", "1111143121"), "chart:global": ("Top 100 Global", "3155776842")}
+_chart_cache: dict[str, tuple[date, list[dict]]] = {}
+_chart_requested: dict[str, date] = {}
+_chart_request_lock = asyncio.Lock()
 log = logging.getLogger(__name__)
 _loop_task: asyncio.Task | None = None
+
+
+async def chart_tracks(key: str) -> list[dict] | None:
+    today = date.today()
+    cached = _chart_cache.get(key)
+    if cached is not None and cached[0] == today:
+        return cached[1]
+    try:
+        tracks = await deezer.playlist_tracks(CHARTS[key][1], 100)
+    except DeezerError:
+        log.debug("Chart playlist lookup failed", exc_info=True)
+        return cached[1] if cached is not None else None
+    _chart_cache[key] = (today, tracks)
+    return tracks
+
+
+async def _chart_downloads(db: AsyncSession, ids: list[str], now: datetime) -> set[str]:
+    return set(
+        await db.scalars(
+            select(DownloadItem.meta["deezer_track_id"].astext).where(
+                DownloadItem.meta["deezer_track_id"].astext.in_(ids),
+                DownloadItem.created_at >= now - timedelta(days=7),
+                DownloadItem.status != "failed",
+            )
+        )
+    )
 
 
 def genre_keys(raw: str | None) -> list[str]:
@@ -73,6 +104,10 @@ def decade_label(decade: int) -> str:
 
 def mix_search_terms(mix_key: str | None) -> list[str]:
     """Extra words a mix is found by in the search, e.g. "80s" or "achtziger" for the 80er Mix."""
+    if mix_key == "chart:de":
+        return ["charts", "top 100", "top 100 germany", "deutschland charts"]
+    if mix_key == "chart:global":
+        return ["charts", "top 100", "top 100 global", "world", "weltweit"]
     if mix_key and mix_key.startswith("era:"):
         _, decade, genre = mix_key.split(":", 2)
         names = {genre, GENRE_NAMES.get(genre, genre.title()), genre.replace(" ", "-")}
@@ -179,6 +214,8 @@ async def _write(
     track_ids: list[uuid.UUID],
     now: datetime,
     pending: list[str] | None = None,
+    pending_positions: dict[str, float] | None = None,
+    track_positions: dict[uuid.UUID, float] | None = None,
 ) -> Playlist | None:
     if not track_ids and not pending:
         return None
@@ -212,11 +249,18 @@ async def _write(
     await db.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist.id))
     db.add_all(
         [
-            PlaylistEntry(playlist_id=playlist.id, track_id=track_id, position=i)
+            PlaylistEntry(playlist_id=playlist.id, track_id=track_id, position=(track_positions or {}).get(track_id, i))
             for i, track_id in enumerate(track_ids, 1)
         ]
     )
-    db.add_all([RadioPending(playlist_id=playlist.id, deezer_id=deezer_id) for deezer_id in pending or []])
+    db.add_all(
+        [
+            RadioPending(
+                playlist_id=playlist.id, deezer_id=deezer_id, position=(pending_positions or {}).get(deezer_id)
+            )
+            for deezer_id in pending or []
+        ]
+    )
     return playlist
 
 
@@ -296,6 +340,7 @@ async def generate_discover(db: AsyncSession, user: User) -> Playlist | None:
 
 async def generate_mixes(db: AsyncSession, user: User) -> None:
     now = datetime.now(UTC)
+    cfg = await load_config(db)
     taste = await _taste(db, user, now)
     tracks, by_artist, artists = taste.tracks, taste.by_artist, taste.artists
     history, likes, scores = taste.history, taste.likes, taste.scores
@@ -330,6 +375,52 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
         return list(related)
 
     produced: set[str] = set()
+
+    if cfg.mixes.charts_enabled:
+        for key, (name, _) in CHARTS.items():
+            chart = await chart_tracks(key)
+            if chart is None:
+                if await db.scalar(select(Playlist.id).where(Playlist.owner_id == user.id, Playlist.mix_key == key)):
+                    produced.add(key)
+                continue
+            catalog = [_track(track) for track in chart]
+            await match_tracks(db, catalog)
+            positions: dict[uuid.UUID, float] = {}
+            unmatched: dict[str, float] = {}
+            for rank, track in enumerate(catalog, 1):
+                if track.library_id is not None:
+                    positions.setdefault(track.library_id, rank)
+                else:
+                    unmatched.setdefault(track.id, rank)
+            today = date.today()
+            if cfg.mixes.charts_downloads > 0:
+                async with _chart_request_lock:
+                    if _chart_requested.get(key) != today:
+                        known = await _chart_downloads(db, list(unmatched), now)
+                        requested = 0
+                        for deezer_id in unmatched:
+                            if deezer_id in known:
+                                continue
+                            if requested >= cfg.mixes.charts_downloads:
+                                break
+                            requested += 1
+                            try:
+                                await create_request(
+                                    db, user, "track", deezer_id,
+                                    temporary=cfg.radio.temporary_tracks_enabled, radio=True,
+                                )
+                            except HTTPException as exc:
+                                if exc.status_code == 429:
+                                    break
+                        _chart_requested[key] = today
+            known = await _chart_downloads(db, list(unmatched), now)
+            pending = [deezer_id for deezer_id in unmatched if deezer_id in known]
+            playlist = await _write(
+                db, user, key, name, "Die aktuellen Charts – täglich aktualisiert", list(positions), now,
+                pending, pending_positions=unmatched, track_positions=positions,
+            )
+            if playlist is not None:
+                produced.add(key)
 
     async def write(key: str, name: str, description: str, chosen: list[Track]) -> None:
         track_ids = list(dict.fromkeys(track.id for track in chosen))[:50]

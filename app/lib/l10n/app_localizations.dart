@@ -3164,6 +3164,12 @@ abstract class AppLocalizations {
   /// **'Für dich erstellt'**
   String get homeMadeForYou;
 
+  /// No description provided for @homeCharts.
+  ///
+  /// In de, this message translates to:
+  /// **'Charts'**
+  String get homeCharts;
+
   /// No description provided for @homeGenreMixes.
   ///
   /// In de, this message translates to:
@@ -3451,6 +3457,24 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Downloads pro Woche und Nutzer'**
   String get adminDiscoverDownloads;
+
+  /// No description provided for @adminChartsEnabled.
+  ///
+  /// In de, this message translates to:
+  /// **'Charts-Playlists'**
+  String get adminChartsEnabled;
+
+  /// No description provided for @adminChartsEnabledHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Top 100 Deutschland und Global, täglich aktualisiert'**
+  String get adminChartsEnabledHint;
+
+  /// No description provided for @adminChartsDownloads.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlende Chart-Songs pro Tag laden'**
+  String get adminChartsDownloads;
 
   /// No description provided for @worldRadioTitle.
   ///

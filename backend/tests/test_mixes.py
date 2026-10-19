@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,18 +20,21 @@ from app.main import app
 from app.models import (
     Album,
     Artist,
+    DownloadItem,
+    DownloadRequest,
     PlayEvent,
     Playlist,
     PlaylistEntry,
     PlaylistShare,
+    RadioPending,
     Track,
     TrackLike,
     User,
 )
-from app.services import mixes
+from app.services import mixes, radio
 from app.services.deezer import DeezerError, deezer
 from app.services.matching import name_key
-from app.services.server_config import update_config
+from app.services.server_config import ServerConfig, update_config
 from tests.conftest import auth, register
 
 
@@ -37,6 +42,8 @@ from tests.conftest import auth, register
 async def env(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[SimpleNamespace]:
     assert engine.url.database.startswith("app_test")
     await mixes.stop()
+    monkeypatch.setattr(mixes, "_chart_cache", {})
+    monkeypatch.setattr(mixes, "_chart_requested", {})
 
     async def reset() -> None:
         async with engine.begin() as conn:
@@ -56,6 +63,8 @@ async def env(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch) -> Asy
         related=[],
         calls=[],
         failures=set(),
+        charts={},
+        chart_calls=[],
     )
 
     async def search(q: str, limit: int) -> list[dict]:
@@ -72,8 +81,15 @@ async def env(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch) -> Asy
             raise DeezerError("offline")
         return state.related
 
+    async def playlist_tracks(id: str, limit: int = 100) -> list[dict]:
+        state.chart_calls.append((id, limit))
+        if "charts" in state.failures:
+            raise DeezerError("offline")
+        return state.charts.get(id, [])
+
     monkeypatch.setattr(deezer, "search_artists", search)
     monkeypatch.setattr(deezer, "artist_related", related)
+    monkeypatch.setattr(deezer, "playlist_tracks", playlist_tracks)
     try:
         yield state
     finally:
@@ -464,7 +480,7 @@ async def test_mix_privacy_immutable_entries_dated_keep_and_home(env: SimpleName
     response = await env.client.get("/api/playlists", headers=env.other_headers)
     assert str(playlist.id) not in {row["id"] for row in response.json()}
     response = await env.client.get("/api/mixes", headers=env.other_headers)
-    assert response.json() == {"made_for_you": [], "genres": [], "discover": None, "decades": []}
+    assert response.json() == {"made_for_you": [], "genres": [], "discover": None, "decades": [], "charts": []}
     response = await env.client.get("/api/playlists", headers=env.headers)
     assert {row["kind"] for row in response.json()} == {"mix", "user"}
     detail = (await env.client.get(url, headers=env.headers)).json()
@@ -563,7 +579,7 @@ async def test_no_history_only_genre_mixes_and_too_small_library(env: SimpleName
         await db.execute(delete(Track))
         await db.commit()
     response = await env.client.post("/api/mixes/refresh", headers=env.headers)
-    assert response.json() == {"made_for_you": [], "genres": [], "discover": None, "decades": []}
+    assert response.json() == {"made_for_you": [], "genres": [], "discover": None, "decades": [], "charts": []}
 
 
 async def test_scheduler_selects_due_active_users_and_isolates_errors(
@@ -752,3 +768,224 @@ async def test_era_artist_and_on_repeat_mixes(env: SimpleNamespace) -> None:
     assert "On Repeat" in [row["name"] for row in body["made_for_you"]]
     response = await env.client.get("/api/search", params={"q": "90s hip hop"}, headers=env.headers)
     assert [row["name"] for row in response.json()["playlists"]] == ["90er Hip-Hop"]
+
+
+@pytest.fixture
+def charts(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
+    env.downloads = []
+    env.download_errors = {}
+
+    async def request(
+        db: AsyncSession, user: User, kind: str, catalog_id: str, *, temporary: bool, radio: bool
+    ) -> None:
+        env.downloads.append((catalog_id, user.id, temporary, radio))
+        if catalog_id in env.download_errors:
+            raise HTTPException(env.download_errors[catalog_id], "Nicht gefunden")
+        db.add(
+            DownloadRequest(
+                user_id=user.id, kind=kind, catalog_id=catalog_id, title=catalog_id, artist="Chart", status="active",
+                is_temporary=temporary,
+                items=[
+                    DownloadItem(
+                        position=0, title=catalog_id, artist="Chart", meta={"deezer_track_id": catalog_id},
+                        status="queued",
+                    )
+                ],
+            )
+        )
+        await db.commit()
+
+    monkeypatch.setattr(mixes, "create_request", request)
+    return env
+
+
+def chart_candidate(id: str, title: str | None = None) -> dict:
+    return {"id": id, "title": title or id, "artist": {"id": "chart", "name": "Chart"}, "duration": 180}
+
+
+async def chart_pending(db: AsyncSession, playlist: Playlist) -> list[tuple[str, float | None]]:
+    rows = await db.scalars(
+        select(RadioPending).where(RadioPending.playlist_id == playlist.id).order_by(RadioPending.position)
+    )
+    return [(row.deezer_id, row.position) for row in rows]
+
+
+@pytest.mark.parametrize("temporary", [False, True])
+async def test_charts_order_positions_and_downloads_shared_daily(charts: SimpleNamespace, temporary: bool) -> None:
+    async with SessionLocal() as db:
+        tracks = await library(db, "Chart", None, 3)
+        charts.charts = {
+            "1111143121": [
+                chart_candidate("103", tracks[2].title), chart_candidate("201"),
+                chart_candidate("101", tracks[0].title), chart_candidate("103", tracks[2].title),
+                chart_candidate("202"), chart_candidate("102", tracks[1].title),
+            ],
+            "3155776842": [chart_candidate("201"), chart_candidate("102", tracks[1].title), chart_candidate("203")],
+        }
+        await update_config(
+            db, {"mixes": {"charts_downloads": 2}, "radio": {"temporary_tracks_enabled": temporary}}
+        )
+        for user_id in (charts.user_id, charts.other_id, charts.user_id):
+            await mixes.generate_mixes(db, await db.get(User, user_id))
+            result = await generated(db, user_id)
+            assert set(result) == set(mixes.CHARTS)
+            de = result["chart:de"]
+            assert [(row.track_id, row.position) for row in await entries(db, de)] == [
+                (tracks[2].id, 1), (tracks[0].id, 3), (tracks[1].id, 6),
+            ]
+            assert await chart_pending(db, de) == [("201", 2), ("202", 5)]
+            assert await chart_pending(db, result["chart:global"]) == [("201", 1), ("203", 3)]
+            assert de.kind == "mix" and not de.is_public
+            assert de.description == "Die aktuellen Charts – täglich aktualisiert"
+        assert charts.downloads == [(id, charts.user_id, temporary, True) for id in ("201", "202", "203")]
+        assert charts.chart_calls == [("1111143121", 100), ("3155776842", 100)]
+        assert mixes._chart_requested == dict.fromkeys(mixes.CHARTS, date.today())
+
+
+async def test_chart_pending_resolves_at_chart_rank(charts: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        tracks = await library(db, "Chart", None, 2)
+        charts.charts["1111143121"] = [
+            chart_candidate("101", tracks[0].title), chart_candidate("201"), chart_candidate("102", tracks[1].title),
+        ]
+        await db.commit()
+        await mixes.generate_mixes(db, await db.get(User, charts.user_id))
+        playlist = (await generated(db, charts.user_id))["chart:de"]
+        assert await chart_pending(db, playlist) == [("201", 2)]
+        downloaded = (await library(db, "Downloaded", None, 1, temporary=True))[0]
+        item = await db.scalar(select(DownloadItem).where(DownloadItem.meta["deezer_track_id"].astext == "201"))
+        item.track_id = downloaded.id
+        item.status = "done"
+        await db.commit()
+        assert await radio.resolve_radio_pending(db) == 1
+        assert [(row.track_id, row.position) for row in await entries(db, playlist)] == [
+            (tracks[0].id, 1), (downloaded.id, 2), (tracks[1].id, 3),
+        ]
+        assert await chart_pending(db, playlist) == []
+
+
+async def test_chart_cache_daily_refresh_and_deezer_failure(env: SimpleNamespace) -> None:
+    first = [chart_candidate("101")]
+    env.charts["1111143121"] = first
+    assert await mixes.chart_tracks("chart:de") is first
+    assert await mixes.chart_tracks("chart:de") is first
+    assert len(env.chart_calls) == 1
+    yesterday = date.today() - timedelta(days=1)
+    mixes._chart_cache["chart:de"] = (yesterday, first)
+    second = [chart_candidate("102")]
+    env.charts["1111143121"] = second
+    assert await mixes.chart_tracks("chart:de") is second
+    assert mixes._chart_cache["chart:de"] == (date.today(), second)
+    mixes._chart_cache["chart:de"] = (yesterday, second)
+    env.failures.add("charts")
+    assert await mixes.chart_tracks("chart:de") is second
+    assert mixes._chart_cache["chart:de"][0] == yesterday
+    assert await mixes.chart_tracks("chart:global") is None
+
+
+async def test_chart_deezer_failure_keeps_yesterdays_playlist(env: SimpleNamespace) -> None:
+    yesterday = datetime.now(UTC) - timedelta(days=1)
+    env.failures.add("charts")
+    async with SessionLocal() as db:
+        track = (await library(db, "Chart", None, 1))[0]
+        user = await db.get(User, env.user_id)
+        playlist = await mixes._write(
+            db, user, "chart:de", "Top 100 Deutschland", "Die aktuellen Charts – täglich aktualisiert",
+            [track.id], yesterday, ["201"], pending_positions={"201": 2},
+        )
+        await db.commit()
+        await mixes.generate_mixes(db, user)
+        result = await generated(db, env.user_id)
+        assert set(result) == {"chart:de"}
+        assert result["chart:de"].id == playlist.id
+        assert result["chart:de"].generated_at == yesterday
+        assert [(row.track_id, row.position) for row in await entries(db, playlist)] == [(track.id, 1)]
+        assert await chart_pending(db, playlist) == [("201", 2)]
+
+
+async def test_charts_disabled_deletes_existing_playlists(env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        track = (await library(db, "Chart", None, 1))[0]
+        for _, id in mixes.CHARTS.values():
+            env.charts[id] = [chart_candidate("101", track.title)]
+        await db.commit()
+        user = await db.get(User, env.user_id)
+        await mixes.generate_mixes(db, user)
+        assert set(await generated(db, user.id)) == set(mixes.CHARTS)
+        await update_config(db, {"mixes": {"charts_enabled": False}})
+        await mixes.generate_mixes(db, user)
+        assert await generated(db, user.id) == {}
+        await mixes.generate_mixes(db, await db.get(User, env.other_id))
+        assert await generated(db, env.other_id) == {}
+        assert len(env.chart_calls) == 2
+
+
+async def test_charts_api_english_names_and_search(env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        track = (await library(db, "Chart", None, 1))[0]
+        for _, id in mixes.CHARTS.values():
+            env.charts[id] = [chart_candidate("101", track.title)]
+        await db.commit()
+    headers = {**env.headers, "Accept-Language": "en"}
+    response = await env.client.get("/api/mixes", headers=headers)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["made_for_you"] == []
+    assert [row["name"] for row in body["charts"]] == ["Top 100 Germany", "Top 100 Global"]
+    assert all(row["description"] == "The current charts – updated daily" for row in body["charts"])
+    response = await env.client.get("/api/search", params={"q": "charts"}, headers=headers)
+    assert response.status_code == 200, response.text
+    assert {row["name"] for row in response.json()["playlists"]} == {"Top 100 Germany", "Top 100 Global"}
+    assert mixes.mix_search_terms("chart:de") == ["charts", "top 100", "top 100 germany", "deutschland charts"]
+    assert mixes.mix_search_terms("chart:global") == ["charts", "top 100", "top 100 global", "world", "weltweit"]
+
+
+@pytest.mark.parametrize("limit", [0, 1])
+async def test_chart_downloads_recent_nonfailed_items_and_limit(charts: SimpleNamespace, limit: int) -> None:
+    async with SessionLocal() as db:
+        user = await db.get(User, charts.user_id)
+        for id in ("201", "202", "203"):
+            await mixes.create_request(db, user, "track", id, temporary=False, radio=True)
+        failed = await db.scalar(select(DownloadItem).where(DownloadItem.meta["deezer_track_id"].astext == "202"))
+        failed.status = "failed"
+        old = await db.scalar(select(DownloadItem).where(DownloadItem.meta["deezer_track_id"].astext == "203"))
+        old.created_at = datetime.now(UTC) - timedelta(days=8)
+        await update_config(db, {"mixes": {"charts_downloads": limit}})
+        charts.downloads.clear()
+        charts.charts["1111143121"] = [chart_candidate(id) for id in ("201", "202", "203", "204")]
+        await mixes.generate_mixes(db, user)
+        playlist = (await generated(db, user.id))["chart:de"]
+        assert await entries(db, playlist) == []
+        assert await chart_pending(db, playlist) == ([("201", 1), ("202", 2)] if limit else [("201", 1)])
+        assert [call[0] for call in charts.downloads] == (["202"] if limit else [])
+        if limit:
+            mixes._chart_requested["chart:de"] = date.today() - timedelta(days=1)
+            await mixes.generate_mixes(db, user)
+            assert [call[0] for call in charts.downloads] == ["202", "203"]
+        else:
+            assert mixes._chart_requested == {}
+
+
+@pytest.mark.parametrize("status", [429, 502])
+async def test_chart_download_errors_and_empty_taste(charts: SimpleNamespace, status: int) -> None:
+    charts.charts["1111143121"] = [chart_candidate(id) for id in ("201", "202", "203")]
+    charts.download_errors["201"] = status
+    async with SessionLocal() as db:
+        for user_id in (charts.user_id, charts.other_id):
+            await mixes.generate_mixes(db, await db.get(User, user_id))
+            result = await generated(db, user_id)
+            if status == 429:
+                assert result == {}
+            else:
+                assert set(result) == {"chart:de"}
+                assert await chart_pending(db, result["chart:de"]) == [("202", 2), ("203", 3)]
+        assert [call[0] for call in charts.downloads] == (["201"] if status == 429 else ["201", "202", "203"])
+        assert mixes._chart_requested["chart:de"] == date.today()
+
+
+@pytest.mark.parametrize("limit", [-1, 101])
+def test_charts_config_download_bounds(limit: int) -> None:
+    assert ServerConfig().mixes.charts_enabled
+    assert ServerConfig().mixes.charts_downloads == 30
+    with pytest.raises(ValidationError):
+        ServerConfig.model_validate({"mixes": {"charts_downloads": limit}})

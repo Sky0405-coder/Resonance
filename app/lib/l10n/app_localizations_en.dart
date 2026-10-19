@@ -1812,6 +1812,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeMadeForYou => 'Made for you';
 
   @override
+  String get homeCharts => 'Charts';
+
+  @override
   String get homeGenreMixes => 'Your genres';
 
   @override
@@ -1964,6 +1967,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminDiscoverDownloads => 'Downloads per week and user';
+
+  @override
+  String get adminChartsEnabled => 'Chart playlists';
+
+  @override
+  String get adminChartsEnabledHint => 'Top 100 Germany and Global, updated daily';
+
+  @override
+  String get adminChartsDownloads => 'Missing chart songs downloaded per day';
 
   @override
   String get worldRadioTitle => 'World radio';

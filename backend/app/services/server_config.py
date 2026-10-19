@@ -37,6 +37,9 @@ class MixesConfig(BaseModel):
     discover_enabled: bool = True
     # Missing songs downloaded per user and week for the 'Mix der Woche'.
     discover_downloads: int = Field(20, ge=0, le=50)
+    charts_enabled: bool = True
+    # Missing chart songs requested for download per chart and day, shared by all users.
+    charts_downloads: int = Field(30, ge=0, le=100)
 
 
 class DownloadConfig(BaseModel):

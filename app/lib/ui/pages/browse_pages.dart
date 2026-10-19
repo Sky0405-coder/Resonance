@@ -166,11 +166,15 @@ class _BrowseAll extends ConsumerWidget {
       value: artists,
       builder: (list) => CustomScrollView(
         slivers: [
-          // Genre and decade mixes to browse, like Spotify's categories.
+          // Charts, genre and decade mixes to browse, like Spotify's categories.
           if (mixes != null)
             SliverToBoxAdapter(
               child: Column(
                 children: [
+                  Shelf(
+                    title: context.l10n.homeCharts,
+                    children: [for (final p in mixes.$5) PlaylistCard(playlist: p)],
+                  ),
                   Shelf(
                     title: context.l10n.homeGenreMixes,
                     children: [for (final p in mixes.$2) PlaylistCard(playlist: p)],

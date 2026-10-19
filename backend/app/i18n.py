@@ -183,6 +183,8 @@ _EXACT: dict[str, str] = {
     "Songs aus deiner Bibliothek, die du noch nicht gehört hast": "Songs in your library you haven't heard yet",
     "Lange nicht gehört": "Haven't heard in a while",
     "Deine Favoriten": "Favourites Mix",
+    "Top 100 Deutschland": "Top 100 Germany",
+    "Die aktuellen Charts – täglich aktualisiert": "The current charts – updated daily",
     "Auf Repeat": "On Repeat",
     "Deine meistgehörten Songs der letzten 30 Tage": "Your most played songs of the last 30 days",
     "Deine meistgehörten und gelikten Songs": "Your most played and liked songs",

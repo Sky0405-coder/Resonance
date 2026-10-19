@@ -1786,6 +1786,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get homeMadeForYou => 'Für dich erstellt';
 
   @override
+  String get homeCharts => 'Charts';
+
+  @override
   String get homeGenreMixes => 'Deine Genres';
 
   @override
@@ -1939,6 +1942,15 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get adminDiscoverDownloads => 'Downloads pro Woche und Nutzer';
+
+  @override
+  String get adminChartsEnabled => 'Charts-Playlists';
+
+  @override
+  String get adminChartsEnabledHint => 'Top 100 Deutschland und Global, täglich aktualisiert';
+
+  @override
+  String get adminChartsDownloads => 'Fehlende Chart-Songs pro Tag laden';
 
   @override
   String get worldRadioTitle => 'Weltradio';

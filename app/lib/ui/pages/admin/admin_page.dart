@@ -686,6 +686,22 @@ class _ServerTab extends ConsumerWidget {
                 'mixes': {'discover_downloads': v},
               }),
             ),
+            SwitchListTile(
+              title: Text(context.l10n.adminChartsEnabled),
+              subtitle: Text(context.l10n.adminChartsEnabledHint),
+              value: mixes['charts_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'mixes': {'charts_enabled': v},
+              }),
+            ),
+            _NumberTile(
+              title: context.l10n.adminChartsDownloads,
+              value: mixes['charts_downloads'] ?? 30,
+              enabled: mixes['charts_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'mixes': {'charts_downloads': v.clamp(0, 100)},
+              }),
+            ),
             _Group(context.l10n.adminSongRadio),
             SwitchListTile(
               title: Text(context.l10n.adminRadioAutoDownload),
