@@ -989,3 +989,15 @@ def test_charts_config_download_bounds(limit: int) -> None:
     assert ServerConfig().mixes.charts_downloads == 30
     with pytest.raises(ValidationError):
         ServerConfig.model_validate({"mixes": {"charts_downloads": limit}})
+
+
+async def test_app_requests_leave_chart_downloads_to_the_scheduler(charts: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        charts.charts = {id: [chart_candidate("201")] for _, id in mixes.CHARTS.values()}
+        await db.commit()
+    response = await charts.client.get("/api/mixes", headers=charts.headers)
+    assert response.status_code == 200, response.text
+    assert charts.downloads == [] and mixes._chart_requested == {}
+    async with SessionLocal() as db:
+        await mixes.generate_mixes(db, await db.get(User, charts.user_id))
+    assert [download[0] for download in charts.downloads] == ["201"]

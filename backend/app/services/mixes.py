@@ -338,7 +338,9 @@ async def generate_discover(db: AsyncSession, user: User) -> Playlist | None:
     return playlist
 
 
-async def generate_mixes(db: AsyncSession, user: User) -> None:
+async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool = True) -> None:
+    """`chart_downloads=False` (requests from the app) leaves requesting missing chart songs to the scheduler,
+    which takes a minute and would block the response."""
     now = datetime.now(UTC)
     cfg = await load_config(db)
     taste = await _taste(db, user, now)
@@ -393,7 +395,7 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
                 else:
                     unmatched.setdefault(track.id, rank)
             today = date.today()
-            if cfg.mixes.charts_downloads > 0:
+            if chart_downloads and cfg.mixes.charts_downloads > 0:
                 async with _chart_request_lock:
                     if _chart_requested.get(key) != today:
                         known = await _chart_downloads(db, list(unmatched), now)

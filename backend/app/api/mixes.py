@@ -62,7 +62,7 @@ async def get_mixes(user: CurrentUser, db: DB, request: Request) -> MixesOut:
         )
     )
     if generated_at is None or generated_at.astimezone().date() != date.today():
-        await generate_mixes(db, user)
+        await generate_mixes(db, user, chart_downloads=False)
     cfg = await load_config(db)
     if cfg.mixes.discover_enabled:
         discover_at = await db.scalar(
@@ -75,5 +75,5 @@ async def get_mixes(user: CurrentUser, db: DB, request: Request) -> MixesOut:
 
 @router.post("/refresh", response_model=MixesOut)
 async def refresh_mixes(user: CurrentUser, db: DB, request: Request) -> MixesOut:
-    await generate_mixes(db, user)
+    await generate_mixes(db, user, chart_downloads=False)
     return await _out(db, user, language(request))
