@@ -1083,6 +1083,14 @@
   "offlineEmptyHint": "Lade Alben und Playlists herunter, um sie offline zu hören.",
   "offlineDownloaded": "Heruntergeladen",
   "offlineDownload": "Herunterladen",
+  "offlineNotificationRunning": "Resonance: {numFinished} von {numTotal} Songs geladen",
+  "@offlineNotificationRunning": {
+    "placeholders": {
+      "numFinished": {"type": "String"},
+      "numTotal": {"type": "String"}
+    }
+  },
+  "offlineNotificationComplete": "Resonance: Downloads fertig",
   "offlineRemoveTitle": "Download entfernen?",
   "offlineQuality": "Downloadqualität",
   "offlineQualityNormal": "Normal (Opus 160 kbit/s)",

@@ -63,6 +63,7 @@ dependencies:
   audio_service_win:
     path: packages/audio_service_win
   window_manager: ^0.5.2
+  background_downloader: ^9.6.4
 
 dev_dependencies:
   flutter_test:

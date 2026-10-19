@@ -3062,6 +3062,18 @@ abstract class AppLocalizations {
   /// **'Herunterladen'**
   String get offlineDownload;
 
+  /// No description provided for @offlineNotificationRunning.
+  ///
+  /// In de, this message translates to:
+  /// **'Resonance: {numFinished} von {numTotal} Songs geladen'**
+  String offlineNotificationRunning(String numFinished, String numTotal);
+
+  /// No description provided for @offlineNotificationComplete.
+  ///
+  /// In de, this message translates to:
+  /// **'Resonance: Downloads fertig'**
+  String get offlineNotificationComplete;
+
   /// No description provided for @offlineRemoveTitle.
   ///
   /// In de, this message translates to:

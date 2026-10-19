@@ -1725,6 +1725,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get offlineDownload => 'Herunterladen';
 
   @override
+  String offlineNotificationRunning(String numFinished, String numTotal) {
+    return 'Resonance: $numFinished von $numTotal Songs geladen';
+  }
+
+  @override
+  String get offlineNotificationComplete => 'Resonance: Downloads fertig';
+
+  @override
   String get offlineRemoveTitle => 'Download entfernen?';
 
   @override

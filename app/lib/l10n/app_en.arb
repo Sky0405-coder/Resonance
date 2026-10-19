@@ -516,6 +516,14 @@
   "offlineEmptyHint": "Download albums and playlists to listen offline.",
   "offlineDownloaded": "Downloaded",
   "offlineDownload": "Download",
+  "offlineNotificationRunning": "Resonance: {numFinished} of {numTotal} songs downloaded",
+  "@offlineNotificationRunning": {
+    "placeholders": {
+      "numFinished": {"type": "String"},
+      "numTotal": {"type": "String"}
+    }
+  },
+  "offlineNotificationComplete": "Resonance: Downloads complete",
   "offlineRemoveTitle": "Remove download?",
   "offlineQuality": "Download quality",
   "offlineQualityNormal": "Normal (Opus 160 kbit/s)",

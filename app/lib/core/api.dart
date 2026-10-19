@@ -52,6 +52,8 @@ class ApiClient {
   final String? token;
   final Dio _dio;
 
+  Map<String, String> get mediaHeaders => Map<String, String>.from(_dio.options.headers);
+
   Future<T> _call<T>(Future<T> Function() fn) async {
     try {
       return await fn();

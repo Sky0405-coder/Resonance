@@ -2,15 +2,20 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:background_downloader/background_downloader.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/session.dart';
+import '../l10n/l10n.dart';
+import '../l10n/locale.dart';
+import 'offline_transfer.dart';
 
 class OfflineSettings {
   const OfflineSettings({this.quality = 'normal', this.wifiOnly = true});
@@ -190,18 +195,54 @@ class OfflineController extends Notifier<OfflineState> {
   Completer<void>? _wake;
   Completer<void>? _retryWake;
   int _generation = 0;
+  OfflineTransfer? _transfer;
+  final _transfers = <String, DownloadTask>{};
+  final _bufferedUpdates = <TaskStatusUpdate>[];
+  Future<void> _transferUpdates = Future.value();
+  Future<void> _transferSettings = Future.value();
+  bool _transfersReady = false;
+  bool _changingWifi = false;
 
   @override
   OfflineState build() {
     if (!kIsWeb) {
+      _transfer = ref.read(offlineTransferProvider);
+      final transferSubscription = _transfer?.updates.listen((update) {
+        if (!_transfersReady) {
+          _bufferedUpdates.add(update);
+        } else {
+          _transferUpdates = _transferUpdates.then((_) => _handleTransferUpdate(update)).catchError((Object _) {});
+        }
+      });
+      final lifecycle = AppLifecycleListener(
+        onResume: () {
+          _signal(interruptRetry: true);
+          _recoverQueue();
+        },
+      );
+      final connectivitySubscription = ref.read(offlineConnectivityProvider).onConnectivityChanged.listen((results) {
+        if (results.any((result) => result != ConnectivityResult.none)) {
+          _signal(interruptRetry: true);
+          _recoverQueue();
+        }
+      });
       final timer = Timer.periodic(const Duration(minutes: 30), (_) {
         if (ref.read(sessionProvider).loggedIn && !ref.read(sessionProvider).offline) sync().ignore();
       });
-      ref.listen(offlineSettingsProvider, (_, _) => _signal());
+      ref.listen(offlineSettingsProvider, (previous, next) {
+        _signal();
+        if (_transfer != null && previous?.wifiOnly != next.wifiOnly) {
+          _changingWifi = true;
+          _transferSettings = _transferSettings.then((_) => _requeueTransfers());
+          _transferSettings.ignore();
+        }
+      });
+      ref.listen(appLocaleProvider, (_, _) => _configureNotifications());
       ref.listen(sessionProvider.select((s) => (s.loggedIn, s.offline)), (previous, next) {
         if (!next.$1) {
           _cancel?.cancel();
           _queue.clear();
+          _cancelTransfers(_transfers.keys.toList()).ignore();
           _signal(interruptRetry: true);
           _publish();
         } else if (!next.$2 && (previous?.$1 != true || previous?.$2 == true)) {
@@ -213,6 +254,9 @@ class OfflineController extends Notifier<OfflineState> {
       });
       ref.onDispose(() {
         timer.cancel();
+        lifecycle.dispose();
+        connectivitySubscription.cancel();
+        transferSubscription?.cancel();
         _cancel?.cancel();
         _signal(interruptRetry: true);
       });
@@ -268,6 +312,49 @@ class OfflineController extends Notifier<OfflineState> {
       loaded: true,
     );
     await _persist();
+    if (_transfer != null) {
+      _configureNotifications();
+      final restored = await _transfer!.restore();
+      _bufferedUpdates.insertAll(0, restored);
+      while (_bufferedUpdates.isNotEmpty && ref.mounted) {
+        final update = _bufferedUpdates.removeAt(0);
+        final task = update.task;
+        if (task is! DownloadTask || task.group != 'offline' || !task.taskId.startsWith('offline:')) continue;
+        final id = task.taskId.substring('offline:'.length);
+        if (state.tracks.containsKey(id) && !state.isDownloaded(id)) {
+          _queue.putIfAbsent(id, () => _nextTicket++);
+          _transfers.putIfAbsent(id, () => task);
+        }
+        await _handleTransferUpdate(update);
+      }
+      _transfersReady = true;
+    }
+    _recoverQueue();
+  }
+
+  void _recoverQueue() {
+    if (!ref.mounted || !state.loaded || _clearing != null) return;
+    final session = ref.read(sessionProvider);
+    if (!session.loggedIn || session.offline) return;
+    for (final id in [
+      for (final collection in state.collections.values)
+        for (final track in collection.orderedTracks) track.id,
+      ...state.tracks.keys,
+    ]) {
+      if (state.tracks[id]?.file == null && state.tracks.containsKey(id)) {
+        _queue.putIfAbsent(id, () => _nextTicket++);
+      }
+    }
+    _publish();
+    _startWorker();
+  }
+
+  void _configureNotifications() {
+    final l10n = lookupAppLocalizations(ref.read(appLocaleProvider));
+    _transfer?.configureNotifications(
+      l10n.offlineNotificationRunning('{numFinished}', '{numTotal}'),
+      l10n.offlineNotificationComplete,
+    );
   }
 
   int get totalBytes => state.totalBytes;
@@ -377,6 +464,7 @@ class OfflineController extends Notifier<OfflineState> {
     if (collections.isEmpty) {
       tracks.remove(id);
       _queue.remove(id);
+      await _cancelTransfers([id]);
       if (state.currentTrackId == id) _cancel?.cancel();
       _signal(interruptRetry: state.currentTrackId == id);
       if (track.file != null) await _deleteFile('${state.directory}/${track.file}');
@@ -402,6 +490,7 @@ class OfflineController extends Notifier<OfflineState> {
     _publish(collections: {...state.collections}..remove(key), tracks: tracks);
     await _deleteOrphanCovers();
     await _persist();
+    _startWorker();
   }
 
   Future<void> _deleteOrphanCovers() async {
@@ -456,6 +545,8 @@ class OfflineController extends Notifier<OfflineState> {
     _cancel?.cancel();
     _signal(interruptRetry: true);
     await _worker;
+    await _transferSettings;
+    await _cancelTransfers({...state.tracks.keys, ..._transfers.keys});
     await _serialize(() async {
       _queue.clear();
       _coverAttempts.clear();
@@ -471,14 +562,160 @@ class OfflineController extends Notifier<OfflineState> {
 
   void _startWorker() {
     if (_worker != null || _clearing != null || _queue.isEmpty || !ref.mounted) return;
-    _worker = _runWorker().whenComplete(() {
+    if (_transfer != null &&
+        (!_transfersReady || _changingWifi || _transfers.length >= 3 || _queue.keys.every(_transfers.containsKey))) {
+      return;
+    }
+    _worker = (_transfer == null ? _runWorker() : _runTransferWorker()).whenComplete(() {
       _worker = null;
       if (ref.mounted) {
-        _publish(clearCurrent: true, waitingForWifi: false);
+        _publish(currentTrackId: _transfers.keys.firstOrNull, clearCurrent: _transfers.isEmpty, waitingForWifi: false);
         if (_queue.isNotEmpty) _startWorker();
       }
     });
     _worker!.ignore();
+  }
+
+  Future<void> _cancelTransfers(Iterable<String> ids) async {
+    if (_transfer == null) return;
+    final removed = ids.toList();
+    for (final id in removed) {
+      _transfers.remove(id);
+    }
+    if (removed.isNotEmpty) await _transfer!.cancel(removed.map((id) => 'offline:$id'));
+    for (final id in removed) {
+      await _deleteFile('${state.directory}/tracks/$id.download');
+    }
+  }
+
+  Future<void> _requeueTransfers() async {
+    try {
+      await _worker;
+      await _serialize(() => _cancelTransfers(_transfers.keys.toList()));
+    } finally {
+      _changingWifi = false;
+      if (ref.mounted) _startWorker();
+    }
+  }
+
+  Future<void> _runTransferWorker() async {
+    final generation = _generation;
+    while (ref.mounted && generation == _generation && !_changingWifi && _transfers.length < 3) {
+      final id = _queue.keys.where((id) => !_transfers.containsKey(id)).firstOrNull;
+      if (id == null) break;
+      final ticket = _queue[id]!;
+      try {
+        final api = ref.read(apiProvider);
+        if (state.isDownloaded(id)) {
+          await _downloadLyrics(api, id, generation, ticket);
+          if (_active(id, generation, ticket)) {
+            await _downloadCover(api, state.tracks[id]!.albumId, generation, CancelToken());
+          }
+          if (_queue[id] == ticket) _queue.remove(id);
+          continue;
+        }
+        final settings = ref.read(offlineSettingsProvider);
+        final format = settings.quality == 'original' ? 'auto' : 'opus';
+        final bitrate = format == 'auto' ? null : (settings.quality == 'high' ? 256 : 160);
+        final task = await _transfer!.createTask(
+          id: id,
+          url: api.streamUrl(id, format: format, bitrate: bitrate),
+          headers: api.mediaHeaders,
+          directory: state.directory!,
+          wifiOnly: settings.wifiOnly,
+          token: '${DateTime.now().microsecondsSinceEpoch}:$ticket',
+        );
+        if (!_active(id, generation, ticket)) continue;
+        _transfers[id] = task;
+        _publish(currentTrackId: _transfers.keys.first);
+        if (!await _transfer!.enqueue(task)) {
+          await _handleTransferUpdate(TaskStatusUpdate(task, TaskStatus.failed));
+        }
+      } catch (_) {
+        if (_queue[id] == ticket) {
+          _transfers.remove(id);
+          _queue.remove(id);
+          await _deleteFile('${state.directory}/tracks/$id.download');
+        }
+      }
+    }
+  }
+
+  Future<void> _handleTransferUpdate(TaskStatusUpdate update) async {
+    final task = update.task;
+    if (!ref.mounted || task.group != 'offline' || !task.taskId.startsWith('offline:')) return;
+    final id = task.taskId.substring('offline:'.length);
+    if (!state.tracks.containsKey(id)) {
+      if (!update.status.isFinalState) await _transfer!.cancel([task.taskId]);
+      await _deleteFile(await task.filePath());
+      return;
+    }
+    // A cancellation may report late, after the same track was re-enqueued.
+    if (_transfers[id]?.metaData != task.metaData || !_transfers.containsKey(id)) return;
+    if (!update.status.isFinalState) return;
+    final generation = _generation;
+    final ticket = _queue[id]!;
+    final path = '${state.directory}/tracks/$id.download';
+    try {
+      if (update.status == TaskStatus.complete) {
+        await _serialize(() async {
+          if (!_active(id, generation, ticket)) return;
+          final source = File(path);
+          if (!await source.exists()) return; // A replay of an already processed completion.
+          final relative = 'tracks/$id.${await _sniffExtension(source)}';
+          final file = await source.rename('${state.directory}/$relative');
+          final previous = state.tracks[id]!;
+          _publish(
+            tracks: {
+              ...state.tracks,
+              id: OfflineTrack(
+                file: relative,
+                size: await file.length(),
+                albumId: previous.albumId,
+                collections: previous.collections,
+              ),
+            },
+          );
+          await _persist();
+        });
+        final api = ref.read(apiProvider);
+        if (_active(id, generation, ticket)) await _downloadLyrics(api, id, generation, ticket);
+        if (_active(id, generation, ticket) && state.isDownloaded(id)) {
+          await _downloadCover(api, state.tracks[id]!.albumId, generation, CancelToken());
+        }
+      } else if (update.status == TaskStatus.failed || update.status == TaskStatus.notFound) {
+        await _deleteFile(path);
+      }
+    } finally {
+      if (_transfers[id]?.metaData == task.metaData) {
+        _transfers.remove(id);
+        if (_queue[id] == ticket) _queue.remove(id);
+      }
+      if (ref.mounted) {
+        _publish(currentTrackId: _transfers.keys.firstOrNull, clearCurrent: _transfers.isEmpty);
+        _startWorker();
+      }
+    }
+  }
+
+  static Future<String> _sniffExtension(File file) async {
+    final input = await file.open();
+    late List<int> bytes;
+    try {
+      bytes = await input.read(12);
+    } finally {
+      await input.close();
+    }
+    bool startsWith(List<int> signature) =>
+        bytes.length >= signature.length && listEquals(bytes.sublist(0, signature.length), signature);
+    if (startsWith([0x66, 0x4c, 0x61, 0x43])) return 'flac';
+    if (startsWith([0x4f, 0x67, 0x67, 0x53])) return 'ogg';
+    if (startsWith([0x49, 0x44, 0x33]) ||
+        (bytes.length >= 2 && bytes[0] == 0xff && ((bytes[1] & 0xf0) == 0xe0 || bytes[1] == 0xfb))) {
+      return 'mp3';
+    }
+    if (bytes.length >= 8 && listEquals(bytes.sublist(4, 8), [0x66, 0x74, 0x79, 0x70])) return 'm4a';
+    return 'audio';
   }
 
   void _signal({bool interruptRetry = false}) {
