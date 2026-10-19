@@ -83,3 +83,19 @@ class TrackLyrics(Base):
     instrumental: Mapped[bool] = mapped_column(default=False)
     source: Mapped[str] = mapped_column(String(16))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TrackMixPoints(Base):
+    """AutoMix analysis of a track's file (tempo and where to mix in and out)."""
+
+    __tablename__ = "track_mixpoints"
+
+    track_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True)
+    version: Mapped[int]
+    # The file's mtime when analyzed; a changed file is analyzed again.
+    mtime: Mapped[float] = mapped_column(Float)
+    bpm: Mapped[float | None] = mapped_column(Float)
+    mix_in: Mapped[float] = mapped_column(Float)
+    mix_out: Mapped[float] = mapped_column(Float)
+    end: Mapped[float] = mapped_column(Float)
+    analyzed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

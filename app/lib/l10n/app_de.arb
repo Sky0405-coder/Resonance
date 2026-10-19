@@ -1170,6 +1170,8 @@
       }
     }
   },
+  "settingsAutomix": "Automix",
+  "settingsAutomixHint": "Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet.",
   "settingsSubsonicTitle": "Andere Musik-Apps (Subsonic)",
   "settingsSubsonicSubtitle": "Nutze Resonance in Apps wie Symfonium oder Feishin",
   "settingsSubsonicConnection": "Server: {serverUrl}\nBenutzername: {username}",

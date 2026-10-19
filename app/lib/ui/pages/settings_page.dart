@@ -212,6 +212,17 @@ class SettingsPage extends ConsumerWidget {
               );
             },
           ),
+          StatefulBuilder(
+            builder: (context, setState) => SwitchListTile(
+              title: Text(context.l10n.settingsAutomix),
+              subtitle: Text(context.l10n.settingsAutomixHint),
+              value: ref.read(playerProvider.notifier).automix,
+              onChanged: (v) {
+                ref.read(playerProvider.notifier).setAutomix(v);
+                setState(() {});
+              },
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.queue_music),
             title: Text(context.l10n.spotifyTitle),

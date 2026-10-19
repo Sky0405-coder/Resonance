@@ -603,6 +603,8 @@
       }
     }
   },
+  "settingsAutomix": "AutoMix",
+  "settingsAutomixHint": "DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade.",
   "settingsSubsonicTitle": "Other music apps (Subsonic)",
   "settingsSubsonicSubtitle": "Use Resonance in apps like Symfonium or Feishin",
   "settingsSubsonicConnection": "Server: {serverUrl}\nUsername: {username}",

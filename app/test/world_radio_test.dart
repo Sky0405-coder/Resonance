@@ -59,6 +59,10 @@ class _Engine implements PlaybackEngine {
   @override
   int crossfadeSeconds = 0;
   @override
+  bool automix = false;
+  @override
+  MixPoints? Function(int index)? mixPointsForIndex;
+  @override
   bool isBook = false;
   @override
   double Function(int)? targetVolumeForIndex;

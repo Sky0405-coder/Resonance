@@ -147,6 +147,7 @@ _EXACT: dict[str, str] = {
     "Lieblingssongs": "Liked Songs",
     "Von Spotify importiert": "Imported from Spotify",
     "Von Apple Music importiert": "Imported from Apple Music",
+    "Ungültige Song-ID": "Invalid song id",
     "Apple Music nicht erreichbar": "Apple Music is unavailable",
     "Aus Resonance exportiert": "Exported from Resonance",
     "Spotify gibt die Songs dieser Playlist nicht frei": "Spotify does not provide the songs in this playlist",

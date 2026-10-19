@@ -170,4 +170,66 @@ void main() {
       }
     });
   });
+
+  group('automix plan', () {
+    MixPoints points({double? bpm, double mixIn = 0.5, double mixOut = 200, double end = 210}) =>
+        MixPoints(bpm: bpm, mixIn: mixIn, mixOut: mixOut, end: end);
+
+    test('matches close tempos and starts the next song at its first beat', () {
+      final plan = automixPlan(points(bpm: 124, mixOut: 200.25), points(bpm: 120, mixIn: 1.5))!;
+      expect(plan.start, const Duration(milliseconds: 200250));
+      expect(plan.incomingStart, const Duration(milliseconds: 1500));
+      expect(plan.duration, const Duration(milliseconds: 9750));
+      expect(plan.speed, closeTo(124 / 120, 1e-9));
+      expect(plan.beatMatched, isTrue);
+    });
+
+    test('folds double and half time', () {
+      expect(automixPlan(points(bpm: 172), points(bpm: 86))!.speed, closeTo(1, 1e-6));
+      expect(automixPlan(points(bpm: 90), points(bpm: 176))!.speed, closeTo(180 / 176, 1e-9));
+      expect(automixPlan(points(bpm: 120), points(bpm: 120))!.beatMatched, isTrue);
+    });
+
+    test('blends without tempo change when tempos are too far apart or unknown', () {
+      expect(automixPlan(points(bpm: 128), points(bpm: 100))!.beatMatched, isFalse);
+      expect(automixPlan(points(), points(bpm: 100))!.speed, 1);
+    });
+
+    test('limits the overlap and skips songs without a usable outro', () {
+      expect(automixPlan(points(mixOut: 100, end: 130), points())!.duration, const Duration(seconds: 14));
+      expect(automixPlan(points(mixOut: 100, end: 102), points())!.duration, const Duration(seconds: 3));
+      expect(automixPlan(points(mixOut: 100, end: 101), points()), isNull);
+      expect(automixPlan(points(mixOut: 0, end: 5), points()), isNull);
+    });
+
+    test('equal-power volumes', () {
+      final (start, _) = automixVolumes(
+        elapsed: Duration.zero,
+        duration: const Duration(seconds: 10),
+        outgoingTarget: 1,
+        incomingTarget: 0.5,
+      );
+      expect(start, 1);
+      final (out, inc) = automixVolumes(
+        elapsed: const Duration(seconds: 5),
+        duration: const Duration(seconds: 10),
+        outgoingTarget: 1,
+        incomingTarget: 1,
+      );
+      expect(out * out + inc * inc, closeTo(1, 1e-9));
+      final (end, last) = automixVolumes(
+        elapsed: const Duration(seconds: 11),
+        duration: const Duration(seconds: 10),
+        outgoingTarget: 1,
+        incomingTarget: 0.5,
+      );
+      expect(end, closeTo(0, 1e-9));
+      expect(last, 0.5);
+    });
+
+    test('reads server json', () {
+      final p = MixPoints.fromJson({'bpm': null, 'mix_in': 1, 'mix_out': 200.5, 'end': 210});
+      expect((p.bpm, p.mixIn, p.mixOut, p.end), (null, 1.0, 200.5, 210.0));
+    });
+  });
 }

@@ -37,6 +37,71 @@ bool shouldStartFade({
     position >= duration - Duration(seconds: crossfadeSeconds) &&
     position < duration;
 
+/// AutoMix analysis of a song from the server (seconds).
+class MixPoints {
+  const MixPoints({required this.bpm, required this.mixIn, required this.mixOut, required this.end});
+  final double? bpm;
+  final double mixIn;
+  final double mixOut;
+  final double end;
+
+  factory MixPoints.fromJson(Map<String, dynamic> j) => MixPoints(
+    bpm: (j['bpm'] as num?)?.toDouble(),
+    mixIn: (j['mix_in'] as num).toDouble(),
+    mixOut: (j['mix_out'] as num).toDouble(),
+    end: (j['end'] as num).toDouble(),
+  );
+}
+
+/// How an AutoMix transition runs: the next song starts at [incomingStart] when the current one reaches [start],
+/// both overlap for [duration], and the next song plays at [speed] meanwhile so the beats line up.
+class AutomixPlan {
+  const AutomixPlan({required this.start, required this.incomingStart, required this.duration, required this.speed});
+  final Duration start;
+  final Duration incomingStart;
+  final Duration duration;
+  final double speed;
+
+  bool get beatMatched => speed != 1;
+}
+
+Duration _seconds(double s) => Duration(microseconds: (s * 1e6).round());
+
+/// Tempos within 8 % (also at double or half time) are matched; otherwise the songs just blend at their mix points.
+AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
+  final overlap = outgoing.end - outgoing.mixOut;
+  if (outgoing.mixOut <= 0 || overlap < 2) return null;
+  var speed = 1.0;
+  if (outgoing.bpm != null && incoming.bpm != null && outgoing.bpm! > 0 && incoming.bpm! > 0) {
+    var ratio = outgoing.bpm! / incoming.bpm!;
+    while (ratio > 1.5) {
+      ratio /= 2;
+    }
+    while (ratio < 0.75) {
+      ratio *= 2;
+    }
+    // A ratio of exactly 1 needs no tempo change but still starts on the beat.
+    if ((ratio - 1).abs() <= 0.08) speed = ratio == 1 ? 1.0000001 : ratio;
+  }
+  return AutomixPlan(
+    start: _seconds(outgoing.mixOut),
+    incomingStart: _seconds(incoming.mixIn),
+    duration: _seconds(overlap.clamp(3, 14).toDouble()),
+    speed: speed,
+  );
+}
+
+/// Equal-power curves keep the loudness steady while both songs play.
+(double, double) automixVolumes({
+  required Duration elapsed,
+  required Duration duration,
+  required double outgoingTarget,
+  required double incomingTarget,
+}) {
+  final t = duration == Duration.zero ? 1.0 : (elapsed.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0);
+  return (outgoingTarget * math.cos(t * math.pi / 2), incomingTarget * math.sin(t * math.pi / 2));
+}
+
 List<T> shuffleQueue<T>(List<T> queue, int currentIndex, {math.Random? random}) {
   final rest = [...queue]..removeAt(currentIndex);
   rest.shuffle(random);
@@ -57,7 +122,7 @@ List<T> shuffleQueue<T>(List<T> queue, int currentIndex, {math.Random? random}) 
 }
 
 class _Fade {
-  _Fade(this.outgoing, this.incoming, this.index, this.duration)
+  _Fade(this.outgoing, this.incoming, this.index, this.duration, {this.plan})
     : outgoingIndex = outgoing.currentIndex,
       outgoingPosition = outgoing.position;
   final AudioPlayer outgoing;
@@ -69,6 +134,13 @@ class _Fade {
   final clock = Stopwatch();
   late final Future<void> ready;
   Timer? timer;
+
+  /// AutoMix: the next song is loaded ahead and only starts at the plan's mix point.
+  final AutomixPlan? plan;
+  bool prepared = false;
+  Timer? startTimer;
+  bool get started => clock.isRunning || clock.elapsed > Duration.zero;
+  final corrected = <int>{};
 }
 
 /// Two independent playlists built from factories; only the active player drives the UI.
@@ -102,6 +174,15 @@ class PlaybackEngine {
           if (fade != null && (player.currentIndex != fade.outgoingIndex || position < fade.outgoingPosition)) {
             finishFade().ignore();
             return;
+          }
+          // Position updates come every ~200 ms; a timer hits the mix point more precisely.
+          if (fade != null && fade.plan != null && fade.prepared && !fade.started && fade.startTimer == null) {
+            final wait = fade.plan!.start - position;
+            if (wait <= const Duration(milliseconds: 400)) {
+              fade.startTimer = Timer(wait.isNegative ? Duration.zero : wait, () {
+                if (_fade == fade && !fade.started && !_disposed) _startAutomix(fade);
+              });
+            }
           }
           // media_kit reports ~20×/s; the UI, Discord and play counting need ~5×/s. Seeks pass right away.
           final last = _lastPosition;
@@ -145,6 +226,14 @@ class PlaybackEngine {
   int crossfadeSeconds = 0;
   bool isBook = false;
   double Function(int index)? targetVolumeForIndex;
+
+  /// AutoMix: beat-matched transitions at analyzed mix points; songs without analysis get a plain crossfade.
+  bool automix = false;
+  MixPoints? Function(int index)? mixPointsForIndex;
+  double _speed = 1;
+  Timer? _speedRamp;
+
+  int get _crossfade => crossfadeSeconds > 0 ? crossfadeSeconds : (automix ? 6 : 0);
 
   void _forward<T>(AudioPlayer player, Stream<T> stream, StreamController<T> controller) {
     _subs.add(
@@ -198,8 +287,9 @@ class PlaybackEngine {
     if (_disposed || _editing || _fade != null || _finishingFade != null) return;
     if (_failedFadeIndex != null && _failedFadeIndex != currentIndex) _failedFadeIndex = null;
     if (_failedFadeIndex == currentIndex) return;
+    if (_checkAutomix()) return;
     if (!shouldStartFade(
-      crossfadeSeconds: crossfadeSeconds,
+      crossfadeSeconds: _crossfade,
       playing: playing,
       isBook: isBook,
       loopMode: loopMode,
@@ -211,9 +301,93 @@ class PlaybackEngine {
       return;
     }
     final next = (currentIndex! + 1) % _sources.length;
-    final fade = _Fade(_active, _inactive, next, Duration(seconds: crossfadeSeconds));
+    final fade = _Fade(_active, _inactive, next, Duration(seconds: _crossfade));
     _fade = fade;
     fade.ready = _prepareFade(fade);
+  }
+
+  /// Load the next song a few seconds before the mix point; true while AutoMix handles this transition.
+  bool _checkAutomix() {
+    final index = currentIndex;
+    final points = mixPointsForIndex;
+    if (!automix || points == null || isBook || index == null || _sources.isEmpty) return false;
+    if (loopMode == LoopMode.one || (index + 1 >= _sources.length && loopMode != LoopMode.all)) return false;
+    final next = (index + 1) % _sources.length;
+    // Looked up early in the song so the analysis can arrive in time.
+    final outgoing = points(index);
+    final incoming = points(next);
+    if (outgoing == null || incoming == null || !playing) return false;
+    final plan = automixPlan(outgoing, incoming);
+    if (plan == null) return false;
+    final ahead = plan.start - const Duration(seconds: 8);
+    if (position < ahead) return true;
+    if (position >= plan.start + const Duration(seconds: 1)) return false;
+    final fade = _Fade(_active, _inactive, next, plan.duration, plan: plan);
+    _fade = fade;
+    fade.ready = _prepareAutomix(fade);
+    return true;
+  }
+
+  Future<void> _prepareAutomix(_Fade fade) async {
+    final index = currentIndex;
+    try {
+      _speedRamp?.cancel();
+      await fade.incoming.setVolume(0);
+      await fade.incoming.load();
+      await fade.incoming.seek(fade.plan!.incomingStart, index: fade.index);
+      await fade.incoming.setSpeed(_speed * fade.plan!.speed);
+      if (_disposed || currentIndex != index || _fade != fade) {
+        if (_fade == fade) _fade = null;
+        return;
+      }
+      fade.prepared = true;
+    } catch (_) {
+      _failedFadeIndex = index;
+      if (_fade == fade) _fade = null;
+    }
+  }
+
+  void _startAutomix(_Fade fade) {
+    final plan = fade.plan!;
+    fade.incoming.play().ignore();
+    fade.clock.start();
+    fade.timer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (fade.clock.elapsed >= fade.duration) {
+        finishFade().ignore();
+        return;
+      }
+      final (outgoing, incoming) = automixVolumes(
+        elapsed: fade.clock.elapsed,
+        duration: fade.duration,
+        outgoingTarget: _targetVolume,
+        incomingTarget: _incomingTarget(fade),
+      );
+      Future.wait([fade.outgoing.setVolume(outgoing), fade.incoming.setVolume(incoming)]).ignore();
+      // Starting playback takes a moment; while the next song is still quiet, line its beats up once or twice.
+      if (!plan.beatMatched) return;
+      for (final at in const [400, 1200]) {
+        if (fade.clock.elapsedMilliseconds >= at && fade.corrected.add(at)) {
+          final expected = plan.incomingStart + (fade.outgoing.position - plan.start) * plan.speed;
+          final error = fade.incoming.position - expected;
+          if (error.abs() > const Duration(milliseconds: 20) && error.abs() < const Duration(seconds: 2)) {
+            fade.incoming.seek(expected + const Duration(milliseconds: 10)).ignore();
+          }
+        }
+      }
+    });
+  }
+
+  /// After a beat-matched transition the new song drifts back to its own tempo.
+  void _rampSpeed(AudioPlayer player, double from) {
+    _speedRamp?.cancel();
+    const steps = 32;
+    var step = 0;
+    _speedRamp = Timer.periodic(const Duration(milliseconds: 250), (timer) {
+      step++;
+      final done = step >= steps || player != _active || _disposed;
+      player.setSpeed(done ? _speed : from + (_speed - from) * step / steps).ignore();
+      if (done) timer.cancel();
+    });
   }
 
   Future<void> _prepareFade(_Fade fade) async {
@@ -271,6 +445,15 @@ class PlaybackEngine {
     await fade.ready;
     if (_fade != fade || _disposed) return;
     fade.timer?.cancel();
+    fade.startTimer?.cancel();
+    if (!fade.started) {
+      // A user action (or the song ending early) came before the mix point: drop the preloaded next song.
+      _fade = null;
+      _emitCurrent();
+      await fade.incoming.pause();
+      await fade.incoming.setSpeed(_speed);
+      return;
+    }
     _editing = true;
     try {
       await fade.outgoing.pause();
@@ -279,6 +462,7 @@ class PlaybackEngine {
       await fade.incoming.setVolume(_targetVolume);
       _activeIndex = 1 - _activeIndex;
       _fade = null;
+      if (fade.plan?.beatMatched ?? false) _rampSpeed(fade.incoming, _speed * fade.plan!.speed);
     } finally {
       _editing = false;
       _emitCurrent();
@@ -322,7 +506,11 @@ class PlaybackEngine {
     await Future.wait(_players.map((p) => p.setLoopMode(mode)));
   }
 
-  Future<void> setSpeed(double speed) => Future.wait(_players.map((p) => p.setSpeed(speed)));
+  Future<void> setSpeed(double speed) {
+    _speed = speed;
+    _speedRamp?.cancel();
+    return Future.wait(_players.map((p) => p.setSpeed(speed)));
+  }
 
   Future<void> setVolume(double volume) async {
     _targetVolume = volume;
@@ -384,6 +572,8 @@ class PlaybackEngine {
   Future<void> dispose() async {
     _disposed = true;
     _fade?.timer?.cancel();
+    _fade?.startTimer?.cancel();
+    _speedRamp?.cancel();
     for (final sub in _subs) {
       await sub.cancel();
     }

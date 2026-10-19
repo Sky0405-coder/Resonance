@@ -1856,6 +1856,13 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get settingsAutomix => 'Automix';
+
+  @override
+  String get settingsAutomixHint =>
+      'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet.';
+
+  @override
   String get settingsSubsonicTitle => 'Andere Musik-Apps (Subsonic)';
 
   @override

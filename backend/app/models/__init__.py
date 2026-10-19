@@ -11,7 +11,7 @@ from app.models.collection import (
 )
 from app.models.downloads import DownloadItem, DownloadRequest, QualityUpgradeAttempt
 from app.models.imports import ImportBatch, ImportFile
-from app.models.library import Album, Artist, Track, TrackLyrics
+from app.models.library import Album, Artist, Track, TrackLyrics, TrackMixPoints
 from app.models.spotify import (
     SpotifyAccount,
     SpotifyImport,
@@ -57,5 +57,6 @@ __all__ = [
     "Track",
     "TrackLike",
     "TrackLyrics",
+    "TrackMixPoints",
     "User",
 ]

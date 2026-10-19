@@ -1,3 +1,4 @@
+import '../player/engine.dart' show MixPoints;
 import 'package:flutter/widgets.dart';
 
 import '../l10n/locale.dart';
@@ -387,6 +388,12 @@ class ApiClient {
   Future<void> runQualityUpgrades() => _post('/api/admin/upgrades/run');
 
   // --- Ebooks (/api/books) ------------------------------------------------
+
+  /// AutoMix analysis per track id (null where a song cannot be analyzed).
+  Future<Map<String, MixPoints?>> mixPoints(List<String> ids) async {
+    final j = await _get('/api/mixpoints', {'ids': ids.join(',')}) as Map<String, dynamic>;
+    return {for (final e in j.entries) e.key: e.value == null ? null : MixPoints.fromJson(e.value)};
+  }
 
   Future<dynamic> booksGet(String path, [Map<String, dynamic>? query]) => _get('/api/books$path', query);
   Future<dynamic> booksPost(String path, [Object? body]) => _post('/api/books$path', body);

@@ -133,6 +133,11 @@ class PlayerController extends Notifier<PlayerView> {
   JamRouter? jam;
   Duration Function()? _jamPosition;
   int? _crossfadeBeforeJam;
+  bool? _automixBeforeJam;
+
+  // AutoMix analyses by track id; null once the server could not provide one.
+  final _mixPoints = <String, MixPoints?>{};
+  final _mixPointsLoading = <String>{};
 
   /// Expected position of the Jam's current song (used while not listening on this device).
   Duration get jamPosition => _jamPosition?.call() ?? Duration.zero;
@@ -155,6 +160,8 @@ class PlayerController extends Notifier<PlayerView> {
     userVolume.value = (prefs.getDouble('user_volume') ?? 1).clamp(0, 1);
     engine.crossfadeSeconds = (prefs.getInt('crossfade_seconds') ?? 0).clamp(0, 12);
     engine.targetVolumeForIndex = (index) => userVolume.value * _gainForTrack(state.queue[index]);
+    engine.automix = prefs.getBool('automix') ?? false;
+    engine.mixPointsForIndex = _mixPointsFor;
     _subs.addAll([
       engine.playerStateStream.listen((s) {
         if (_switching || state.jamRemote) return;
@@ -551,6 +558,8 @@ class PlayerController extends Notifier<PlayerView> {
     _jamPosition = expected;
     _crossfadeBeforeJam ??= engine.crossfadeSeconds;
     engine.crossfadeSeconds = 0;
+    _automixBeforeJam ??= engine.automix;
+    engine.automix = false;
     final queue = List<Track>.unmodifiable(tracks);
     final current = index >= 0 && index < queue.length ? index : null;
     if (!listen || current == null) {
@@ -622,6 +631,8 @@ class PlayerController extends Notifier<PlayerView> {
     _jamPosition = null;
     if (_crossfadeBeforeJam != null) engine.crossfadeSeconds = _crossfadeBeforeJam!;
     _crossfadeBeforeJam = null;
+    if (_automixBeforeJam != null) engine.automix = _automixBeforeJam!;
+    _automixBeforeJam = null;
     await engine.pause();
     state = PlayerView(
       queue: state.jamRemote ? const [] : state.queue,
@@ -767,6 +778,50 @@ class PlayerController extends Notifier<PlayerView> {
     engine.crossfadeSeconds = seconds.clamp(0, 12);
     if (engine.crossfadeSeconds == 0) engine.finishFade().ignore();
     ref.read(prefsProvider).setInt('crossfade_seconds', engine.crossfadeSeconds);
+  }
+
+  bool get automix => _automixBeforeJam ?? engine.automix;
+
+  void setAutomix(bool enabled) {
+    ref.read(prefsProvider).setBool('automix', enabled);
+    if (_automixBeforeJam != null) {
+      _automixBeforeJam = enabled;
+      return;
+    }
+    engine.automix = enabled;
+    if (!enabled) engine.finishFade().ignore();
+  }
+
+  MixPoints? _mixPointsFor(int index) {
+    if (index >= state.queue.length) return null;
+    final id = state.queue[index].id;
+    if (_mixPoints.containsKey(id)) return _mixPoints[id];
+    _loadMixPoints(index);
+    return null;
+  }
+
+  /// Fetch the analyses of this and the next two songs (the server analyzes new ones in about a second each).
+  Future<void> _loadMixPoints(int index) async {
+    final ids = [
+      for (var i = index; i < math.min(index + 3, state.queue.length); i++)
+        if (!_mixPoints.containsKey(state.queue[i].id) && !_mixPointsLoading.contains(state.queue[i].id))
+          state.queue[i].id,
+    ];
+    if (ids.isEmpty) return;
+    _mixPointsLoading.addAll(ids);
+    try {
+      final result = await _api.mixPoints(ids);
+      for (final id in ids) {
+        _mixPoints[id] = result[id];
+      }
+    } catch (_) {
+      // Offline or an older server: these songs get a plain crossfade.
+      for (final id in ids) {
+        _mixPoints[id] = null;
+      }
+    } finally {
+      _mixPointsLoading.removeAll(ids);
+    }
   }
 
   void setUserVolume(double v) {

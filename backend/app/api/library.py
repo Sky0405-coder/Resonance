@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
@@ -26,7 +27,7 @@ from app.schemas import (
     SearchResult,
     TrackOut,
 )
-from app.services import covers, transcode
+from app.services import covers, mixpoints, transcode
 from app.services.deezer import DeezerError, deezer
 from app.services.downloads import create_redownload
 from app.services.lyrics import get_lyrics
@@ -321,6 +322,20 @@ async def stream_track(
         transcode.stream(path, format, bitrate or 160),
         media_type=transcode.FORMAT_MEDIA_TYPES[format],
     )
+
+
+# --- AutoMix ----------------------------------------------------------------
+
+
+@router.get("/mixpoints")
+async def get_mixpoints(user: CurrentUser, db: DB, ids: str = Query(max_length=400)) -> dict[str, dict | None]:
+    """Tempo and mix points for AutoMix, keyed by track id (null when a track cannot be analyzed)."""
+    try:
+        track_ids = list(dict.fromkeys(uuid.UUID(value) for value in ids.split(",") if value))[:10]
+    except ValueError as e:
+        raise HTTPException(422, "Ungültige Song-ID") from e
+    points = await mixpoints.for_tracks(db, track_ids)
+    return {str(id): None if p is None else dataclasses.asdict(p) for id, p in points.items()}
 
 
 # --- search -----------------------------------------------------------------

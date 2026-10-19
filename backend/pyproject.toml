@@ -20,6 +20,7 @@ dependencies = [
     "ytmusicapi>=1.10",
     "rapidfuzz>=3.9",
     "defusedxml>=0.7",
+    "numpy>=2.1",
 ]
 
 [project.optional-dependencies]

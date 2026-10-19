@@ -3296,6 +3296,18 @@ abstract class AppLocalizations {
   /// **'{seconds} s'**
   String settingsCrossfadeSeconds(int seconds);
 
+  /// No description provided for @settingsAutomix.
+  ///
+  /// In de, this message translates to:
+  /// **'Automix'**
+  String get settingsAutomix;
+
+  /// No description provided for @settingsAutomixHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet.'**
+  String get settingsAutomixHint;
+
   /// No description provided for @settingsSubsonicTitle.
   ///
   /// In de, this message translates to:

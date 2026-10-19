@@ -1881,6 +1881,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsAutomix => 'AutoMix';
+
+  @override
+  String get settingsAutomixHint =>
+      'DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade.';
+
+  @override
   String get settingsSubsonicTitle => 'Other music apps (Subsonic)';
 
   @override
