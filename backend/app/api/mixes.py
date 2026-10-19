@@ -30,7 +30,7 @@ async def _out(db: DB, user: CurrentUser, lang: str) -> MixesOut:
             discover = item
         elif (playlist.mix_key or "").startswith("genre:"):
             genres.append(item)
-        elif (playlist.mix_key or "").startswith("decade:"):
+        elif (playlist.mix_key or "").startswith(("decade:", "era:")):
             decades.append(item)
         else:
             made_for_you.append(item)

@@ -73,6 +73,10 @@ def decade_label(decade: int) -> str:
 
 def mix_search_terms(mix_key: str | None) -> list[str]:
     """Extra words a mix is found by in the search, e.g. "80s" or "achtziger" for the 80er Mix."""
+    if mix_key and mix_key.startswith("era:"):
+        _, decade, genre = mix_key.split(":", 2)
+        names = {genre, GENRE_NAMES.get(genre, genre.title()), genre.replace(" ", "-")}
+        return [f"{term} {name}" for term in mix_search_terms(f"decade:{decade}") for name in names]
     if not mix_key or not mix_key.startswith("decade:"):
         return []
     decade = int(mix_key.split(":", 1)[1])
@@ -426,23 +430,67 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
         "new-music", "Neuheiten-Mix", "Neue Songs deiner Lieblingskünstler und frisch in der Bibliothek", fresh
     )
 
-    by_decade: dict[int, list[Track]] = defaultdict(list)
-    for track in tracks:
-        year = track.year or track.album.year
-        if year and 1950 <= year <= now.year:
-            by_decade[year // 10 * 10].append(track)
-    for decade in sorted(decade for decade, decade_tracks in by_decade.items() if len(decade_tracks) >= 15):
-        key = f"decade:{decade}"
+    def pick(key: str, pool: list[Track], *, shuffle: bool = True) -> list[Track]:
+        """Up to 15 of the user's favourites from the pool first, then random others; 50 at most."""
         rng = random.Random(f"{user.id}:{date.today()}:{key}")
-        candidates = list(by_decade[decade])
+        candidates = list(pool)
         rng.shuffle(candidates)
         preferred = sorted(
             (track for track in candidates if scores[track.id] > 0), key=lambda track: -scores[track.id]
         )[:15]
         preferred_ids = {track.id for track in preferred}
         chosen = [*preferred, *(track for track in candidates if track.id not in preferred_ids)][:50]
+        if shuffle:
+            rng.shuffle(chosen)
+        return chosen
+
+    # Spotify's "On Repeat": what the user played most in the last 30 days.
+    repeat_counts = dict(
+        (
+            await db.execute(
+                select(PlayEvent.track_id, func.count())
+                .where(
+                    PlayEvent.user_id == user.id,
+                    PlayEvent.played_at >= now - timedelta(days=30),
+                    PlayEvent.seconds_played >= 30,
+                )
+                .group_by(PlayEvent.track_id)
+                .having(func.count() >= 2)
+            )
+        ).all()
+    )
+    on_repeat = sorted(
+        (track for track in tracks if track.id in repeat_counts), key=lambda t: (-repeat_counts[t.id], t.id)
+    )[:30]
+    await write("on-repeat", "Auf Repeat", "Deine meistgehörten Songs der letzten 30 Tage", on_repeat)
+
+    # Artist mixes: a favourite artist plus similar artists from the library.
+    for artist_id in favourites[:6]:
+        rng = random.Random(f"{user.id}:{date.today()}:artist:{artist_id}")
+        own = list(by_artist[artist_id])
+        rng.shuffle(own)
+        chosen = own[:20]
+        for related_id in [other for other in await related_artists([artist_id]) if other != artist_id][:10]:
+            others = list(by_artist[related_id])
+            rng.shuffle(others)
+            chosen.extend(others[:3])
+        if len(chosen) < 12:
+            continue
         rng.shuffle(chosen)
+        name = artists[artist_id].name
+        await write(f"artist:{artist_id}", f"{name} Mix", f"{name} und ähnliche Künstler", chosen)
+
+    by_decade: dict[int, list[Track]] = defaultdict(list)
+    decade_of: dict[uuid.UUID, int] = {}
+    for track in tracks:
+        year = track.year or track.album.year
+        if year and 1950 <= year <= now.year:
+            by_decade[year // 10 * 10].append(track)
+            decade_of[track.id] = year // 10 * 10
+    for decade in sorted(decade for decade, decade_tracks in by_decade.items() if len(decade_tracks) >= 15):
         label = decade_label(decade)
+        key = f"decade:{decade}"
+        chosen = pick(key, by_decade[decade])
         await write(key, f"{label} Mix", f"Das Beste aus den {label}n in deiner Bibliothek", chosen)
 
     genres = sorted(
@@ -451,16 +499,29 @@ async def generate_mixes(db: AsyncSession, user: User) -> None:
     )[:12]
     for genre in genres:
         key = f"genre:{genre}"
-        rng = random.Random(f"{user.id}:{date.today()}:{key}")
-        candidates = list(by_genre[genre])
-        rng.shuffle(candidates)
-        preferred = sorted(
-            (track for track in candidates if scores[track.id] > 0), key=lambda track: -scores[track.id]
-        )[:15]
-        preferred_ids = {track.id for track in preferred}
-        chosen = [*preferred, *(track for track in candidates if track.id not in preferred_ids)][:50]
         display = GENRE_NAMES.get(genre, genre.title())
+        chosen = pick(key, by_genre[genre], shuffle=False)
         await write(key, f"{display} Mix", f"Das Beste aus {display} in deiner Bibliothek", chosen)
+
+    # Genre by decade ("90er Hip-Hop", like Spotify's and Apple Music's era playlists). Skipped where the genre or
+    # the decade mix would hold practically the same songs.
+    eras: list[tuple[int, str, list[Track]]] = []
+    for genre in genres:
+        per_decade: dict[int, list[Track]] = defaultdict(list)
+        for track in by_genre[genre]:
+            if track.id in decade_of:
+                per_decade[decade_of[track.id]].append(track)
+        for decade, era_tracks in per_decade.items():
+            if len(era_tracks) < 15 or len(era_tracks) >= 0.9 * min(len(by_genre[genre]), len(by_decade[decade])):
+                continue
+            eras.append((decade, genre, era_tracks))
+    eras.sort(key=lambda era: (-len(era[2]), era[0], era[1]))
+    for decade, genre, era_tracks in eras[:16]:
+        label = decade_label(decade)
+        display = GENRE_NAMES.get(genre, genre.title())
+        key = f"era:{decade}:{genre}"
+        chosen = pick(key, era_tracks)
+        await write(key, f"{label} {display}", f"{display} aus den {label}n in deiner Bibliothek", chosen)
 
     await db.execute(
         delete(Playlist).where(

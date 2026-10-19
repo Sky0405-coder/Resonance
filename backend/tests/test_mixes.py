@@ -29,6 +29,7 @@ from app.models import (
 from app.services import mixes
 from app.services.deezer import DeezerError, deezer
 from app.services.matching import name_key
+from app.services.server_config import update_config
 from tests.conftest import auth, register
 
 
@@ -704,3 +705,50 @@ async def test_search_finds_mixes_and_playlists(env: SimpleNamespace) -> None:
         assert [row["name"] for row in response.json()["playlists"]] == expected, q
     response = await env.client.get("/api/search", params={"q": "80s"}, headers={**env.headers, "Accept-Language": "en"})
     assert [row["name"] for row in response.json()["playlists"]] == ["80s Mix", "Party 80s"]
+
+
+async def test_era_artist_and_on_repeat_mixes(env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        rap90 = await library(db, "Rapper", "Hip-Hop", 16)
+        rap10 = await library(db, "New Rapper", "Hip-Hop", 16)
+        rock90 = await library(db, "Rocker", "Rock", 20)
+        for track in rap90 + rock90:
+            track.year = 1995
+        for track in rap10:
+            track.year = 2015
+        for track in rap90[:3]:
+            plays(db, env.user_id, track, 2, days=3)
+        plays(db, env.user_id, rap90[3], 1, days=3)
+        plays(db, env.user_id, rap90[4], 5, days=40)
+        like(db, env.user_id, rap90[5])
+        await db.commit()
+        env.related = [{"id": "New Rapper", "name": "New Rapper"}]
+        # Keep the weekly mix (Deezer top tracks) out of this test.
+        await update_config(db, {"mixes": {"discover_enabled": False}})
+        await mixes.generate_mixes(db, await db.get(User, env.user_id))
+        result = await generated(db, env.user_id)
+        # The 90s rock is all of the rock and the 2010s hip-hop all of that decade: no "90er Rock" or "2010er Hip-Hop".
+        assert {key for key in result if key.startswith("era:")} == {"era:1990:hip hop"}
+        era = result["era:1990:hip hop"]
+        assert (era.name, era.description) == ("90er Hip-Hop", "Hip-Hop aus den 90ern in deiner Bibliothek")
+        assert {row.track_id for row in await entries(db, era)} == {track.id for track in rap90}
+        # Only songs played at least twice in the last 30 days, most played first.
+        assert result.get("on-repeat") is None
+        plays(db, env.user_id, rap90[6], 3, days=1)
+        plays(db, env.user_id, rap90[7], 2, days=1)
+        await db.commit()
+        await mixes.generate_mixes(db, await db.get(User, env.user_id))
+        result = await generated(db, env.user_id)
+        on_repeat = [row.track_id for row in await entries(db, result["on-repeat"])]
+        assert on_repeat[0] == rap90[6].id and set(on_repeat) == {t.id for t in [*rap90[:3], rap90[6], rap90[7]]}
+        rapper = await db.scalar(select(Track.artist_id).where(Track.id == rap90[0].id))
+        artist_mix = result[f"artist:{rapper}"]
+        assert (artist_mix.name, artist_mix.description) == ("Rapper Mix", "Rapper und ähnliche Künstler")
+        ids = {row.track_id for row in await entries(db, artist_mix)}
+        assert {t.id for t in rap90} <= ids and len(ids & {t.id for t in rap10}) == 3
+    body = (await env.client.get("/api/mixes", headers={**env.headers, "Accept-Language": "en"})).json()
+    names = [row["name"] for row in body["decades"]]
+    assert "90s Hip-Hop" in names and "2010s Mix" in names
+    assert "On Repeat" in [row["name"] for row in body["made_for_you"]]
+    response = await env.client.get("/api/search", params={"q": "90s hip hop"}, headers=env.headers)
+    assert [row["name"] for row in response.json()["playlists"]] == ["90er Hip-Hop"]
