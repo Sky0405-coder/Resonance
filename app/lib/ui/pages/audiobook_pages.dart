@@ -47,7 +47,10 @@ Future<void> _play(BuildContext context, WidgetRef ref, AbsItem item, {double? s
 
 /// Bottom tab "Hörbücher": Audiobookshelf libraries of the linked account.
 class AudiobooksPage extends ConsumerWidget {
-  const AudiobooksPage({super.key});
+  const AudiobooksPage({super.key, this.embedded = false});
+
+  /// Shown as a tab of the books page, which already has the heading.
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -62,7 +65,7 @@ class AudiobooksPage extends ConsumerWidget {
           );
         }
         if (!s.linked) return _LoginView(status: s);
-        return const _LibraryView();
+        return _LibraryView(embedded: embedded);
       },
     );
   }
@@ -152,7 +155,8 @@ class _LoginViewState extends ConsumerState<_LoginView> {
 }
 
 class _LibraryView extends ConsumerStatefulWidget {
-  const _LibraryView();
+  const _LibraryView({required this.embedded});
+  final bool embedded;
 
   @override
   ConsumerState<_LibraryView> createState() => _LibraryViewState();
@@ -201,36 +205,20 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
           },
           child: CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 24 + MediaQuery.paddingOf(context).top, 8, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(context.l10n.navAudiobooks, style: Theme.of(context).textTheme.headlineMedium),
-                      ),
-                      PopupMenuButton<String>(
-                        useRootNavigator: true,
-                        icon: const Icon(Icons.more_vert),
-                        onSelected: (_) async {
-                          await ref.read(apiProvider).absLogout();
-                          ref.invalidate(absStatusProvider);
-                        },
-                        itemBuilder: (_) => [
-                          PopupMenuItem(
-                            value: 'logout',
-                            child: Text(
-                              context.l10n.audiobooksSignOutUser(
-                                (ref.read(absStatusProvider).value?.username ?? '').toString(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+              if (!widget.embedded)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 24 + MediaQuery.paddingOf(context).top, 8, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(context.l10n.navAudiobooks, style: Theme.of(context).textTheme.headlineMedium),
+                        ),
+                        const _AccountMenu(),
+                      ],
+                    ),
                   ),
                 ),
-              ),
               if (books.length > 1)
                 SliverToBoxAdapter(
                   child: Padding(
@@ -294,6 +282,7 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                               }),
                             ),
                           ),
+                        if (widget.embedded) const _AccountMenu(),
                       ],
                     ),
                   ),
@@ -370,6 +359,27 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
       },
     );
   }
+}
+
+/// Sign out of the linked Audiobookshelf account.
+class _AccountMenu extends ConsumerWidget {
+  const _AccountMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => PopupMenuButton<String>(
+    useRootNavigator: true,
+    icon: const Icon(Icons.more_vert),
+    onSelected: (_) async {
+      await ref.read(apiProvider).absLogout();
+      ref.invalidate(absStatusProvider);
+    },
+    itemBuilder: (_) => [
+      PopupMenuItem(
+        value: 'logout',
+        child: Text(context.l10n.audiobooksSignOutUser((ref.read(absStatusProvider).value?.username ?? '').toString())),
+      ),
+    ],
+  );
 }
 
 class _BookGrid extends StatelessWidget {

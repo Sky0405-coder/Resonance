@@ -90,23 +90,57 @@ class BooksHubPage extends ConsumerWidget {
     final ebooks = ref.watch(ebooksVisibleProvider);
     final audiobooks = ref.watch(absStatusProvider).value?.enabled ?? false;
     if (!ebooks) return const AudiobooksPage();
-    if (!audiobooks) return const _EbooksView();
+    final title = Text(context.l10n.navBooks, style: const TextStyle(fontWeight: FontWeight.w800));
+    if (!audiobooks) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(title: title, actions: const [_EbookActions()]),
+        body: const _EbooksView(),
+      );
+    }
     return DefaultTabController(
       length: 2,
-      child: Column(
-        children: [
-          SafeArea(
-            bottom: false,
-            child: TabBar(
-              tabs: [
-                Tab(text: context.l10n.booksEbooks),
-                Tab(text: context.l10n.navAudiobooks),
-              ],
-            ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: title,
+          actions: const [_EbookActions()],
+          bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: context.l10n.booksEbooks),
+              Tab(text: context.l10n.navAudiobooks),
+            ],
           ),
-          const Expanded(child: TabBarView(children: [_EbooksView(), AudiobooksPage()])),
-        ],
+        ),
+        body: const TabBarView(children: [_EbooksView(), AudiobooksPage(embedded: true)]),
       ),
+    );
+  }
+}
+
+/// Requests (with a badge for running ones) and import, like the downloads button in the library.
+class _EbookActions extends ConsumerWidget {
+  const _EbookActions();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final active = ref.watch(bookRequestsProvider(false)).value?.where((r) => r.active).length ?? 0;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: context.l10n.booksRequests,
+          icon: Badge(isLabelVisible: active > 0, label: Text('$active'), child: const Icon(Icons.download_outlined)),
+          onPressed: () => context.push('/books/requests'),
+        ),
+        IconButton(
+          tooltip: context.l10n.booksImport,
+          icon: const Icon(Icons.upload_file_outlined),
+          onPressed: () => showBookImport(context, ref),
+        ),
+      ],
     );
   }
 }
@@ -117,108 +151,145 @@ class _EbooksView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recent = ref.watch(bookLibraryProvider((q: null, author: null, series: null, sort: 'added')));
+    final all = ref.watch(bookLibraryProvider((q: null, author: null, series: null, sort: 'title')));
     final requests = ref.watch(bookRequestsProvider(false));
     final active = requests.value?.where((r) => r.active).toList() ?? const <BookRequest>[];
+    final heading = Theme.of(context).textTheme.titleLarge;
+    final books = all.value ?? const <Book>[];
     return RefreshIndicator(
       onRefresh: () async {
         _refreshLibrary(ref);
         ref.invalidate(bookRequestsProvider);
       },
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, kBottomInset),
-        children: [
-          SafeArea(
-            bottom: false,
-            child: TextField(
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: context.l10n.booksSearchHint,
-                filled: true,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(hintText: context.l10n.booksSearchHint, prefixIcon: const Icon(Icons.search)),
+                onSubmitted: (q) {
+                  if (q.trim().isNotEmpty) context.push('/books/search?q=${Uri.encodeQueryComponent(q.trim())}');
+                },
               ),
-              onSubmitted: (q) {
-                if (q.trim().isNotEmpty) context.push('/books/search?q=${Uri.encodeQueryComponent(q.trim())}');
-              },
             ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ActionChip(
-                avatar: const Icon(Icons.person_outline, size: 18),
-                label: Text(context.l10n.booksAuthors),
-                onPressed: () => context.push('/books/authors'),
+          SliverToBoxAdapter(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  for (final (icon, label, route) in [
+                    (Icons.person_outline, context.l10n.booksAuthors, '/books/authors'),
+                    (Icons.collections_bookmark_outlined, context.l10n.booksSeries, '/books/series'),
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        avatar: Icon(icon, size: 18),
+                        label: Text(label),
+                        onPressed: () => context.push(route),
+                      ),
+                    ),
+                ],
               ),
-              ActionChip(
-                avatar: const Icon(Icons.collections_bookmark_outlined, size: 18),
-                label: Text(context.l10n.booksSeries),
-                onPressed: () => context.push('/books/series'),
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.download_outlined, size: 18),
-                label: Text(context.l10n.booksRequests),
-                onPressed: () => context.push('/books/requests'),
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.upload_file, size: 18),
-                label: Text(context.l10n.booksImport),
-                onPressed: () => showBookImport(context, ref),
-              ),
-            ],
+            ),
           ),
-          if (active.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text(context.l10n.booksRequests, style: Theme.of(context).textTheme.titleLarge),
-            for (final r in active) _RequestTile(request: r, admin: false),
-          ],
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(child: Text(context.l10n.booksRecent, style: Theme.of(context).textTheme.titleLarge)),
-              TextButton(onPressed: () => context.push('/books/list'), child: Text(context.l10n.booksAll)),
-            ],
+          if (active.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.booksRequests, style: heading),
+                    for (final r in active) _RequestTile(request: r, admin: false),
+                  ],
+                ),
+              ),
+            ),
+          // With a small library the shelf would only repeat the grid below.
+          if (books.length > 12)
+            SliverToBoxAdapter(
+              child: _BookShelf(title: context.l10n.booksRecent, books: (recent.value ?? const []).take(20).toList()),
+            ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+              child: Text(context.l10n.booksAll, style: heading),
+            ),
           ),
-          const SizedBox(height: 8),
-          AsyncBody(
-            value: recent,
-            onRetry: () => ref.invalidate(bookLibraryProvider),
-            builder: (books) => books.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 32),
-                    child: Text(
-                      context.l10n.booksEmptyLibrary,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Palette.textMuted),
+          all.when(
+            loading: () => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
+            error: (e, _) => SliverToBoxAdapter(
+              child: ListTile(leading: const Icon(Icons.error_outline), title: Text('$e')),
+            ),
+            data: (list) => list.isEmpty
+                ? SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(32, 24, 32, 0),
+                      child: Text(
+                        context.l10n.booksEmptyLibrary,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Palette.textMuted),
+                      ),
                     ),
                   )
-                : _BookGrid(books: books.take(30).toList()),
+                : SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    sliver: SliverGrid.builder(
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 170,
+                        childAspectRatio: 0.5,
+                      ),
+                      itemCount: list.length,
+                      itemBuilder: (_, i) => _BookCard(book: list[i]),
+                    ),
+                  ),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
         ],
       ),
     );
   }
 }
 
-class _BookGrid extends StatelessWidget {
-  const _BookGrid({required this.books});
+/// Horizontal row of book cards with a heading, like the music shelves on the home page.
+class _BookShelf extends StatelessWidget {
+  const _BookShelf({required this.title, required this.books});
+  final String title;
   final List<Book> books;
 
   @override
-  Widget build(BuildContext context) => GridView.builder(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-      maxCrossAxisExtent: 160,
-      childAspectRatio: 0.48,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-    ),
-    itemCount: books.length,
-    itemBuilder: (_, i) => _BookCard(book: books[i]),
-  );
+  Widget build(BuildContext context) {
+    if (books.isEmpty) return const SizedBox.shrink();
+    const width = 140.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+        ),
+        SizedBox(
+          height: (width - 20) * 1.5 + 80,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            itemCount: books.length,
+            itemBuilder: (_, i) => SizedBox(width: width, child: _BookCard(book: books[i])),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _BookCard extends StatelessWidget {
@@ -226,28 +297,11 @@ class _BookCard extends StatelessWidget {
   final Book book;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(6),
+  Widget build(BuildContext context) => MediaCard(
+    image: BookCover(bookId: book.hasCover ? book.id : null),
+    title: book.title,
+    subtitle: book.authorText,
     onTap: () => context.push('/books/item/${book.id}'),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        BookCover(bookId: book.hasCover ? book.id : null),
-        const SizedBox(height: 6),
-        Text(
-          book.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        Text(
-          book.authorText,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Palette.textMuted, fontSize: 13),
-        ),
-      ],
-    ),
   );
 }
 
