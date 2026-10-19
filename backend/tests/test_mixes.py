@@ -986,7 +986,7 @@ async def test_chart_download_errors_and_empty_taste(charts: SimpleNamespace, st
 @pytest.mark.parametrize("limit", [-1, 101])
 def test_charts_config_download_bounds(limit: int) -> None:
     assert ServerConfig().mixes.charts_enabled
-    assert ServerConfig().mixes.charts_downloads == 30
+    assert ServerConfig().mixes.charts_downloads == 100
     with pytest.raises(ValidationError):
         ServerConfig.model_validate({"mixes": {"charts_downloads": limit}})
 
@@ -1018,3 +1018,27 @@ async def test_chart_playlist_entries_carry_their_rank(charts: SimpleNamespace) 
         (tracks[1].title, 1),
         (tracks[0].title, 3),
     ]
+
+
+async def test_scheduler_requests_chart_songs_after_the_app_built_the_mixes(charts: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        tracks = await library(db, "Chart", None, 1)
+        charts.charts = {
+            id: [chart_candidate("101", tracks[0].title), chart_candidate("201"), chart_candidate("202")]
+            for _, id in mixes.CHARTS.values()
+        }
+        await db.commit()
+    # The app built today's mixes first: nothing requested, nothing pending.
+    assert (await charts.client.get("/api/mixes", headers=charts.headers)).status_code == 200
+    assert charts.downloads == []
+    await mixes.refresh_chart_downloads()
+    assert sorted(download[0] for download in charts.downloads) == ["201", "202"]
+    assert {download[1] for download in charts.downloads} == {charts.user_id}
+    async with SessionLocal() as db:
+        de = (await generated(db, charts.user_id))["chart:de"]
+        assert await chart_pending(db, de) == [("201", 2), ("202", 3)]
+    # Once per day; pending rows are not duplicated.
+    await mixes.refresh_chart_downloads()
+    assert len(charts.downloads) == 2
+    async with SessionLocal() as db:
+        assert len(await chart_pending(db, (await generated(db, charts.user_id))["chart:de"])) == 2

@@ -24,6 +24,7 @@ from app.models import (
     Playlist,
     PlaylistEntry,
     RadioPending,
+    Role,
     Track,
     TrackLike,
     User,
@@ -67,6 +68,79 @@ async def _chart_downloads(db: AsyncSession, ids: list[str], now: datetime) -> s
             )
         )
     )
+
+
+async def _request_chart_songs(
+    db: AsyncSession, user: User, key: str, unmatched: dict[str, float], now: datetime
+) -> None:
+    """Request missing chart songs (shared by all users, once per chart and day)."""
+    cfg = await load_config(db)
+    today = date.today()
+    async with _chart_request_lock:
+        if _chart_requested.get(key) == today:
+            return
+        known = await _chart_downloads(db, list(unmatched), now)
+        requested = 0
+        for deezer_id in unmatched:
+            if deezer_id in known:
+                continue
+            if requested >= cfg.mixes.charts_downloads:
+                break
+            requested += 1
+            try:
+                await create_request(
+                    db, user, "track", deezer_id, temporary=cfg.radio.temporary_tracks_enabled, radio=True
+                )
+            except HTTPException as exc:
+                if exc.status_code == 429:
+                    break
+        _chart_requested[key] = today
+
+
+async def refresh_chart_downloads() -> None:
+    """Scheduler: request the day's missing chart songs even when the app already built today's mixes, and queue
+    them for every chart playlist so they appear at their place once downloaded."""
+    async with SessionLocal() as db:
+        cfg = await load_config(db)
+        today = date.today()
+        if not cfg.mixes.charts_enabled or cfg.mixes.charts_downloads <= 0:
+            return
+        if all(_chart_requested.get(key) == today for key in CHARTS):
+            return
+        requester = await db.scalar(
+            select(User).where(User.role == Role.admin, ~User.is_disabled).order_by(User.created_at).limit(1)
+        )
+        if requester is None:
+            return
+        now = datetime.now(UTC)
+        for key in CHARTS:
+            if _chart_requested.get(key) == today:
+                continue
+            chart = await chart_tracks(key)
+            if chart is None:
+                continue
+            catalog = [_track(track) for track in chart]
+            await match_tracks(db, catalog)
+            unmatched: dict[str, float] = {}
+            for rank, track in enumerate(catalog, 1):
+                if track.library_id is None:
+                    unmatched.setdefault(track.id, rank)
+            await _request_chart_songs(db, requester, key, unmatched, now)
+            known = await _chart_downloads(db, list(unmatched), now)
+            for playlist_id in await db.scalars(select(Playlist.id).where(Playlist.mix_key == key)):
+                queued = set(
+                    await db.scalars(select(RadioPending.deezer_id).where(RadioPending.playlist_id == playlist_id))
+                )
+                db.add_all(
+                    RadioPending(playlist_id=playlist_id, deezer_id=deezer_id, position=unmatched[deezer_id])
+                    for deezer_id in unmatched
+                    if deezer_id in known and deezer_id not in queued
+                )
+            await db.commit()
+        # Songs that finished downloading before they were queued here.
+        from app.services.radio import resolve_radio_pending
+
+        await resolve_radio_pending(db)
 
 
 def genre_keys(raw: str | None) -> list[str]:
@@ -397,27 +471,8 @@ async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool 
                     positions.setdefault(track.library_id, rank)
                 else:
                     unmatched.setdefault(track.id, rank)
-            today = date.today()
             if chart_downloads and cfg.mixes.charts_downloads > 0:
-                async with _chart_request_lock:
-                    if _chart_requested.get(key) != today:
-                        known = await _chart_downloads(db, list(unmatched), now)
-                        requested = 0
-                        for deezer_id in unmatched:
-                            if deezer_id in known:
-                                continue
-                            if requested >= cfg.mixes.charts_downloads:
-                                break
-                            requested += 1
-                            try:
-                                await create_request(
-                                    db, user, "track", deezer_id,
-                                    temporary=cfg.radio.temporary_tracks_enabled, radio=True,
-                                )
-                            except HTTPException as exc:
-                                if exc.status_code == 429:
-                                    break
-                        _chart_requested[key] = today
+                await _request_chart_songs(db, user, key, unmatched, now)
             known = await _chart_downloads(db, list(unmatched), now)
             pending = [deezer_id for deezer_id in unmatched if deezer_id in known]
             playlist = await _write(
@@ -681,6 +736,10 @@ async def _generate_loop() -> None:
             await _generate_due()
         except Exception:
             log.exception("Mix generation loop failed")
+        try:
+            await refresh_chart_downloads()
+        except Exception:
+            log.exception("Chart downloads failed")
 
 
 async def start() -> None:

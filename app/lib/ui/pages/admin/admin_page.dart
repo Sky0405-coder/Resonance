@@ -704,7 +704,7 @@ class _ServerTab extends ConsumerWidget {
             ),
             _NumberTile(
               title: context.l10n.adminChartsDownloads,
-              value: mixes['charts_downloads'] ?? 30,
+              value: mixes['charts_downloads'] ?? 100,
               enabled: mixes['charts_enabled'] ?? true,
               onChanged: (v) => patch({
                 'mixes': {'charts_downloads': v.clamp(0, 100)},
