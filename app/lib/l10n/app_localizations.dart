@@ -3314,6 +3314,18 @@ abstract class AppLocalizations {
   /// **'{seconds} s'**
   String settingsCrossfadeSeconds(int seconds);
 
+  /// No description provided for @settingsVisualizer.
+  ///
+  /// In de, this message translates to:
+  /// **'Visualizer'**
+  String get settingsVisualizer;
+
+  /// No description provided for @settingsVisualizerHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeigt beim Abspielen animierte Frequenzbalken im Player.'**
+  String get settingsVisualizerHint;
+
   /// No description provided for @settingsAutomix.
   ///
   /// In de, this message translates to:

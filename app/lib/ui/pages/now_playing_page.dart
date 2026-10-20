@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/models.dart';
 import '../../core/library.dart';
 import '../../player/player.dart';
+import '../../player/spectrum.dart';
 import 'audiobook_pages.dart';
 import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
@@ -77,11 +78,31 @@ class NowPlayingPage extends ConsumerWidget {
                               const Spacer(),
                               ConstrainedBox(
                                 constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
-                                child: Material(
-                                  elevation: 16,
-                                  borderRadius: BorderRadius.circular(8),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: CoverImage(albumId: track.album.id, size: 600, radius: 8),
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    // The bars rise behind the cover and show around it.
+                                    if (ref.watch(visualizerEnabledProvider))
+                                      Positioned(
+                                        left: -24,
+                                        right: -24,
+                                        bottom: -20,
+                                        height: 200,
+                                        child: IgnorePointer(
+                                          child: SpectrumVisualizer(
+                                            trackId: track.id,
+                                            color: accent.withValues(alpha: 0.75),
+                                            mirrored: true,
+                                          ),
+                                        ),
+                                      ),
+                                    Material(
+                                      elevation: 16,
+                                      borderRadius: BorderRadius.circular(8),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: CoverImage(albumId: track.album.id, size: 600, radius: 8),
+                                    ),
+                                  ],
                                 ),
                               ),
                               const Spacer(),

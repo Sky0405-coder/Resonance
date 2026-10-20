@@ -1,4 +1,6 @@
 import '../player/engine.dart' show MixPoints;
+import 'dart:typed_data';
+
 import 'package:flutter/widgets.dart';
 
 import '../l10n/locale.dart';
@@ -397,6 +399,15 @@ class ApiClient {
     final j = await _get('/api/mixpoints', {'ids': ids.join(',')}) as Map<String, dynamic>;
     return {for (final e in j.entries) e.key: e.value == null ? null : MixPoints.fromJson(e.value)};
   }
+
+  /// The visualizer's spectrum of a song (binary, see `player/spectrum.dart`); null when it cannot be analyzed.
+  Future<Uint8List?> spectrum(String trackId) => _call(() async {
+    final response = await _dio.get<List<int>>(
+      '/api/tracks/$trackId/spectrum',
+      options: Options(responseType: ResponseType.bytes, validateStatus: (status) => status == 200 || status == 404),
+    );
+    return response.statusCode == 200 && response.data != null ? Uint8List.fromList(response.data!) : null;
+  });
 
   Future<dynamic> booksGet(String path, [Map<String, dynamic>? query]) => _get('/api/books$path', query);
   Future<dynamic> booksPost(String path, [Object? body]) => _post('/api/books$path', body);

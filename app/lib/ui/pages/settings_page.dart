@@ -15,6 +15,7 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../integrations/discord_presence.dart';
 import '../../player/player.dart';
+import '../../player/spectrum.dart';
 import '../../offline/offline_store.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
@@ -222,6 +223,12 @@ class SettingsPage extends ConsumerWidget {
                 setState(() {});
               },
             ),
+          ),
+          SwitchListTile(
+            title: Text(context.l10n.settingsVisualizer),
+            subtitle: Text(context.l10n.settingsVisualizerHint),
+            value: ref.watch(visualizerEnabledProvider),
+            onChanged: ref.read(visualizerEnabledProvider.notifier).set,
           ),
           ListTile(
             leading: const Icon(Icons.queue_music),

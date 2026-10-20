@@ -14,13 +14,17 @@ import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import '../../player/spectrum.dart';
 import 'catalog.dart';
 import 'common.dart';
 
 class SeekBar extends ConsumerStatefulWidget {
-  const SeekBar({super.key, this.showTimes = true, this.compact = false});
+  const SeekBar({super.key, this.showTimes = true, this.compact = false, this.visualizer = false});
   final bool showTimes;
   final bool compact;
+
+  /// A faint spectrum of the song behind the slider (desktop player bar).
+  final bool visualizer;
 
   @override
   ConsumerState<SeekBar> createState() => _SeekBarState();
@@ -69,7 +73,27 @@ class _SeekBarState extends ConsumerState<SeekBar> {
         setState(() => _dragValue = null);
       },
     );
-    if (!widget.showTimes) return slider;
+    final bars = widget.visualizer && track != null && book == null && ref.watch(visualizerEnabledProvider)
+        ? Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                left: 24,
+                right: 24,
+                child: IgnorePointer(
+                  child: SpectrumVisualizer(
+                    trackId: track.id,
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    gap: 0.45,
+                    minHeight: 0,
+                  ),
+                ),
+              ),
+              slider,
+            ],
+          )
+        : slider;
+    if (!widget.showTimes) return bars;
     return Row(
       children: [
         SizedBox(
@@ -81,7 +105,7 @@ class _SeekBarState extends ConsumerState<SeekBar> {
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: slider),
+        Expanded(child: bars),
         const SizedBox(width: 8),
         SizedBox(width: 44, child: Text(formatDuration(dur), style: style)),
       ],
@@ -380,7 +404,7 @@ class DesktopPlayerBar extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const TransportControls(),
-                ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: const SeekBar()),
+                ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: const SeekBar(visualizer: true)),
               ],
             ),
           ),

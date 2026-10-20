@@ -612,6 +612,8 @@
       }
     }
   },
+  "settingsVisualizer": "Visualizer",
+  "settingsVisualizerHint": "Shows animated frequency bars in the player while music plays.",
   "settingsAutomix": "AutoMix",
   "settingsAutomixHint": "DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade.",
   "settingsSubsonicTitle": "Other music apps (Subsonic)",

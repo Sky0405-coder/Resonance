@@ -1892,6 +1892,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get settingsVisualizer => 'Visualizer';
+
+  @override
+  String get settingsVisualizerHint => 'Shows animated frequency bars in the player while music plays.';
+
+  @override
   String get settingsAutomix => 'AutoMix';
 
   @override

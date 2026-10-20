@@ -1867,6 +1867,12 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get settingsVisualizer => 'Visualizer';
+
+  @override
+  String get settingsVisualizerHint => 'Zeigt beim Abspielen animierte Frequenzbalken im Player.';
+
+  @override
   String get settingsAutomix => 'Automix';
 
   @override
