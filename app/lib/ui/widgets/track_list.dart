@@ -27,6 +27,7 @@ class TrackRow extends ConsumerStatefulWidget {
     this.number,
     this.showCover = true,
     this.showAlbum = true,
+    this.smart = false,
     this.extraActions = const [],
   });
 
@@ -35,6 +36,7 @@ class TrackRow extends ConsumerStatefulWidget {
   final int? number;
   final bool showCover;
   final bool showAlbum;
+  final bool smart;
   final List<TrackAction> extraActions;
 
   @override
@@ -121,10 +123,9 @@ class _TrackRowState extends ConsumerState<TrackRow> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        t.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      TrackTitle(
+                        track: t,
+                        smart: widget.smart,
                         style: TextStyle(color: current ? accent : Colors.white, fontSize: 15),
                       ),
                       Row(
@@ -479,10 +480,10 @@ Future<void> startRadio(BuildContext context, WidgetRef ref, String seedType, St
     if (instant) {
       final playing = ref.read(playerProvider);
       if (playing.context == 'radio:pending' && playing.current?.id == seed.id) {
-        await player.replaceUpcoming(tracks, context: 'playlist:${playlist.id}');
+        await player.replaceUpcoming(tracks, context: 'playlist:${playlist.id}', isRadio: true);
       }
     } else {
-      await playMusic(context, ref, tracks, contextId: 'playlist:${playlist.id}');
+      await playMusic(context, ref, tracks, contextId: 'playlist:${playlist.id}', isRadio: true);
     }
     if (!context.mounted) return;
     context.push('/playlist/${playlist.id}');

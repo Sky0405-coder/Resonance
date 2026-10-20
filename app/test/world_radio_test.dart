@@ -58,6 +58,13 @@ class _Api extends ApiClient {
   }
 
   @override
+  Future<List<Track>> recommendations({
+    required List<String> trackIds,
+    List<String> excludeIds = const [],
+    int limit = 20,
+  }) async => [];
+
+  @override
   Future<void> reportPlay(String id, double seconds, {String? context}) async {
     reports++;
   }

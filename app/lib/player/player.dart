@@ -73,6 +73,10 @@ class PlayerView {
     this.playing = false,
     this.buffering = false,
     this.shuffle = false,
+    this.smartShuffle = false,
+    this.autoplayIds = const {},
+    this.smartIds = const {},
+    this.isRadio = false,
     this.loop = LoopMode.off,
     this.context,
     this.book,
@@ -88,6 +92,10 @@ class PlayerView {
   final bool playing;
   final bool buffering;
   final bool shuffle;
+  final bool smartShuffle;
+  final Set<String> autoplayIds;
+  final Set<String> smartIds;
+  final bool isRadio;
   final LoopMode loop;
   // Where playback was started from, e.g. "album:<id>".
   final String? context;
@@ -121,6 +129,14 @@ class PlayerController extends Notifier<PlayerView> {
   bool _stationFailed = false;
   int _stationGeneration = 0;
   List<Track> _unshuffled = [];
+  List<Track> _contextTracks = [];
+  final _autoplayIds = <String>{};
+  final _smartIds = <String>{};
+  final _autoplayAttempted = <String>{};
+  Object? _autoplayRequest;
+  Object? _smartRequest;
+  int _contextGeneration = 0;
+  bool autoplay = true;
   final List<StreamSubscription> _subs = [];
 
   // Play reporting: count listened time for the current track.
@@ -160,6 +176,11 @@ class PlayerController extends Notifier<PlayerView> {
 
   ApiClient get _api => ref.read(apiProvider);
 
+  String get _autoplayKey {
+    final session = ref.read(sessionProvider);
+    return session.user == null ? 'autoplay' : 'autoplay:${session.serverUrl}:${session.user!.id}';
+  }
+
   @override
   PlayerView build() {
     final prefs = ref.read(prefsProvider);
@@ -176,6 +197,12 @@ class PlayerController extends Notifier<PlayerView> {
     engine.mixPointsForIndex = _mixPointsFor;
     // Stream URLs and offline files both contain the song id.
     engine.sourceKeyForIndex = (index) => index < state.queue.length ? state.queue[index].id : null;
+    autoplay = prefs.getBool(_autoplayKey) ?? true;
+    ref.listen(sessionProvider.select((s) => (s.serverUrl, s.user?.id)), (_, next) {
+      autoplay = prefs.getBool(_autoplayKey) ?? true;
+      _contextGeneration++;
+      _autoplayRequest = _smartRequest = null;
+    });
     _subs.addAll([
       engine.playerStateStream.listen((s) {
         if (_switching || state.jamRemote) return;
@@ -185,6 +212,7 @@ class PlayerController extends Notifier<PlayerView> {
           playing: s.playing,
           buffering: s.processingState == ProcessingState.loading || s.processingState == ProcessingState.buffering,
         );
+        _maybeAutoplay();
       }),
       // just_audio repeats the index (and loop mode) with every playback event – ~16×/s with media_kit. Only real
       // changes may rebuild the UI and close the play report of the previous song.
@@ -198,9 +226,13 @@ class PlayerController extends Notifier<PlayerView> {
         state = _copy(index: i);
         _applyGain();
         _reportTrackId = state.current?.id;
+        _maybeAutoplay();
       }),
       engine.loopModeStream.listen((v) {
-        if (!_switching && v != state.loop) state = _copy(loop: v);
+        if (!_switching && v != state.loop) {
+          state = _copy(loop: v);
+          _maybeAutoplay();
+        }
       }),
       engine.positionStream.listen(_trackListening),
       engine.errorStream.listen(_stationError),
@@ -254,6 +286,8 @@ class PlayerController extends Notifier<PlayerView> {
     bool? playing,
     bool? buffering,
     bool? shuffle,
+    bool? smartShuffle,
+    bool? isRadio,
     String? context,
     LoopMode? loop,
     double? speed,
@@ -265,6 +299,10 @@ class PlayerController extends Notifier<PlayerView> {
     playing: playing ?? state.playing,
     buffering: buffering ?? state.buffering,
     shuffle: shuffle ?? state.shuffle,
+    smartShuffle: smartShuffle ?? state.smartShuffle,
+    autoplayIds: Set.unmodifiable(_autoplayIds),
+    smartIds: Set.unmodifiable(_smartIds),
+    isRadio: isRadio ?? state.isRadio,
     loop: loop ?? state.loop,
     context: context ?? state.context,
     book: state.book,
@@ -283,32 +321,38 @@ class PlayerController extends Notifier<PlayerView> {
 
   /// Replace the queue and start playing at [index]. Shuffle is a global toggle (like Spotify): when it is on,
   /// the queue is shuffled around the start track, which is random if no [index] is given.
-  Future<void> playTracks(List<Track> tracks, {int? index, String? context}) {
+  Future<void> playTracks(List<Track> tracks, {int? index, String? context, bool isRadio = false}) {
     final jam = this.jam;
     if (jam != null) return jam.playTracks(tracks, index ?? 0);
-    return _playTracks(tracks, index: index, context: context);
+    return _playTracks(tracks, index: index, context: context, isRadio: isRadio);
   }
 
-  Future<void> _playTracks(List<Track> tracks, {int? index, String? context}) => _switch(() async {
-    if (tracks.isEmpty) return;
-    final shuffle = state.shuffle;
-    final chosen = index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0);
-    final queue = shuffle ? shuffleQueue(tracks, chosen) : tracks;
-    await _replacePlayback(
-      PlayerView(
-        queue: List.unmodifiable(queue),
-        shuffle: shuffle,
-        loop: state.book == null ? state.loop : LoopMode.off,
-        context: context,
-        sleepAt: state.sleepAt,
-      ),
-      [for (final t in queue) _source(t)],
-      index: shuffle ? 0 : chosen,
-    );
-    _unshuffled = [...tracks];
-  });
+  Future<void> _playTracks(List<Track> tracks, {int? index, String? context, bool isRadio = false}) =>
+      _switch(() async {
+        if (tracks.isEmpty) return;
+        final shuffle = state.shuffle;
+        final chosen = index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0);
+        final queue = shuffle ? shuffleQueue(tracks, chosen) : tracks;
+        await _replacePlayback(
+          PlayerView(
+            queue: List.unmodifiable(queue),
+            shuffle: shuffle,
+            smartShuffle: state.smartShuffle && supportsSmartShuffle(context, isRadio: isRadio),
+            isRadio: isRadio,
+            loop: state.book == null ? state.loop : LoopMode.off,
+            context: context,
+            sleepAt: state.sleepAt,
+          ),
+          [for (final t in queue) _source(t)],
+          index: shuffle ? 0 : chosen,
+        );
+        _unshuffled = [...tracks];
+        _contextTracks = [...tracks];
+        if (state.smartShuffle) _loadSmart().ignore();
+        _maybeAutoplay();
+      });
 
-  Future<void> replaceUpcoming(List<Track> tracks, {required String context}) {
+  Future<void> replaceUpcoming(List<Track> tracks, {required String context, bool isRadio = false}) {
     final previousContext = state.context;
     final current = state.current;
     return _switch(() async {
@@ -319,10 +363,20 @@ class PlayerController extends Notifier<PlayerView> {
       try {
         await engine.setSources([for (final track in queue) _source(track)], initialIndex: 0, preserveCurrent: true);
         _unshuffled = original;
-        state = _copy(queue: List.unmodifiable(queue), index: 0, context: context);
+        _resetRecommendations();
+        _contextTracks = [...tracks];
+        state = _copy(
+          queue: List.unmodifiable(queue),
+          index: 0,
+          context: context,
+          isRadio: isRadio,
+          smartShuffle: state.smartShuffle && supportsSmartShuffle(context, isRadio: isRadio),
+        );
       } finally {
         _switching = false;
       }
+      if (state.smartShuffle) _loadSmart().ignore();
+      _maybeAutoplay();
     });
   }
 
@@ -384,11 +438,14 @@ class PlayerController extends Notifier<PlayerView> {
     _stationGeneration++;
     _stationRetry?.cancel();
     _stationRetry = null;
+    _resetRecommendations();
     state = PlayerView(
       queue: next.queue,
       index: engine.currentIndex,
       playing: engine.playing,
       shuffle: next.shuffle,
+      smartShuffle: next.smartShuffle,
+      isRadio: next.isRadio,
       loop: next.loop,
       context: next.context,
       book: next.book,
@@ -486,17 +543,39 @@ class PlayerController extends Notifier<PlayerView> {
     if (state.station == null) await engine.seek(d);
   }
 
-  Future<void> toggleShuffle() => _switch(() => _setShuffle(!state.shuffle));
+  Future<void> toggleShuffle() => _switch(() {
+    final (shuffle, smart) = nextShuffleMode(
+      shuffle: state.shuffle,
+      smartShuffle: state.smartShuffle,
+      allowSmart: supportsSmartShuffle(state.context, isRadio: state.isRadio),
+    );
+    return _setShuffle(shuffle, smart: smart);
+  });
 
   Future<void> setShuffle(bool enabled) => _switch(() => _setShuffle(enabled));
 
-  Future<void> _setShuffle(bool enabled) async {
-    if (state.station != null || jam != null) return;
+  Future<void> _setShuffle(bool enabled, {bool smart = false}) async {
+    if (state.station != null || state.book != null || state.inJam || jam != null) return;
     await engine.finishFade();
-    if (enabled == state.shuffle) return;
+    if (enabled == state.shuffle && smart == state.smartShuffle) return;
+    _smartRequest = null;
+    if (state.smartShuffle && !smart) {
+      state = _copy(smartShuffle: false);
+      for (var i = state.queue.length - 1; i > (state.index ?? -1); i--) {
+        if (_smartIds.contains(state.queue[i].id)) {
+          _smartIds.remove(state.queue[i].id);
+          await removeAt(i);
+        }
+      }
+    }
+    if (enabled == state.shuffle) {
+      state = _copy(smartShuffle: smart);
+      if (smart) _loadSmart().ignore();
+      return;
+    }
     final current = state.current;
     if (current == null) {
-      state = _copy(shuffle: enabled);
+      state = _copy(shuffle: enabled, smartShuffle: smart);
       return;
     }
     if (enabled) _unshuffled = [...state.queue];
@@ -506,9 +585,111 @@ class PlayerController extends Notifier<PlayerView> {
     _switching = true;
     try {
       await engine.setSources([for (final t in queue) _source(t)], initialIndex: index, preserveCurrent: true);
-      state = _copy(queue: List.unmodifiable(queue), index: index, shuffle: enabled);
+      state = _copy(queue: List.unmodifiable(queue), index: index, shuffle: enabled, smartShuffle: smart);
     } finally {
       _switching = false;
+    }
+    if (smart) _loadSmart().ignore();
+    _maybeAutoplay();
+  }
+
+  void _resetRecommendations() {
+    _contextGeneration++;
+    _autoplayRequest = _smartRequest = null;
+    _autoplayAttempted.clear();
+    _autoplayIds.clear();
+    _smartIds.clear();
+    _contextTracks = [];
+  }
+
+  void setAutoplay(bool enabled) {
+    autoplay = enabled;
+    ref.read(prefsProvider).setBool(_autoplayKey, enabled);
+    if (enabled) _maybeAutoplay();
+  }
+
+  bool get _canAutoplay => shouldAutoplay(
+    enabled: autoplay,
+    length: state.queue.length,
+    index: state.index,
+    loopMode: state.loop,
+    playing: state.playing && !state.buffering && engine.processingState == ProcessingState.ready,
+    isBook: state.book != null,
+    isStation: state.station != null,
+    inJam: state.inJam || jam != null,
+  );
+
+  void _maybeAutoplay() {
+    if (_switching || !_canAutoplay || _autoplayRequest != null || _smartRequest != null) return;
+    final id = state.current!.id;
+    if (!_autoplayAttempted.add(id)) return;
+    _loadAutoplay(id).ignore();
+  }
+
+  Future<void> _loadAutoplay(String id) async {
+    final request = Object();
+    _autoplayRequest = request;
+    final generation = _contextGeneration;
+    try {
+      final tracks = await _api.recommendations(
+        trackIds: [for (final t in state.queue.skip(math.max(0, state.queue.length - 20))) t.id],
+        excludeIds: [for (final t in state.queue) t.id],
+      );
+      if (!ref.mounted) return;
+      await _switch(() async {
+        if (generation != _contextGeneration || !_canAutoplay || state.current?.id != id) return;
+        final seen = {for (final t in state.queue) t.id};
+        for (final track in tracks) {
+          if (!seen.add(track.id)) continue;
+          _autoplayIds.add(track.id);
+          await addToQueue(track);
+        }
+      });
+    } catch (_) {
+      // Offline or an older server: leave the queue as it is.
+    } finally {
+      if (_autoplayRequest == request) _autoplayRequest = null;
+    }
+  }
+
+  Future<void> _loadSmart() async {
+    final seeds = [..._contextTracks];
+    if (seeds.isEmpty || !state.smartShuffle || state.inJam || jam != null) return;
+    final request = Object();
+    _smartRequest = request;
+    seeds.shuffle();
+    try {
+      final tracks = await _api.recommendations(
+        trackIds: [for (final t in seeds.take(100)) t.id],
+        excludeIds: {
+          for (final t in [..._contextTracks, ...state.queue]) t.id,
+        }.toList(),
+        limit: math.min(50, (seeds.length + 2) ~/ 3),
+      );
+      if (!ref.mounted) return;
+      await _switch(() async {
+        if (_smartRequest != request || !state.smartShuffle || state.inJam || jam != null) return;
+        await engine.finishFade();
+        final index = state.index;
+        if (index == null) return;
+        final seen = {for (final t in state.queue) t.id};
+        final extra = tracks.where((t) => seen.add(t.id)).toList();
+        final ids = {for (final t in extra) t.id};
+        final upcoming = interleaveEvery(state.queue.skip(index + 1).toList(), extra, 3);
+        for (var i = 0; i < upcoming.length; i++) {
+          final track = upcoming[i];
+          if (!ids.contains(track.id)) continue;
+          _smartIds.add(track.id);
+          await _insert(index + 1 + i, track);
+        }
+      });
+    } catch (_) {
+      // Recommendations are optional; the shuffled context keeps playing.
+    } finally {
+      if (_smartRequest == request) {
+        _smartRequest = null;
+        if (ref.mounted) _maybeAutoplay();
+      }
     }
   }
 
@@ -619,6 +800,7 @@ class PlayerController extends Notifier<PlayerView> {
         await engine.pause();
       }
       _flushPlayReport();
+      if (state.context != context) _resetRecommendations();
       state = PlayerView(
         queue: queue,
         index: current,

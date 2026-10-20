@@ -26,6 +26,7 @@ from app.api import (
     opds,
     playlists,
     radio,
+    recommendations,
     requests,
     spotify,
     spotify_sync,
@@ -39,13 +40,13 @@ from app.deps import DB, CurrentUser
 from app.i18n import language, translate
 from app.services import audiobookshelf as abs_service
 from app.services import importer, upgrades
-from app.services.jam import hub as jam_hub
 from app.services import mixes as mixes_service
 from app.services import radio as radio_service
 from app.services import spotify as spotify_service
 from app.services import spotify_sync as spotify_sync_service
 from app.services.books.manager import book_manager
 from app.services.downloads import manager
+from app.services.jam import hub as jam_hub
 from app.services.server_config import load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -105,6 +106,7 @@ for module in (
     library,
     playlists,
     radio,
+    recommendations,
     mixes,
     admin,
     catalog,

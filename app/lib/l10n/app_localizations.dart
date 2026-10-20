@@ -482,6 +482,36 @@ abstract class AppLocalizations {
   /// **'Deine Bibliothek ist noch leer.\nEin Admin kann im Dashboard einen Bibliotheks-Scan starten.'**
   String get homeEmptyLibrary;
 
+  /// No description provided for @settingsAutoplay.
+  ///
+  /// In de, this message translates to:
+  /// **'Autoplay'**
+  String get settingsAutoplay;
+
+  /// No description provided for @settingsAutoplayHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Wenn die Warteschlange endet, ähnliche Songs weiterspielen'**
+  String get settingsAutoplayHint;
+
+  /// No description provided for @playerAutoplaySection.
+  ///
+  /// In de, this message translates to:
+  /// **'Autoplay – ähnliche Songs'**
+  String get playerAutoplaySection;
+
+  /// No description provided for @playerSmartShuffle.
+  ///
+  /// In de, this message translates to:
+  /// **'Smart Shuffle'**
+  String get playerSmartShuffle;
+
+  /// No description provided for @playerShuffleOff.
+  ///
+  /// In de, this message translates to:
+  /// **'Zufallswiedergabe aus'**
+  String get playerShuffleOff;
+
   /// No description provided for @playerNothingPlaying.
   ///
   /// In de, this message translates to:

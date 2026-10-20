@@ -1,11 +1,8 @@
-import '../../l10n/l10n.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
-import '../../player/player.dart';
 import 'common.dart';
 
 /// Space at the bottom of scroll views so the mobile mini player never hides content.
@@ -123,22 +120,13 @@ class ActionBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final shuffle = ref.watch(playerProvider.select((p) => p.shuffle));
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
           if (onPlay != null) PlayButton(onPressed: onPlay!, playing: playing),
           const SizedBox(width: 8),
-          if (canShuffle)
-            IconButton(
-              tooltip: context.l10n.playerShuffle,
-              iconSize: 30,
-              isSelected: shuffle,
-              color: shuffle ? Theme.of(context).colorScheme.primary : Palette.textMuted,
-              icon: const Icon(Icons.shuffle),
-              onPressed: ref.read(playerProvider.notifier).toggleShuffle,
-            ),
+          if (canShuffle) const ShuffleButton(iconSize: 30),
           ...children,
         ],
       ),

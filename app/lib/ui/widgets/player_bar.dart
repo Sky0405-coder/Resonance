@@ -183,12 +183,7 @@ class TransportControls extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        IconButton(
-          tooltip: context.l10n.playerShuffle,
-          icon: const Icon(Icons.shuffle),
-          color: p.shuffle ? accent : Palette.textMuted,
-          onPressed: p.inJam ? null : ctrl.toggleShuffle,
-        ),
+        const ShuffleButton(),
         IconButton(
           tooltip: context.l10n.playerPrevious,
           iconSize: iconSize,
@@ -416,7 +411,10 @@ class DesktopPlayerBar extends ConsumerWidget {
                                 Flexible(
                                   child: InkWell(
                                     onTap: () => context.push('/album/${track.album.id}'),
-                                    child: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    child: TrackTitle(
+                                      track: track,
+                                      smart: ref.watch(playerProvider.select((p) => p.smartIds.contains(track.id))),
+                                    ),
                                   ),
                                 ),
                                 const JamChip(),
@@ -535,10 +533,9 @@ class MiniPlayer extends ConsumerWidget {
                             Row(
                               children: [
                                 Flexible(
-                                  child: Text(
-                                    track.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  child: TrackTitle(
+                                    track: track,
+                                    smart: ref.watch(playerProvider.select((p) => p.smartIds.contains(track.id))),
                                     style: const TextStyle(fontWeight: FontWeight.w600),
                                   ),
                                 ),

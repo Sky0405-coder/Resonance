@@ -172,6 +172,12 @@ class LyricsOut(BaseModel):
     lines: list[LyricLine]
 
 
+class RecommendationsIn(BaseModel):
+    track_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
+    limit: int = Field(20, ge=1, le=100)
+    exclude_ids: list[uuid.UUID] = Field(default_factory=list, max_length=2000)
+
+
 class TrackOut(ORM):
     id: uuid.UUID
     title: str

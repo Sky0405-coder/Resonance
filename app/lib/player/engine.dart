@@ -138,6 +138,49 @@ List<T> shuffleQueue<T>(List<T> queue, int currentIndex, {math.Random? random}) 
   return [queue[currentIndex], ...rest];
 }
 
+List<T> interleaveEvery<T>(List<T> upcoming, List<T> extra, int every) {
+  if (every < 1) throw ArgumentError.value(every, 'every');
+  final result = <T>[];
+  var next = 0;
+  for (var i = 0; i < upcoming.length; i++) {
+    result.add(upcoming[i]);
+    if ((i + 1) % every == 0 && next < extra.length) result.add(extra[next++]);
+  }
+  return result;
+}
+
+(bool, bool) nextShuffleMode({required bool shuffle, required bool smartShuffle, required bool allowSmart}) => !shuffle
+    ? (true, false)
+    : !smartShuffle && allowSmart
+    ? (true, true)
+    : (false, false);
+
+bool supportsSmartShuffle(String? context, {bool isRadio = false}) =>
+    !isRadio &&
+    (context == 'liked' ||
+        (context?.startsWith('playlist:') ?? false) ||
+        (context?.startsWith('album:') ?? false) ||
+        (context?.startsWith('mix:') ?? false));
+
+bool shouldAutoplay({
+  required bool enabled,
+  required int length,
+  required int? index,
+  required LoopMode loopMode,
+  required bool playing,
+  required bool isBook,
+  required bool isStation,
+  required bool inJam,
+}) =>
+    enabled &&
+    playing &&
+    length > 0 &&
+    index == length - 1 &&
+    loopMode == LoopMode.off &&
+    !isBook &&
+    !isStation &&
+    !inJam;
+
 (List<T>, int) unshuffleQueue<T>(List<T> original, T current) => ([...original], original.indexOf(current));
 
 (List<T>, List<T>) replaceUpcomingQueue<T>(

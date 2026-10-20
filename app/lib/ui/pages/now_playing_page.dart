@@ -120,10 +120,11 @@ class NowPlayingPage extends ConsumerWidget {
                                               Row(
                                                 children: [
                                                   Flexible(
-                                                    child: Text(
-                                                      track.title,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                    child: TrackTitle(
+                                                      track: track,
+                                                      smart: ref.watch(
+                                                        playerProvider.select((p) => p.smartIds.contains(track.id)),
+                                                      ),
                                                       style: Theme.of(context).textTheme.headlineSmall
                                                           ?.copyWith(fontWeight: FontWeight.w800),
                                                     ),
@@ -411,13 +412,20 @@ class QueuePage extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(8, 0, 8, kBottomInset),
               children: [
                 _QueueHeading(context.l10n.playerNowPlaying),
-                TrackRow(track: p.current!, onPlay: ctrl.togglePlay),
+                TrackRow(track: p.current!, onPlay: ctrl.togglePlay, smart: p.smartIds.contains(p.current!.id)),
                 if (addedBy(p.index!) case final label?) _AddedBy(label),
-                if (upcoming.isNotEmpty) _QueueHeading(context.l10n.playerNextUp),
                 for (final i in upcoming) ...[
+                  if (i == upcoming.first ||
+                      p.autoplayIds.contains(p.queue[i].id) != p.autoplayIds.contains(p.queue[i - 1].id))
+                    _QueueHeading(
+                      p.autoplayIds.contains(p.queue[i].id)
+                          ? context.l10n.playerAutoplaySection
+                          : context.l10n.playerNextUp,
+                    ),
                   TrackRow(
                     key: ValueKey('q$i-${p.queue[i].id}'),
                     track: p.queue[i],
+                    smart: p.smartIds.contains(p.queue[i].id),
                     onPlay: () => ctrl.jumpTo(i),
                     extraActions: [
                       if (canRemove(i))

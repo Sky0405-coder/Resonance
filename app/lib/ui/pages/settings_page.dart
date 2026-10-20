@@ -244,6 +244,17 @@ class SettingsPage extends ConsumerWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/equalizer'),
             ),
+          StatefulBuilder(
+            builder: (context, setState) => SwitchListTile(
+              title: Text(context.l10n.settingsAutoplay),
+              subtitle: Text(context.l10n.settingsAutoplayHint),
+              value: ref.read(playerProvider.notifier).autoplay,
+              onChanged: (v) {
+                ref.read(playerProvider.notifier).setAutoplay(v);
+                setState(() {});
+              },
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.queue_music),
             title: Text(context.l10n.spotifyTitle),

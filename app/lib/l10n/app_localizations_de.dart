@@ -219,6 +219,21 @@ class AppLocalizationsDe extends AppLocalizations {
       'Deine Bibliothek ist noch leer.\nEin Admin kann im Dashboard einen Bibliotheks-Scan starten.';
 
   @override
+  String get settingsAutoplay => 'Autoplay';
+
+  @override
+  String get settingsAutoplayHint => 'Wenn die Warteschlange endet, ähnliche Songs weiterspielen';
+
+  @override
+  String get playerAutoplaySection => 'Autoplay – ähnliche Songs';
+
+  @override
+  String get playerSmartShuffle => 'Smart Shuffle';
+
+  @override
+  String get playerShuffleOff => 'Zufallswiedergabe aus';
+
+  @override
   String get playerNothingPlaying => 'Gerade läuft nichts';
 
   @override

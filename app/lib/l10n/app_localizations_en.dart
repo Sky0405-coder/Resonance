@@ -223,6 +223,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeEmptyLibrary => 'Your library is still empty.\nAn admin can start a library scan in the dashboard.';
 
   @override
+  String get settingsAutoplay => 'Autoplay';
+
+  @override
+  String get settingsAutoplayHint => 'Keep playing similar songs when the queue ends';
+
+  @override
+  String get playerAutoplaySection => 'Autoplay – similar songs';
+
+  @override
+  String get playerSmartShuffle => 'Smart Shuffle';
+
+  @override
+  String get playerShuffleOff => 'Shuffle off';
+
+  @override
   String get playerNothingPlaying => 'Nothing playing right now';
 
   @override

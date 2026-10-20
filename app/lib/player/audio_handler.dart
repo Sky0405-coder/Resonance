@@ -396,7 +396,13 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
           : collection.startsWith('search:')
           ? 'search'
           : collection;
-      await _controller.playTracks(tracks, index: index, context: context);
+      final playlistId = context.startsWith('playlist:') ? context.substring(9) : null;
+      final cached = _offline.collections['playlist:$playlistId'];
+      final isRadio =
+          playlistId != null &&
+          (container.read(playlistDetailProvider(playlistId)).asData?.value.playlist.isRadio ??
+              (cached != null && PlaylistDetail.fromJson(cached.data).playlist.isRadio));
+      await _controller.playTracks(tracks, index: index, context: context, isRadio: isRadio);
     } catch (_) {
       // Browse and voice clients must tolerate unavailable or empty collections.
     }

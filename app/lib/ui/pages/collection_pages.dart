@@ -24,13 +24,20 @@ import '../widgets/track_list.dart';
 bool _isPlayingContext(WidgetRef ref, String contextId) =>
     ref.watch(playerProvider.select((p) => p.context == contextId && p.playing));
 
-void _playOrToggle(BuildContext context, WidgetRef ref, String contextId, List<Track> tracks, {int? index}) {
+void _playOrToggle(
+  BuildContext context,
+  WidgetRef ref,
+  String contextId,
+  List<Track> tracks, {
+  int? index,
+  bool isRadio = false,
+}) {
   final p = ref.read(playerProvider);
   final ctrl = ref.read(playerProvider.notifier);
   if (p.context == contextId && p.current != null) {
     ctrl.togglePlay();
   } else {
-    playMusic(context, ref, tracks, index: index, contextId: contextId);
+    playMusic(context, ref, tracks, index: index, contextId: contextId, isRadio: isRadio);
   }
 }
 
@@ -409,7 +416,9 @@ class PlaylistPage extends ConsumerWidget {
                 SliverToBoxAdapter(
                   child: ActionBar(
                     playing: playing,
-                    onPlay: tracks.isEmpty ? null : () => _playOrToggle(context, ref, ctx, tracks),
+                    onPlay: tracks.isEmpty
+                        ? null
+                        : () => _playOrToggle(context, ref, ctx, tracks, isRadio: d.playlist.isRadio),
                     canShuffle: tracks.isNotEmpty,
                     children: [
                       OfflineDownloadButton(kind: 'playlist', id: id),
@@ -544,7 +553,8 @@ class PlaylistPage extends ConsumerWidget {
                         key: ValueKey(e.entryId),
                         track: e.track,
                         number: e.rank,
-                        onPlay: () => playMusic(context, ref, tracks, index: i, contextId: ctx),
+                        onPlay: () =>
+                            playMusic(context, ref, tracks, index: i, contextId: ctx, isRadio: d.playlist.isRadio),
                         extraActions: [
                           if (d.editable && !d.playlist.isMix)
                             TrackAction(

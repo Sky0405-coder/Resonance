@@ -200,6 +200,19 @@ class ApiClient {
 
   Future<List<Track>> likedTracks() async => [for (final t in await _get('/api/me/likes/tracks')) Track.fromJson(t)];
 
+  Future<List<Track>> recommendations({
+    required List<String> trackIds,
+    List<String> excludeIds = const [],
+    int limit = 20,
+  }) async => [
+    for (final t in await _post('/api/recommendations', {
+      'track_ids': trackIds,
+      'exclude_ids': excludeIds,
+      'limit': limit,
+    }))
+      Track.fromJson(t),
+  ];
+
   Future<void> setLiked(String trackId, bool liked) =>
       liked ? _put('/api/me/likes/tracks/$trackId') : _delete('/api/me/likes/tracks/$trackId');
 

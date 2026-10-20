@@ -15,7 +15,57 @@ import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../player/player.dart';
+import '../../player/engine.dart' show supportsSmartShuffle;
 import '../../offline/offline_store.dart';
+
+class ShuffleButton extends ConsumerWidget {
+  const ShuffleButton({super.key, this.iconSize = 24});
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = ref.watch(playerProvider);
+    final allowSmart = supportsSmartShuffle(p.context, isRadio: p.isRadio);
+    return IconButton(
+      tooltip: !p.shuffle
+          ? context.l10n.playerShuffle
+          : !p.smartShuffle && allowSmart
+          ? context.l10n.playerSmartShuffle
+          : context.l10n.playerShuffleOff,
+      iconSize: iconSize,
+      color: p.shuffle ? Theme.of(context).colorScheme.primary : Palette.textMuted,
+      onPressed: p.inJam ? null : ref.read(playerProvider.notifier).toggleShuffle,
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Icon(Icons.shuffle),
+          if (p.smartShuffle) const Positioned(top: -3, right: -4, child: Icon(Icons.auto_awesome, size: 10)),
+        ],
+      ),
+    );
+  }
+}
+
+class TrackTitle extends StatelessWidget {
+  const TrackTitle({super.key, required this.track, this.smart = false, this.style});
+  final Track track;
+  final bool smart;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+    return smart
+        ? Row(
+            children: [
+              Icon(Icons.auto_awesome, size: 14, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 4),
+              Flexible(child: title),
+            ],
+          )
+        : title;
+  }
+}
 
 String formatDuration(Duration d) {
   final h = d.inHours;
@@ -429,9 +479,16 @@ void showInfo(BuildContext context, String msg) {
 }
 
 /// Music entry points share the same error presentation as audiobook playback.
-Future<void> playMusic(BuildContext context, WidgetRef ref, List<Track> tracks, {int? index, String? contextId}) async {
+Future<void> playMusic(
+  BuildContext context,
+  WidgetRef ref,
+  List<Track> tracks, {
+  int? index,
+  String? contextId,
+  bool isRadio = false,
+}) async {
   try {
-    await ref.read(playerProvider.notifier).playTracks(tracks, index: index, context: contextId);
+    await ref.read(playerProvider.notifier).playTracks(tracks, index: index, context: contextId, isRadio: isRadio);
   } catch (e) {
     if (context.mounted) showError(context, e);
   }
