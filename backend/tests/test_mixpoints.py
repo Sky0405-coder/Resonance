@@ -1,3 +1,4 @@
+import shutil
 import uuid
 import wave
 from datetime import UTC, datetime, timedelta
@@ -123,6 +124,7 @@ async def env(client):
         ids = (track.id, missing.id)
     yield client, auth(user["token"]), *ids
     await reset()
+    shutil.rmtree(MUSIC_DIR / "Beats", ignore_errors=True)
 
 
 async def test_api_analyzes_once_and_reanalyzes_changed_files(env, monkeypatch: pytest.MonkeyPatch) -> None:

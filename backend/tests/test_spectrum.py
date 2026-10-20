@@ -1,3 +1,4 @@
+import shutil
 import struct
 import wave
 from pathlib import Path
@@ -73,6 +74,7 @@ async def env(client, tmp_path, monkeypatch):
         track_id = track.id
     yield client, auth(user["token"]), track_id, tmp_path
     await reset()
+    shutil.rmtree(MUSIC_DIR / "Tones", ignore_errors=True)
 
 
 async def test_api_serves_and_caches(env, monkeypatch: pytest.MonkeyPatch) -> None:
