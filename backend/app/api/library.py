@@ -12,7 +12,15 @@ from app.api.catalog import _track as catalog_track
 from app.api.requests import _out as request_out
 from app.deps import DB, CurrentUser
 from app.i18n import language, translate
-from app.models import Album, Artist, PlayEvent, Playlist, SavedAlbum, Track
+from app.models import (
+    Album,
+    Artist,
+    PlayEvent,
+    Playlist,
+    SavedAlbum,
+    Track,
+    TrackMixPoints,
+)
 from app.schemas import (
     AlbumDetail,
     AlbumOut,
@@ -337,6 +345,27 @@ async def stream_track(
 
 
 # --- AutoMix ----------------------------------------------------------------
+
+
+@router.get("/mixpoints/keys")
+async def get_mixpoint_keys(user: CurrentUser, db: DB, ids: str = Query(max_length=18500)) -> dict[str, dict | None]:
+    """Stored musical keys and tempos; never triggers analysis."""
+    values = ids.split(",")
+    if len(values) > 500:
+        raise HTTPException(422, "Ungültige Parameter")
+    try:
+        track_ids = list(dict.fromkeys(uuid.UUID(value) for value in values))
+    except ValueError as e:
+        raise HTTPException(422, "Ungültige Song-ID") from e
+    rows = {row.track_id: row for row in await db.scalars(
+        select(TrackMixPoints).where(
+            TrackMixPoints.track_id.in_(track_ids), TrackMixPoints.version == mixpoints.VERSION
+        )
+    )}
+    return {
+        str(id): {"key": rows[id].key, "bpm": rows[id].bpm} if id in rows else None
+        for id in track_ids
+    }
 
 
 @router.get("/mixpoints")

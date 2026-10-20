@@ -1,5 +1,6 @@
 import uuid
 import wave
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -57,7 +58,35 @@ def test_analyze_short_or_silent_file(tmp_path: Path) -> None:
         out.setsampwidth(2)
         out.setframerate(RATE)
         out.writeframes(b"\0\0" * 100)
-    assert mixpoints.analyze(path).bpm is None
+    points = mixpoints.analyze(path)
+    assert points.bpm is None and points.key is None and points.key_confidence is None
+
+
+@pytest.mark.parametrize("notes, key", [([60, 64, 67], "8B"), ([57, 60, 64], "8A"), ([55, 59, 62], "9B")])
+def test_analyze_finds_key(tmp_path: Path, notes: list[int], key: str) -> None:
+    t = np.arange(RATE * 20) / RATE
+    audio = sum(np.sin(2 * np.pi * 440 * 2 ** ((note - 69) / 12) * t) for note in notes + [n + 12 for n in notes])
+    path = tmp_path / "triad.wav"
+    with wave.open(str(path), "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(RATE)
+        out.writeframes((audio / 6 * 32767).astype("<i2").tobytes())
+    points = mixpoints.analyze(path)
+    assert points.key == key
+    assert points.key_confidence is not None and 0 < points.key_confidence <= 1
+    assert points.key_confidence == round(points.key_confidence, 3)
+
+
+def test_analyze_silence_has_no_key(tmp_path: Path) -> None:
+    path = tmp_path / "silence.wav"
+    with wave.open(str(path), "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(RATE)
+        out.writeframes(b"\0\0" * RATE * 20)
+    points = mixpoints.analyze(path)
+    assert points.key is None and points.key_confidence is None
 
 
 @pytest.fixture
@@ -127,3 +156,68 @@ async def test_api_analyzes_once_and_reanalyzes_changed_files(env, monkeypatch: 
         assert [row.track_id for row in rows] == [track_id] and rows[0].version == mixpoints.VERSION
     assert (await client.get("/api/mixpoints", params={"ids": "nope"}, headers=headers)).status_code == 422
     assert (await client.get("/api/mixpoints", params={"ids": str(track_id)})).status_code == 401
+
+
+async def test_keys_api_reads_stored_keys_without_analysis(env, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, headers, track_id, missing_id = env
+
+    async def no_analysis(path):
+        pytest.fail("Keys lookup must not analyze audio")
+
+    monkeypatch.setattr(mixpoints, "analyze_async", no_analysis)
+    unknown = uuid.uuid4()
+    async with SessionLocal() as db:
+        db.add(TrackMixPoints(
+            track_id=track_id, version=mixpoints.VERSION, mtime=0, bpm=120,
+            mix_in=0, mix_out=30, end=40, key="8A", key_confidence=0.2,
+        ))
+        await db.commit()
+    response = await client.get(
+        "/api/mixpoints/keys", params={"ids": f"{track_id},{missing_id},{unknown}"}, headers=headers
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {str(track_id): {"key": "8A", "bpm": 120.0}, str(missing_id): None, str(unknown): None}
+    full = ",".join(str(uuid.uuid4()) for _ in range(500))
+    assert (await client.get("/api/mixpoints/keys", params={"ids": full}, headers=headers)).status_code == 200
+    for ids in ("nope", f"{track_id},bad", "", full + f",{uuid.uuid4()}", ",".join([track_id.hex] * 501)):
+        assert (await client.get("/api/mixpoints/keys", params={"ids": ids}, headers=headers)).status_code == 422
+    assert (await client.get("/api/mixpoints/keys", params={"ids": str(track_id)})).status_code == 401
+
+
+async def test_background_batch_selects_oldest_without_current_rows(env, monkeypatch: pytest.MonkeyPatch) -> None:
+    _, _, track_id, missing_id = env
+    created = datetime(2020, 1, 1, tzinfo=UTC)
+    async with SessionLocal() as db:
+        track = await db.get(Track, track_id)
+        missing = await db.get(Track, missing_id)
+        missing.created_at = created
+        for id, version in ((track_id, mixpoints.VERSION), (missing_id, mixpoints.VERSION - 1)):
+            db.add(TrackMixPoints(track_id=id, version=version, mtime=0, bpm=None, mix_in=0, mix_out=30, end=40))
+        for i in range(121):
+            db.add(Track(
+                path=f"background/{i}.wav", title=str(i), album_id=track.album_id,
+                artist_id=track.artist_id, artist_credit="Beats", created_at=created + timedelta(seconds=i + 1),
+            ))
+        db.add(Track(
+            path="temporary.wav", title="Temporary", album_id=track.album_id, artist_id=track.artist_id,
+            artist_credit="Beats", is_temporary=True, created_at=created - timedelta(days=1),
+        ))
+        await db.commit()
+    paths = []
+    sleeps = []
+
+    async def analyze(path):
+        paths.append(path)
+        return mixpoints.MixPoints(120, 0, 30, 40, "8B", 0.1)
+
+    async def sleep(seconds):
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(mixpoints, "analyze_async", analyze)
+    monkeypatch.setattr(mixpoints.asyncio, "sleep", sleep)
+    await mixpoints.run_once()
+    assert paths == [MUSIC_DIR / "Beats/missing.wav", *[MUSIC_DIR / f"background/{i}.wav" for i in range(119)]]
+    assert sleeps == [30] * 120
+    async with SessionLocal() as db:
+        row = await db.get(TrackMixPoints, missing_id)
+        assert row.version == mixpoints.VERSION and row.key == "8B" and row.key_confidence == 0.1

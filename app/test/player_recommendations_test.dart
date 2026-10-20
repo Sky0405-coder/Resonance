@@ -25,6 +25,17 @@ class _Api extends ApiClient {
   _Api() : super('https://resonance.example', 'test');
   final recommendationCalls =
       <({List<String> seeds, List<String> excluded, int limit, Completer<List<Track>> response})>[];
+  final keyCalls = <List<String>>[];
+  final keys = <String, ({String? key, double? bpm})?>{};
+  bool failKeys = false;
+  Completer<Map<String, ({String? key, double? bpm})?>>? keyResponse;
+
+  @override
+  Future<Map<String, ({String? key, double? bpm})?>> mixKeys(List<String> ids) async {
+    keyCalls.add(ids);
+    if (failKeys) throw ApiException('offline');
+    return keyResponse == null ? {for (final id in ids) id: keys[id]} : await keyResponse!.future;
+  }
 
   @override
   Future<List<Track>> recommendations({
@@ -86,6 +97,7 @@ class _Engine implements PlaybackEngine {
   @override
   List<SourceFactory> audioSources = [];
   final removed = <int>[];
+  bool? preservedCurrent;
 
   @override
   Future<void> setSources(
@@ -95,6 +107,7 @@ class _Engine implements PlaybackEngine {
     bool preserveCurrent = false,
   }) async {
     audioSources = [...sources];
+    preservedCurrent = preserveCurrent;
     currentIndex = initialIndex;
     if (!preserveCurrent) position = initialPosition;
   }
@@ -365,5 +378,134 @@ void main() {
     expect(api.recommendationCalls.single.seeds, hasLength(100));
     expect(api.recommendationCalls.single.excluded, hasLength(180));
     expect(api.recommendationCalls.single.limit, 50);
+  });
+
+  test('AutoMix orders autoplay tracks once from the current track, including with shuffle off', () async {
+    player.setAutomix(true);
+    api.keys.addAll({
+      'start': (key: '8A', bpm: 120),
+      'bad': (key: '3B', bpm: 120),
+      'good': (key: '9A', bpm: 120),
+      'relative': (key: '9B', bpm: 120),
+    });
+    await player.playTracks([track('start')]);
+    api.recommendationCalls.single.response.complete([track('bad'), track('good'), track('relative'), track('good')]);
+    await settle();
+    expect(view().shuffle, isFalse);
+    expect(view().queue.map((t) => t.id), ['start', 'good', 'relative', 'bad']);
+    expect(api.keyCalls, [
+      ['start', 'bad', 'good', 'relative'],
+    ]);
+    expect(view().autoplayIds, {'good', 'relative', 'bad'});
+  });
+
+  test('AutoMix key failures keep autoplay recommendation order', () async {
+    player.setAutomix(true);
+    api.failKeys = true;
+    await player.playTracks([track('start')]);
+    api.recommendationCalls.single.response.complete([track('first'), track('second')]);
+    await settle();
+    expect(view().queue.map((t) => t.id), ['start', 'first', 'second']);
+    expect(api.keyCalls, hasLength(1));
+  });
+
+  test('late autoplay keys do not enter a replacement context', () async {
+    player.setAutomix(true);
+    api.keyResponse = Completer();
+    await player.playTracks([track('old')]);
+    api.recommendationCalls.single.response.complete([track('stale')]);
+    await settle();
+    expect(api.keyCalls, hasLength(1));
+    player.setAutoplay(false);
+    final replacement = player.playTracks([track('new'), track('next')]);
+    api.keyResponse!.complete({'old': (key: '8A', bpm: 120), 'stale': (key: '8A', bpm: 120)});
+    await replacement;
+    expect(view().queue.map((t) => t.id), ['new', 'next']);
+    expect(view().autoplayIds, isEmpty);
+  });
+
+  test('AutoMix smart shuffle chooses extras for the context tracks they follow', () async {
+    player.setAutoplay(false);
+    await player.playTracks(List.generate(7, (i) => track('$i')), context: 'liked');
+    await player.toggleShuffle();
+    final shuffled = [...view().queue];
+    player.setAutomix(true);
+    api.keys.addAll({
+      shuffled[3].id: (key: '8A', bpm: 120),
+      shuffled[6].id: (key: '3B', bpm: 120),
+      'bad': (key: '3B', bpm: 120),
+      'good': (key: '8A', bpm: 120),
+    });
+    await player.toggleShuffle();
+    api.recommendationCalls.single.response.complete([track('bad'), track('good')]);
+    await settle();
+    expect(api.keyCalls, [
+      ['bad', 'good', shuffled[3].id, shuffled[6].id],
+    ]);
+    expect(view().queue[4].id, 'good');
+    expect(view().queue[8].id, 'bad');
+    expect(view().queue.where((t) => !view().smartIds.contains(t.id)), shuffled);
+  });
+
+  test('AutoMix shuffle keeps the current track playing and restores the original order', () async {
+    player.setAutoplay(false);
+    final original = [track('start'), track('bad'), track('good')];
+    api.keys.addAll({'start': (key: '8A', bpm: 120), 'bad': (key: '3B', bpm: 120), 'good': (key: '9A', bpm: 120)});
+    player.setAutomix(true);
+    await player.playTracks(original);
+    expect(api.keyCalls, isEmpty);
+    engine.position = const Duration(seconds: 42);
+    await player.setShuffle(true);
+    expect(view().queue.map((t) => t.id), ['start', 'good', 'bad']);
+    expect(view().current!.id, 'start');
+    expect(engine.preservedCurrent, isTrue);
+    expect(engine.playing, isTrue);
+    expect(engine.position, const Duration(seconds: 42));
+    expect(api.keyCalls.single, unorderedEquals(['start', 'bad', 'good']));
+    await player.setShuffle(false);
+    expect(view().queue, original);
+    expect(api.keyCalls, hasLength(1));
+  });
+
+  test('AutoMix orders a new shuffled context and preserves its unshuffled list', () async {
+    player.setAutoplay(false);
+    player.setAutomix(true);
+    await player.setShuffle(true);
+    api.keys.addAll({'start': (key: '8A', bpm: 120), 'bad': (key: '3B', bpm: 120), 'good': (key: '9A', bpm: 120)});
+    final original = [track('start'), track('bad'), track('good')];
+    await player.playTracks(original, index: 0, context: 'album:new');
+    expect(view().queue.map((t) => t.id), ['start', 'good', 'bad']);
+    expect(api.keyCalls, hasLength(1));
+    await player.setShuffle(false);
+    expect(view().queue, original);
+  });
+
+  for (final fail in [false, true]) {
+    test('AutoMix keeps plain shuffle when keys are ${fail ? 'unavailable' : 'unknown'}', () async {
+      player.setAutoplay(false);
+      player.setAutomix(true);
+      api.failKeys = fail;
+      final original = List.generate(10, (i) => track('$i'));
+      await player.playTracks(original, index: 3);
+      await player.setShuffle(true);
+      expect(view().shuffle, isTrue);
+      expect(view().current!.id, '3');
+      expect(view().queue, unorderedEquals(original));
+      expect(engine.preservedCurrent, isTrue);
+      expect(api.keyCalls, hasLength(1));
+    });
+  }
+
+  test('regular shuffle and excluded contexts never fetch harmonic keys', () async {
+    player.setAutoplay(false);
+    final tracks = List.generate(3, (i) => track('$i'));
+    await player.playTracks(tracks);
+    await player.setShuffle(true);
+    expect(api.keyCalls, isEmpty);
+    player.setAutomix(true);
+    for (final context in ['jam:id', 'book:id', 'station:id']) {
+      await player.playTracks(tracks, index: 0, context: context);
+    }
+    expect(api.keyCalls, isEmpty);
   });
 }

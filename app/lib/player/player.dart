@@ -10,6 +10,7 @@ import 'package:just_audio/just_audio.dart';
 
 import 'engine.dart';
 import 'equalizer_controller.dart';
+import 'harmonic.dart';
 import 'radio_follow.dart';
 
 import '../core/api.dart';
@@ -332,7 +333,11 @@ class PlayerController extends Notifier<PlayerView> {
         if (tracks.isEmpty) return;
         final shuffle = state.shuffle;
         final chosen = index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0);
-        final queue = shuffle ? shuffleQueue(tracks, chosen) : tracks;
+        var queue = shuffle ? shuffleQueue(tracks, chosen) : tracks;
+        if (shuffle) {
+          final keys = await _harmonicKeys(queue, context: context);
+          queue = [queue.first, ..._harmonicOrder(queue.first, queue.skip(1).toList(), keys)];
+        }
         await _replacePlayback(
           PlayerView(
             queue: List.unmodifiable(queue),
@@ -356,9 +361,17 @@ class PlayerController extends Notifier<PlayerView> {
     final previousContext = state.context;
     final current = state.current;
     return _switch(() async {
+      if (current == null) return;
+      final keys = state.shuffle ? await _harmonicKeys([current, ...tracks], context: context) : null;
       await engine.finishFade();
-      if (current == null || state.context != previousContext || state.current?.id != current.id) return;
-      final (queue, original) = replaceUpcomingQueue(current, tracks, id: (track) => track.id, shuffle: state.shuffle);
+      if (state.context != previousContext || state.current?.id != current.id) return;
+      final (shuffled, original) = replaceUpcomingQueue(
+        current,
+        tracks,
+        id: (track) => track.id,
+        shuffle: state.shuffle,
+      );
+      final queue = [current, ..._harmonicOrder(current, shuffled.skip(1).toList(), keys)];
       _switching = true;
       try {
         await engine.setSources([for (final track in queue) _source(track)], initialIndex: 0, preserveCurrent: true);
@@ -573,15 +586,26 @@ class PlayerController extends Notifier<PlayerView> {
       if (smart) _loadSmart().ignore();
       return;
     }
+    final before = state.queue;
+    final beforeIndex = state.index;
+    final shuffled = enabled && beforeIndex != null ? shuffleQueue(before, beforeIndex) : null;
+    final keys = shuffled == null ? null : await _harmonicKeys(shuffled, context: state.context);
+    await engine.finishFade();
     final current = state.current;
     if (current == null) {
       state = _copy(shuffle: enabled, smartShuffle: smart);
       return;
     }
     if (enabled) _unshuffled = [...state.queue];
-    final (queue, index) = enabled
-        ? (shuffleQueue(state.queue, state.index!), 0)
+    final (plain, index) = enabled
+        ? (
+            identical(before, state.queue) && beforeIndex == state.index
+                ? shuffled!
+                : shuffleQueue(state.queue, state.index!),
+            0,
+          )
         : unshuffleQueue(_unshuffled, current);
+    final queue = enabled ? [current, ..._harmonicOrder(current, plain.skip(1).toList(), keys)] : plain;
     _switching = true;
     try {
       await engine.setSources([for (final t in queue) _source(t)], initialIndex: index, preserveCurrent: true);
@@ -601,6 +625,28 @@ class PlayerController extends Notifier<PlayerView> {
     _smartIds.clear();
     _contextTracks = [];
   }
+
+  Future<Map<String, ({String? key, double? bpm})?>?> _harmonicKeys(
+    List<Track> tracks, {
+    required String? context,
+  }) async {
+    if (!engine.automix ||
+        jam != null ||
+        tracks.length < 2 ||
+        ['jam:', 'book:', 'station:'].any((prefix) => context?.startsWith(prefix) ?? false)) {
+      return null;
+    }
+    try {
+      final keys = await _api.mixKeys({for (final track in tracks) track.id}.toList());
+      if (!ref.mounted || !engine.automix || jam != null || !keys.values.any((info) => info?.key != null)) return null;
+      return keys;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<Track> _harmonicOrder(Track start, List<Track> tracks, Map<String, ({String? key, double? bpm})?>? keys) =>
+      keys == null ? tracks : harmonicOrder(start, tracks, (track) => keys[track.id] ?? (key: null, bpm: null));
 
   void setAutoplay(bool enabled) {
     autoplay = enabled;
@@ -639,8 +685,11 @@ class PlayerController extends Notifier<PlayerView> {
       await _switch(() async {
         if (generation != _contextGeneration || !_canAutoplay || state.current?.id != id) return;
         final seen = {for (final t in state.queue) t.id};
-        for (final track in tracks) {
-          if (!seen.add(track.id)) continue;
+        final extra = tracks.where((track) => seen.add(track.id)).toList();
+        final current = state.current!;
+        final keys = await _harmonicKeys([current, ...extra], context: state.context);
+        if (generation != _contextGeneration || !_canAutoplay || state.current?.id != id) return;
+        for (final track in _harmonicOrder(current, extra, keys)) {
           _autoplayIds.add(track.id);
           await addToQueue(track);
         }
@@ -674,8 +723,29 @@ class PlayerController extends Notifier<PlayerView> {
         if (index == null) return;
         final seen = {for (final t in state.queue) t.id};
         final extra = tracks.where((t) => seen.add(t.id)).toList();
+        final queue = state.queue;
+        final following = queue.skip(index + 1).toList();
+        final predecessors = [for (var i = 2; i < math.min(following.length, extra.length * 3); i += 3) following[i]];
+        final keys = await _harmonicKeys([...extra, ...predecessors], context: state.context);
+        if (_smartRequest != request ||
+            !state.smartShuffle ||
+            state.inJam ||
+            jam != null ||
+            state.index != index ||
+            !identical(state.queue, queue)) {
+          return;
+        }
+        final ordered = <Track>[];
+        final remaining = [...extra];
+        for (final previous in predecessors) {
+          if (remaining.isEmpty) break;
+          final next = _harmonicOrder(previous, remaining, keys).first;
+          ordered.add(next);
+          remaining.remove(next);
+        }
+        ordered.addAll(remaining);
         final ids = {for (final t in extra) t.id};
-        final upcoming = interleaveEvery(state.queue.skip(index + 1).toList(), extra, 3);
+        final upcoming = interleaveEvery(following, ordered, 3);
         for (var i = 0; i < upcoming.length; i++) {
           final track = upcoming[i];
           if (!ids.contains(track.id)) continue;

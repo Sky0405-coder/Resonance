@@ -12,17 +12,22 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db import SessionLocal
 from app.models import Track, TrackMixPoints
 from app.services.transcode import resolve_path
 
 log = logging.getLogger(__name__)
 
 # Bump when the analysis changes so stored results get recomputed.
-VERSION = 2
+VERSION = 3
 _RATE = 11025
 _HOP = 256  # ~23 ms per frame
 _FRAME = 1024
 _MIN_BPM, _MAX_BPM = 70.0, 180.0
+_MAJOR = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
+_MINOR = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
+_CAMELOT_MAJOR = ("8B", "3B", "10B", "5B", "12B", "7B", "2B", "9B", "4B", "11B", "6B", "1B")
+_CAMELOT_MINOR = ("5A", "12A", "7A", "2A", "9A", "4A", "11A", "6A", "1A", "8A", "3A", "10A")
 
 
 @dataclass
@@ -33,6 +38,8 @@ class MixPoints:
     # Where this song starts fading out (a beat, so the next one can start on the beat), and its audible end.
     mix_out: float
     end: float
+    key: str | None = None
+    key_confidence: float | None = None
 
 
 def _decode(path: Path) -> np.ndarray:
@@ -45,10 +52,37 @@ def _decode(path: Path) -> np.ndarray:
     return np.frombuffer(result.stdout, dtype=np.float32)
 
 
-def _frames(samples: np.ndarray) -> np.ndarray:
-    count = 1 + (len(samples) - _FRAME) // _HOP
-    index = np.arange(_FRAME)[None, :] + _HOP * np.arange(count)[:, None]
-    return samples[index] * np.hanning(_FRAME).astype(np.float32)
+def _frames(samples: np.ndarray, frame: int = _FRAME, hop: int = _HOP) -> np.ndarray:
+    count = 1 + (len(samples) - frame) // hop
+    index = np.arange(frame)[None, :] + hop * np.arange(count)[:, None]
+    return samples[index] * np.hanning(frame).astype(np.float32)
+
+
+def _key(samples: np.ndarray) -> tuple[str | None, float | None]:
+    if len(samples) < 4096 * 4:
+        return None, None
+    frames = _frames(samples, 4096, 2048)
+    rms = np.sqrt(np.mean(frames**2, axis=1))
+    if float(rms.max()) < 1e-5:
+        return None, None
+    magnitude = np.abs(np.fft.rfft(frames[rms > np.percentile(rms, 30)], axis=1))
+    frequencies = np.fft.rfftfreq(4096, 1 / _RATE)
+    bins = (frequencies >= 55) & (frequencies <= 4000)
+    # Semitones relative to A4, shifted so C is pitch class zero.
+    classes = (np.rint(12 * np.log2(frequencies[bins] / 440)).astype(int) + 9) % 12
+    chroma = np.bincount(classes, weights=np.log1p(magnitude[:, bins]).sum(axis=0), minlength=12)
+    if float(np.std(chroma)) < 1e-12:
+        return None, None
+    scores = [
+        (float(np.corrcoef(chroma, np.roll(profile, root))[0, 1]), code)
+        for profile, codes in ((_MAJOR, _CAMELOT_MAJOR), (_MINOR, _CAMELOT_MINOR))
+        for root, code in enumerate(codes)
+    ]
+    scores.sort(reverse=True)
+    best, code = scores[0]
+    if best < 0.3:
+        return None, None
+    return code, round(float(np.clip(best - scores[1][0], 0, 1)), 3)
 
 
 def _smooth(values: np.ndarray, seconds: float) -> np.ndarray:
@@ -165,11 +199,14 @@ def analyze(path: Path) -> MixPoints:
         boundary = mix_in + round((out - mix_in) / phrase) * phrase
         if boundary > mix_in and abs(boundary - out) <= 8 * beat and boundary <= end - 4:
             out = boundary
+    key, confidence = _key(samples)
     return MixPoints(
         bpm=round(float(bpm), 2) if bpm else None,
         mix_in=round(max(0.0, float(mix_in)), 3),
         mix_out=round(max(0.0, float(out)), 3),
         end=round(float(end), 3),
+        key=key,
+        key_confidence=confidence,
     )
 
 
@@ -188,7 +225,9 @@ async def analyze_async(path: Path) -> MixPoints | None:
 async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, MixPoints | None]:
     """Stored results, analyzing tracks that are new or whose file changed (about half a second each)."""
     tracks = {track.id: track for track in await db.scalars(select(Track).where(Track.id.in_(ids)))}
-    stored = {row.track_id: row for row in await db.scalars(select(TrackMixPoints).where(TrackMixPoints.track_id.in_(ids)))}
+    stored = {row.track_id: row for row in await db.scalars(
+        select(TrackMixPoints).where(TrackMixPoints.track_id.in_(ids))
+    )}
     result: dict[uuid.UUID, MixPoints | None] = {}
     for id in ids:
         track = tracks.get(id)
@@ -197,7 +236,7 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
             continue
         row = stored.get(id)
         if row is not None and row.version == VERSION and row.mtime == track.mtime:
-            result[id] = MixPoints(row.bpm, row.mix_in, row.mix_out, row.end)
+            result[id] = MixPoints(row.bpm, row.mix_in, row.mix_out, row.end, row.key, row.key_confidence)
             continue
         points = await analyze_async(resolve_path(track.path))
         result[id] = points
@@ -209,6 +248,8 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
                 "mix_in": points.mix_in,
                 "mix_out": points.mix_out,
                 "end": points.end,
+                "key": points.key,
+                "key_confidence": points.key_confidence,
             }
             await db.execute(
                 insert(TrackMixPoints)
@@ -217,3 +258,48 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
             )
             await db.commit()
     return result
+
+
+_loop_task: asyncio.Task | None = None
+
+
+async def run_once() -> None:
+    async with SessionLocal() as db:
+        current = select(TrackMixPoints.track_id).where(TrackMixPoints.version == VERSION)
+        ids = list(await db.scalars(
+            select(Track.id)
+            .where(Track.is_temporary.is_(False), ~Track.id.in_(current))
+            .order_by(Track.created_at, Track.id)
+            .limit(120)
+        ))
+    for id in ids:
+        # One analysis every 30 seconds, including failed files: at most 120 per hour.
+        await asyncio.sleep(30)
+        try:
+            async with SessionLocal() as db:
+                await for_tracks(db, [id])
+        except Exception:
+            log.exception("Background mix point analysis failed for %s", id)
+
+
+async def _loop() -> None:
+    while True:
+        await asyncio.sleep(60)
+        try:
+            await run_once()
+        except Exception:
+            log.exception("Mix point analysis loop failed")
+
+
+async def start() -> None:
+    global _loop_task
+    if _loop_task is None or _loop_task.done():
+        _loop_task = asyncio.create_task(_loop())
+
+
+async def stop() -> None:
+    global _loop_task
+    if _loop_task is not None:
+        _loop_task.cancel()
+        await asyncio.gather(_loop_task, return_exceptions=True)
+        _loop_task = None

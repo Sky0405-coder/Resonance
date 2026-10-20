@@ -1,4 +1,5 @@
 import '../player/engine.dart' show MixPoints;
+
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
@@ -425,6 +426,21 @@ class ApiClient {
   Future<Map<String, MixPoints?>> mixPoints(List<String> ids) async {
     final j = await _get('/api/mixpoints', {'ids': ids.join(',')}) as Map<String, dynamic>;
     return {for (final e in j.entries) e.key: e.value == null ? null : MixPoints.fromJson(e.value)};
+  }
+
+  Future<Map<String, ({String? key, double? bpm})?>> mixKeys(List<String> ids) async {
+    final result = <String, ({String? key, double? bpm})?>{};
+    for (var offset = 0; offset < ids.length; offset += 500) {
+      final chunk = ids.skip(offset).take(500);
+      final j = await _get('/api/mixpoints/keys', {'ids': chunk.join(',')}) as Map<String, dynamic>;
+      for (final entry in j.entries) {
+        final value = entry.value;
+        result[entry.key] = value == null
+            ? null
+            : (key: value['key'] as String?, bpm: (value['bpm'] as num?)?.toDouble());
+      }
+    }
+    return result;
   }
 
   /// The visualizer's spectrum of a song (binary, see `player/spectrum.dart`); null when it cannot be analyzed.

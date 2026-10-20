@@ -113,6 +113,8 @@ class TrackMixPoints(Base):
     # The file's mtime when analyzed; a changed file is analyzed again.
     mtime: Mapped[float] = mapped_column(Float)
     bpm: Mapped[float | None] = mapped_column(Float)
+    key: Mapped[str | None] = mapped_column(String(3))
+    key_confidence: Mapped[float | None] = mapped_column(Float)
     mix_in: Mapped[float] = mapped_column(Float)
     mix_out: Mapped[float] = mapped_column(Float)
     end: Mapped[float] = mapped_column(Float)
