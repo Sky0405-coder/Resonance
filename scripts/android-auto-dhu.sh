@@ -15,6 +15,16 @@ if [ ! -x "$DHU/desktop-head-unit" ]; then
 fi
 # The DHU needs libc++, which Fedora does not ship by default; the NDK has it.
 LIBCXX=$(dirname "$(find "$SDK/ndk" -path '*x86_64-unknown-linux-gnu/libc++.so.1' 2>/dev/null | head -1)")
+if ! "$ADB" get-state >/dev/null 2>&1; then
+  echo "Kein Handy gefunden: per USB anschließen und USB-Debugging erlauben." >&2
+  exit 1
+fi
+# Without the head unit server the DHU connects to the forwarded port and quits silently right away.
+if ! "$ADB" shell "cat /proc/net/tcp /proc/net/tcp6 2>/dev/null" | grep -qiE ':149D [0-9A-F]+:0000 0A'; then
+  echo "Der Head-Unit-Server auf dem Handy läuft nicht." >&2
+  echo "Android Auto öffnen → ⋮ → \"Server für Monitor starten\" (Start head unit server), dann erneut ausführen." >&2
+  exit 1
+fi
 "$ADB" forward tcp:5277 tcp:5277
 cd "$DHU"
 LD_LIBRARY_PATH="$LIBCXX:$DHU" exec ./desktop-head-unit "$@"
