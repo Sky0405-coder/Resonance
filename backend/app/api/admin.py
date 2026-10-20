@@ -163,6 +163,7 @@ async def delete_user(user_id: uuid.UUID, admin: AdminUser, db: DB) -> None:
 async def library_duplicates(admin: AdminUser, db: DB) -> list[DuplicateGroupOut]:
     return [
         DuplicateGroupOut(
+            kind="cross_album" if len({track.album_id for track in group}) > 1 else "same_album",
             album_id=group[0].album_id,
             album_title=group[0].album.title,
             artist_name=group[0].album.artist.name,
@@ -170,6 +171,7 @@ async def library_duplicates(admin: AdminUser, db: DB) -> list[DuplicateGroupOut
                 DuplicateTrackOut(
                     id=track.id,
                     title=track.title,
+                    album=track.album.title,
                     path=track.path,
                     codec=track.codec,
                     bitrate=track.bitrate,
@@ -188,8 +190,16 @@ async def library_duplicates(admin: AdminUser, db: DB) -> list[DuplicateGroupOut
 async def merge_library_duplicates(body: DuplicateMergeIn, admin: AdminUser, db: DB) -> dict[str, int]:
     keep_ids = set(body.keep_ids)
     merged_groups = deleted_tracks = freed_bytes = 0
-    for group in await find_groups(db):
+    groups = await find_groups(db)
+    groups.sort(key=lambda group: len({track.album_id for track in group}) > 1)
+    for group in groups:
         if group[0].id not in keep_ids:
+            continue
+        existing = set(await db.scalars(select(Track.id).where(Track.id.in_([track.id for track in group]))))
+        if group[0].id not in existing:
+            continue
+        group = [track for track in group if track.id in existing]
+        if len(group) < 2:
             continue
         await merge_group(db, group[0], group[1:])
         merged_groups += 1

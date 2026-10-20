@@ -128,6 +128,7 @@ class JobOut(ORM):
 class DuplicateTrackOut(ORM):
     id: uuid.UUID
     title: str
+    album: str
     path: str
     codec: str | None
     bitrate: int | None
@@ -137,6 +138,7 @@ class DuplicateTrackOut(ORM):
 
 
 class DuplicateGroupOut(BaseModel):
+    kind: Literal["same_album", "cross_album"] = "same_album"
     album_id: uuid.UUID
     album_title: str
     artist_name: str

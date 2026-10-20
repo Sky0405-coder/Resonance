@@ -8,9 +8,18 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import SessionLocal
-from app.models import Album, DownloadItem, DownloadRequest, QualityUpgradeAttempt, Role, Track, User
+from app.models import (
+    Album,
+    DownloadItem,
+    DownloadRequest,
+    QualityUpgradeAttempt,
+    Role,
+    Track,
+    User,
+)
 from app.services.deezer import NotFound, deezer
 from app.services.downloads import manager
+from app.services.duplicates import lossless_twin
 from app.services.matching import name_key
 from app.services.resolve import resolve_album
 from app.services.server_config import load_config
@@ -72,7 +81,7 @@ async def request_upgrade(db: AsyncSession, album: Album) -> None:
         return
     matched = []
     for track in tracks:
-        if not needs_upgrade(track):
+        if not needs_upgrade(track) or await lossless_twin(db, track) is not None:
             continue
         meta = next(
             (

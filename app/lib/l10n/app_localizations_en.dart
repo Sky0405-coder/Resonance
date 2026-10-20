@@ -2182,6 +2182,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminDuplicates => 'Duplicates';
 
   @override
+  String get adminDuplicatesDifferentAlbums => 'Different albums';
+
+  @override
   String get adminDuplicatesEmpty => 'No duplicates found';
 
   @override

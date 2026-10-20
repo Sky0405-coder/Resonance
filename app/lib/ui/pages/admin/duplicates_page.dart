@@ -102,17 +102,29 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          for (final track in group.tracks)
+                          if (group.kind == 'cross_album')
                             Text(
-                              context.l10n.adminDuplicatesFile(
-                                track.keep ? '✓' : '✗',
-                                (track.codec ?? context.l10n.commonUnknown).toUpperCase(),
-                                track.bitrate ?? 0,
-                                formatBytes(track.size, locale: context.l10n.localeName, megabytes: true),
-                              ),
-                              style: TextStyle(
-                                color: track.keep ? Theme.of(context).colorScheme.primary : Palette.textMuted,
-                              ),
+                              context.l10n.adminDuplicatesDifferentAlbums,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          for (final track in group.tracks)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  context.l10n.adminDuplicatesFile(
+                                    track.keep ? '✓' : '✗',
+                                    (track.codec ?? context.l10n.commonUnknown).toUpperCase(),
+                                    track.bitrate ?? 0,
+                                    formatBytes(track.size, locale: context.l10n.localeName, megabytes: true),
+                                  ),
+                                  style: TextStyle(
+                                    color: track.keep ? Theme.of(context).colorScheme.primary : Palette.textMuted,
+                                  ),
+                                ),
+                                if (track.album.isNotEmpty)
+                                  Text(track.album, style: Theme.of(context).textTheme.bodySmall),
+                              ],
                             ),
                         ],
                       ),

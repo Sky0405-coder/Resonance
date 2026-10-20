@@ -3854,6 +3854,12 @@ abstract class AppLocalizations {
   /// **'Duplikate'**
   String get adminDuplicates;
 
+  /// No description provided for @adminDuplicatesDifferentAlbums.
+  ///
+  /// In de, this message translates to:
+  /// **'Verschiedene Alben'**
+  String get adminDuplicatesDifferentAlbums;
+
   /// No description provided for @adminDuplicatesEmpty.
   ///
   /// In de, this message translates to:

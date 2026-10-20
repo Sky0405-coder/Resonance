@@ -713,6 +713,7 @@
   "jamChip": "Jam · {count}",
   "adminDuplicates": "Duplicates",
   "adminDuplicatesEmpty": "No duplicates found",
+  "adminDuplicatesDifferentAlbums": "Different albums",
   "adminDuplicatesHint": "{groups} songs have multiple files. The best file for each song will be kept and the others deleted. Likes, playlists and listening history will be transferred to the kept file.",
   "@adminDuplicatesHint": {
     "placeholders": {

@@ -1321,6 +1321,7 @@
     }
   },
   "adminDuplicates": "Duplikate",
+  "adminDuplicatesDifferentAlbums": "Verschiedene Alben",
   "adminDuplicatesEmpty": "Keine Duplikate gefunden",
   "adminDuplicatesHint": "{groups} Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über.",
   "@adminDuplicatesHint": {

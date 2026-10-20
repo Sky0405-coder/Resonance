@@ -25,6 +25,8 @@ void main() {
     expect(group.albumId, 'album');
     expect(group.albumTitle, 'Fallen');
     expect(group.artistName, 'Evanescence');
+    expect(group.kind, 'same_album');
+    expect(group.tracks.first.album, '');
     expect(group.tracks.map((track) => track.keep), [true, false]);
     expect(group.tracks.first.codec, 'flac');
     expect(group.tracks.first.bitrate, 989);
@@ -33,5 +35,29 @@ void main() {
     expect(group.tracks.last.codec, isNull);
     expect(group.tracks.last.bitrate, isNull);
     expect(group.tracks.last.duration, 210.5);
+  });
+
+  test('DuplicateGroup.fromJson parses cross-album groups', () {
+    final group = DuplicateGroup.fromJson({
+      'kind': 'cross_album',
+      'album_id': 'album',
+      'album_title': 'Blurryface',
+      'artist_name': 'twenty one pilots',
+      'tracks': [
+        for (final album in ['Blurryface', 'Stressed Out'])
+          {
+            'id': album,
+            'title': 'Stressed Out',
+            'album': album,
+            'path': '$album/song.flac',
+            'size': 5,
+            'duration': 202.335,
+            'keep': album == 'Blurryface',
+          },
+      ],
+    });
+
+    expect(group.kind, 'cross_album');
+    expect(group.tracks.map((track) => track.album), ['Blurryface', 'Stressed Out']);
   });
 }

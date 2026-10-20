@@ -7,6 +7,9 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
+
 from app.db import SessionLocal, engine
 from app.models import (
     Album,
@@ -25,9 +28,6 @@ from app.services.deezer import DeezerError, NotFound
 from app.services.musicbrainz import TrackMeta
 from app.services.scanner import import_file
 from app.services.tagger import write_tags
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
-
 from tests import test_torrents
 from tests.conftest import MUSIC_DIR, make_track
 
@@ -163,6 +163,37 @@ async def create_upgrade(album_id: uuid.UUID) -> DownloadRequest | None:
 async def attempt_result(album_id: uuid.UUID) -> str:
     async with SessionLocal() as db:
         return (await db.get(QualityUpgradeAttempt, album_id)).result
+
+
+@pytest.mark.parametrize("all_twins", [False, True])
+async def test_upgrade_skips_lossless_cross_album_twins(upgrade_env: SimpleNamespace, all_twins: bool) -> None:
+    album_id, ids, _ = await library(upgrade_env)
+    async with SessionLocal() as db:
+        original = await db.get(Track, ids[0])
+        album = Album(title="Compilation", title_key="compilation", artist_id=original.artist_id)
+        db.add(album)
+        await db.flush()
+        for index, track_id in enumerate(ids if all_twins else ids[:2]):
+            track = await db.get(Track, track_id)
+            db.add(
+                Track(
+                    path=f"compilation/{index}.flac",
+                    title=track.title.upper(),
+                    artist_credit=track.artist_credit + " feat. Guest",
+                    artist_id=track.artist_id,
+                    album_id=album.id,
+                    duration=track.duration + 1,
+                    codec="FLAC",
+                )
+            )
+        await db.commit()
+    request = await create_upgrade(album_id)
+    if all_twins:
+        assert request is None
+        assert await attempt_result(album_id) == "no_catalog"
+    else:
+        assert [item.replace_track_id for item in request.items] == ids[2:]
+        assert await attempt_result(album_id) == "requested"
 
 
 async def test_candidate_selection(upgrade_env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -413,6 +413,7 @@ class DuplicateTrack {
     required this.size,
     required this.duration,
     required this.keep,
+    this.album = '',
   });
 
   final String id;
@@ -423,6 +424,7 @@ class DuplicateTrack {
   final int size;
   final double duration;
   final bool keep;
+  final String album;
 
   factory DuplicateTrack.fromJson(Map<String, dynamic> j) => DuplicateTrack(
     id: j['id'],
@@ -433,6 +435,7 @@ class DuplicateTrack {
     size: j['size'],
     duration: (j['duration'] as num).toDouble(),
     keep: j['keep'],
+    album: j['album'] ?? '',
   );
 }
 
@@ -442,18 +445,21 @@ class DuplicateGroup {
     required this.albumTitle,
     required this.artistName,
     required this.tracks,
+    this.kind = 'same_album',
   });
 
   final String albumId;
   final String albumTitle;
   final String artistName;
   final List<DuplicateTrack> tracks;
+  final String kind;
 
   factory DuplicateGroup.fromJson(Map<String, dynamic> j) => DuplicateGroup(
     albumId: j['album_id'],
     albumTitle: j['album_title'],
     artistName: j['artist_name'],
     tracks: [for (final track in j['tracks']) DuplicateTrack.fromJson(track)],
+    kind: j['kind'] ?? 'same_album',
   );
 }
 

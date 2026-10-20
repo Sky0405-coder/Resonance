@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 import pytest
-from sqlalchemy import event, select
+from sqlalchemy import event, insert, select
 
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
@@ -27,7 +27,14 @@ from app.models import (
     TrackLyrics,
 )
 from app.services import downloads, importer, sources
-from app.services.duplicates import _same_stem_track, find_groups, merge_group, merge_new_duplicates, track_quality
+from app.services.duplicates import (
+    _same_stem_track,
+    find_groups,
+    lossless_twin,
+    merge_group,
+    merge_new_duplicates,
+    track_quality,
+)
 from app.services.library_paths import target_relpath
 from app.services.musicbrainz import TrackMeta
 from app.services.sources.base import Candidate
@@ -115,7 +122,7 @@ async def library(env: SimpleNamespace, overrides: list[dict[str, Any]] | None =
         ({"track_no": 2}, 0),
         ({"track_no": None}, 0),
         ({"duration": 32}, 0),
-        ({"album": "Other"}, 0),
+        ({"album": "Other"}, 1),
         ({"disc_no": None}, 1),
         ({"disc_no": 2}, 0),
         ({"title": "  SONG  "}, 1),
@@ -141,7 +148,7 @@ async def test_find_groups(env: SimpleNamespace, changes: dict[str, Any], expect
                 assert groups[0][0].artist.name == "Artist"
         finally:
             event.remove(engine.sync_engine, "before_cursor_execute", executed)
-    assert len(queries) == 1
+    assert len(queries) == (3 if changes.get("album") else 2)
 
 
 async def test_greedy_duration_and_keeper_order(env: SimpleNamespace) -> None:
@@ -240,10 +247,12 @@ async def test_api_lists_and_merges_server_keeper(env: SimpleNamespace) -> None:
     group = response.json()[0]
     assert group["album_id"] == str(tracks[0].album_id)
     assert group["album_title"] == "Album" and group["artist_name"] == "Artist"
+    assert group["kind"] == "same_album"
     assert [track["keep"] for track in group["tracks"]] == [True, False]
     assert group["tracks"][0] == {
         "id": str(tracks[0].id),
         "title": "Song",
+        "album": "Album",
         "path": tracks[0].path,
         "codec": "flac",
         "bitrate": 192,
@@ -257,6 +266,208 @@ async def test_api_lists_and_merges_server_keeper(env: SimpleNamespace) -> None:
     assert response.status_code == 200
     assert response.json() == {"merged_groups": 1, "deleted_tracks": 1, "freed_bytes": 5}
     assert (await env.client.get(url, headers=env.headers)).json() == []
+
+
+async def test_stressed_out_cross_album_group(env: SimpleNamespace) -> None:
+    tracks = await library(
+        env,
+        [
+            {"album": "Stressed Out", "codec": "opus", "duration": 202.341},
+            {"album": "Blurryface", "codec": "flac", "duration": 202.335},
+            {"album": "Promo Only: Mainstream Radio, December 2015", "codec": "mp3", "duration": 202.368},
+        ],
+    )
+    async with SessionLocal() as db:
+        for track in await db.scalars(select(Track)):
+            track.title = "Stressed Out"
+            track.artist_credit = "twenty one pilots"
+        artist = await db.get(Artist, tracks[0].artist_id)
+        artist.name = "twenty one pilots"
+        await db.commit()
+    response = await env.client.get("/api/admin/library/duplicates", headers=env.headers)
+    assert response.status_code == 200
+    group, = response.json()
+    assert group["kind"] == "cross_album" and group["artist_name"] == "twenty one pilots"
+    assert group["tracks"][0]["id"] == str(tracks[1].id)
+    assert group["tracks"][0]["album"] == "Blurryface"
+    assert {track["album"] for track in group["tracks"]} == {
+        "Blurryface", "Stressed Out", "Promo Only: Mainstream Radio, December 2015"
+    }
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "expected"),
+    [
+        ({"isrc": "US1234567890"}, {"isrc": "US1234567890", "title": "Other", "duration": 100}, True),
+        ({}, {"duration": 4}, True),
+        ({}, {"duration": 5}, False),
+        ({}, {"artist_credit": "Other artist"}, False),
+        ({}, {"artist_credit": "  ARTIST feat. Guest", "title": " SONG  "}, True),
+        ({"title": " "}, {"title": ""}, False),
+        ({"isrc": "US1234567890", "title": ""}, {"isrc": "US1234567890", "title": " "}, True),
+    ],
+)
+async def test_cross_album_matching(
+    env: SimpleNamespace, first: dict[str, Any], second: dict[str, Any], expected: bool
+) -> None:
+    tracks = await library(env, [{"album": "Single", **first}, {"album": "Album", **second}])
+    async with SessionLocal() as db:
+        groups = await find_groups(db)
+        assert len(groups) == int(expected)
+        if expected:
+            assert {track.id for track in groups[0]} == {track.id for track in tracks}
+
+
+async def test_cross_album_components_connect_duration_and_isrc(env: SimpleNamespace) -> None:
+    tracks = await library(
+        env,
+        [
+            {"album": "A", "duration": 100},
+            {"album": "B", "duration": 102},
+            {"album": "C", "duration": 104, "isrc": "US1234567890"},
+            {"album": "D", "duration": 200, "title": "Other", "isrc": "US1234567890"},
+        ],
+    )
+    async with SessionLocal() as db:
+        groups = await find_groups(db)
+        assert len(groups) == 1
+        assert {track.id for track in groups[0]} == {track.id for track in tracks}
+
+
+async def test_cross_album_excludes_same_album_losers(env: SimpleNamespace) -> None:
+    tracks = await library(
+        env,
+        [
+            {"codec": "flac", "album": "A", "duration": 100},
+            {"codec": "mp3", "album": "A", "duration": 104},
+            {"codec": "mp3", "album": "B", "duration": 100},
+            {"codec": "mp3", "album": "C", "duration": 104},
+        ],
+    )
+    async with SessionLocal() as db:
+        groups = await find_groups(db)
+        assert [[track.id for track in group] for group in groups] == [
+            [tracks[0].id, tracks[1].id], [tracks[0].id, tracks[2].id]
+        ]
+
+
+@pytest.mark.parametrize("tie_breaker", ["album_size", "temporary", "created_at", "id"])
+async def test_cross_album_keeper_order(env: SimpleNamespace, tie_breaker: str) -> None:
+    oldest = datetime.now(UTC) - timedelta(days=1)
+    first: dict[str, Any] = {"codec": "flac", "album": "Single", "created_at": oldest}
+    second: dict[str, Any] = {"codec": "flac", "album": "Album", "created_at": oldest}
+    extra = []
+    if tie_breaker == "album_size":
+        second["is_temporary"] = True
+        second["created_at"] = datetime.now(UTC)
+        extra = [{"album": "Album", "title": "Other", "track_no": 2}]
+    elif tie_breaker == "temporary":
+        first["is_temporary"] = True
+        second["created_at"] = datetime.now(UTC)
+    elif tie_breaker == "created_at":
+        first["created_at"] = datetime.now(UTC)
+    else:
+        first["id"] = uuid.UUID(int=2)
+        second["id"] = uuid.UUID(int=1)
+    tracks = await library(env, [first, second, *extra])
+    async with SessionLocal() as db:
+        group, = await find_groups(db)
+        assert [track.id for track in group] == [tracks[1].id, tracks[0].id]
+
+
+async def test_merge_cross_album_moves_playlist_and_likes(env: SimpleNamespace) -> None:
+    tracks = await library(env, [{"album": "Single", "codec": "opus"}, {"album": "Album", "codec": "flac"}])
+    async with SessionLocal() as db:
+        playlist = Playlist(owner_id=env.user_id, name="Cross album")
+        db.add(playlist)
+        await db.flush()
+        entry = PlaylistEntry(playlist_id=playlist.id, track_id=tracks[0].id, position=0)
+        db.add_all([entry, TrackLike(user_id=env.user_id, track_id=tracks[0].id)])
+        await db.commit()
+    response = await env.client.post(
+        "/api/admin/library/duplicates/merge", headers=env.headers, json={"keep_ids": [str(tracks[1].id)]}
+    )
+    assert response.status_code == 200
+    assert response.json() == {"merged_groups": 1, "deleted_tracks": 1, "freed_bytes": 5}
+    async with SessionLocal() as db:
+        assert list(await db.scalars(select(Track.id))) == [tracks[1].id]
+        assert (await db.get(PlaylistEntry, entry.id)).track_id == tracks[1].id
+        assert list(await db.scalars(select(TrackLike.track_id))) == [tracks[1].id]
+    assert not (env.settings.music_dir / tracks[0].path).exists()
+
+
+@pytest.mark.parametrize("cross_keeper", [False, True])
+async def test_merge_overlapping_groups(env: SimpleNamespace, cross_keeper: bool) -> None:
+    tracks = await library(
+        env,
+        [
+            {"album": "Z Single", "codec": "mp3" if cross_keeper else "flac"},
+            {"album": "Z Single", "codec": "opus", "bitrate": 128},
+            {"album": "A Album", "codec": "flac" if cross_keeper else "mp3"},
+        ],
+    )
+    response = await env.client.get("/api/admin/library/duplicates", headers=env.headers)
+    assert len(response.json()) == 2
+    response = await env.client.post(
+        "/api/admin/library/duplicates/merge",
+        headers=env.headers,
+        json={"keep_ids": [group["tracks"][0]["id"] for group in response.json()]},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"merged_groups": 2, "deleted_tracks": 2, "freed_bytes": 10}
+    async with SessionLocal() as db:
+        assert list(await db.scalars(select(Track.id))) == [tracks[2 if cross_keeper else 0].id]
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected"),
+    [
+        ({}, True),
+        ({"duration": 4, "title": " SONG ", "artist_credit": "ARTIST feat. Guest"}, True),
+        ({"duration": 5}, False),
+        ({"artist_credit": "Other"}, False),
+        ({"title": "Other"}, False),
+        ({"codec": "mp3"}, False),
+        ({"album": "Single"}, False),
+        ({"isrc": "US1234567890", "title": "Other", "duration": 100}, True),
+    ],
+)
+async def test_lossless_twin(env: SimpleNamespace, changes: dict[str, Any], expected: bool) -> None:
+    tracks = await library(
+        env,
+        [
+            {"album": "Single", "codec": "opus", "isrc": "US1234567890"},
+            {"album": "Album", "codec": "FLAC", **changes},
+        ],
+    )
+    async with SessionLocal() as db:
+        twin = await lossless_twin(db, await db.get(Track, tracks[0].id))
+        assert (twin.id if twin else None) == (tracks[1].id if expected else None)
+
+
+async def test_find_groups_large_library(env: SimpleNamespace) -> None:
+    tracks = await library(env, [{"album": "A", "title": "Seed A"}, {"album": "B", "title": "Seed B"}])
+    async with SessionLocal() as db:
+        await db.execute(
+            insert(Track),
+            [
+                {
+                    "path": f"bulk/{index}.flac",
+                    "title": f"Song {index // 2}",
+                    "artist_credit": "Artist",
+                    "artist_id": tracks[0].artist_id,
+                    "album_id": tracks[index % 2].album_id,
+                    "track_no": index // 2 + 1,
+                    "duration": 200 + index % 2,
+                    "codec": "flac",
+                }
+                for index in range(3000)
+            ],
+        )
+        await db.commit()
+        groups = await find_groups(db)
+        assert len(groups) == 1500
+        assert all(len(group) == 2 and len({track.album_id for track in group}) == 2 for group in groups)
 
 
 def meta() -> TrackMeta:
