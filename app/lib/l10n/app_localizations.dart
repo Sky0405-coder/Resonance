@@ -3356,6 +3356,78 @@ abstract class AppLocalizations {
   /// **'Zeigt beim Abspielen animierte Frequenzbalken im Player.'**
   String get settingsVisualizerHint;
 
+  /// No description provided for @settingsVisualizerStyle.
+  ///
+  /// In de, this message translates to:
+  /// **'Visualizer-Stil'**
+  String get settingsVisualizerStyle;
+
+  /// No description provided for @visualizerThemeAuto.
+  ///
+  /// In de, this message translates to:
+  /// **'Automatisch'**
+  String get visualizerThemeAuto;
+
+  /// No description provided for @visualizerThemeRetro.
+  ///
+  /// In de, this message translates to:
+  /// **'Retro-Stereo'**
+  String get visualizerThemeRetro;
+
+  /// No description provided for @visualizerThemeSynthwave.
+  ///
+  /// In de, this message translates to:
+  /// **'Synthwave'**
+  String get visualizerThemeSynthwave;
+
+  /// No description provided for @visualizerThemeNeon.
+  ///
+  /// In de, this message translates to:
+  /// **'Neon'**
+  String get visualizerThemeNeon;
+
+  /// No description provided for @visualizerThemeOcean.
+  ///
+  /// In de, this message translates to:
+  /// **'Ozean'**
+  String get visualizerThemeOcean;
+
+  /// No description provided for @visualizerThemeSunset.
+  ///
+  /// In de, this message translates to:
+  /// **'Sonnenuntergang'**
+  String get visualizerThemeSunset;
+
+  /// No description provided for @visualizerThemeFire.
+  ///
+  /// In de, this message translates to:
+  /// **'Feuer'**
+  String get visualizerThemeFire;
+
+  /// No description provided for @visualizerThemeMatrix.
+  ///
+  /// In de, this message translates to:
+  /// **'Matrix'**
+  String get visualizerThemeMatrix;
+
+  /// No description provided for @visualizerThemeAurora.
+  ///
+  /// In de, this message translates to:
+  /// **'Polarlicht'**
+  String get visualizerThemeAurora;
+
+  /// No description provided for @visualizerThemeMono.
+  ///
+  /// In de, this message translates to:
+  /// **'Monochrom'**
+  String get visualizerThemeMono;
+
+  /// No description provided for @visualizerThemeRainbow.
+  ///
+  /// In de, this message translates to:
+  /// **'Regenbogen'**
+  String get visualizerThemeRainbow;
+
   /// No description provided for @settingsAutomix.
   ///
   /// In de, this message translates to:

@@ -9,6 +9,7 @@ import '../../core/models.dart';
 import '../../core/library.dart';
 import '../../player/player.dart';
 import '../../player/spectrum.dart';
+import '../../player/visualizer_themes.dart';
 import 'audiobook_pages.dart';
 import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
@@ -455,7 +456,7 @@ class _QueueHeading extends StatelessWidget {
   );
 }
 
-/// The spectrum over the lower part of the cover, on a dark fade and in the cover's own color.
+/// The spectrum over the lower part of the cover, on a dark fade.
 class _CoverVisualizer extends ConsumerWidget {
   const _CoverVisualizer({required this.track});
   final Track track;
@@ -463,6 +464,7 @@ class _CoverVisualizer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final color = ref.watch(coverColorProvider(coverImageProvider(ref, track.album.id, size: 300))).value;
+    final theme = ref.watch(visualizerThemeProvider);
     return IgnorePointer(
       child: Column(
         children: [
@@ -482,6 +484,7 @@ class _CoverVisualizer extends ConsumerWidget {
                 child: SpectrumVisualizer(
                   trackId: track.id,
                   color: (color ?? Colors.white).withValues(alpha: 0.85),
+                  theme: theme.id == 'auto' ? null : theme,
                   mirrored: true,
                   gap: 0.35,
                   minHeight: 0.015,

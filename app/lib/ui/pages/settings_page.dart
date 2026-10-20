@@ -16,6 +16,7 @@ import '../../core/theme.dart';
 import '../../integrations/discord_presence.dart';
 import '../../player/player.dart';
 import '../../player/spectrum.dart';
+import '../../player/visualizer_themes.dart';
 import '../../player/equalizer_controller.dart';
 import '../../offline/offline_store.dart';
 import 'equalizer_page.dart';
@@ -233,6 +234,17 @@ class SettingsPage extends ConsumerWidget {
               value: ref.watch(visualizerEnabledProvider),
               onChanged: ref.read(visualizerEnabledProvider.notifier).set,
             ),
+          if (!isDesktop && ref.watch(visualizerEnabledProvider))
+            ListTile(
+              title: Text(context.l10n.settingsVisualizerStyle),
+              subtitle: Text(visualizerThemeName(context.l10n, ref.watch(visualizerThemeProvider).id)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => FractionallySizedBox(heightFactor: 0.85, child: VisualizerThemeSheet(accent: accent)),
+              ),
+            ),
           if (supportsEqualizer)
             ListTile(
               leading: const Icon(Icons.equalizer),
@@ -353,6 +365,74 @@ class SettingsPage extends ConsumerWidget {
     } catch (e) {
       if (context.mounted) showError(context, e);
     }
+  }
+}
+
+class VisualizerThemeSheet extends ConsumerWidget {
+  const VisualizerThemeSheet({super.key, required this.accent});
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(visualizerThemeProvider);
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(context.l10n.settingsVisualizerStyle, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: MediaQuery.sizeOf(context).width > 600 ? 3 : 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              mainAxisExtent: 132,
+              children: [
+                for (final theme in visualizerThemes)
+                  Semantics(
+                    selected: theme == selected,
+                    child: Material(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: theme == selected ? accent : Colors.transparent, width: 2),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () {
+                          ref.read(visualizerThemeProvider.notifier).set(theme);
+                          Navigator.pop(context);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            children: [
+                              SpectrumPreview(theme: theme, color: accent),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: Center(
+                                  child: Text(
+                                    visualizerThemeName(context.l10n, theme.id),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

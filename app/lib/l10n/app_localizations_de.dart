@@ -1888,6 +1888,42 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsVisualizerHint => 'Zeigt beim Abspielen animierte Frequenzbalken im Player.';
 
   @override
+  String get settingsVisualizerStyle => 'Visualizer-Stil';
+
+  @override
+  String get visualizerThemeAuto => 'Automatisch';
+
+  @override
+  String get visualizerThemeRetro => 'Retro-Stereo';
+
+  @override
+  String get visualizerThemeSynthwave => 'Synthwave';
+
+  @override
+  String get visualizerThemeNeon => 'Neon';
+
+  @override
+  String get visualizerThemeOcean => 'Ozean';
+
+  @override
+  String get visualizerThemeSunset => 'Sonnenuntergang';
+
+  @override
+  String get visualizerThemeFire => 'Feuer';
+
+  @override
+  String get visualizerThemeMatrix => 'Matrix';
+
+  @override
+  String get visualizerThemeAurora => 'Polarlicht';
+
+  @override
+  String get visualizerThemeMono => 'Monochrom';
+
+  @override
+  String get visualizerThemeRainbow => 'Regenbogen';
+
+  @override
   String get settingsAutomix => 'Automix';
 
   @override

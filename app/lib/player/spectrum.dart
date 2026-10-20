@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/desktop.dart';
 import '../core/session.dart';
 import 'player.dart';
+import 'visualizer_themes.dart';
 
 /// Frequency bands per frame, precomputed by the server (`backend/app/services/spectrum.py`), values 0–1.
 class Spectrum {
@@ -92,6 +93,7 @@ class SpectrumVisualizer extends ConsumerStatefulWidget {
     super.key,
     required this.trackId,
     required this.color,
+    this.theme,
     this.mirrored = false,
     this.gap = 0.3,
     this.minHeight = 0.02,
@@ -99,6 +101,7 @@ class SpectrumVisualizer extends ConsumerStatefulWidget {
   });
   final String trackId;
   final Color color;
+  final VisualizerTheme? theme;
   final bool mirrored;
 
   /// Gap between bars as a fraction of the bar slot.
@@ -118,6 +121,8 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
   Duration _position = Duration.zero;
   final _sincePosition = Stopwatch();
   final _levels = ValueNotifier<List<double>>(const []);
+  final _peaks = <double>[];
+  final _heldFor = <double>[];
   List<double> _target = const [];
   Duration _lastTick = Duration.zero;
 
@@ -137,13 +142,30 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
     _ticker.start();
   }
 
+  @override
+  void didUpdateWidget(SpectrumVisualizer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.trackId != widget.trackId || oldWidget.theme != widget.theme) {
+      _peaks.fillRange(0, _peaks.length, 0);
+      _heldFor.fillRange(0, _heldFor.length, 0);
+    }
+  }
+
   void _tick(Duration elapsed) {
     final spectrum = ref.read(spectrumProvider(widget.trackId)).value;
     final engine = ref.read(playerProvider.notifier).engine;
     final dt = ((elapsed - _lastTick).inMicroseconds / 1e6).clamp(0.0, 0.1);
     _lastTick = elapsed;
     final bands = spectrum?.bands ?? 0;
-    if (_target.length != bands) _target = List.filled(bands, 0);
+    if (_target.length != bands) {
+      _target = List.filled(bands, 0);
+      _peaks.clear();
+      _heldFor.clear();
+      for (var i = 0; i < bands; i++) {
+        _peaks.add(0);
+        _heldFor.add(0);
+      }
+    }
     final playing = engine.playing;
     if (spectrum != null && playing) {
       final position = _position + _sincePosition.elapsed * engine.speed;
@@ -163,9 +185,20 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
       final to = _target[i];
       // Fast attack, slower release, like a VU meter.
       final rate = to > from ? 30.0 : 6.0;
-      return from + (to - from) * (1 - math.exp(-rate * dt));
+      final level = from + (to - from) * (1 - math.exp(-rate * dt));
+      if (widget.theme?.peaks ?? false) {
+        final peak = nextPeak(_peaks[i], level, _heldFor[i], dt);
+        _heldFor[i] = level >= peak ? 0 : _heldFor[i] + dt;
+        _peaks[i] = peak;
+      }
+      return level;
     });
-    if (!playing && next.every((v) => v < 0.005) && previous.every((v) => v < 0.005)) return;
+    if (!playing &&
+        next.every((v) => v < 0.005) &&
+        previous.every((v) => v < 0.005) &&
+        (!(widget.theme?.peaks ?? false) || _peaks.every((v) => v < 0.005))) {
+      return;
+    }
     _levels.value = next;
   }
 
@@ -186,6 +219,8 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
         painter: _BarsPainter(
           _levels,
           color: widget.color,
+          theme: widget.theme,
+          peaks: _peaks,
           mirrored: widget.mirrored,
           gap: widget.gap,
           minHeight: widget.minHeight,
@@ -195,34 +230,167 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
   }
 }
 
+/// A fixed sample painted exactly like the playing spectrum, without starting the player.
+class SpectrumPreview extends StatefulWidget {
+  const SpectrumPreview({super.key, required this.theme, required this.color, this.mirrored = true});
+  final VisualizerTheme theme;
+  final Color color;
+  final bool mirrored;
+
+  @override
+  State<SpectrumPreview> createState() => _SpectrumPreviewState();
+}
+
+class _SpectrumPreviewState extends State<SpectrumPreview> {
+  static const _sample = <double>[0.9, 0.75, 0.85, 0.6, 0.7, 0.5, 0.55, 0.4, 0.45, 0.35, 0.3, 0.25];
+  final _levels = ValueNotifier<List<double>>(_sample);
+
+  @override
+  void dispose() {
+    _levels.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 72,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: ColoredBox(
+        color: const Color(0xFF121212),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _BarsPainter(
+              _levels,
+              color: widget.color,
+              theme: widget.theme.id == 'auto' ? null : widget.theme,
+              peaks: _sample,
+              mirrored: widget.mirrored,
+              gap: 0.35,
+              minHeight: 0.015,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class _BarsPainter extends CustomPainter {
-  _BarsPainter(this.levels, {required this.color, required this.mirrored, required this.gap, required this.minHeight})
-    : super(repaint: levels);
+  _BarsPainter(
+    this.levels, {
+    required this.color,
+    required this.mirrored,
+    required this.gap,
+    required this.minHeight,
+    this.theme,
+    this.peaks = const [],
+  }) : super(repaint: levels) {
+    final colors = theme?.colors;
+    _gradient = LinearGradient(
+      begin: Alignment.bottomCenter,
+      end: Alignment.topCenter,
+      colors: colors != null && colors.length > 1 ? colors : [color, color.withValues(alpha: color.a * 0.25)],
+    );
+    _paint.color = colors != null && colors.length == 1 ? colors.first : Colors.white;
+    if (theme?.id == 'ocean') _paint.color = Colors.white.withValues(alpha: 0.85);
+    if (theme?.id == 'aurora') _paint.color = Colors.white.withValues(alpha: 0.7);
+    if (theme?.glow ?? false) {
+      final (blur, opacity) = switch (theme!.id) {
+        'neon' => (10.0, 0.8),
+        'fire' => (6.0, 0.5),
+        'aurora' => (12.0, 0.5),
+        _ => (8.0, 0.6),
+      };
+      _glowPaint
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur)
+        ..color = _paint.color.withValues(alpha: _paint.color.a * opacity);
+    }
+    _linePaint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = theme?.id == 'ocean' ? 2 : 1
+      ..color = theme?.id == 'ocean' ? const Color(0xFFA6FFF6) : const Color(0xFFFF2BD6).withValues(alpha: 0.15);
+    if (theme?.style == VisualizerStyle.segments) {
+      _litSegments = [for (final color in theme!.colors) Paint()..color = color];
+      _unlitSegments = [for (final color in theme!.colors) Paint()..color = color.withValues(alpha: 0.08)];
+    }
+  }
   final ValueNotifier<List<double>> levels;
   final Color color;
+  final VisualizerTheme? theme;
+  final List<double> peaks;
   final bool mirrored;
   final double gap;
   final double minHeight;
+  final _paint = Paint();
+  final _glowPaint = Paint();
+  final _linePaint = Paint();
+  final _area = Path();
+  final _top = Path();
+  late final LinearGradient _gradient;
+  List<Paint> _litSegments = const [];
+  List<Paint> _unlitSegments = const [];
+  List<Paint> _rainbowPaints = const [];
+  Size? _shaderSize;
+
+  int _band(int bar, int bands) => mirrored ? (bar < bands ? bands - 1 - bar : bar - bands) : bar;
+
+  double _height(List<double> values, int bar, double height) =>
+      height * math.max(minHeight, values[_band(bar, values.length)]);
+
+  void _prepare(Size size, int bars) {
+    if (_shaderSize != size) {
+      _shaderSize = size;
+      if (!(theme?.rainbow ?? false) && (theme?.colors.length ?? 0) != 1) {
+        final shader = _gradient.createShader(Offset.zero & size);
+        _paint.shader = shader;
+        _glowPaint.shader = shader;
+      }
+    }
+    if ((theme?.rainbow ?? false) && _rainbowPaints.length != bars) {
+      _rainbowPaints = List.generate(bars, (i) => Paint()..color = rainbowColor(i, bars));
+    }
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     final values = levels.value;
     if (values.isEmpty || size.isEmpty) return;
-    final bars = mirrored ? [...values.reversed, ...values] : values;
-    final slot = size.width / bars.length;
-    final width = slot * (1 - gap);
-    final radius = Radius.circular(math.min(width / 2, 4));
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.bottomCenter,
-        end: Alignment.topCenter,
-        colors: [
-          color,
-          color.withValues(alpha: color.a * 0.25),
-        ],
-      ).createShader(Offset.zero & size);
-    for (var i = 0; i < bars.length; i++) {
-      final height = size.height * math.max(minHeight, bars[i]);
+    final bars = values.length * (mirrored ? 2 : 1);
+    _prepare(size, bars);
+    final slot = size.width / bars;
+    final width = slot * (1 - (theme?.id == 'mono' ? 0.6 : gap));
+    if (theme?.id == 'synthwave') {
+      for (var i = 1; i <= 3; i++) {
+        final y = size.height * i / 4;
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), _linePaint);
+      }
+    }
+    switch (theme?.style ?? VisualizerStyle.bars) {
+      case VisualizerStyle.bars:
+        if (theme?.glow ?? false) _drawBars(canvas, size, values, bars, slot, width, glow: true);
+        _drawBars(canvas, size, values, bars, slot, width);
+      case VisualizerStyle.segments:
+        _drawSegments(canvas, size, values, bars, slot, width);
+      case VisualizerStyle.area:
+        _drawArea(canvas, size, values, bars, slot);
+    }
+  }
+
+  void _drawBars(
+    Canvas canvas,
+    Size size,
+    List<double> values,
+    int bars,
+    double slot,
+    double width, {
+    bool glow = false,
+  }) {
+    final radius = Radius.circular(theme?.id == 'neon' ? width / 2 : math.min(width / 2, 4));
+    for (var i = 0; i < bars; i++) {
+      final height = _height(values, i, size.height);
       final left = i * slot + (slot - width) / 2;
       canvas.drawRRect(
         RRect.fromLTRBAndCorners(
@@ -232,15 +400,74 @@ class _BarsPainter extends CustomPainter {
           size.height,
           topLeft: radius,
           topRight: radius,
+          bottomLeft: theme?.id == 'neon' ? radius : Radius.zero,
+          bottomRight: theme?.id == 'neon' ? radius : Radius.zero,
         ),
-        paint,
+        glow
+            ? _glowPaint
+            : (theme?.rainbow ?? false)
+            ? _rainbowPaints[i]
+            : _paint,
       );
     }
   }
 
+  int _segmentColor(double height) => theme?.id == 'retro' ? (height < 0.6 ? 0 : (height < 0.85 ? 1 : 2)) : 0;
+
+  void _drawSegments(Canvas canvas, Size size, List<double> values, int bars, double slot, double width) {
+    for (var i = 0; i < bars; i++) {
+      final height = _height(values, i, size.height);
+      final left = i * slot + (slot - width) / 2;
+      for (var bottom = 0.0; bottom < size.height; bottom += 8) {
+        final segmentHeight = math.min(6.0, size.height - bottom);
+        final color = _segmentColor((bottom + segmentHeight / 2) / size.height);
+        canvas.drawRect(
+          Rect.fromLTWH(left, size.height - bottom - segmentHeight, width, segmentHeight),
+          bottom < height ? _litSegments[color] : _unlitSegments[color],
+        );
+      }
+      final band = _band(i, values.length);
+      if ((theme?.peaks ?? false) && band < peaks.length && peaks[band] > 0) {
+        final peak = peaks[band];
+        final top = (size.height * (1 - peak)).clamp(0.0, math.max(0.0, size.height - 3.0)).toDouble();
+        canvas.drawRect(Rect.fromLTWH(left, top, width, 3), _litSegments[_segmentColor(peak)]);
+      }
+    }
+  }
+
+  void _drawArea(Canvas canvas, Size size, List<double> values, int bars, double slot) {
+    var previousY = size.height - _height(values, 0, size.height);
+    _top
+      ..reset()
+      ..moveTo(0, previousY)
+      ..lineTo(slot / 2, previousY);
+    for (var i = 1; i < bars; i++) {
+      final y = size.height - _height(values, i, size.height);
+      final middle = i * slot;
+      _top.cubicTo(middle, previousY, middle, y, (i + 0.5) * slot, y);
+      previousY = y;
+    }
+    _top.lineTo(size.width, previousY);
+    _area
+      ..reset()
+      ..addPath(_top, Offset.zero)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    if (theme?.glow ?? false) canvas.drawPath(_area, _glowPaint);
+    canvas.drawPath(_area, _paint);
+    if (theme?.id == 'ocean') canvas.drawPath(_top, _linePaint);
+  }
+
   @override
   bool shouldRepaint(_BarsPainter old) =>
-      old.color != color || old.mirrored != mirrored || old.gap != gap || old.minHeight != minHeight;
+      old.color != color ||
+      old.theme != theme ||
+      old.peaks != peaks ||
+      old.levels != levels ||
+      old.mirrored != mirrored ||
+      old.gap != gap ||
+      old.minHeight != minHeight;
 }
 
 /// Loads the spectra of the current and the next song while the visualizer is on, so the bars are there as soon

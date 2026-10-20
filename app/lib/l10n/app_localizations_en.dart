@@ -1913,6 +1913,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsVisualizerHint => 'Shows animated frequency bars in the player while music plays.';
 
   @override
+  String get settingsVisualizerStyle => 'Visualizer style';
+
+  @override
+  String get visualizerThemeAuto => 'Automatic';
+
+  @override
+  String get visualizerThemeRetro => 'Retro hi-fi';
+
+  @override
+  String get visualizerThemeSynthwave => 'Synthwave';
+
+  @override
+  String get visualizerThemeNeon => 'Neon';
+
+  @override
+  String get visualizerThemeOcean => 'Ocean';
+
+  @override
+  String get visualizerThemeSunset => 'Sunset';
+
+  @override
+  String get visualizerThemeFire => 'Fire';
+
+  @override
+  String get visualizerThemeMatrix => 'Matrix';
+
+  @override
+  String get visualizerThemeAurora => 'Aurora';
+
+  @override
+  String get visualizerThemeMono => 'Monochrome';
+
+  @override
+  String get visualizerThemeRainbow => 'Rainbow';
+
+  @override
   String get settingsAutomix => 'AutoMix';
 
   @override
