@@ -10,8 +10,29 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 def _font(size: int, bold: bool = False):
     name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
-    path = Path("/usr/share/fonts/truetype/dejavu") / name
-    return ImageFont.truetype(str(path), size) if path.exists() else ImageFont.load_default(size=size)
+    # Debian (the container) and Fedora paths.
+    for directory in ("/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/dejavu-sans-fonts"):
+        path = Path(directory) / name
+        if path.exists():
+            return ImageFont.truetype(str(path), size)
+    return ImageFont.load_default(size=size)
+
+
+def _rings(accent: tuple[int, ...], hue: float) -> Image.Image:
+    """Covers without album art: a diagonal two-tone gradient with soft concentric rings (like sound waves)."""
+    second = tuple(round(channel * 255) for channel in colorsys.hsv_to_rgb((hue + 0.12) % 1, 0.7, 0.32))
+    # Top left to bottom right.
+    mask = Image.frombytes("L", (640, 640), bytes((x + y) * 255 // 1278 for y in range(640) for x in range(640)))
+    image = Image.composite(Image.new("RGB", (640, 640), second), Image.new("RGB", (640, 640), accent), mask)
+    rings = Image.new("RGBA", (640, 640))
+    draw = ImageDraw.Draw(rings)
+    for index, radius in enumerate(range(90, 900, 90)):
+        draw.ellipse(
+            (560 - radius, 120 - radius, 560 + radius, 120 + radius),
+            outline=(255, 255, 255, max(10, 60 - index * 6)),
+            width=10,
+        )
+    return Image.alpha_composite(image.convert("RGBA"), rings).convert("RGB")
 
 
 def _wrap(name: str, font) -> list[str]:
@@ -41,13 +62,18 @@ def render(name: str, subtitle: str | None, covers: list[bytes], accent_seed: st
             continue
         if len(images) == 4:
             break
-    image = Image.new("RGB", (640, 640), accent)
-    if len(images) == 4:
-        for index, cover in enumerate(images):
-            image.paste(ImageOps.fit(cover, (320, 320)), ((index % 2) * 320, (index // 2) * 320))
+    if len(images) >= 2:
+        # Two or three covers repeat diagonally so the mosaic stays a 2×2 grid.
+        tiles = {2: [0, 1, 1, 0], 3: [0, 1, 2, 0]}.get(len(images), [0, 1, 2, 3])
+        image = Image.new("RGB", (640, 640))
+        for index, tile in enumerate(tiles):
+            image.paste(ImageOps.fit(images[tile], (320, 320)), ((index % 2) * 320, (index // 2) * 320))
+        image = Image.blend(image, Image.new("RGB", image.size, accent), 0.55)
     elif images:
-        image = ImageOps.fit(images[0], (640, 640))
-    image = Image.blend(image, Image.new("RGB", image.size, accent), 0.55).convert("RGBA")
+        image = Image.blend(ImageOps.fit(images[0], (640, 640)), Image.new("RGB", (640, 640), accent), 0.55)
+    else:
+        image = _rings(accent, hue)
+    image = image.convert("RGBA")
     gradient = Image.new("RGBA", (1, 640))
     gradient.putdata([(*accent, round(255 * 0.9 * max(0, (y - 256) / 383))) for y in range(640)])
     image = Image.alpha_composite(image, gradient.resize(image.size))
