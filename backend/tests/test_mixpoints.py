@@ -45,6 +45,9 @@ def test_analyze_finds_tempo_and_beat_aligned_points(tmp_path: Path, bpm: float)
     assert 70 < points.mix_out < points.end - 4
     phase = ((points.mix_out - 2.0) / period) % 1
     assert min(phase, 1 - phase) < 0.08
+    # On a 16-beat phrase boundary counted from the first beat.
+    phrase = ((points.mix_out - points.mix_in) / (16 * period)) % 1
+    assert min(phrase, 1 - phrase) < 0.02
 
 
 def test_analyze_short_or_silent_file(tmp_path: Path) -> None:

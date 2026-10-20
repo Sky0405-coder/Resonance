@@ -18,7 +18,7 @@ from app.services.transcode import resolve_path
 log = logging.getLogger(__name__)
 
 # Bump when the analysis changes so stored results get recomputed.
-VERSION = 1
+VERSION = 2
 _RATE = 11025
 _HOP = 256  # ~23 ms per frame
 _FRAME = 1024
@@ -158,6 +158,13 @@ def analyze(path: Path) -> MixPoints:
             mix_in += period * _HOP / _RATE
         beat_out = _beat_near(onset, period, to_frame(out), span) * _HOP / _RATE + offset
         out = beat_out if beat_out <= end - 4 else out
+        # Prefer the start of a 16-beat phrase (counted from the first beat) up to 8 beats away: songs change
+        # sections there, so the transition lands where a DJ would start it.
+        beat = 60 / bpm
+        phrase = 16 * beat
+        boundary = mix_in + round((out - mix_in) / phrase) * phrase
+        if boundary > mix_in and abs(boundary - out) <= 8 * beat and boundary <= end - 4:
+            out = boundary
     return MixPoints(
         bpm=round(float(bpm), 2) if bpm else None,
         mix_in=round(max(0.0, float(mix_in)), 3),
