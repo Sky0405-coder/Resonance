@@ -53,19 +53,27 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     artUri: _cover(track.album.id),
   );
 
-  MediaItem _stationItem(Station station) => MediaItem(
-    id: 'station:${station.id}',
-    title: station.name,
-    artist: _l10n.worldRadioTitle,
-    displaySubtitle: _l10n.worldRadioTitle,
-    artUri: station.favicon == null ? null : Uri.parse(station.favicon!),
-  );
+  MediaItem _stationItem(Station station, [StationNowPlaying? now]) {
+    final known = now?.title != null;
+    final artist = known
+        ? [if (now?.artist?.isNotEmpty ?? false) now!.artist!, station.name].join(' · ')
+        : _l10n.worldRadioTitle;
+    final art = now?.coverUrl ?? station.favicon;
+    return MediaItem(
+      id: 'station:${station.id}',
+      title: known ? now!.title! : station.name,
+      artist: artist,
+      displaySubtitle: artist,
+      album: now?.album,
+      artUri: art == null ? null : Uri.parse(art),
+    );
+  }
 
   void _publish() {
     final view = _view;
     final book = view.book;
     final items = view.station != null
-        ? [_stationItem(view.station!)]
+        ? [_stationItem(view.station!, view.stationNow)]
         : book == null
         ? [for (final track in view.queue) _trackItem(track, track.id)]
         : [

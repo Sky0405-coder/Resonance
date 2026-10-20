@@ -14,6 +14,15 @@ class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class NowPlayingOut(ORM):
+    raw: str
+    artist: str | None
+    title: str | None
+    album: str | None
+    year: int | None
+    cover_url: str | None
+
+
 # --- auth / users -----------------------------------------------------------
 
 

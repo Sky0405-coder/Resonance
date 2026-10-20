@@ -3,10 +3,10 @@ import socket
 
 import httpx
 import pytest
+
 from app.api import worldradio as api
 from app.db import Base, engine
 from app.services import worldradio as radio
-
 from tests.conftest import auth, register
 
 
@@ -190,7 +190,7 @@ async def test_stream_bytes_and_redirect(
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        assert "icy-metadata" not in request.headers
+        assert request.headers["icy-metadata"] == "1"
         if request.url.path == "/live":
             return httpx.Response(302, headers={"Location": "https://other.example/audio"})
         return httpx.Response(200, headers={"Content-Type": "audio/mpeg"}, stream=Audio())
@@ -299,6 +299,7 @@ async def test_stream_disconnect_closes_upstream(
         ),
     )
     response = await api.stream("station-1", user=None)
+    assert radio._active_streams["station-1"] == 1
     assert await anext(response.body_iterator) == b"first"
     pending = asyncio.create_task(anext(response.body_iterator))
     await waiting.wait()
@@ -306,4 +307,5 @@ async def test_stream_disconnect_closes_upstream(
     with pytest.raises(asyncio.CancelledError):
         await pending
     assert closed
+    assert "station-1" not in radio._active_streams
     await response.background()

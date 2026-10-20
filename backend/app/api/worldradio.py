@@ -14,6 +14,7 @@ from starlette.background import BackgroundTask
 
 from app.deps import DB, CurrentUser
 from app.models import RadioStationFavorite
+from app.schemas import NowPlayingOut
 from app.services import worldradio
 from app.services.worldradio import Station, WorldRadioError
 
@@ -64,6 +65,12 @@ async def _station(id: str) -> Station:
 @router.get("/stations/{id}")
 async def station(id: str, user: CurrentUser) -> Station:
     return await _station(id)
+
+
+@router.get("/stations/{id}/now")
+async def now_playing(id: str, user: CurrentUser) -> NowPlayingOut | None:
+    entry = worldradio.now_playing(id)
+    return NowPlayingOut.model_validate(entry) if entry else None
 
 
 @router.get("/favorites")
@@ -129,7 +136,9 @@ async def stream(id: str, user: CurrentUser) -> StreamingResponse:
     station = await _station(id)
     client = _stream_client()
     try:
-        upstream = await client.send(client.build_request("GET", station._url_resolved), stream=True)
+        upstream = await client.send(
+            client.build_request("GET", station._url_resolved, headers={"Icy-MetaData": "1"}), stream=True
+        )
         if not 200 <= upstream.status_code < 300:
             await upstream.aclose()
             raise HTTPException(502, "Sender nicht erreichbar")
@@ -138,8 +147,20 @@ async def stream(id: str, user: CurrentUser) -> StreamingResponse:
         raise HTTPException(502, "Sender nicht erreichbar") from exc
 
     click_task = asyncio.create_task(worldradio.click(id))
+    try:
+        metaint = int(upstream.headers.get("icy-metaint", "0"))
+    except ValueError:
+        metaint = 0
+    reader = worldradio.IcyReader(metaint) if metaint > 0 else None
+    worldradio.stream_started(id)
+    closed = False
 
     async def close() -> None:
+        nonlocal closed
+        if closed:
+            return
+        closed = True
+        worldradio.stream_stopped(id)
         await upstream.aclose()
         await client.aclose()
         await click_task
@@ -147,11 +168,15 @@ async def stream(id: str, user: CurrentUser) -> StreamingResponse:
     async def chunks() -> AsyncIterator[bytes]:
         try:
             async for chunk in upstream.aiter_bytes():
-                yield chunk
+                if reader is not None:
+                    chunk, titles = reader.feed(chunk)
+                    for title in titles:
+                        worldradio.set_now_playing(id, station.name, title)
+                if chunk:
+                    yield chunk
         finally:
             with anyio.CancelScope(shield=True):
-                await upstream.aclose()
-                await client.aclose()
+                await close()
 
     headers = {"Cache-Control": "no-store"}
     if content_type := upstream.headers.get("content-type"):

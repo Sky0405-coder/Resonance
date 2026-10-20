@@ -103,6 +103,11 @@ class ApiClient {
 
   String stationStreamUrl(String id) => '$baseUrl/api/worldradio/stations/$id/stream?token=$token';
 
+  Future<StationNowPlaying?> stationNowPlaying(String id) async {
+    final data = await _get('/api/worldradio/stations/$id/now');
+    return data == null ? null : StationNowPlaying.fromJson(data);
+  }
+
   Future<List<Map<String, dynamic>>> worldRadioCountries() async => [
     for (final item in await _get('/api/worldradio/countries')) Map<String, dynamic>.from(item),
   ];

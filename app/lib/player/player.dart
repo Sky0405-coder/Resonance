@@ -77,6 +77,7 @@ class PlayerView {
     this.context,
     this.book,
     this.station,
+    this.stationNow,
     this.speed = 1,
     this.sleepAt,
     this.jamRemote = false,
@@ -93,6 +94,7 @@ class PlayerView {
   // Set while an audiobook is playing instead of music (queue is empty then).
   final BookPlayback? book;
   final Station? station;
+  final StationNowPlaying? stationNow;
   final double speed;
   // Sleep timer: pause at this time (null = off).
   final DateTime? sleepAt;
@@ -112,6 +114,9 @@ class PlayerController extends Notifier<PlayerView> {
   final errors = StreamController<Object>.broadcast();
   Timer? _stationRetry;
   Timer? _equalizerDebounce;
+  Timer? _stationPoll;
+  int _stationPollGeneration = 0;
+  int _stationPollRequest = 0;
   bool _stationRetried = false;
   bool _stationFailed = false;
   int _stationGeneration = 0;
@@ -218,6 +223,7 @@ class PlayerController extends Notifier<PlayerView> {
     );
     listenSelf((previous, next) {
       if (previous?.context != next.context) radioFollow.contextChanged(next.context);
+      if (previous?.station != next.station || previous?.playing != next.playing) _updateStationPolling();
     });
     ref.listen(downloadSummaryProvider, (_, next) {
       final summary = next.asData?.value;
@@ -232,6 +238,7 @@ class PlayerController extends Notifier<PlayerView> {
       _stationGeneration++;
       _stationRetry?.cancel();
       _equalizerDebounce?.cancel();
+      _stopStationPolling();
       errors.close();
       _sleepTimer?.cancel();
       engine.dispose();
@@ -251,6 +258,7 @@ class PlayerController extends Notifier<PlayerView> {
     LoopMode? loop,
     double? speed,
     DateTime? Function()? sleepAt,
+    StationNowPlaying? Function()? stationNow,
   }) => PlayerView(
     queue: queue ?? state.queue,
     index: index ?? state.index,
@@ -261,6 +269,7 @@ class PlayerController extends Notifier<PlayerView> {
     context: context ?? state.context,
     book: state.book,
     station: state.station,
+    stationNow: stationNow == null ? state.stationNow : stationNow(),
     speed: speed ?? state.speed,
     sleepAt: sleepAt == null ? state.sleepAt : sleepAt(),
     jamRemote: state.jamRemote,
@@ -330,6 +339,7 @@ class PlayerController extends Notifier<PlayerView> {
     final previousIndex = engine.currentIndex ?? 0;
     final previousPosition = engine.position;
     final previousBookPosition = bookPosition;
+    _stopStationPolling();
     _switching = true;
     try {
       await engine.pause();
@@ -435,6 +445,7 @@ class PlayerController extends Notifier<PlayerView> {
     _stationGeneration++;
     _stationRetry?.cancel();
     _stationRetry = null;
+    _stopStationPolling();
     await engine.pause();
   }
 
@@ -444,6 +455,7 @@ class PlayerController extends Notifier<PlayerView> {
     _stationGeneration++;
     _stationRetry?.cancel();
     _stationRetry = null;
+    _stopStationPolling();
     await engine.stop();
   }
 
@@ -524,6 +536,35 @@ class PlayerController extends Notifier<PlayerView> {
     _stationRetried = false;
     _stationFailed = false;
   });
+
+  void _stopStationPolling() {
+    _stationPollGeneration++;
+    _stationPoll?.cancel();
+    _stationPoll = null;
+  }
+
+  void _updateStationPolling() {
+    _stopStationPolling();
+    final station = state.station;
+    if (station == null || !state.playing) return;
+    final generation = _stationPollGeneration;
+    Future<void> poll() async {
+      final request = ++_stationPollRequest;
+      try {
+        final now = await _api.stationNowPlaying(station.id);
+        if (generation != _stationPollGeneration || request != _stationPollRequest) return;
+        if (now != state.stationNow) state = _copy(stationNow: () => now);
+      } catch (_) {
+        // A metadata lookup failure must not interrupt the stream.
+      }
+    }
+
+    poll();
+    _stationPoll = Timer(const Duration(seconds: 3), () {
+      poll();
+      _stationPoll = Timer.periodic(const Duration(seconds: 15), (_) => poll());
+    });
+  }
 
   void _stationError(Object error) {
     final station = state.station;

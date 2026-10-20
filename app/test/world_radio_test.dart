@@ -11,6 +11,8 @@ import 'package:resonance/core/models.dart';
 import 'package:resonance/core/session.dart';
 import 'package:resonance/integrations/discord_presence.dart';
 import 'package:resonance/l10n/l10n.dart';
+import 'package:resonance/offline/offline_store.dart';
+import 'package:resonance/player/audio_handler.dart';
 import 'package:resonance/player/engine.dart';
 import 'package:resonance/player/equalizer.dart';
 import 'package:resonance/player/equalizer_controller.dart';
@@ -33,10 +35,27 @@ const _track = Track(
   artistCredit: 'Artist',
   album: NamedRef('album', 'Album'),
 );
+const _now = StationNowPlaying(
+  raw: 'Artist - Title',
+  artist: 'Artist',
+  title: 'Title',
+  album: 'Album',
+  year: 1987,
+  coverUrl: 'https://cover.example/album.jpg',
+);
 
 class _Api extends ApiClient {
   _Api() : super('https://resonance.example', 'test-token');
   int reports = 0;
+  final nowRequests = <String>[];
+  StationNowPlaying? now;
+  Future<StationNowPlaying?> Function()? lookup;
+
+  @override
+  Future<StationNowPlaying?> stationNowPlaying(String id) async {
+    nowRequests.add(id);
+    return lookup == null ? now : await lookup!();
+  }
 
   @override
   Future<void> reportPlay(String id, double seconds, {String? context}) async {
@@ -58,6 +77,10 @@ class _Engine implements PlaybackEngine {
   Stream<int?> get currentIndexStream => const Stream.empty();
   @override
   Stream<LoopMode> get loopModeStream => const Stream.empty();
+  @override
+  Stream<PlaybackEvent> get playbackEventStream => const Stream.empty();
+  @override
+  Duration get bufferedPosition => Duration.zero;
   @override
   int crossfadeSeconds = 0;
   @override
@@ -169,6 +192,11 @@ class _Engine implements PlaybackEngine {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _Offline extends OfflineController {
+  @override
+  OfflineState build() => const OfflineState();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late ProviderContainer container;
@@ -185,6 +213,7 @@ void main() {
         prefsProvider.overrideWithValue(prefs),
         apiProvider.overrideWithValue(api),
         downloadSummaryProvider.overrideWith((ref) async => const DownloadSummary()),
+        offlineProvider.overrideWith(_Offline.new),
         playerProvider.overrideWith(() => PlayerController(engine: engine)),
       ],
     );
@@ -247,6 +276,135 @@ void main() {
     for (final code in ['', 'D', 'DEU', '12', 'éé']) {
       expect(countryFlag(code), '');
     }
+  });
+
+  test('now-playing JSON, equality and subtitles include only known parts', () {
+    final now = StationNowPlaying.fromJson({
+      'raw': 'Artist - Title',
+      'artist': 'Artist',
+      'title': 'Title',
+      'album': 'Album',
+      'year': 1987,
+      'cover_url': 'https://cover.example/album.jpg',
+    });
+    expect(now, _now);
+    expect(now.hashCode, _now.hashCode);
+    expect(now.artistYear, 'Artist · 1987');
+    expect(now.subtitle('Radio One'), 'Artist · 1987 · Radio One');
+    const titleOnly = StationNowPlaying(raw: 'Title', title: 'Title');
+    expect(titleOnly.artistYear, '');
+    expect(titleOnly.subtitle('Radio One'), 'Radio One');
+    const artistOnly = StationNowPlaying(raw: 'Artist - Title', artist: 'Artist');
+    expect(artistOnly.subtitle('Radio One'), 'Artist · Radio One');
+    const yearOnly = StationNowPlaying(raw: 'Title', artist: '', year: 1987);
+    expect(yearOnly.subtitle('Radio One'), '1987 · Radio One');
+    expect(StationNowPlaying.fromJson({'raw': 'Title'}).coverUrl, isNull);
+    expect(titleOnly, isNot(_now));
+  });
+
+  testWidgets('polls immediately, after three seconds, then every fifteen; pauses and stops cancel', (tester) async {
+    api.now = _now;
+    final player = container.read(playerProvider.notifier);
+    await player.playStation(_station);
+    await tester.pump();
+    expect(api.nowRequests, ['one']);
+    expect(container.read(playerProvider).stationNow, _now);
+    await tester.pump(const Duration(seconds: 2));
+    expect(api.nowRequests, hasLength(1));
+    await tester.pump(const Duration(seconds: 1));
+    expect(api.nowRequests, hasLength(2));
+    api.now = const StationNowPlaying(raw: 'New title', title: 'New title');
+    await tester.pump(const Duration(seconds: 14));
+    expect(api.nowRequests, hasLength(2));
+    await tester.pump(const Duration(seconds: 1));
+    expect(api.nowRequests, hasLength(3));
+    expect(container.read(playerProvider).stationNow?.title, 'New title');
+    await player.pause();
+    await tester.pump(const Duration(seconds: 30));
+    expect(api.nowRequests, hasLength(3));
+    await player.play();
+    await tester.pump();
+    expect(api.nowRequests, hasLength(4));
+    await player.stop();
+    await tester.pump(const Duration(seconds: 30));
+    expect(api.nowRequests, hasLength(4));
+  });
+
+  testWidgets('metadata failures retain the song, while null clears it', (tester) async {
+    api.now = _now;
+    final player = container.read(playerProvider.notifier);
+    await player.playStation(_station);
+    await tester.pump();
+    api.lookup = () async => throw ApiException('offline');
+    await tester.pump(const Duration(seconds: 3));
+    expect(container.read(playerProvider).stationNow, _now);
+    expect(engine.playing, true);
+    api.lookup = null;
+    api.now = null;
+    await tester.pump(const Duration(seconds: 15));
+    expect(container.read(playerProvider).stationNow, isNull);
+    await player.stop();
+  });
+
+  testWidgets('station changes and track playback ignore old in-flight metadata', (tester) async {
+    final pending = Completer<StationNowPlaying?>();
+    api.lookup = () => pending.future;
+    final player = container.read(playerProvider.notifier);
+    await player.playStation(_station);
+    const other = Station(id: 'two', name: 'Two', country: '', countryCode: '', tags: [], codec: '');
+    api.lookup = null;
+    await player.playStation(other);
+    await tester.pump();
+    expect(api.nowRequests, ['one', 'two']);
+    pending.complete(_now);
+    await tester.pump();
+    expect(container.read(playerProvider).stationNow, isNull);
+    final late = Completer<StationNowPlaying?>();
+    api.lookup = () => late.future;
+    await tester.pump(const Duration(seconds: 3));
+    await player.playTracks([_track]);
+    late.complete(_now);
+    await tester.pump(const Duration(seconds: 30));
+    expect(api.nowRequests, ['one', 'two', 'two']);
+    expect(container.read(playerProvider).station, isNull);
+    expect(container.read(playerProvider).stationNow, isNull);
+  });
+
+  testWidgets('station media items refresh song, album and cover then fall back', (tester) async {
+    final handler = ResonanceAudioHandler(container);
+    try {
+      api.now = _now;
+      final player = container.read(playerProvider.notifier);
+      await player.playStation(_station);
+      await tester.pump();
+      expect(handler.mediaItem.value?.title, 'Title');
+      expect(handler.mediaItem.value?.artist, 'Artist · Radio One');
+      expect(handler.mediaItem.value?.album, 'Album');
+      expect(handler.mediaItem.value?.artUri.toString(), _now.coverUrl);
+      api.now = null;
+      await tester.pump(const Duration(seconds: 3));
+      expect(handler.mediaItem.value?.title, 'Radio One');
+      expect(handler.mediaItem.value?.artist, 'World radio');
+      expect(handler.mediaItem.value?.album, isNull);
+      expect(handler.mediaItem.value?.artUri, isNull);
+      await player.stop();
+    } finally {
+      handler.dispose();
+    }
+  });
+
+  test('known station songs use track-style Discord details and the station without a fake duration', () {
+    final activity = buildDiscordActivity(
+      player: const PlayerView(station: _station, stationNow: _now, playing: true),
+      position: const Duration(seconds: 30),
+      serverUrl: api.baseUrl,
+      l10n: lookupAppLocalizations(const Locale('en')),
+      now: DateTime.utc(2026),
+    )!;
+    expect(activity['details'], 'Title');
+    expect(activity['state'], 'by Artist · Radio One');
+    expect(activity['assets']['large_text'], 'Album');
+    expect(activity.containsKey('timestamps'), false);
   });
 
   test('station playback uses proxy, clears music queue and cannot seek or repeat', () async {

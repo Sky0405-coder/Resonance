@@ -67,7 +67,7 @@ final discordPresenceProvider = Provider<void>((ref) {
         player.engine.processingState == ProcessingState.idle,
   );
   ref.listen(
-    playerProvider.select((p) => (p.current, p.book, p.station, p.index, p.playing, p.speed)),
+    playerProvider.select((p) => (p.current, p.book, p.station, p.stationNow, p.index, p.playing, p.speed)),
     (_, _) => update(),
   );
   ref.listen(appLocaleProvider, (_, _) => update());
@@ -97,10 +97,11 @@ Map<String, dynamic>? buildDiscordActivity({
 }) {
   final track = player.current;
   final book = player.book;
-  if (player.station != null || !player.playing || (track == null && book == null)) return null;
-  final duration = book == null ? track!.length.inMilliseconds : (book.duration * 1000).round();
-  final start = now.millisecondsSinceEpoch - position.inMilliseconds;
-  final chapter = book?.chapterAt(position.inMilliseconds / 1000)?.title;
+  final station = player.station;
+  final stationNow = player.stationNow;
+  if (!player.playing || (track == null && book == null && (station == null || stationNow?.title == null))) {
+    return null;
+  }
   // Build public artwork from the origin/path only; credentials and query tokens never reach Discord.
   final server = Uri.parse(serverUrl);
   final image = Uri(
@@ -109,6 +110,23 @@ Map<String, dynamic>? buildDiscordActivity({
     port: server.hasPort ? server.port : null,
     path: '${server.path.replaceFirst(RegExp(r'/+$'), '')}/icons/Icon-512.png',
   ).toString();
+  if (station != null) {
+    return {
+      'type': 2,
+      'details': _discordText(stationNow!.title!),
+      'state': _discordText([
+        if (stationNow.artist?.isNotEmpty ?? false) l10n.discordPresenceArtist(stationNow.artist!),
+        station.name,
+      ].join(' · ')),
+      'assets': {
+        'large_image': image,
+        if (stationNow.album != null) 'large_text': _discordText(stationNow.album!),
+      },
+    };
+  }
+  final duration = book == null ? track!.length.inMilliseconds : (book.duration * 1000).round();
+  final start = now.millisecondsSinceEpoch - position.inMilliseconds;
+  final chapter = book?.chapterAt(position.inMilliseconds / 1000)?.title;
   return {
     'type': 2,
     'details': _discordText(book?.title ?? track!.title),

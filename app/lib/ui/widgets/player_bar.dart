@@ -384,6 +384,7 @@ class DesktopPlayerBar extends ConsumerWidget {
     final track = ref.watch(playerProvider.select((p) => p.current));
     final book = ref.watch(playerProvider.select((p) => p.book));
     final station = ref.watch(playerProvider.select((p) => p.station));
+    final stationNow = ref.watch(playerProvider.select((p) => p.stationNow));
     return Container(
       height: 84,
       color: Palette.sidebar,
@@ -393,7 +394,7 @@ class DesktopPlayerBar extends ConsumerWidget {
           Expanded(
             flex: 3,
             child: station != null
-                ? StationInfo(station: station)
+                ? StationInfo(station: station, now: stationNow)
                 : book != null
                 ? _BookInfo(book: book)
                 : track == null
@@ -520,7 +521,7 @@ class MiniPlayer extends ConsumerWidget {
                 child: Row(
                   children: [
                     if (p.station != null) ...[
-                      Expanded(child: StationInfo(station: p.station!, coverSize: 42)),
+                      Expanded(child: StationInfo(station: p.station!, now: p.stationNow, coverSize: 42)),
                     ] else if (p.book != null) ...[
                       Expanded(child: _BookInfo(book: p.book!, coverSize: 42)),
                       IconButton(icon: const Icon(Icons.replay_30), onPressed: () => ctrl.skipBook(-30)),
@@ -586,8 +587,9 @@ class LiveBadge extends StatelessWidget {
 }
 
 class StationInfo extends StatelessWidget {
-  const StationInfo({super.key, required this.station, this.coverSize = 56});
+  const StationInfo({super.key, required this.station, this.now, this.coverSize = 56});
   final Station station;
+  final StationNowPlaying? now;
   final double coverSize;
 
   @override
@@ -598,7 +600,7 @@ class StationInfo extends StatelessWidget {
         SizedBox(
           width: coverSize,
           height: coverSize,
-          child: NetworkCover(url: station.favicon, radius: 6, icon: Icons.radio),
+          child: NetworkCover(url: now?.coverUrl ?? station.favicon, radius: 6, icon: Icons.radio),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -607,13 +609,15 @@ class StationInfo extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                station.name,
+                now?.title ?? station.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               Text(
-                '${context.l10n.worldRadioTitle} · ${station.country}',
+                now?.title != null
+                    ? now!.subtitle(station.name)
+                    : '${context.l10n.worldRadioTitle} · ${station.country}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: Palette.textMuted, fontSize: 12),

@@ -26,6 +26,7 @@ class NowPlayingPage extends ConsumerWidget {
     final track = ref.watch(playerProvider.select((p) => p.current));
     final book = ref.watch(playerProvider.select((p) => p.book));
     final station = ref.watch(playerProvider.select((p) => p.station));
+    final stationNow = ref.watch(playerProvider.select((p) => p.stationNow));
     final accent = Theme.of(context).colorScheme.primary;
     return Scaffold(
       body: Container(
@@ -38,7 +39,7 @@ class NowPlayingPage extends ConsumerWidget {
         ),
         child: SafeArea(
           child: station != null
-              ? _StationNowPlaying(station: station)
+              ? _StationNowPlaying(station: station, now: stationNow)
               : book != null
               ? _BookNowPlaying(book: book)
               : track == null
@@ -187,8 +188,9 @@ class NowPlayingPage extends ConsumerWidget {
 }
 
 class _StationNowPlaying extends StatelessWidget {
-  const _StationNowPlaying({required this.station});
+  const _StationNowPlaying({required this.station, this.now});
   final Station station;
+  final StationNowPlaying? now;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -207,18 +209,22 @@ class _StationNowPlaying extends StatelessWidget {
           flex: 5,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
-            child: NetworkCover(url: station.favicon, radius: 8, icon: Icons.radio),
+            child: NetworkCover(url: now?.coverUrl ?? station.favicon, radius: 8, icon: Icons.radio),
           ),
         ),
         const Spacer(),
         Text(
-          station.name,
+          now?.title ?? station.name,
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
-        Text('${context.l10n.worldRadioTitle} · ${station.country}', style: const TextStyle(color: Palette.textMuted)),
+        if (now?.title != null) ...[
+          if (now!.artistYear.isNotEmpty) Text(now!.artistYear, style: const TextStyle(color: Palette.textMuted)),
+          Text(station.name, style: const TextStyle(color: Palette.textMuted, fontSize: 12)),
+        ] else
+          Text('${context.l10n.worldRadioTitle} · ${station.country}', style: const TextStyle(color: Palette.textMuted)),
         const SizedBox(height: 16),
         const LiveBadge(),
         const SizedBox(height: 16),

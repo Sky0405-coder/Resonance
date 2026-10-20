@@ -1010,6 +1010,43 @@ class ReviewTrack {
   factory ReviewTrack.fromJson(Map<String, dynamic> j) => ReviewTrack(track: Track.fromJson(j), path: j['path']);
 }
 
+class StationNowPlaying {
+  const StationNowPlaying({required this.raw, this.artist, this.title, this.album, this.year, this.coverUrl});
+
+  final String raw;
+  final String? artist;
+  final String? title;
+  final String? album;
+  final int? year;
+  final String? coverUrl;
+
+  factory StationNowPlaying.fromJson(Map<String, dynamic> json) => StationNowPlaying(
+    raw: json['raw'],
+    artist: json['artist'],
+    title: json['title'],
+    album: json['album'],
+    year: (json['year'] as num?)?.toInt(),
+    coverUrl: json['cover_url'],
+  );
+
+  String get artistYear => [if (artist?.isNotEmpty ?? false) artist!, if (year != null) '$year'].join(' · ');
+
+  String subtitle(String stationName) => [if (artistYear.isNotEmpty) artistYear, stationName].join(' · ');
+
+  @override
+  bool operator ==(Object other) =>
+      other is StationNowPlaying &&
+      raw == other.raw &&
+      artist == other.artist &&
+      title == other.title &&
+      album == other.album &&
+      year == other.year &&
+      coverUrl == other.coverUrl;
+
+  @override
+  int get hashCode => Object.hash(raw, artist, title, album, year, coverUrl);
+}
+
 class Station {
   const Station({
     required this.id,

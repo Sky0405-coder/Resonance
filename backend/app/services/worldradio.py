@@ -1,11 +1,18 @@
+import asyncio
+import re
 import time
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, PrivateAttr
 
+from app.services.deezer import DeezerError, artist_string, deezer
+from app.services.matching import name_key
 from app.services.musicbrainz import VERSION
+from app.services.tags import primary_artist
 
 BASE_URLS = (
     "https://de1.api.radio-browser.info",
@@ -13,6 +20,136 @@ BASE_URLS = (
     "https://fi1.api.radio-browser.info",
 )
 _cache: dict[str, tuple[float, list]] = {}
+_tasks: set[asyncio.Task] = set()
+_active_streams: dict[str, int] = {}
+_enrichments: dict[str, tuple[str | None, str | None, int | None]] = {}
+
+
+class IcyReader:
+    def __init__(self, metaint: int) -> None:
+        if metaint <= 0:
+            raise ValueError("metaint must be positive")
+        self.metaint = metaint
+        self._audio_remaining = metaint
+        self._metadata_remaining = 0
+        self._metadata = bytearray()
+
+    def feed(self, chunk: bytes) -> tuple[bytes, list[str]]:
+        audio = bytearray()
+        titles = []
+        offset = 0
+        while offset < len(chunk):
+            if self._audio_remaining:
+                size = min(self._audio_remaining, len(chunk) - offset)
+                audio.extend(chunk[offset:offset + size])
+                self._audio_remaining -= size
+                offset += size
+            elif self._metadata_remaining:
+                size = min(self._metadata_remaining, len(chunk) - offset)
+                self._metadata.extend(chunk[offset:offset + size])
+                self._metadata_remaining -= size
+                offset += size
+                if not self._metadata_remaining:
+                    for title in re.findall(rb"(?:^|;)\s*StreamTitle='(.*?)';", self._metadata, re.DOTALL):
+                        try:
+                            titles.append(title.decode("utf-8"))
+                        except UnicodeDecodeError:
+                            titles.append(title.decode("latin-1"))
+                    self._metadata.clear()
+                    self._audio_remaining = self.metaint
+            else:
+                self._metadata_remaining = chunk[offset] * 16
+                offset += 1
+                if not self._metadata_remaining:
+                    self._audio_remaining = self.metaint
+        return bytes(audio), titles
+
+
+@dataclass
+class NowPlaying:
+    raw: str
+    artist: str | None
+    title: str | None
+    year: int | None
+    cover_url: str | None
+    album: str | None
+    since: datetime
+
+
+_now_playing: dict[str, NowPlaying | None] = {}
+
+
+def stream_started(id: str) -> None:
+    _active_streams[id] = _active_streams.get(id, 0) + 1
+
+
+def stream_stopped(id: str) -> None:
+    remaining = _active_streams.get(id, 0) - 1
+    if remaining > 0:
+        _active_streams[id] = remaining
+    else:
+        _active_streams.pop(id, None)
+        _now_playing.pop(id, None)
+
+
+def now_playing(id: str) -> NowPlaying | None:
+    entry = _now_playing.get(id)
+    if not _active_streams.get(id) or (entry and datetime.now(UTC) - entry.since > timedelta(minutes=30)):
+        _now_playing.pop(id, None)
+        return None
+    return entry
+
+
+def set_now_playing(id: str, station_name: str, raw: str) -> None:
+    artist, separator, title = raw.partition(" - ")
+    raw = raw.strip()
+    artist, title = (artist.strip() or None, title.strip()) if separator else (None, raw)
+    station_key = station_name.strip().casefold()
+    if not title or raw.casefold() == station_key or title.casefold() == station_key:
+        _now_playing[id] = None
+        return
+    previous = _now_playing.get(id)
+    if previous and previous.raw == raw:
+        previous.since = datetime.now(UTC)
+        return
+    entry = NowPlaying(raw, artist, title, None, None, None, datetime.now(UTC))
+    _now_playing[id] = entry
+    task = asyncio.create_task(_enrich(id, entry))
+    _tasks.add(task)
+    task.add_done_callback(_tasks.discard)
+
+
+async def _enrich(id: str, entry: NowPlaying) -> None:
+    cached = _enrichments.pop(entry.raw, None)
+    if cached is None:
+        album_title, cover_url, year = None, None, None
+        try:
+            results = await deezer.search_tracks(" ".join(filter(None, [entry.artist, entry.title])), 10)
+            if results:
+                track = next(
+                    (
+                        t for t in results
+                        if entry.artist
+                        and name_key(primary_artist(artist_string(t))) == name_key(primary_artist(entry.artist))
+                    ),
+                    results[0],
+                )
+                album = track.get("album") or {}
+                date = album.get("release_date") or track.get("release_date")
+                if not date and album.get("id") is not None:
+                    album = {**album, **await deezer.album(str(album["id"]))}
+                    date = album.get("release_date")
+                album_title = album.get("title")
+                cover_url = album.get("cover_xl") or album.get("cover_big")
+                year = int(date[:4]) if date and date[:4].isdigit() else None
+        except DeezerError:
+            pass
+        cached = (album_title, cover_url, year)
+    _enrichments[entry.raw] = cached
+    if len(_enrichments) > 500:
+        del _enrichments[next(iter(_enrichments))]
+    if _now_playing.get(id) is entry:
+        entry.album, entry.cover_url, entry.year = cached
 
 
 class WorldRadioError(Exception):
