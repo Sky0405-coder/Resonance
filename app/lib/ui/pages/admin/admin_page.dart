@@ -625,6 +625,27 @@ class _ServerTab extends ConsumerWidget {
                 }
               },
             ),
+            _LibraryKeyTile(
+              field: 'discogs_token',
+              title: context.l10n.adminDiscogsToken,
+              helper: context.l10n.adminDiscogsHint,
+              value: lib['discogs_token'] ?? '',
+              patch: patch,
+            ),
+            _LibraryKeyTile(
+              field: 'lastfm_api_key',
+              title: context.l10n.adminLastfmKey,
+              helper: context.l10n.adminLastfmHint,
+              value: lib['lastfm_api_key'] ?? '',
+              patch: patch,
+            ),
+            _LibraryKeyTile(
+              field: 'fanarttv_api_key',
+              title: context.l10n.adminFanartKey,
+              value: lib['fanarttv_api_key'] ?? '',
+              patch: patch,
+            ),
+            _GenreFill(configured: (lib['lastfm_api_key'] ?? '').isNotEmpty),
             RadioGroup<String>(
               groupValue: lib['import_mode'] ?? 'move',
               onChanged: (v) => patch({
@@ -1285,4 +1306,117 @@ class _BooksCheckTileState extends ConsumerState<_BooksCheckTile> {
       ),
     );
   }
+}
+
+class _LibraryKeyTile extends StatelessWidget {
+  const _LibraryKeyTile({
+    required this.field,
+    required this.title,
+    required this.value,
+    required this.patch,
+    this.helper,
+  });
+  final String field;
+  final String title;
+  final String value;
+  final String? helper;
+  final Future<void> Function(Map<String, dynamic>) patch;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    title: Text(title),
+    subtitle: Text(value.isEmpty ? (helper ?? context.l10n.adminAcoustIdNotSet) : context.l10n.adminConfigured),
+    trailing: const Icon(Icons.edit),
+    onTap: () async {
+      final ctrl = TextEditingController(text: value);
+      final key = await showDialog<String>(
+        context: context,
+        builder: (d) => AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            obscureText: true,
+            decoration: InputDecoration(helperText: helper, helperMaxLines: 2),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonCancel)),
+            FilledButton(onPressed: () => Navigator.pop(d, ctrl.text.trim()), child: Text(context.l10n.commonSave)),
+          ],
+        ),
+      );
+      if (key != null) {
+        await patch({
+          'library': {field: key},
+        });
+      }
+    },
+  );
+}
+
+class _GenreFill extends ConsumerStatefulWidget {
+  const _GenreFill({required this.configured});
+  final bool configured;
+
+  @override
+  ConsumerState<_GenreFill> createState() => _GenreFillState();
+}
+
+class _GenreFillState extends ConsumerState<_GenreFill> {
+  Job? _job;
+  Timer? _timer;
+  bool _starting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _poll() {
+    _timer?.cancel();
+    if (_job?.isActive ?? false) _timer = Timer(const Duration(seconds: 1), _refresh);
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final job = await ref.read(apiProvider).genreFillStatus();
+      if (!mounted) return;
+      setState(() => _job = job);
+      _poll();
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
+  Future<void> _start() async {
+    setState(() => _starting = true);
+    try {
+      final job = await ref.read(apiProvider).fillGenres();
+      if (!mounted) return;
+      setState(() => _job = job);
+      _poll();
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    title: Text(context.l10n.adminFillGenres),
+    subtitle: _job == null ? null : Text(_job!.message ?? ''),
+    trailing: _starting || (_job?.isActive ?? false)
+        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+        : const Icon(Icons.auto_fix_high),
+    enabled: widget.configured && !_starting && !(_job?.isActive ?? false),
+    onTap: _start,
+  );
 }

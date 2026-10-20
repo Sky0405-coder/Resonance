@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import struct
 from pathlib import Path
 
@@ -85,9 +86,8 @@ def write_tags(path: Path, meta: TrackMeta, cover: bytes | None, clear_missing: 
     def set_value(key: str, tag: str, value: object | None) -> None:
         if value is not None:
             audio[tag] = value
-        elif clear_missing and key in _ID_KEYS:
-            if tag in audio.tags:
-                del audio.tags[tag]
+        elif clear_missing and key in _ID_KEYS and tag in audio.tags:
+            del audio.tags[tag]
 
     if isinstance(audio, MP4):
         atoms = {
@@ -207,7 +207,9 @@ async def fetch_cover(meta: TrackMeta) -> bytes | None:
     # for the album as a whole) beats the exact release's, which is often a regional or special edition.
     candidates = []
     if meta.cover_url:
-        candidates.append((f"dz-{meta.deezer_album_id}.jpg", [meta.cover_url]))
+        key = hashlib.sha256(meta.cover_url.encode()).hexdigest()[:24]
+        filename = f"dz-{meta.deezer_album_id}.jpg" if meta.deezer_album_id else f"catalog-{key}.jpg"
+        candidates.append((filename, [meta.cover_url]))
     if meta.mb_release_group_id:
         candidates.append(
             (

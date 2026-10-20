@@ -1,7 +1,17 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Index, String, Text, false, func
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    false,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -17,6 +27,9 @@ class Artist(Base):
     sort_name: Mapped[str | None] = mapped_column(String(512))
     mb_artist_id: Mapped[str | None] = mapped_column(String(36), index=True)
     image_path: Mapped[str | None] = mapped_column(Text)
+    bio_de: Mapped[str | None] = mapped_column(Text)
+    bio_en: Mapped[str | None] = mapped_column(Text)
+    info_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     albums: Mapped[list["Album"]] = relationship(back_populates="artist")

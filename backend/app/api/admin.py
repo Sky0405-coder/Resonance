@@ -20,7 +20,7 @@ from app.schemas import (
     UserOut,
 )
 from app.security import hash_password, hash_token, new_token
-from app.services import scanner, upgrades
+from app.services import genres, scanner, upgrades
 from app.services.deletion import delete_empty_album, delete_tracks
 from app.services.duplicates import find_groups, merge_group
 from app.services.server_config import ServerConfig, load_config, update_config
@@ -48,6 +48,21 @@ async def patch_config(patch: dict, admin: AdminUser, db: DB) -> ServerConfig:
 async def run_upgrades(admin: AdminUser, background_tasks: BackgroundTasks) -> dict[str, bool]:
     background_tasks.add_task(upgrades.run_once)
     return {"started": True}
+
+
+@router.post("/genres/fill", response_model=JobOut, status_code=status.HTTP_202_ACCEPTED)
+async def fill_genres(admin: AdminUser, db: DB) -> JobOut:
+    return JobOut.model_validate(await genres.start_fill(db))
+
+
+@router.get("/genres/fill", response_model=JobOut | None)
+async def genre_fill_status(admin: AdminUser, db: DB, request: Request) -> JobOut | None:
+    job = await db.scalar(select(Job).where(Job.kind == "genres").order_by(Job.created_at.desc()).limit(1))
+    if job is None:
+        return None
+    return JobOut.model_validate(job).model_copy(
+        update={"message": translate(job.message, language(request)) if job.message else None}
+    )
 
 
 # --- invites ----------------------------------------------------------------

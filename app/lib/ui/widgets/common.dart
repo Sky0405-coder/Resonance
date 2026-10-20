@@ -131,6 +131,28 @@ class CoverImage extends ConsumerWidget {
   }
 }
 
+class ArtistImage extends ConsumerWidget {
+  const ArtistImage({super.key, required this.artist, this.size = 300});
+  final Artist artist;
+  final int size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fallback = CoverImage(albumId: artist.coverAlbumId, size: size, radius: 0, icon: Icons.person);
+    if (!artist.hasImage) return fallback;
+    return AspectRatio(
+      aspectRatio: 1,
+      child: CachedNetworkImage(
+        imageUrl: ref.watch(apiProvider).artistImageUrl(artist.id, size: size),
+        cacheKey: 'artist:${artist.id}:$size',
+        fit: BoxFit.cover,
+        placeholder: (_, _) => fallback,
+        errorWidget: (_, _, _) => fallback,
+      ),
+    );
+  }
+}
+
 /// 2x2 mosaic for playlists, like Spotify.
 class PlaylistCover extends ConsumerWidget {
   const PlaylistCover({
@@ -384,7 +406,7 @@ class ArtistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MediaCard(
     circle: true,
-    image: CoverImage(albumId: artist.coverAlbumId, radius: 0, icon: Icons.person),
+    image: ArtistImage(artist: artist),
     title: artist.name,
     subtitle: context.l10n.commonArtist,
     onTap: () => context.push('/artist/${artist.id}'),

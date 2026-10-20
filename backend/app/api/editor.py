@@ -9,6 +9,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import func, select
 
+from app.api.catalog import _album as _deezer_album
+from app.api.catalog import _track as _deezer_track
 from app.config import get_settings
 from app.deps import DB, AdminUser
 from app.models import Album, Artist, Track
@@ -16,6 +18,9 @@ from app.schemas import (
     AlbumMatchIn,
     AlbumMatchOut,
     AlbumOut,
+    CatalogAlbum,
+    CatalogSearchOut,
+    CatalogTrack,
     CoverOptionOut,
     FingerprintMatchOut,
     FingerprintReleaseOut,
@@ -25,7 +30,7 @@ from app.schemas import (
     TrackMatchIn,
     TrackOut,
 )
-from app.services import acoustid, covers, identify
+from app.services import acoustid, apple_music, covers, discogs, identify
 from app.services.deezer import DeezerError, deezer
 from app.services.deezer import NotFound as DeezerNotFound
 from app.services.fingerprint import fingerprint
@@ -41,12 +46,74 @@ from app.services.retag import (
 )
 from app.services.scanner import library_lock
 from app.services.server_config import load_config
+from app.services.spotify import SpotifyError
 from app.services.tagger import fetch_cover
 from app.services.tags import TrackTags, read_tags
 from app.services.views import album_options, albums_out, track_options, tracks_out
 
 router = APIRouter(prefix="/api/admin/library", tags=["editor"])
 editor_router = APIRouter(prefix="/api/editor", tags=["editor"])
+
+
+def _apple_album(item: dict) -> CatalogAlbum:
+    attrs = item.get("attributes") or {}
+    date = attrs.get("releaseDate") or ""
+    return CatalogAlbum(
+        id=item["id"], source="apple", title=attrs["name"], artist=attrs.get("artistName") or "",
+        artist_id=None, record_type=None, year=int(date[:4]) if date[:4].isdigit() else None,
+        cover_url=apple_music.artwork_url(attrs), cover_big_url=apple_music.artwork_url(attrs),
+    )
+
+
+def _apple_track(item: dict) -> CatalogTrack:
+    attrs = item.get("attributes") or {}
+    duration = attrs.get("durationInMillis")
+    return CatalogTrack(
+        id=item["id"], source="apple", title=attrs["name"], artist=attrs.get("artistName") or "",
+        artist_id=None, album=attrs.get("albumName"), album_id=None, cover_url=apple_music.artwork_url(attrs),
+        duration=duration / 1000 if duration is not None else None, isrc=attrs.get("isrc"), preview_url=None,
+        track_no=attrs.get("trackNumber"), disc_no=attrs.get("discNumber"),
+    )
+
+
+@router.get("/search", response_model=CatalogSearchOut)
+async def search(
+    admin: AdminUser,
+    db: DB,
+    q: str = Query(min_length=1, max_length=200),
+    types: Literal["track", "album"] = "track",
+    limit: int = Query(15, ge=1, le=25),
+) -> CatalogSearchOut:
+    if types == "track":
+        results = await asyncio.gather(
+            deezer.search_tracks(q, limit), apple_music.search_songs(q, limit), return_exceptions=True
+        )
+        tracks = []
+        for items, convert in zip(results, (_deezer_track, _apple_track), strict=True):
+            if isinstance(items, Exception):
+                continue
+            tracks.extend(convert(item) for item in items)
+        return CatalogSearchOut(artists=[], albums=[], tracks=tracks)
+    cfg = (await load_config(db)).library
+    methods = [deezer.search_albums(q, limit), apple_music.search_albums(q, limit)]
+    if cfg.discogs_token:
+        methods.append(discogs.search_releases("", q, 8))
+    results = await asyncio.gather(*methods, return_exceptions=True)
+    albums = []
+    for items, convert in zip(results[:2], (_deezer_album, _apple_album), strict=True):
+        if isinstance(items, Exception):
+            continue
+        albums.extend(convert(item) for item in items)
+    if len(results) > 2 and not isinstance(results[2], Exception):
+        for item in results[2]:
+            artist, _, title = item.get("title", "").partition(" - ")
+            year = str(item.get("year") or "")
+            albums.append(CatalogAlbum(
+                id=str(item["id"]), source="discogs", title=title or artist, artist=artist if title else "",
+                artist_id=None, record_type=None, year=int(year) if year.isdigit() else None,
+                cover_url=item.get("thumb") or item.get("cover_image"), cover_big_url=item.get("cover_image"),
+            ))
+    return CatalogSearchOut(artists=[], albums=albums, tracks=[])
 
 
 async def _track(db: DB, track_id: uuid.UUID) -> Track:
@@ -158,7 +225,9 @@ async def track_fingerprint(id: uuid.UUID, admin: AdminUser, db: DB) -> list[Fin
 @router.post("/tracks/{id}/match", response_model=TrackOut)
 async def match_track(id: uuid.UUID, body: TrackMatchIn, admin: AdminUser, db: DB) -> TrackOut:
     track = await _track(db, id)
-    required = {"deezer": body.deezer_id, "musicbrainz": body.recording_id, "manual": body.meta}
+    required = {
+        "deezer": body.deezer_id, "musicbrainz": body.recording_id, "manual": body.meta, "apple": body.apple_id
+    }
     if required[body.source] is None or required[body.source] == "":
         raise HTTPException(422, "Unvollständige Angaben")
     try:
@@ -168,6 +237,8 @@ async def match_track(id: uuid.UUID, body: TrackMatchIn, admin: AdminUser, db: D
         else:
             if body.source == "deezer":
                 meta = await resolve_track(body.deezer_id)
+            elif body.source == "apple":
+                meta = await apple_music.song_meta(body.apple_id)
             elif body.release_id:
                 metas = await mb.track_meta_list(await mb.release_full(body.release_id))
                 matches = [m for m in metas if m.mb_recording_id == body.recording_id]
@@ -186,6 +257,8 @@ async def match_track(id: uuid.UUID, body: TrackMatchIn, admin: AdminUser, db: D
         raise HTTPException(502, "Katalog nicht erreichbar") from e
     except MusicBrainzError as e:
         raise HTTPException(502, "MusicBrainz nicht erreichbar") from e
+    except SpotifyError as e:
+        raise HTTPException(e.status, e.message) from e
     try:
         track = await apply_meta(db, track, meta, cover)
     except ValueError as e:
@@ -205,11 +278,14 @@ async def match_album(id: uuid.UUID, body: AlbumMatchIn, admin: AdminUser, db: D
         )
     )
     try:
-        metas = (
-            (await resolve_album(body.id))[1]
-            if body.source == "deezer"
-            else await mb.track_meta_list(await mb.release_full(body.id))
-        )
+        if body.source == "deezer":
+            metas = (await resolve_album(body.id))[1]
+        elif body.source == "apple":
+            metas = await apple_music.album_metas(body.id)
+        elif body.source == "discogs":
+            metas = await discogs.release_metas(body.id)
+        else:
+            metas = await mb.track_meta_list(await mb.release_full(body.id))
         cover = await _normalise(await fetch_cover(metas[0])) if metas else None
     except (DeezerNotFound, MBNotFound) as e:
         raise HTTPException(404, "Nicht gefunden") from e
@@ -217,6 +293,10 @@ async def match_album(id: uuid.UUID, body: AlbumMatchIn, admin: AdminUser, db: D
         raise HTTPException(502, "Katalog nicht erreichbar") from e
     except MusicBrainzError as e:
         raise HTTPException(502, "MusicBrainz nicht erreichbar") from e
+    except SpotifyError as e:
+        raise HTTPException(e.status, e.message) from e
+    except discogs.DiscogsError as e:
+        raise HTTPException(502, str(e)) from e
     assignments = assign_tracks([(t.id, await _tags(t)) for t in tracks], metas)
     first_album = None
     for track in tracks:
@@ -260,7 +340,24 @@ async def cover_options(id: uuid.UUID, admin: AdminUser, db: DB) -> list[CoverOp
                 )
     except DeezerError:
         pass
-    return out[:12]
+    try:
+        for item in (await apple_music.search_albums(f"{album.artist.name} {album.title}", 4))[:4]:
+            option = _apple_album(item)
+            if option.cover_url:
+                out.append(CoverOptionOut(
+                    url=option.cover_url, source="apple", label=f"{option.title} – {option.artist}"
+                ))
+    except SpotifyError:
+        pass
+    if (await load_config(db)).library.discogs_token:
+        try:
+            for item in await discogs.search_releases(album.artist.name, album.title, 4):
+                url = discogs.primary_image(await discogs.release(str(item["id"])))
+                if url:
+                    out.append(CoverOptionOut(url=url, source="discogs", label=item.get("title") or album.title))
+        except discogs.DiscogsError:
+            pass
+    return out
 
 
 class _CoverIn(BaseModel):
@@ -274,7 +371,8 @@ def _allowed_cover(url: str) -> None:
     except ValueError as e:
         raise HTTPException(422, "Bildquelle nicht erlaubt") from e
     if parsed.scheme != "https" or not any(
-        host == domain or host.endswith("." + domain) for domain in ("coverartarchive.org", "archive.org", "dzcdn.net")
+        host == domain or host.endswith("." + domain)
+        for domain in ("coverartarchive.org", "archive.org", "dzcdn.net", "mzstatic.com", "i.discogs.com")
     ):
         raise HTTPException(422, "Bildquelle nicht erlaubt")
 

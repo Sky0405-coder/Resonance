@@ -193,6 +193,21 @@ class MusicBrainzClient:
             "length": length / 1000 if length is not None else None,
         }
 
+    async def genre(self, recording_id: str | None, release_group_id: str | None) -> str | None:
+        from app.services.lastfm import normalize_genre
+
+        for kind, id in (("recording", recording_id), ("release-group", release_group_id)):
+            if not id:
+                continue
+            try:
+                data = await self._get(f"{kind}/{id}", inc="genres")
+            except MusicBrainzError:
+                continue
+            genres = [g for g in data.get("genres", []) if g.get("name")]
+            if genres:
+                return normalize_genre(max(genres, key=lambda g: g.get("count", 0))["name"])
+        return None
+
     async def recording_meta(self, recording_mbid: str, prefer_album: str | None = None) -> TrackMeta:
         recording = await self._get(f"recording/{recording_mbid}", inc="releases+release-groups")
         release = await self.release_full(

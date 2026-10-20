@@ -1487,5 +1487,18 @@
   "adminBooksGoogleKey": "Google-Books-API-Schlüssel",
   "adminBooksGoogleKeyHint": "Optional – ohne Schlüssel wird nur Audible durchsucht",
   "adminBooksDailyLimit": "Bücher pro Nutzer und Tag (0 = unbegrenzt)",
-  "adminBooksTorrentsHint": "Automatische Downloads nutzen die Torrent-Einstellungen unter Downloads."
+  "adminBooksTorrentsHint": "Automatische Downloads nutzen die Torrent-Einstellungen unter Downloads.",
+  "editorSourceApple": "Apple Music",
+  "editorSourceDiscogs": "Discogs",
+  "editorSourceDeezer": "Deezer",
+  "editorSourceMusicBrainz": "MusicBrainz",
+  "adminDiscogsToken": "Discogs-Token",
+  "adminDiscogsHint": "Kostenlos unter discogs.com → Einstellungen → Entwickler",
+  "adminLastfmKey": "Last.fm API-Key",
+  "adminLastfmHint": "Kostenlos unter last.fm/api",
+  "adminFanartKey": "fanart.tv API-Key",
+  "adminFillGenres": "Fehlende Genres ergänzen (Last.fm)",
+  "artistAbout": "Über",
+  "artistShowMore": "Mehr anzeigen",
+  "artistShowLess": "Weniger anzeigen"
 }

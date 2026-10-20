@@ -4309,6 +4309,84 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Automatische Downloads nutzen die Torrent-Einstellungen unter Downloads.'**
   String get adminBooksTorrentsHint;
+
+  /// No description provided for @editorSourceApple.
+  ///
+  /// In de, this message translates to:
+  /// **'Apple Music'**
+  String get editorSourceApple;
+
+  /// No description provided for @editorSourceDiscogs.
+  ///
+  /// In de, this message translates to:
+  /// **'Discogs'**
+  String get editorSourceDiscogs;
+
+  /// No description provided for @editorSourceDeezer.
+  ///
+  /// In de, this message translates to:
+  /// **'Deezer'**
+  String get editorSourceDeezer;
+
+  /// No description provided for @editorSourceMusicBrainz.
+  ///
+  /// In de, this message translates to:
+  /// **'MusicBrainz'**
+  String get editorSourceMusicBrainz;
+
+  /// No description provided for @adminDiscogsToken.
+  ///
+  /// In de, this message translates to:
+  /// **'Discogs-Token'**
+  String get adminDiscogsToken;
+
+  /// No description provided for @adminDiscogsHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Kostenlos unter discogs.com → Einstellungen → Entwickler'**
+  String get adminDiscogsHint;
+
+  /// No description provided for @adminLastfmKey.
+  ///
+  /// In de, this message translates to:
+  /// **'Last.fm API-Key'**
+  String get adminLastfmKey;
+
+  /// No description provided for @adminLastfmHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Kostenlos unter last.fm/api'**
+  String get adminLastfmHint;
+
+  /// No description provided for @adminFanartKey.
+  ///
+  /// In de, this message translates to:
+  /// **'fanart.tv API-Key'**
+  String get adminFanartKey;
+
+  /// No description provided for @adminFillGenres.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlende Genres ergänzen (Last.fm)'**
+  String get adminFillGenres;
+
+  /// No description provided for @artistAbout.
+  ///
+  /// In de, this message translates to:
+  /// **'Über'**
+  String get artistAbout;
+
+  /// No description provided for @artistShowMore.
+  ///
+  /// In de, this message translates to:
+  /// **'Mehr anzeigen'**
+  String get artistShowMore;
+
+  /// No description provided for @artistShowLess.
+  ///
+  /// In de, this message translates to:
+  /// **'Weniger anzeigen'**
+  String get artistShowLess;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

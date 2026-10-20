@@ -7,6 +7,7 @@ import time
 
 import httpx
 
+from app.services.musicbrainz import TrackMeta, _year
 from app.services.spotify import SpotifyError, SpotifyTrack
 
 _WEB = "https://music.apple.com"
@@ -126,3 +127,88 @@ async def fetch_playlist(ref: str) -> tuple[dict, list[SpotifyTrack]]:
             if len(tracks) >= 10000:
                 break
     return metadata, tracks
+
+
+def artwork_url(attributes: dict) -> str | None:
+    url = (attributes.get("artwork") or {}).get("url")
+    return url.replace("{w}", "1400").replace("{h}", "1400") if url else None
+
+
+async def search_songs(term: str, limit: int = 15) -> list[dict]:
+    async with _client_factory() as client:
+        data = await _get(client, "/catalog/de/search", term=term, types="songs", limit=limit)
+    return data.get("results", {}).get("songs", {}).get("data", [])
+
+
+async def search_albums(term: str, limit: int = 10) -> list[dict]:
+    async with _client_factory() as client:
+        data = await _get(client, "/catalog/de/search", term=term, types="albums", limit=limit)
+    return data.get("results", {}).get("albums", {}).get("data", [])
+
+
+def _song_meta(song: dict, album: dict | None = None) -> TrackMeta:
+    attrs = song.get("attributes") or {}
+    release = (album or {}).get("attributes") or {}
+    date = release.get("releaseDate") or attrs.get("releaseDate")
+    genres = attrs.get("genreNames") or release.get("genreNames") or []
+    duration = attrs.get("durationInMillis")
+    return TrackMeta(
+        title=attrs["name"],
+        artist=attrs.get("artistName") or "",
+        artist_mbid=None,
+        album=release.get("name") or attrs.get("albumName") or "",
+        album_artist=release.get("artistName") or attrs.get("artistName") or "",
+        album_artist_mbid=None,
+        year=_year(date),
+        date=date,
+        track_no=attrs.get("trackNumber"),
+        track_total=release.get("trackCount"),
+        disc_no=attrs.get("discNumber"),
+        disc_total=None,
+        genre=next((g for g in genres if g.casefold() not in {"musik", "music"}), None),
+        isrc=attrs.get("isrc"),
+        duration=duration / 1000 if duration is not None else None,
+        label=release.get("recordLabel"),
+        mb_recording_id=None,
+        mb_release_id=None,
+        mb_release_group_id=None,
+        cover_url=artwork_url(release) or artwork_url(attrs),
+    )
+
+
+async def song_meta(id: str) -> TrackMeta:
+    async with _client_factory() as client:
+        songs = (await _get(client, f"/catalog/de/songs/{id}", include="albums")).get("data") or []
+        if not songs:
+            raise SpotifyError(404, "Song nicht gefunden")
+        song = songs[0]
+        albums = song.get("relationships", {}).get("albums", {}).get("data") or []
+        album = albums[0] if albums else None
+        if album and not album.get("attributes"):
+            albums = (await _get(client, f"/catalog/de/albums/{album['id']}")).get("data") or []
+            album = albums[0] if albums else None
+    return _song_meta(song, album)
+
+
+async def album_metas(id: str) -> list[TrackMeta]:
+    async with _client_factory() as client:
+        albums = (await _get(client, f"/catalog/de/albums/{id}", include="tracks")).get("data") or []
+        if not albums:
+            raise SpotifyError(404, "Album nicht gefunden")
+        album = albums[0]
+        page = album.get("relationships", {}).get("tracks") or {}
+        songs = list(page.get("data") or [])
+        path = page.get("next")
+        if not page:
+            path = f"/catalog/de/albums/{id}/tracks"
+        seen = set()
+        while path and path not in seen:
+            seen.add(path)
+            page = await _get(client, path.removeprefix("/v1"))
+            songs.extend(page.get("data") or [])
+            path = page.get("next")
+    metas = [_song_meta(s, album) for s in songs if s.get("type") == "songs"]
+    for meta in metas:
+        meta.disc_total = max((m.disc_no or 1 for m in metas), default=1)
+        meta.track_total = sum((m.disc_no or 1) == (meta.disc_no or 1) for m in metas)
+    return metas

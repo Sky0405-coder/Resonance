@@ -38,8 +38,8 @@ from app.api import (
 from app.config import get_settings
 from app.deps import DB, CurrentUser
 from app.i18n import language, translate
+from app.services import artist_info, genres, importer, upgrades
 from app.services import audiobookshelf as abs_service
-from app.services import importer, upgrades
 from app.services import mixes as mixes_service
 from app.services import radio as radio_service
 from app.services import spotify as spotify_service
@@ -64,11 +64,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await spotify_sync_service.start()
     await radio_service.start()
     await mixes_service.start()
+    await genres.start()
+    await artist_info.start()
     await upgrades.start()
     await jam_hub.start()
     try:
         yield
     finally:
+        await artist_info.stop()
+        await genres.stop()
         await jam_hub.stop()
         await upgrades.stop()
         await importer.stop()

@@ -75,6 +75,9 @@ class LibraryConfig(BaseModel):
     lyrics_online: bool = True
     # Free key from https://acoustid.org/new-application – enables audio fingerprint identification.
     acoustid_api_key: str = ""
+    discogs_token: str = ""
+    lastfm_api_key: str = ""
+    fanarttv_api_key: str = ""
     # "move": imported files leave the import folder; "copy": originals stay untouched.
     import_mode: Literal["move", "copy"] = "move"
     # Files that cannot be identified are imported with their existing tags instead of being left behind.

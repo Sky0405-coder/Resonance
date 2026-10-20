@@ -288,7 +288,7 @@ class ArtistPage extends ConsumerWidget {
             SliverToBoxAdapter(
               child: CollectionHeader(
                 circleImage: true,
-                image: CoverImage(albumId: d.artist.coverAlbumId, size: 600, radius: 0, icon: Icons.person),
+                image: ArtistImage(artist: d.artist, size: 600),
                 kind: context.l10n.commonArtist,
                 title: d.artist.name,
                 meta: Text(context.l10n.artistLibraryAlbums(d.albums.length)),
@@ -321,6 +321,7 @@ class ArtistPage extends ConsumerWidget {
                 ),
               ),
             ],
+            if (d.bio?.trim().isNotEmpty ?? false) SliverToBoxAdapter(child: _ArtistBiography(bio: d.bio!)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -341,6 +342,35 @@ class ArtistPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _ArtistBiography extends StatefulWidget {
+  const _ArtistBiography({required this.bio});
+  final String bio;
+
+  @override
+  State<_ArtistBiography> createState() => _ArtistBiographyState();
+}
+
+class _ArtistBiographyState extends State<_ArtistBiography> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(context.l10n.artistAbout, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Text(widget.bio, maxLines: _expanded ? null : 4, overflow: _expanded ? null : TextOverflow.ellipsis),
+        TextButton(
+          onPressed: () => setState(() => _expanded = !_expanded),
+          child: Text(_expanded ? context.l10n.artistShowLess : context.l10n.artistShowMore),
+        ),
+      ],
+    ),
+  );
 }
 
 class PlaylistPage extends ConsumerWidget {

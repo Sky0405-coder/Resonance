@@ -13,12 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models import Album, Artist, Track
 from app.schemas import ManualMetaIn
-from app.services import covers
+from app.services import covers, genres
 from app.services.identify import AlbumCtx, _tag_meta
 from app.services.library_paths import target_relpath
 from app.services.lyrics import sidecar_path
 from app.services.musicbrainz import TrackMeta
 from app.services.scanner import import_file, library_lock, relocate_track
+from app.services.server_config import load_config
 from app.services.sources.youtube import norm
 from app.services.tagger import _set_cover, _strip_ogg_id3v1, write_tags
 from app.services.tags import TrackTags
@@ -26,6 +27,7 @@ from app.services.views import track_options
 
 
 async def apply_meta(db: AsyncSession, track: Track, meta: TrackMeta, cover: bytes | None) -> Track:
+    await genres.enrich(meta, (await load_config(db)).library)
     old_rel = track.path
     async with library_lock:
         source = get_settings().music_dir / old_rel

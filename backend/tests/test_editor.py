@@ -224,7 +224,7 @@ async def test_mark_reviewed(env: SimpleNamespace) -> None:
     assert (await env.client.get("/api/editor/review", headers=auth(env.user["token"]))).status_code == 403
 
 
-@pytest.mark.parametrize("source", ["deezer", "musicbrainz"])
+@pytest.mark.parametrize("source", ["deezer", "musicbrainz", "apple"])
 async def test_catalog_match(env, monkeypatch, source):
     track_id, _, _, _ = await library_track(env)
     chosen = meta(title="Identified")
@@ -242,10 +242,14 @@ async def test_catalog_match(env, monkeypatch, source):
         return image("blue", "PNG")
 
     monkeypatch.setattr(editor, "resolve_track", resolve)
+    monkeypatch.setattr(editor.apple_music, "song_meta", resolve)
     monkeypatch.setattr(mb, "release_full", release)
     monkeypatch.setattr(mb, "track_meta_list", metas)
     monkeypatch.setattr(editor, "fetch_cover", cover)
-    body = {"source": source, "deezer_id": "1", "recording_id": chosen.mb_recording_id, "release_id": "release"}
+    body = {
+        "source": source, "deezer_id": "1", "apple_id": "2",
+        "recording_id": chosen.mb_recording_id, "release_id": "release",
+    }
     result = await env.client.post(f"/api/admin/library/tracks/{track_id}/match", headers=env.headers, json=body)
     assert result.status_code == 200, result.text
     async with SessionLocal() as db:
@@ -289,7 +293,8 @@ async def test_collision_and_failure(env, monkeypatch):
             await apply_meta(db, track, meta(), None)
 
 
-async def test_album_match(env, monkeypatch):
+@pytest.mark.parametrize("source", ["deezer", "apple", "discogs"])
+async def test_album_match(env, monkeypatch, source):
     tracks = []
     for position, title in enumerate(["First", "Second", "Unrelated ZZZ"], 1):
         rel = f"Old/Old Album/{position}.mp3"
@@ -322,12 +327,17 @@ async def test_album_match(env, monkeypatch):
         calls.append(chosen)
         return image()
 
+    async def album_metas(*args):
+        return metas
+
     monkeypatch.setattr(editor, "resolve_album", resolve)
+    monkeypatch.setattr(editor.apple_music, "album_metas", album_metas)
+    monkeypatch.setattr(editor.discogs, "release_metas", album_metas)
     monkeypatch.setattr(editor, "fetch_cover", cover)
     result = await env.client.post(
         f"/api/admin/library/albums/{tracks[0].album_id}/match",
         headers=env.headers,
-        json={"source": "deezer", "id": "1"},
+        json={"source": source, "id": "1"},
     )
     assert result.status_code == 200, result.text
     assert result.json()["matched"] == 2
@@ -411,6 +421,11 @@ async def test_options_fingerprint_and_review(env, monkeypatch):
         ]
 
     monkeypatch.setattr(editor.deezer, "search_albums", albums)
+
+    async def no_apple(*args):
+        return []
+
+    monkeypatch.setattr(editor.apple_music, "search_albums", no_apple)
     options = await env.client.get(f"/api/admin/library/albums/{album_id}/cover-options", headers=env.headers)
     assert [o["source"] for o in options.json()] == ["musicbrainz", "deezer"]
     assert options.json()[1]["label"] == "Option – Artist"

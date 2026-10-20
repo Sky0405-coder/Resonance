@@ -15,10 +15,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import ImportBatch, ImportFile, Job, Track, User
-from app.services import acoustid
-from app.services.duplicates import _same_stem_track, merge_group, merge_new_duplicates, track_quality
+from app.services import acoustid, genres
+from app.services.duplicates import (
+    _same_stem_track,
+    merge_group,
+    merge_new_duplicates,
+    track_quality,
+)
 from app.services.fingerprint import fingerprint
-from app.services.identify import FileInfo, album_context, assign_releases, candidates, group_key, identify_file
+from app.services.identify import (
+    FileInfo,
+    album_context,
+    assign_releases,
+    candidates,
+    group_key,
+    identify_file,
+)
 from app.services.library_paths import target_relpath
 from app.services.lyrics import sidecar_path
 from app.services.musicbrainz import TrackMeta
@@ -220,6 +232,8 @@ async def run_batch(batch_id: uuid.UUID) -> None:
                         meta, method = await identify_file(
                             info, context[info], assigned.get(info), cfg.import_unidentified
                         )
+                        if meta is not None:
+                            await genres.enrich(meta, cfg)
                         row.method = method
                         row.acoustid_score = max((c.score for c in info.candidates), default=None)
                         row.meta = meta.model_dump() if meta else None

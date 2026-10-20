@@ -40,6 +40,13 @@ Widget _dialogFrame(BuildContext context, String title, Widget child, {double ma
 
 String _durationLabel(double? seconds) => seconds == null ? '' : formatDuration(Duration(seconds: seconds.round()));
 
+String _sourceLabel(BuildContext context, String source) => switch (source) {
+  'apple' => context.l10n.editorSourceApple,
+  'discogs' => context.l10n.editorSourceDiscogs,
+  'musicbrainz' => context.l10n.editorSourceMusicBrainz,
+  _ => context.l10n.editorSourceDeezer,
+};
+
 // --- song --------------------------------------------------------------------
 
 /// Song menu → "Metadaten korrigieren": catalog search, AcoustID matches or manual edit.
@@ -127,7 +134,11 @@ class _TrackEditorState extends ConsumerState<_TrackEditor> {
                     Expanded(
                       child: TabBarView(
                         children: [
-                          _SearchTab(file: f, onPick: (id) => _apply({'source': 'deezer', 'deezer_id': id})),
+                          _SearchTab(
+                            file: f,
+                            onPick: (source, id) =>
+                                _apply({'source': source, source == 'apple' ? 'apple_id' : 'deezer_id': id}),
+                          ),
                           _FingerprintTab(
                             trackId: widget.track.id,
                             onPick: (recording, release) =>
@@ -158,7 +169,7 @@ class _TrackEditorState extends ConsumerState<_TrackEditor> {
 class _SearchTab extends ConsumerStatefulWidget {
   const _SearchTab({required this.file, required this.onPick});
   final TrackFile file;
-  final void Function(String deezerId) onPick;
+  final void Function(String source, String id) onPick;
 
   @override
   ConsumerState<_SearchTab> createState() => _SearchTabState();
@@ -186,7 +197,7 @@ class _SearchTabState extends ConsumerState<_SearchTab> with AutomaticKeepAliveC
   void _search() {
     final q = _query.text.trim();
     if (q.isEmpty) return;
-    setState(() => _results = ref.read(apiProvider).catalogSearch(q, limit: 25));
+    setState(() => _results = ref.read(apiProvider).editorSearch(q, types: 'track'));
   }
 
   @override
@@ -240,7 +251,7 @@ class _SearchTabState extends ConsumerState<_SearchTab> with AutomaticKeepAliveC
                           ),
                           title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                           subtitle: Text(
-                            [t.artist, ?t.album].join(' • '),
+                            [t.artist, ?t.album, _sourceLabel(context, t.source)].join(' • '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(color: Palette.textMuted),
@@ -252,7 +263,7 @@ class _SearchTabState extends ConsumerState<_SearchTab> with AutomaticKeepAliveC
                               fontWeight: close ? FontWeight.w700 : null,
                             ),
                           ),
-                          onTap: () => widget.onPick(t.id),
+                          onTap: () => widget.onPick(t.source, t.id),
                         );
                       },
                     );
@@ -568,7 +579,7 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
     final mbid = _uuid.firstMatch(q)?.group(0);
     setState(() {
       _mbid = mbid;
-      _results = mbid == null ? ref.read(apiProvider).catalogSearch(q, limit: 25) : null;
+      _results = mbid == null ? ref.read(apiProvider).editorSearch(q, types: 'album') : null;
     });
   }
 
@@ -652,12 +663,13 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
                                 subtitle: Text(
                                   [
                                     a.artist,
+                                    _sourceLabel(context, a.source),
                                     if (a.year != null) '${a.year}',
                                     if (a.recordType != null) a.recordType!,
                                   ].join(' • '),
                                   style: const TextStyle(color: Palette.textMuted),
                                 ),
-                                onTap: () => _apply('deezer', a.id),
+                                onTap: () => _apply(a.source, a.id),
                               );
                             },
                           );

@@ -68,7 +68,9 @@ async def albums_out(db: AsyncSession, albums: Sequence[Album]) -> list[AlbumOut
     return out
 
 
-async def artists_out(db: AsyncSession, artists: Sequence[Artist]) -> list[ArtistOut]:
+async def artists_out(db: AsyncSession, artists: Sequence[Artist], lang: str = "de") -> list[ArtistOut]:
+    from app.services.artist_info import biography
+
     if not artists:
         return []
     ids = [a.id for a in artists]
@@ -79,7 +81,7 @@ async def artists_out(db: AsyncSession, artists: Sequence[Artist]) -> list[Artis
             )
         ).all()
     )
-    # Pick the newest album with a cover as artist picture until real artist images exist.
+    # Album art remains the fallback for artists without a cached image.
     covers: dict[uuid.UUID, uuid.UUID] = {}
     rows = await db.execute(
         select(Album.artist_id, Album.id)
@@ -91,6 +93,8 @@ async def artists_out(db: AsyncSession, artists: Sequence[Artist]) -> list[Artis
     out = []
     for a in artists:
         item = ArtistOut.model_validate(a)
+        item.has_image = bool(a.image_path)
+        item.bio = biography(a, lang)
         item.album_count = counts.get(a.id, 0)
         item.cover_album_id = covers.get(a.id)
         out.append(item)

@@ -215,6 +215,8 @@ class ArtistOut(ORM):
     name: str
     album_count: int = 0
     cover_album_id: uuid.UUID | None = None
+    has_image: bool = False
+    bio: str | None = None
 
 
 class ArtistDetail(ArtistOut):
@@ -339,6 +341,7 @@ class CatalogArtist(BaseModel):
 
 class CatalogAlbum(BaseModel):
     id: str
+    source: Literal["deezer", "apple", "discogs"] = "deezer"
     title: str
     artist: str
     artist_id: str | None
@@ -351,6 +354,7 @@ class CatalogAlbum(BaseModel):
 
 class CatalogTrack(BaseModel):
     id: str
+    source: Literal["deezer", "apple"] = "deezer"
     title: str
     artist: str
     artist_id: str | None
@@ -548,16 +552,17 @@ class FingerprintMatchOut(BaseModel):
 
 
 class TrackMatchIn(BaseModel):
-    source: Literal["deezer", "musicbrainz", "manual"]
+    source: Literal["deezer", "musicbrainz", "manual", "apple"]
     deezer_id: str | None = None
+    apple_id: str | None = None
     recording_id: str | None = None
     release_id: str | None = None
     meta: ManualMetaIn | None = None
 
 
 class AlbumMatchIn(BaseModel):
-    source: Literal["deezer", "musicbrainz"]
-    id: str
+    source: Literal["deezer", "musicbrainz", "apple", "discogs"]
+    id: str = Field(min_length=1)
 
 
 class AlbumMatchOut(BaseModel):
@@ -568,7 +573,7 @@ class AlbumMatchOut(BaseModel):
 
 class CoverOptionOut(BaseModel):
     url: str
-    source: Literal["musicbrainz", "deezer"]
+    source: Literal["musicbrainz", "deezer", "apple", "discogs"]
     label: str
 
 

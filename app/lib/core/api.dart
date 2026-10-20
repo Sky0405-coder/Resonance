@@ -99,6 +99,8 @@ class ApiClient {
   String streamUrl(String trackId, {String format = 'auto', int? bitrate}) =>
       '$baseUrl/api/tracks/$trackId/stream?format=$format${bitrate == null ? '' : '&bitrate=$bitrate'}&token=$token';
 
+  String artistImageUrl(String id, {int size = 300}) => '$baseUrl/api/artists/$id/image?size=$size&token=$token';
+
   String coverUrl(String albumId, {int size = 300}) => '$baseUrl/api/albums/$albumId/cover?size=$size&token=$token';
 
   String stationStreamUrl(String id) => '$baseUrl/api/worldradio/stations/$id/stream?token=$token';
@@ -319,6 +321,9 @@ class ApiClient {
 
   Future<CatalogSearch> catalogSearch(String q, {int limit = 10}) async =>
       CatalogSearch.fromJson(await _get('/api/catalog/search', {'q': q, 'limit': limit}));
+
+  Future<CatalogSearch> editorSearch(String q, {required String types}) async =>
+      CatalogSearch.fromJson(await _get('/api/admin/library/search', {'q': q, 'types': types, 'limit': 25}));
 
   Future<CatalogArtistDetail> catalogArtist(String id) async =>
       CatalogArtistDetail.fromJson(await _get('/api/catalog/artists/$id'));
@@ -571,6 +576,13 @@ class ApiClient {
   }
 
   Future<void> markTrackReviewed(String id) => _post('/api/editor/tracks/$id/reviewed');
+
+  Future<Job> fillGenres() async => Job.fromJson(await _post('/api/admin/genres/fill'));
+
+  Future<Job?> genreFillStatus() async {
+    final j = await _get('/api/admin/genres/fill');
+    return j == null ? null : Job.fromJson(j);
+  }
 
   Future<List<Job>> jobs() async => [for (final j in await _get('/api/admin/jobs')) Job.fromJson(j)];
 }

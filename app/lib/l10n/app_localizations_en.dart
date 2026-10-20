@@ -2432,4 +2432,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminBooksTorrentsHint => 'Automatic downloads use the torrent settings under Downloads.';
+
+  @override
+  String get editorSourceApple => 'Apple Music';
+
+  @override
+  String get editorSourceDiscogs => 'Discogs';
+
+  @override
+  String get editorSourceDeezer => 'Deezer';
+
+  @override
+  String get editorSourceMusicBrainz => 'MusicBrainz';
+
+  @override
+  String get adminDiscogsToken => 'Discogs token';
+
+  @override
+  String get adminDiscogsHint => 'Free at discogs.com → Settings → Developers';
+
+  @override
+  String get adminLastfmKey => 'Last.fm API key';
+
+  @override
+  String get adminLastfmHint => 'Free at last.fm/api';
+
+  @override
+  String get adminFanartKey => 'fanart.tv API key';
+
+  @override
+  String get adminFillGenres => 'Fill missing genres (Last.fm)';
+
+  @override
+  String get artistAbout => 'About';
+
+  @override
+  String get artistShowMore => 'Show more';
+
+  @override
+  String get artistShowLess => 'Show less';
 }

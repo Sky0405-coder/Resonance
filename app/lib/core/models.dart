@@ -206,26 +206,40 @@ class AlbumDetail {
 }
 
 class Artist {
-  const Artist({required this.id, required this.name, required this.albumCount, this.coverAlbumId});
+  const Artist({
+    required this.id,
+    required this.name,
+    required this.albumCount,
+    this.coverAlbumId,
+    this.hasImage = false,
+  });
   final String id;
   final String name;
   final int albumCount;
   final String? coverAlbumId;
+  final bool hasImage;
 
-  factory Artist.fromJson(Map<String, dynamic> j) =>
-      Artist(id: j['id'], name: j['name'], albumCount: j['album_count'] ?? 0, coverAlbumId: j['cover_album_id']);
+  factory Artist.fromJson(Map<String, dynamic> j) => Artist(
+    id: j['id'],
+    name: j['name'],
+    albumCount: j['album_count'] ?? 0,
+    coverAlbumId: j['cover_album_id'],
+    hasImage: j['has_image'] ?? false,
+  );
 }
 
 class ArtistDetail {
-  const ArtistDetail(this.artist, this.albums, this.topTracks);
+  const ArtistDetail(this.artist, this.albums, this.topTracks, {this.bio});
   final Artist artist;
   final List<Album> albums;
   final List<Track> topTracks;
+  final String? bio;
 
   factory ArtistDetail.fromJson(Map<String, dynamic> j) => ArtistDetail(
     Artist.fromJson(j),
     [for (final a in j['albums']) Album.fromJson(a)],
     [for (final t in j['top_tracks']) Track.fromJson(t)],
+    bio: j['bio'],
   );
 }
 
@@ -495,6 +509,7 @@ class CatalogArtist {
 class CatalogAlbum {
   const CatalogAlbum({
     required this.id,
+    this.source = 'deezer',
     required this.title,
     required this.artist,
     this.artistId,
@@ -505,6 +520,7 @@ class CatalogAlbum {
     this.libraryId,
   });
   final String id;
+  final String source;
   final String title;
   final String artist;
   final String? artistId;
@@ -524,6 +540,7 @@ class CatalogAlbum {
 
   factory CatalogAlbum.fromJson(Map<String, dynamic> j) => CatalogAlbum(
     id: j['id'],
+    source: j['source'] ?? 'deezer',
     title: j['title'],
     artist: j['artist'],
     artistId: j['artist_id'],
@@ -538,6 +555,7 @@ class CatalogAlbum {
 class CatalogTrack {
   const CatalogTrack({
     required this.id,
+    this.source = 'deezer',
     required this.title,
     required this.artist,
     this.artistId,
@@ -552,6 +570,7 @@ class CatalogTrack {
     this.libraryId,
   });
   final String id;
+  final String source;
   final String title;
   final String artist;
   final String? artistId;
@@ -567,6 +586,7 @@ class CatalogTrack {
 
   factory CatalogTrack.fromJson(Map<String, dynamic> j) => CatalogTrack(
     id: j['id'],
+    source: j['source'] ?? 'deezer',
     title: j['title'],
     artist: j['artist'],
     artistId: j['artist_id'],

@@ -110,6 +110,7 @@ async def home(user: CurrentUser, db: DB, request: Request) -> HomeOut:
 async def list_artists(
     user: CurrentUser,
     db: DB,
+    request: Request,
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=500),
 ) -> Page[ArtistOut]:
@@ -117,11 +118,11 @@ async def list_artists(
     rows = await db.scalars(
         select(Artist).order_by(func.coalesce(Artist.sort_name, Artist.name)).offset(offset).limit(limit)
     )
-    return Page(items=await artists_out(db, list(rows)), total=total, offset=offset, limit=limit)
+    return Page(items=await artists_out(db, list(rows), language(request)), total=total, offset=offset, limit=limit)
 
 
 @router.get("/artists/{artist_id}", response_model=ArtistDetail)
-async def get_artist(artist_id: uuid.UUID, user: CurrentUser, db: DB) -> ArtistDetail:
+async def get_artist(artist_id: uuid.UUID, user: CurrentUser, db: DB, request: Request) -> ArtistDetail:
     artist = await db.get(Artist, artist_id)
     if artist is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Artist not found")
@@ -146,10 +147,21 @@ async def get_artist(artist_id: uuid.UUID, user: CurrentUser, db: DB) -> ArtistD
             .limit(10)
         )
     )
-    detail = ArtistDetail.model_validate((await artists_out(db, [artist]))[0].model_dump())
+    detail = ArtistDetail.model_validate((await artists_out(db, [artist], language(request)))[0].model_dump())
     detail.albums = await albums_out(db, albums)
     detail.top_tracks = await tracks_out(db, user, top)
     return detail
+
+
+@router.get("/artists/{artist_id}/image")
+async def artist_image(
+    artist_id: uuid.UUID, user: CurrentUser, db: DB, size: int | None = Query(None, ge=32, le=2000)
+) -> Response:
+    artist = await db.get(Artist, artist_id)
+    path = covers.resized(artist.image_path.removeprefix("covers/"), size) if artist and artist.image_path else None
+    if path is None:
+        raise HTTPException(404, "Kein Künstlerbild")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})
 
 
 # --- albums -----------------------------------------------------------------
@@ -391,7 +403,7 @@ async def search(
         )
     ][:limit]
     return SearchResult(
-        artists=await artists_out(db, artists),
+        artists=await artists_out(db, artists, lang),
         albums=await albums_out(db, albums),
         tracks=await tracks_out(db, user, tracks),
         playlists=await playlists_out(db, playlists, user.id, lang),
