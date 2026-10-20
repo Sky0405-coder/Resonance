@@ -2,7 +2,15 @@ import asyncio
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import joinedload
@@ -119,7 +127,7 @@ async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB, reques
     detail = PlaylistDetail.model_validate(
         (await playlists_out(db, [playlist], user.id, language(request)))[0].model_dump()
     )
-    chart = (playlist.mix_key or "").startswith("chart:")
+    chart = (playlist.mix_key or "").startswith(("chart:", "editorial:"))
     detail.entries = [
         PlaylistEntryOut(entry_id=e.id, added_at=e.added_at, track=t, rank=round(e.position) if chart else None)
         for e, t in zip(entries, tracks, strict=True)

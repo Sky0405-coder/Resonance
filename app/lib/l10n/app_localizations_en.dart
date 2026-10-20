@@ -2052,6 +2052,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminChartsDownloads => 'Missing chart songs downloaded per day';
 
   @override
+  String get adminEditorialEnabled => 'Editorial playlists (Apple Music)';
+
+  @override
+  String get adminEditorialDownloads => 'Songs downloaded per playlist';
+
+  @override
+  String get adminEditorialYears => 'Yearly hits';
+
+  @override
   String get worldRadioTitle => 'World radio';
 
   @override

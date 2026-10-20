@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 import random
 import re
@@ -18,6 +19,7 @@ from sqlalchemy.orm import joinedload
 from app.api.catalog import _track
 from app.db import SessionLocal
 from app.models import (
+    Album,
     Artist,
     DownloadItem,
     PlayEvent,
@@ -29,10 +31,13 @@ from app.models import (
     TrackLike,
     User,
 )
+from app.schemas import CatalogTrack
+from app.services import covers, editorial, mix_covers
 from app.services.deezer import DeezerError, artist_string, deezer
 from app.services.downloads import create_request
 from app.services.matching import match_tracks, name_key
-from app.services.server_config import load_config
+from app.services.server_config import ServerConfig, load_config
+from app.services.spotify import catalog_tracks
 from app.services.tags import primary_artist
 
 GENRE_NAMES = {"hip hop": "Hip-Hop", "r&b": "R&B", "edm": "EDM"}
@@ -70,21 +75,83 @@ async def _chart_downloads(db: AsyncSession, ids: list[str], now: datetime) -> s
     )
 
 
+def _sources(cfg: ServerConfig) -> list[tuple[str, str, str]]:
+    sources = []
+    if cfg.mixes.charts_enabled:
+        sources.extend((key, name, "Die aktuellen Charts – täglich aktualisiert") for key, (name, _) in CHARTS.items())
+    if cfg.mixes.editorial_enabled:
+        sources.extend(
+            (
+                entry.key, entry.name,
+                "Kuratiert von Apple Music – " + (
+                    "täglich aktualisiert" if entry.group == "charts" else "wöchentlich aktualisiert"
+                ),
+            )
+            for entry in editorial.EDITORIAL
+            if entry.group != "years" or cfg.mixes.editorial_years
+        )
+    return sources
+
+
+def _request_due(key: str) -> bool:
+    requested = _chart_requested.get(key)
+    days = editorial.refresh_days(editorial.BY_KEY[key]) if key in editorial.BY_KEY else 1
+    return requested is None or date.today() >= requested + timedelta(days=days)
+
+
+async def _source_catalog(db: AsyncSession, key: str) -> list[CatalogTrack] | None:
+    if key in CHARTS:
+        source = await chart_tracks(key)
+        catalog = [_track(track) for track in source] if source is not None else None
+    else:
+        source = await editorial.playlist_tracks(editorial.BY_KEY[key])
+        catalog = catalog_tracks(source.tracks) if source is not None else None
+        for track in catalog or []:
+            track.id = source.deezer_ids.get(track.isrc) or ""
+    if catalog is not None:
+        for start in range(0, len(catalog), 500):
+            await match_tracks(db, catalog[start : start + 500])
+    return catalog
+
+
+def _source_positions(catalog: list[CatalogTrack]) -> tuple[dict[uuid.UUID, float], dict[str, float]]:
+    positions: dict[uuid.UUID, float] = {}
+    unmatched: dict[str, float] = {}
+    for rank, track in enumerate(catalog, 1):
+        if track.library_id is not None:
+            positions.setdefault(track.library_id, rank)
+        elif track.id:
+            unmatched.setdefault(track.id, rank)
+    return positions, unmatched
+
+
 async def _request_chart_songs(
-    db: AsyncSession, user: User, key: str, unmatched: dict[str, float], now: datetime
+    db: AsyncSession, user: User, key: str, unmatched: dict[str, float], now: datetime,
+    catalog: list[CatalogTrack] | None = None,
 ) -> None:
-    """Request missing chart songs (shared by all users, once per chart and day)."""
+    """Request missing source songs, shared by all users, once per source refresh period."""
     cfg = await load_config(db)
-    today = date.today()
+    is_editorial = key in editorial.BY_KEY
+    limit = cfg.mixes.editorial_downloads if is_editorial else cfg.mixes.charts_downloads
+    if limit <= 0:
+        return
     async with _chart_request_lock:
-        if _chart_requested.get(key) == today:
+        if not _request_due(key):
             return
+        if is_editorial:
+            unmatched.clear()
+            for rank, track in enumerate(catalog or [], 1):
+                if track.library_id is not None:
+                    continue
+                deezer_id = track.id or await editorial.deezer_id(key, track.isrc)
+                if deezer_id:
+                    unmatched.setdefault(deezer_id, rank)
         known = await _chart_downloads(db, list(unmatched), now)
         requested = 0
         for deezer_id in unmatched:
             if deezer_id in known:
                 continue
-            if requested >= cfg.mixes.charts_downloads:
+            if requested >= limit:
                 break
             requested += 1
             try:
@@ -94,18 +161,22 @@ async def _request_chart_songs(
             except HTTPException as exc:
                 if exc.status_code == 429:
                     break
-        _chart_requested[key] = today
+            else:
+                known.add(deezer_id)
+        _chart_requested[key] = date.today()
 
 
 async def refresh_chart_downloads() -> None:
-    """Scheduler: request the day's missing chart songs even when the app already built today's mixes, and queue
-    them for every chart playlist so they appear at their place once downloaded."""
+    """Request missing source songs and queue them at their source positions for every user's playlist."""
     async with SessionLocal() as db:
         cfg = await load_config(db)
-        today = date.today()
-        if not cfg.mixes.charts_enabled or cfg.mixes.charts_downloads <= 0:
-            return
-        if all(_chart_requested.get(key) == today for key in CHARTS):
+        sources = [
+            key for key, _, _ in _sources(cfg)
+            if _request_due(key) and (
+                cfg.mixes.charts_downloads > 0 if key in CHARTS else cfg.mixes.editorial_downloads > 0
+            )
+        ]
+        if not sources:
             return
         requester = await db.scalar(
             select(User).where(User.role == Role.admin, ~User.is_disabled).order_by(User.created_at).limit(1)
@@ -113,21 +184,22 @@ async def refresh_chart_downloads() -> None:
         if requester is None:
             return
         now = datetime.now(UTC)
-        for key in CHARTS:
-            if _chart_requested.get(key) == today:
+        editorial_count = 0
+        for key in sources:
+            if key in editorial.BY_KEY and editorial_count >= 4:
                 continue
-            chart = await chart_tracks(key)
-            if chart is None:
+            catalog = await _source_catalog(db, key)
+            if catalog is None:
                 continue
-            catalog = [_track(track) for track in chart]
-            await match_tracks(db, catalog)
-            unmatched: dict[str, float] = {}
-            for rank, track in enumerate(catalog, 1):
-                if track.library_id is None:
-                    unmatched.setdefault(track.id, rank)
-            await _request_chart_songs(db, requester, key, unmatched, now)
+            if key in editorial.BY_KEY:
+                editorial_count += 1
+            _, unmatched = _source_positions(catalog)
+            await _request_chart_songs(db, requester, key, unmatched, now, catalog)
             known = await _chart_downloads(db, list(unmatched), now)
-            for playlist_id in await db.scalars(select(Playlist.id).where(Playlist.mix_key == key)):
+            for playlist in await db.scalars(select(Playlist).where(Playlist.mix_key == key)):
+                playlist_id = playlist.id
+                if key in editorial.BY_KEY:
+                    await _cover(db, playlist, [])
                 queued = set(
                     await db.scalars(select(RadioPending.deezer_id).where(RadioPending.playlist_id == playlist_id))
                 )
@@ -178,6 +250,31 @@ def decade_label(decade: int) -> str:
 
 def mix_search_terms(mix_key: str | None) -> list[str]:
     """Extra words a mix is found by in the search, e.g. "80s" or "achtziger" for the 80er Mix."""
+    if mix_key in editorial.BY_KEY:
+        entry = editorial.BY_KEY[mix_key]
+        terms = [entry.name, entry.apple_name]
+        decade = re.match(r"editorial:(\d{2})s-", mix_key)
+        genres = []
+        for genre, words in {
+            "hiphop": ["hip-hop", "hip hop", "hiphop", "rap"],
+            "deutschrap": ["deutschrap", "german rap", "hip-hop", "hip hop", "hiphop", "rap"],
+            "deutschpop": ["deutschpop", "german pop", "pop"],
+            "rock": ["rock"], "dance": ["dance"], "club": ["club", "dance"],
+        }.items():
+            if genre in mix_key:
+                genres.extend(words)
+        terms.extend(genres)
+        if decade:
+            short = int(decade[1])
+            decade_terms = mix_search_terms(f"decade:{1900 + short if short >= 50 else 2000 + short}")
+            terms.extend(decade_terms)
+            terms.extend(f"{term} {genre}" for term in decade_terms for genre in genres)
+        if entry.group == "years":
+            year = mix_key.split("-")[1]
+            terms.extend([year, f"hits {year}", f"charts {year}"])
+        elif entry.group == "charts":
+            terms.append("charts")
+        return terms
     if mix_key == "chart:de":
         return ["charts", "top 100", "top 100 germany", "deutschland charts"]
     if mix_key == "chart:global":
@@ -279,6 +376,49 @@ async def _related_artists(artist_id: str | None) -> list[dict]:
         return []
 
 
+async def _cover(db: AsyncSession, playlist: Playlist, track_ids: list[uuid.UUID]) -> None:
+    key = playlist.mix_key or ""
+    if key.startswith("editorial:"):
+        cached = editorial._cache.get(key)
+        if cached is not None and cached[1].cover_file:
+            playlist.cover_file = cached[1].cover_file
+        return
+    images: list[bytes] = []
+    files: list[str] = []
+    if not key.startswith("chart:"):
+        rows = {
+            track_id: (album_id, file)
+            for track_id, album_id, file in await db.execute(
+                select(Track.id, Album.id, Album.cover_file)
+                .join(Album, Album.id == Track.album_id)
+                .where(Track.id.in_(track_ids), Album.cover_file.is_not(None))
+            )
+        }
+        albums: set[uuid.UUID] = set()
+        for track_id in track_ids:
+            if track_id not in rows:
+                continue
+            album_id, name = rows[track_id]
+            if album_id in albums:
+                continue
+            path = covers.resized(name, None)
+            if path is None:
+                continue
+            albums.add(album_id)
+            files.append(name)
+            images.append(path.read_bytes())
+            if len(files) == 4:
+                break
+    cover_key = hashlib.sha256("\0".join([playlist.name, key, *sorted(set(files))]).encode()).hexdigest()[:32]
+    if playlist.cover_key == cover_key and playlist.cover_file:
+        return
+    data = await asyncio.to_thread(mix_covers.render, playlist.name, "Resonance", images, key)
+    cover_file = covers.store(data)
+    if cover_file:
+        playlist.cover_file = cover_file
+        playlist.cover_key = cover_key
+
+
 async def _write(
     db: AsyncSession,
     user: User,
@@ -335,6 +475,7 @@ async def _write(
             for deezer_id in pending or []
         ]
     )
+    await _cover(db, playlist, track_ids)
     return playlist
 
 
@@ -455,32 +596,35 @@ async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool 
 
     produced: set[str] = set()
 
-    if cfg.mixes.charts_enabled:
-        for key, (name, _) in CHARTS.items():
-            chart = await chart_tracks(key)
-            if chart is None:
-                if await db.scalar(select(Playlist.id).where(Playlist.owner_id == user.id, Playlist.mix_key == key)):
-                    produced.add(key)
-                continue
-            catalog = [_track(track) for track in chart]
-            await match_tracks(db, catalog)
-            positions: dict[uuid.UUID, float] = {}
-            unmatched: dict[str, float] = {}
-            for rank, track in enumerate(catalog, 1):
-                if track.library_id is not None:
-                    positions.setdefault(track.library_id, rank)
-                else:
-                    unmatched.setdefault(track.id, rank)
-            if chart_downloads and cfg.mixes.charts_downloads > 0:
-                await _request_chart_songs(db, user, key, unmatched, now)
-            known = await _chart_downloads(db, list(unmatched), now)
-            pending = [deezer_id for deezer_id in unmatched if deezer_id in known]
-            playlist = await _write(
-                db, user, key, name, "Die aktuellen Charts – täglich aktualisiert", list(positions), now,
-                pending, pending_positions=unmatched, track_positions=positions,
-            )
-            if playlist is not None:
+    editorial_count = 0
+    requester = None
+    for key, name, description in _sources(cfg):
+        catalog = await _source_catalog(db, key)
+        if catalog is None:
+            if await db.scalar(select(Playlist.id).where(Playlist.owner_id == user.id, Playlist.mix_key == key)):
                 produced.add(key)
+            continue
+        positions, unmatched = _source_positions(catalog)
+        if chart_downloads and _request_due(key):
+            if key in CHARTS:
+                await _request_chart_songs(db, user, key, unmatched, now)
+            elif cfg.mixes.editorial_downloads > 0 and editorial_count < 4:
+                if requester is None:
+                    requester = await db.scalar(
+                        select(User).where(User.role == Role.admin, ~User.is_disabled)
+                        .order_by(User.created_at).limit(1)
+                    )
+                if requester is not None:
+                    editorial_count += 1
+                    await _request_chart_songs(db, requester, key, unmatched, now, catalog)
+        known = await _chart_downloads(db, list(unmatched), now)
+        pending = [deezer_id for deezer_id in unmatched if deezer_id in known]
+        playlist = await _write(
+            db, user, key, name, description, list(positions), now,
+            pending, pending_positions=unmatched, track_positions=positions,
+        )
+        if playlist is not None:
+            produced.add(key)
 
     async def write(key: str, name: str, description: str, chosen: list[Track]) -> None:
         track_ids = list(dict.fromkeys(track.id for track in chosen))[:50]
@@ -722,7 +866,7 @@ async def _generate_due() -> None:
                 user = await db.get(User, user_id)
                 if user is not None and not user.is_disabled:
                     if daily_due:
-                        await generate_mixes(db, user)
+                        await generate_mixes(db, user, chart_downloads=False)
                     if weekly_due:
                         await generate_discover(db, user)
         except Exception:

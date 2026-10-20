@@ -37,6 +37,7 @@ class Playlist(Base):
     name: Mapped[str] = mapped_column(String(256))
     description: Mapped[str | None] = mapped_column(Text)
     cover_file: Mapped[str | None] = mapped_column(String(64))
+    cover_key: Mapped[str | None] = mapped_column(String(64))
     is_public: Mapped[bool] = mapped_column(default=False)
     kind: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
     radio_seed: Mapped[str | None] = mapped_column(String(64))

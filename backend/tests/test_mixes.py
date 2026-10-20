@@ -31,7 +31,7 @@ from app.models import (
     TrackLike,
     User,
 )
-from app.services import mixes, radio
+from app.services import editorial, mixes, radio
 from app.services.deezer import DeezerError, deezer
 from app.services.matching import name_key
 from app.services.server_config import ServerConfig, update_config
@@ -44,6 +44,9 @@ async def env(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch) -> Asy
     await mixes.stop()
     monkeypatch.setattr(mixes, "_chart_cache", {})
     monkeypatch.setattr(mixes, "_chart_requested", {})
+    monkeypatch.setattr(editorial, "_refs", {})
+    monkeypatch.setattr(editorial, "_cache", {})
+    monkeypatch.setattr(editorial, "resolve", AsyncMock(return_value=None))
 
     async def reset() -> None:
         async with engine.begin() as conn:
@@ -616,7 +619,8 @@ async def test_scheduler_selects_due_active_users_and_isolates_errors(
         await db.commit()
     seen = []
 
-    async def generate(db: AsyncSession, user: User) -> None:
+    async def generate(db: AsyncSession, user: User, *, chart_downloads: bool = True) -> None:
+        assert not chart_downloads
         seen.append(user.id)
         if user.id == users[0].id:
             raise RuntimeError("failed user")

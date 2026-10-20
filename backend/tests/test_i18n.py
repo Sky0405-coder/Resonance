@@ -75,6 +75,8 @@ PATTERN_CASES = [
     ("Das Beste aus den 80ern in deiner Bibliothek", "The best of the 80s in your library"),
     ("2000er Mix", "2000s Mix"),
     ("90er Hip-Hop", "90s Hip-Hop"),
+    ("90er Deutschrap", "90s German Rap"),
+    ("00er Deutschpop", "00s German Pop"),
     ("Hip-Hop aus den 90ern in deiner Bibliothek", "90s Hip-Hop in your library"),
     ("Rapper und ähnliche Künstler", "Rapper and similar artists"),
     ("Durchsuche /data/music …", "Scanning /data/music …"),

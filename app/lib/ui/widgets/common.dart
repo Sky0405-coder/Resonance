@@ -347,7 +347,7 @@ class PlaylistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MediaCard(
-    image: playlist.mixKey == 'discover-weekly'
+    image: playlist.mixKey == 'discover-weekly' && playlist.coverKey == null
         ? const DiscoverCover()
         : PlaylistCover(playlistId: playlist.id, coverKey: playlist.coverKey, albumIds: playlist.coverAlbumIds),
     title: playlist.name,

@@ -42,6 +42,9 @@ class MixesConfig(BaseModel):
     charts_enabled: bool = True
     # Missing chart songs requested for download per chart and day, shared by all users.
     charts_downloads: int = Field(100, ge=0, le=100)
+    editorial_enabled: bool = True
+    editorial_downloads: int = Field(20, ge=0, le=100)
+    editorial_years: bool = True
 
 
 class DownloadConfig(BaseModel):

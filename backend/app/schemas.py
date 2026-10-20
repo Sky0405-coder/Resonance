@@ -280,8 +280,8 @@ class MixesOut(BaseModel):
     made_for_you: list[PlaylistOut]
     genres: list[PlaylistOut]
     discover: PlaylistOut | None
-    decades: list[PlaylistOut] = []
-    charts: list[PlaylistOut] = []
+    decades: list[PlaylistOut] = []  # Editorial decades, personal decades/eras, editorial eras.
+    charts: list[PlaylistOut] = []  # Top 100 charts, Deutschrap 100, then year charts.
 
 
 class PlaylistEntryOut(BaseModel):

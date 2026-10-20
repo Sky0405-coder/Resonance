@@ -7,6 +7,7 @@ from app.deps import DB, CurrentUser
 from app.i18n import language
 from app.models import Playlist
 from app.schemas import MixesOut
+from app.services.editorial import BY_KEY, EDITORIAL
 from app.services.mixes import CHARTS, discover_due, generate_discover, generate_mixes
 from app.services.server_config import load_config
 from app.services.views import playlists_out
@@ -25,9 +26,19 @@ async def _out(db: DB, user: CurrentUser, lang: str) -> MixesOut:
     genres = []
     decades = []
     charts = []
+    editorial_decades = []
+    editorial_eras = []
     discover = None
     for playlist, item in zip(playlists, items, strict=True):
-        if playlist.mix_key == "discover-weekly":
+        entry = BY_KEY.get(playlist.mix_key)
+        if entry is not None:
+            if entry.group == "decades":
+                editorial_decades.append((entry.key, item))
+            elif entry.group == "eras":
+                editorial_eras.append((entry.key, item))
+            else:
+                charts.append((entry.key, item))
+        elif playlist.mix_key == "discover-weekly":
             discover = item
         elif (playlist.mix_key or "").startswith("genre:"):
             genres.append(item)
@@ -44,8 +55,17 @@ async def _out(db: DB, user: CurrentUser, lang: str) -> MixesOut:
     made_for_you.sort(
         key=lambda item: (next((i for i, p in enumerate(order) if keys[item.id].startswith(p)), len(order)), keys[item.id])
     )
-    chart_order = {key: index for index, key in enumerate(CHARTS)}
-    charts.sort(key=lambda pair: chart_order.get(pair[0], len(CHARTS)))
+    editorial_order = {entry.key: index for index, entry in enumerate(EDITORIAL)}
+    editorial_decades.sort(key=lambda pair: editorial_order[pair[0]])
+    editorial_eras.sort(key=lambda pair: editorial_order[pair[0]])
+    decades = [item for _, item in editorial_decades] + decades + [item for _, item in editorial_eras]
+    chart_keys = list(CHARTS) + [entry.key for entry in EDITORIAL if entry.group == "charts"] + [
+        entry.key for entry in sorted(
+            (entry for entry in EDITORIAL if entry.group == "years"), key=lambda entry: entry.key
+        )
+    ]
+    chart_order = {key: index for index, key in enumerate(chart_keys)}
+    charts.sort(key=lambda pair: chart_order.get(pair[0], len(chart_keys)))
     return MixesOut(
         made_for_you=made_for_you, genres=genres, discover=discover, decades=decades,
         charts=[item for _, item in charts],

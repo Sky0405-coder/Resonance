@@ -2027,6 +2027,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminChartsDownloads => 'Fehlende Chart-Songs pro Tag laden';
 
   @override
+  String get adminEditorialEnabled => 'Redaktionelle Playlists (Apple Music)';
+
+  @override
+  String get adminEditorialDownloads => 'Songs pro Playlist nachladen';
+
+  @override
+  String get adminEditorialYears => 'Jahres-Hits';
+
+  @override
   String get worldRadioTitle => 'Weltradio';
 
   @override

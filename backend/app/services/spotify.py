@@ -334,8 +334,8 @@ async def fetch_playlist_tracks(db: AsyncSession, account: SpotifyAccount, id: s
         return await _fetch_tracks(db, account, client, f"playlists/{id}/items", "item", 100)
 
 
-async def match(db: AsyncSession, tracks: list[SpotifyTrack]) -> list[uuid.UUID | None]:
-    catalog = [
+def catalog_tracks(tracks: list[SpotifyTrack]) -> list[CatalogTrack]:
+    return [
         CatalogTrack(
             id="",
             title=track.title,
@@ -350,6 +350,10 @@ async def match(db: AsyncSession, tracks: list[SpotifyTrack]) -> list[uuid.UUID 
         )
         for track in tracks
     ]
+
+
+async def match(db: AsyncSession, tracks: list[SpotifyTrack]) -> list[uuid.UUID | None]:
+    catalog = catalog_tracks(tracks)
     for start in range(0, len(catalog), 500):
         await matching.match_tracks(db, catalog[start : start + 500])
     ids = [track.library_id for track in catalog if track.library_id]

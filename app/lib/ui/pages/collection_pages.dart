@@ -383,7 +383,7 @@ class PlaylistPage extends ConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: CollectionHeader(
-                    image: d.playlist.mixKey == 'discover-weekly'
+                    image: d.playlist.mixKey == 'discover-weekly' && d.playlist.coverKey == null
                         ? const DiscoverCover()
                         : PlaylistCover(
                             playlistId: d.playlist.id,

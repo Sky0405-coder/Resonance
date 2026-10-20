@@ -3608,6 +3608,24 @@ abstract class AppLocalizations {
   /// **'Fehlende Chart-Songs pro Tag laden'**
   String get adminChartsDownloads;
 
+  /// No description provided for @adminEditorialEnabled.
+  ///
+  /// In de, this message translates to:
+  /// **'Redaktionelle Playlists (Apple Music)'**
+  String get adminEditorialEnabled;
+
+  /// No description provided for @adminEditorialDownloads.
+  ///
+  /// In de, this message translates to:
+  /// **'Songs pro Playlist nachladen'**
+  String get adminEditorialDownloads;
+
+  /// No description provided for @adminEditorialYears.
+  ///
+  /// In de, this message translates to:
+  /// **'Jahres-Hits'**
+  String get adminEditorialYears;
+
   /// No description provided for @worldRadioTitle.
   ///
   /// In de, this message translates to:
