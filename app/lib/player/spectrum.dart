@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/desktop.dart';
 import '../core/session.dart';
 import 'player.dart';
 
@@ -50,21 +51,34 @@ class Spectrum {
   }
 }
 
-final spectrumProvider = FutureProvider.autoDispose.family<Spectrum?, String>((ref, trackId) async {
-  try {
-    final bytes = await ref.read(apiProvider).spectrum(trackId);
-    return bytes == null ? null : Spectrum.parse(bytes);
-  } catch (_) {
-    return null;
+/// Spectra of the current and the next song, loaded as soon as a song starts (the first analysis of a song takes
+/// the server a second or two) and retried when a request fails.
+final spectrumProvider = FutureProvider.family<Spectrum?, String>((ref, trackId) async {
+  final link = ref.keepAlive();
+  // Keep a handful of songs; older ones are dropped a while after nobody uses them.
+  Timer? release;
+  ref.onCancel(() => release = Timer(const Duration(minutes: 5), link.close));
+  ref.onResume(() => release?.cancel());
+  ref.onDispose(() => release?.cancel());
+  for (var attempt = 0; attempt < 3; attempt++) {
+    try {
+      final bytes = await ref.read(apiProvider).spectrum(trackId);
+      return bytes == null ? null : Spectrum.parse(bytes);
+    } catch (_) {
+      await Future<void>.delayed(Duration(seconds: 2 * (attempt + 1)));
+    }
   }
+  link.close();
+  return null;
 });
 
 /// Whether the visualizer is shown (Settings); on by default.
 final visualizerEnabledProvider = NotifierProvider<VisualizerEnabled, bool>(VisualizerEnabled.new);
 
 class VisualizerEnabled extends Notifier<bool> {
+  // Phones only: on the desktop the bars were more distracting than useful.
   @override
-  bool build() => ref.read(prefsProvider).getBool('visualizer') ?? true;
+  bool build() => !isDesktop && (ref.read(prefsProvider).getBool('visualizer') ?? true);
 
   void set(bool enabled) {
     ref.read(prefsProvider).setBool('visualizer', enabled);
@@ -228,3 +242,59 @@ class _BarsPainter extends CustomPainter {
   bool shouldRepaint(_BarsPainter old) =>
       old.color != color || old.mirrored != mirrored || old.gap != gap || old.minHeight != minHeight;
 }
+
+/// Loads the spectra of the current and the next song while the visualizer is on, so the bars are there as soon
+/// as the player opens. Watched by the mini player.
+final spectrumPrefetchProvider = Provider<void>((ref) {
+  if (!ref.watch(visualizerEnabledProvider)) return;
+  final (current, next) = ref.watch(
+    playerProvider.select((p) {
+      final index = p.index;
+      final queue = p.queue;
+      final ok = index != null && p.book == null && p.station == null;
+      return (
+        ok && index < queue.length ? queue[index].id : null,
+        ok && index + 1 < queue.length ? queue[index + 1].id : null,
+      );
+    }),
+  );
+  for (final id in [current, next]) {
+    if (id != null) ref.watch(spectrumProvider(id));
+  }
+});
+
+/// The most colorful bright tone of an image (for bars that match the cover), or null if it cannot be read.
+final coverColorProvider = FutureProvider.family<Color?, ImageProvider>((ref, image) async {
+  final completer = Completer<ImageInfo>();
+  final stream = ResizeImage(image, width: 32, height: 32).resolve(ImageConfiguration.empty);
+  late final ImageStreamListener listener;
+  listener = ImageStreamListener(
+    (info, _) => completer.isCompleted ? null : completer.complete(info),
+    onError: (error, _) => completer.isCompleted ? null : completer.completeError(error),
+  );
+  stream.addListener(listener);
+  try {
+    final info = await completer.future.timeout(const Duration(seconds: 10));
+    final data = await info.image.toByteData();
+    if (data == null) return null;
+    HSVColor? best;
+    var bestScore = -1.0;
+    for (var i = 0; i + 3 < data.lengthInBytes; i += 4) {
+      final color = HSVColor.fromColor(
+        Color.fromARGB(255, data.getUint8(i), data.getUint8(i + 1), data.getUint8(i + 2)),
+      );
+      // Saturated and not too dark; greys score low.
+      final score = color.saturation * (0.3 + color.value);
+      if (score > bestScore) {
+        bestScore = score;
+        best = color;
+      }
+    }
+    if (best == null || best.saturation < 0.15) return Colors.white;
+    return best.withSaturation(math.min(best.saturation, 0.75)).withValue(0.95).toColor();
+  } catch (_) {
+    return null;
+  } finally {
+    stream.removeListener(listener);
+  }
+});

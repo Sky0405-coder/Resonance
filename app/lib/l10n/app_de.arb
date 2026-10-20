@@ -1201,6 +1201,7 @@
   "equalizerPresetAcoustic": "Akustik",
   "equalizerPresetLoudness": "Loudness",
   "equalizerPresetCustom": "Eigene",
+  "equalizerPresets": "Voreinstellungen",
   "equalizerReset": "Zurücksetzen",
   "equalizerDecibels": "{value} dB",
   "equalizerBandLabel": "{frequency} Hz",

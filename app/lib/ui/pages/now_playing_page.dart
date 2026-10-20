@@ -79,31 +79,17 @@ class NowPlayingPage extends ConsumerWidget {
                               const Spacer(),
                               ConstrainedBox(
                                 constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    // The bars rise behind the cover and show around it.
-                                    if (ref.watch(visualizerEnabledProvider))
-                                      Positioned(
-                                        left: -24,
-                                        right: -24,
-                                        bottom: -20,
-                                        height: 200,
-                                        child: IgnorePointer(
-                                          child: SpectrumVisualizer(
-                                            trackId: track.id,
-                                            color: accent.withValues(alpha: 0.75),
-                                            mirrored: true,
-                                          ),
-                                        ),
-                                      ),
-                                    Material(
-                                      elevation: 16,
-                                      borderRadius: BorderRadius.circular(8),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: CoverImage(albumId: track.album.id, size: 600, radius: 8),
-                                    ),
-                                  ],
+                                child: Material(
+                                  elevation: 16,
+                                  borderRadius: BorderRadius.circular(8),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Stack(
+                                    children: [
+                                      CoverImage(albumId: track.album.id, size: 600, radius: 8),
+                                      if (ref.watch(visualizerEnabledProvider))
+                                        Positioned.fill(child: _CoverVisualizer(track: track)),
+                                    ],
+                                  ),
                                 ),
                               ),
                               const Spacer(),
@@ -225,7 +211,10 @@ class _StationNowPlaying extends StatelessWidget {
           if (now!.artistYear.isNotEmpty) Text(now!.artistYear, style: const TextStyle(color: Palette.textMuted)),
           Text(station.name, style: const TextStyle(color: Palette.textMuted, fontSize: 12)),
         ] else
-          Text('${context.l10n.worldRadioTitle} · ${station.country}', style: const TextStyle(color: Palette.textMuted)),
+          Text(
+            '${context.l10n.worldRadioTitle} · ${station.country}',
+            style: const TextStyle(color: Palette.textMuted),
+          ),
         const SizedBox(height: 16),
         const LiveBadge(),
         const SizedBox(height: 16),
@@ -464,4 +453,44 @@ class _QueueHeading extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
     child: Text(text, style: Theme.of(context).textTheme.titleMedium),
   );
+}
+
+/// The spectrum over the lower part of the cover, on a dark fade and in the cover's own color.
+class _CoverVisualizer extends ConsumerWidget {
+  const _CoverVisualizer({required this.track});
+  final Track track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final color = ref.watch(coverColorProvider(coverImageProvider(ref, track.album.id, size: 300))).value;
+    return IgnorePointer(
+      child: Column(
+        children: [
+          const Spacer(flex: 3),
+          Expanded(
+            flex: 2,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x00000000), Color(0x8C000000)],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 24, 12, 0),
+                child: SpectrumVisualizer(
+                  trackId: track.id,
+                  color: (color ?? Colors.white).withValues(alpha: 0.85),
+                  mirrored: true,
+                  gap: 0.35,
+                  minHeight: 0.015,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

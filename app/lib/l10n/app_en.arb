@@ -634,6 +634,7 @@
   "equalizerPresetAcoustic": "Acoustic",
   "equalizerPresetLoudness": "Loudness",
   "equalizerPresetCustom": "Custom",
+  "equalizerPresets": "Presets",
   "equalizerReset": "Reset",
   "equalizerDecibels": "{value} dB",
   "equalizerBandLabel": "{frequency} Hz",

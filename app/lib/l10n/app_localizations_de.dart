@@ -1934,6 +1934,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get equalizerPresetCustom => 'Eigene';
 
   @override
+  String get equalizerPresets => 'Voreinstellungen';
+
+  @override
   String get equalizerReset => 'Zurücksetzen';
 
   @override

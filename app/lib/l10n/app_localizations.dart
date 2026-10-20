@@ -3446,6 +3446,12 @@ abstract class AppLocalizations {
   /// **'Eigene'**
   String get equalizerPresetCustom;
 
+  /// No description provided for @equalizerPresets.
+  ///
+  /// In de, this message translates to:
+  /// **'Voreinstellungen'**
+  String get equalizerPresets;
+
   /// No description provided for @equalizerReset.
   ///
   /// In de, this message translates to:

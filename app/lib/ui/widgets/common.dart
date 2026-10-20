@@ -88,6 +88,18 @@ String songs(AppLocalizations l10n, int n) => l10n.commonSongs(n);
 bool isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= 900;
 
 /// Album cover with a neutral placeholder.
+/// The image CoverImage shows for an album (downloaded file if current, else the cached network image).
+ImageProvider coverImageProvider(WidgetRef ref, String albumId, {int size = 300}) {
+  final offline = ref.read(offlineProvider);
+  final local = kIsWeb ? null : offline.coverPath(albumId);
+  if (local != null && offline.coverCurrent(albumId)) return FileImage(File(local));
+  final key = coverKeys[albumId];
+  return CachedNetworkImageProvider(
+    '${ref.read(apiProvider).coverUrl(albumId, size: size)}${key == null ? '' : '&v=$key'}',
+    cacheKey: 'cover:$albumId:$size${key == null ? '' : ':$key'}',
+  );
+}
+
 class CoverImage extends ConsumerWidget {
   const CoverImage({super.key, this.albumId, this.size = 300, this.radius = 4, this.icon = Icons.music_note});
 

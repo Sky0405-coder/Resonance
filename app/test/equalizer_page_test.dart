@@ -41,7 +41,7 @@ void main() {
     expect(tester.widgetList<RotatedBox>(find.byType(RotatedBox)).every((box) => box.quarterTurns == 3), isTrue);
     expect(find.text('Custom'), findsNothing);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Bass boost'));
+    await tester.tap(find.widgetWithText(EqualizerPresetCard, 'Bass boost'));
     await tester.pump();
     expect(sliders(tester).map((slider) => slider.value), equalizerPresets['bass']);
     expect(prefs.getString('equalizer'), isNull);
@@ -62,7 +62,7 @@ void main() {
     await tester.pump();
     expect(sliders(tester).first.value, 3.5);
     expect(find.text('+3.5'), findsOneWidget);
-    final custom = tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Custom'));
+    final custom = tester.widget<EqualizerPresetCard>(find.widgetWithText(EqualizerPresetCard, 'Custom'));
     expect(custom.selected, isTrue);
 
     await tester.tap(find.text('Reset'));
@@ -71,26 +71,23 @@ void main() {
     expect(find.text('Custom'), findsNothing);
   });
 
-  testWidgets('narrow screens scroll the band row and display German preset names', (tester) async {
-    tester.view.physicalSize = const Size(360, 700);
+  testWidgets('narrow screens show all ten bands at once and German preset names', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await showEqualizer(tester, locale: 'de');
-    expect(find.widgetWithText(ChoiceChip, 'Bass-Boost'), findsOneWidget);
+    expect(find.widgetWithText(EqualizerPresetCard, 'Bass-Boost'), findsOneWidget);
     expect(find.text('Zurücksetzen'), findsOneWidget);
-    final lastSlider = find.byType(Slider).last;
-    expect(tester.getCenter(lastSlider).dx, greaterThan(360));
-    await tester.drag(find.byType(Slider).at(4), const Offset(-360, 0));
-    await tester.pumpAndSettle();
-    expect(tester.getCenter(lastSlider).dx, lessThan(360));
+    expect(tester.getCenter(find.byType(Slider).first).dx, greaterThan(0));
+    expect(tester.getCenter(find.byType(Slider).last).dx, lessThan(360));
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('broken saved JSON falls back to disabled flat settings', (tester) async {
     await showEqualizer(tester, saved: 'broken');
     expect(sliders(tester).every((slider) => slider.value == 0 && slider.onChanged == null), isTrue);
-    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Flat')).selected, isTrue);
+    expect(tester.widget<EqualizerPresetCard>(find.widgetWithText(EqualizerPresetCard, 'Flat')).selected, isTrue);
   });
 
   testWidgets('rapid changes persist only the latest settings after 80 ms', (tester) async {

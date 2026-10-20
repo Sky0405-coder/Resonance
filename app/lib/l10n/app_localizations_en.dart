@@ -1959,6 +1959,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get equalizerPresetCustom => 'Custom';
 
   @override
+  String get equalizerPresets => 'Presets';
+
+  @override
   String get equalizerReset => 'Reset';
 
   @override

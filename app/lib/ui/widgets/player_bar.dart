@@ -19,12 +19,9 @@ import 'catalog.dart';
 import 'common.dart';
 
 class SeekBar extends ConsumerStatefulWidget {
-  const SeekBar({super.key, this.showTimes = true, this.compact = false, this.visualizer = false});
+  const SeekBar({super.key, this.showTimes = true, this.compact = false});
   final bool showTimes;
   final bool compact;
-
-  /// A faint spectrum of the song behind the slider (desktop player bar).
-  final bool visualizer;
 
   @override
   ConsumerState<SeekBar> createState() => _SeekBarState();
@@ -73,27 +70,7 @@ class _SeekBarState extends ConsumerState<SeekBar> {
         setState(() => _dragValue = null);
       },
     );
-    final bars = widget.visualizer && track != null && book == null && ref.watch(visualizerEnabledProvider)
-        ? Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned.fill(
-                left: 24,
-                right: 24,
-                child: IgnorePointer(
-                  child: SpectrumVisualizer(
-                    trackId: track.id,
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                    gap: 0.45,
-                    minHeight: 0,
-                  ),
-                ),
-              ),
-              slider,
-            ],
-          )
-        : slider;
-    if (!widget.showTimes) return bars;
+    if (!widget.showTimes) return slider;
     return Row(
       children: [
         SizedBox(
@@ -105,7 +82,7 @@ class _SeekBarState extends ConsumerState<SeekBar> {
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: bars),
+        Expanded(child: slider),
         const SizedBox(width: 8),
         SizedBox(width: 44, child: Text(formatDuration(dur), style: style)),
       ],
@@ -443,7 +420,7 @@ class DesktopPlayerBar extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const TransportControls(),
-                ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: const SeekBar(visualizer: true)),
+                ConstrainedBox(constraints: const BoxConstraints(maxWidth: 600), child: const SeekBar()),
               ],
             ),
           ),
@@ -502,6 +479,7 @@ class MiniPlayer extends ConsumerWidget {
     final p = ref.watch(playerProvider);
     final track = p.current;
     if (track == null && p.book == null && p.station == null) return const SizedBox.shrink();
+    ref.watch(spectrumPrefetchProvider);
     final ctrl = ref.read(playerProvider.notifier);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
