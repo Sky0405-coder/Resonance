@@ -1,4 +1,5 @@
 import asyncio
+import json
 import socket
 
 import httpx
@@ -8,6 +9,12 @@ from app.api import worldradio as api
 from app.db import Base, engine
 from app.services import worldradio as radio
 from tests.conftest import auth, register
+
+
+@pytest.fixture(autouse=True)
+def fresh_directory_cache(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(radio, "_answers", {})
+    monkeypatch.setattr(radio, "_answers_file", lambda: tmp_path / "worldradio-cache.json")
 
 
 def station_data(id: str = "station-1", **overrides: object) -> dict:
@@ -309,3 +316,31 @@ async def test_stream_disconnect_closes_upstream(
     assert closed
     assert "station-1" not in radio._active_streams
     await response.background()
+
+
+async def test_stored_answers_bridge_directory_outages(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    rows = [station_data("s1"), station_data("s2")]
+    original = httpx.AsyncClient
+    calls = []
+
+    def ok(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json=rows if "search" in request.url.path else [rows[0]])
+
+    monkeypatch.setattr(radio, "_client", lambda: original(transport=httpx.MockTransport(ok)))
+    assert [s.id for s in await radio.search(name="swr")] == ["s1", "s2"]
+    # Searches are reused for a few minutes without asking the directory again.
+    assert [s.id for s in await radio.search(name="swr")] == ["s1", "s2"] and len(calls) == 1
+    assert (await radio.station("s1")).id == "s1"
+    monkeypatch.setattr(radio, "_client", lambda: original(transport=httpx.MockTransport(lambda _: httpx.Response(503))))
+    monkeypatch.setattr(radio, "_FRESH_SECONDS", 0)
+    # Unreachable: the stored answers are served; unknown queries still fail.
+    assert [s.id for s in await radio.search(name="swr")] == ["s1", "s2"]
+    assert (await radio.station("s1")).id == "s1"
+    with pytest.raises(radio.WorldRadioError):
+        await radio.search(name="other")
+    # Persisted for the next start.
+    await asyncio.sleep(0)
+    radio._write_answers(json.dumps(radio._answers))
+    monkeypatch.setattr(radio, "_answers", None)
+    assert any(key.startswith("/json/stations/search") for key in radio._stored())

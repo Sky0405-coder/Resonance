@@ -1,14 +1,18 @@
 import asyncio
+import json
+import logging
 import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import httpx
 from pydantic import BaseModel, PrivateAttr
 
+from app.config import get_settings
 from app.services.deezer import DeezerError, artist_string, deezer
 from app.services.matching import name_key
 from app.services.musicbrainz import VERSION
@@ -19,6 +23,7 @@ BASE_URLS = (
     "https://de2.api.radio-browser.info",
     "https://fi1.api.radio-browser.info",
 )
+log = logging.getLogger(__name__)
 _cache: dict[str, tuple[float, list]] = {}
 _tasks: set[asyncio.Task] = set()
 _active_streams: dict[str, int] = {}
@@ -190,7 +195,62 @@ def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(headers={"User-Agent": f"Resonance/{VERSION}"}, timeout=10)
 
 
+# Last good answers of the station directory (persisted), served when it is unreachable: radio-browser.info has
+# outages, and favorites must keep playing meanwhile. Searches are also reused for a few minutes.
+_STALE_ENTRIES = 500
+_FRESH_SECONDS = 600
+_answers: dict[str, tuple[float, Any]] | None = None
+_save_task: asyncio.Task | None = None
+
+
+def _answers_file() -> Path:
+    return get_settings().data_dir / "worldradio-cache.json"
+
+
+def _stored() -> dict[str, tuple[float, Any]]:
+    global _answers
+    if _answers is None:
+        try:
+            _answers = {key: (float(t), data) for key, (t, data) in json.loads(_answers_file().read_text()).items()}
+        except (OSError, ValueError, TypeError):
+            _answers = {}
+    return _answers
+
+
+def _remember(key: str, data: Any) -> None:
+    global _save_task
+    answers = _stored()
+    answers[key] = (time.time(), data)
+    if len(answers) > _STALE_ENTRIES:
+        for old in sorted(answers, key=lambda k: answers[k][0])[: len(answers) - _STALE_ENTRIES]:
+            del answers[old]
+
+    async def save() -> None:
+        await asyncio.sleep(5)
+        text = json.dumps(answers)
+        try:
+            await asyncio.to_thread(_write_answers, text)
+        except OSError:
+            log.info("Could not store the radio directory cache", exc_info=True)
+
+    if _save_task is None or _save_task.done():
+        _save_task = asyncio.create_task(save())
+
+
+def _write_answers(text: str) -> None:
+    path = _answers_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(text)
+    tmp.replace(path)
+
+
 async def _get(path: str, **params: Any) -> Any:
+    key = path + "?" + urlencode(sorted((k, str(v)) for k, v in params.items()))
+    cacheable = not path.startswith("/json/url/")
+    stored = _stored().get(key) if cacheable else None
+    if stored is not None and path.startswith("/json/stations/search") and time.time() - stored[0] < _FRESH_SECONDS:
+        return stored[1]
     async with _client() as client:
         for base in BASE_URLS:
             try:
@@ -201,9 +261,15 @@ async def _get(path: str, **params: Any) -> Any:
                 continue
             try:
                 response.raise_for_status()
-                return response.json()
+                data = response.json()
             except (httpx.HTTPError, ValueError) as exc:
                 raise WorldRadioError from exc
+            if cacheable:
+                _remember(key, data)
+            return data
+    if stored is not None:
+        log.info("Radio directory unreachable, using the stored answer for %s", key)
+        return stored[1]
     raise WorldRadioError
 
 

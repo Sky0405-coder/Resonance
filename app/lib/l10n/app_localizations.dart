@@ -3680,6 +3680,12 @@ abstract class AppLocalizations {
   /// **'Favoriten'**
   String get worldRadioFavorites;
 
+  /// No description provided for @worldRadioStationCount.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Sender} other{{count} Sender}}'**
+  String worldRadioStationCount(num count);
+
   /// No description provided for @worldRadioYourStations.
   ///
   /// In de, this message translates to:

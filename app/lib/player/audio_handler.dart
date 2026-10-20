@@ -20,7 +20,10 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
   ResonanceAudioHandler(this.container) {
     _subscriptions.add(_controller.engine.playbackEventStream.listen((_) => _publishState()));
     _subscriptions.add(_controller.engine.playerStateStream.listen((_) => _publishState()));
-    _playerSubscription = container.listen(playerProvider, (_, _) => _publish(), fireImmediately: true);
+    _playerSubscription = container.listen(playerProvider, (previous, next) {
+      if (next.station != null && previous?.station?.id != next.station!.id) _loadFavoriteStations();
+      _publish();
+    }, fireImmediately: true);
     _offlineSubscription = container.listen(offlineProvider, (_, _) => _publish());
     _localeSubscription = container.listen(appLocaleProvider, (_, _) => _publish());
   }
@@ -38,6 +41,44 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
   ApiClient get _api => container.read(apiProvider);
   OfflineState get _offline => container.read(offlineProvider);
   AppLocalizations get _l10n => lookupAppLocalizations(container.read(appLocaleProvider));
+
+  /// Favorite station ids, for the heart button while a station plays (Android Auto, notification).
+  Set<String> _favoriteStationIds = {};
+
+  MediaControl _favoriteControl(bool favorite) => MediaControl.custom(
+    androidIcon: favorite ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
+    label: _l10n.worldRadioFavorites,
+    name: 'favorite',
+  );
+
+  Future<void> _loadFavoriteStations() async {
+    try {
+      _favoriteStationIds = {for (final s in await container.read(worldRadioFavoritesProvider.future)) s.id};
+      _lastState = null;
+      _publishState();
+    } catch (_) {
+      // Without the list the heart shows as not favorited.
+    }
+  }
+
+  @override
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
+    final station = _view.station;
+    if (name != 'favorite' || station == null) return super.customAction(name, extras);
+    final favorite = !_favoriteStationIds.contains(station.id);
+    // Optimistic, so the heart reacts at once.
+    _favoriteStationIds = {..._favoriteStationIds}..removeWhere((id) => id == station.id);
+    if (favorite) _favoriteStationIds.add(station.id);
+    _lastState = null;
+    _publishState();
+    try {
+      favorite ? await _api.addWorldRadioFavorite(station.id) : await _api.removeWorldRadioFavorite(station.id);
+    } catch (_) {
+      // Reverted below from the server's list.
+    }
+    container.invalidate(worldRadioFavoritesProvider);
+    await _loadFavoriteStations();
+  }
 
   /// Stations listed in the browse tree, to play them by id.
   final _stations = <String, Station>{};
@@ -115,7 +156,11 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     final engine = _controller.engine;
     final next = PlaybackState(
       controls: view.station != null
-          ? [engine.playing ? MediaControl.pause : MediaControl.play, MediaControl.stop]
+          ? [
+              engine.playing ? MediaControl.pause : MediaControl.play,
+              MediaControl.stop,
+              _favoriteControl(_favoriteStationIds.contains(view.station!.id)),
+            ]
           : [
               MediaControl.skipToPrevious,
               engine.playing ? MediaControl.pause : MediaControl.play,
@@ -162,7 +207,8 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
       a.queueIndex == b.queueIndex &&
       a.shuffleMode == b.shuffleMode &&
       a.repeatMode == b.repeatMode &&
-      a.controls.map((c) => c.action).join() == b.controls.map((c) => c.action).join() &&
+      a.controls.map((c) => '${c.action}${c.androidIcon}').join() ==
+          b.controls.map((c) => '${c.action}${c.androidIcon}').join() &&
       a.systemActions.length == b.systemActions.length &&
       a.systemActions.containsAll(b.systemActions);
 
@@ -276,6 +322,8 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
       if (parts.length != 2) return [];
       return switch (parts.first) {
         'album' => (await container.read(albumProvider(parts[1]).future)).tracks,
+        // An artist from the search plays their most played songs, like Spotify.
+        'artist' => (await container.read(artistProvider(parts[1]).future)).topTracks,
         'playlist' || 'mix' => [
           for (final entry in (await container.read(playlistDetailProvider(parts[1]).future)).entries) entry.track,
         ],
@@ -307,27 +355,39 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     if (id == AudioService.recentRootId) return [];
     if (id == AudioService.browsableRootId) {
       return [
+        // Android Auto shows the first items as tabs: Liked Songs lead the playlists, so radio gets its own tab.
         _folder('home', _l10n.audioBrowseHome),
         _folder('playlists', _l10n.libraryPlaylists),
-        _folder('liked', _l10n.libraryLikedSongs),
-        _folder('albums', _l10n.commonAlbums),
         _folder('world-radio', _l10n.worldRadioTitle),
+        _folder('albums', _l10n.commonAlbums),
         if (_offline.collections.isNotEmpty) _folder('downloads', _l10n.offlineDownloaded),
       ];
     }
     if (id == 'world-radio') {
-      // Favorites first, then the most popular German stations, so the list is never empty.
+      // A favorites folder first (stations get a heart button while they play), then popular German stations.
       final favorites = await container.read(worldRadioFavoritesProvider.future);
       var popular = <Station>[];
       try {
         popular = await _api.worldRadioStations(country: 'DE');
       } catch (_) {
-        // Favorites alone still work without the station directory.
+        // The favorites still work without the station directory.
       }
-      final seen = <String>{};
+      final favoriteIds = {for (final station in favorites) station.id};
       return [
-        for (final station in [...favorites, ...popular.take(40)])
-          if (seen.add(station.id)) _stationItem(_rememberStation(station)),
+        _folder(
+          'world-radio-favorites',
+          _l10n.worldRadioFavorites,
+          subtitle: _l10n.worldRadioStationCount(favorites.length),
+          artUri: Uri.parse(_api.likedCoverUrl()),
+        ),
+        for (final station in popular.take(40))
+          if (!favoriteIds.contains(station.id)) _stationItem(_rememberStation(station)),
+      ];
+    }
+    if (id == 'world-radio-favorites') {
+      return [
+        for (final station in await container.read(worldRadioFavoritesProvider.future))
+          _stationItem(_rememberStation(station)),
       ];
     }
     if (id == 'downloads') return _offlineCollections();
@@ -457,9 +517,36 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     try {
       if (query.trim().isEmpty) return [];
       List<Track> tracks;
+      final artists = <MediaItem>[];
       try {
         if (container.read(sessionProvider).offline) throw StateError('offline');
-        tracks = (await container.read(searchProvider(query).future)).tracks;
+        final result = await container.read(searchProvider(query).future);
+        tracks = result.tracks;
+        // Exact names first ("Queen" before "Pearly Queen"), then artists with more albums.
+        final term = query.trim().toLowerCase();
+        int rank(Artist a) {
+          final name = a.name.toLowerCase();
+          return name == term ? 0 : (name.startsWith(term) ? 1 : 2);
+        }
+
+        final ranked = [...result.artists]
+          ..sort((a, b) => rank(a) != rank(b) ? rank(a) - rank(b) : b.albumCount - a.albumCount);
+        for (final artist in ranked.take(3)) {
+          artists.add(
+            MediaItem(
+              id: 'artist:${artist.id}',
+              title: artist.name,
+              artist: _l10n.commonArtist,
+              displaySubtitle: _l10n.commonArtist,
+              artUri: artist.hasImage
+                  ? Uri.parse(_api.artistImageUrl(artist.id, size: 300))
+                  : artist.coverAlbumId == null
+                  ? null
+                  : _cover(artist.coverAlbumId!),
+              playable: true,
+            ),
+          );
+        }
       } catch (_) {
         final seen = <String>{};
         final term = query.toLowerCase();
@@ -474,7 +561,7 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
       }
       final collection = 'search:${Uri.encodeComponent(query)}';
       _searchResults[collection] = tracks;
-      final items = _trackItems(tracks, collection);
+      final items = [...artists, ..._trackItems(tracks, collection)];
       // Radio stations by name, after the songs.
       if (!container.read(sessionProvider).offline) {
         try {

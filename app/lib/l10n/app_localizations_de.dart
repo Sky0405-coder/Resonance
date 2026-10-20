@@ -2063,6 +2063,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get worldRadioFavorites => 'Favoriten';
 
   @override
+  String worldRadioStationCount(num count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Sender', one: '1 Sender');
+    return '$_temp0';
+  }
+
+  @override
   String get worldRadioYourStations => 'Deine Radiosender';
 
   @override

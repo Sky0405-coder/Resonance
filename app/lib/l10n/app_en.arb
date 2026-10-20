@@ -683,6 +683,7 @@
   "worldRadioTitle": "World radio",
   "worldRadioSearchHint": "Search stations",
   "worldRadioFavorites": "Favourites",
+  "worldRadioStationCount": "{count, plural, =1{1 station} other{{count} stations}}",
   "worldRadioYourStations": "Your radio stations",
   "worldRadioUnavailable": "Station unavailable",
   "worldRadioLive": "LIVE",

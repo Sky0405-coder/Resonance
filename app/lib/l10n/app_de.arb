@@ -1278,6 +1278,7 @@
   "worldRadioTitle": "Weltradio",
   "worldRadioSearchHint": "Sender suchen",
   "worldRadioFavorites": "Favoriten",
+  "worldRadioStationCount": "{count, plural, =1{1 Sender} other{{count} Sender}}",
   "worldRadioYourStations": "Deine Radiosender",
   "worldRadioUnavailable": "Sender nicht erreichbar",
   "worldRadioLive": "LIVE",
