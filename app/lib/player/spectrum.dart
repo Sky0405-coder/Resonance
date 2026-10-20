@@ -19,6 +19,11 @@ class Spectrum {
 
   static const _headerSize = 13;
 
+  /// The server maps this many dB onto 0–1, with bands spaced logarithmically from 40 Hz to 10 kHz.
+  static const rangeDb = 48.0;
+
+  static double bandFrequency(int band, int bands) => 40 * math.pow(10000 / 40, (band + 0.5) / bands).toDouble();
+
   static Spectrum? parse(Uint8List bytes) {
     if (bytes.length < _headerSize || String.fromCharCodes(bytes.sublist(0, 4)) != 'RSP1') return null;
     final header = ByteData.sublistView(bytes, 0, _headerSize);
@@ -76,6 +81,7 @@ class SpectrumVisualizer extends ConsumerStatefulWidget {
     this.mirrored = false,
     this.gap = 0.3,
     this.minHeight = 0.02,
+    this.boost,
   });
   final String trackId;
   final Color color;
@@ -84,6 +90,9 @@ class SpectrumVisualizer extends ConsumerStatefulWidget {
   /// Gap between bars as a fraction of the bar slot.
   final double gap;
   final double minHeight;
+
+  /// Extra dB per frequency (Hz), e.g. the equalizer's curve, so the bars show its effect.
+  final double Function(double frequency)? boost;
 
   @override
   ConsumerState<SpectrumVisualizer> createState() => _SpectrumVisualizerState();
@@ -125,6 +134,12 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
     if (spectrum != null && playing) {
       final position = _position + _sincePosition.elapsed * engine.speed;
       spectrum.levelsAt(position, _target);
+      final boost = widget.boost;
+      if (boost != null) {
+        for (var i = 0; i < bands; i++) {
+          _target[i] = (_target[i] + boost(Spectrum.bandFrequency(i, bands)) / Spectrum.rangeDb).clamp(0.0, 1.0);
+        }
+      }
     } else {
       _target.fillRange(0, _target.length, 0);
     }
@@ -187,7 +202,10 @@ class _BarsPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
-        colors: [color, color.withValues(alpha: color.a * 0.25)],
+        colors: [
+          color,
+          color.withValues(alpha: color.a * 0.25),
+        ],
       ).createShader(Offset.zero & size);
     for (var i = 0; i < bars.length; i++) {
       final height = size.height * math.max(minHeight, bars[i]);

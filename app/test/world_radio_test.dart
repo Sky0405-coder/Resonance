@@ -12,6 +12,8 @@ import 'package:resonance/core/session.dart';
 import 'package:resonance/integrations/discord_presence.dart';
 import 'package:resonance/l10n/l10n.dart';
 import 'package:resonance/player/engine.dart';
+import 'package:resonance/player/equalizer.dart';
+import 'package:resonance/player/equalizer_controller.dart';
 import 'package:resonance/player/player.dart';
 import 'package:resonance/ui/pages/world_radio_page.dart';
 
@@ -83,7 +85,13 @@ class _Engine implements PlaybackEngine {
   int loads = 0;
   int seeks = 0;
   int stops = 0;
+  final equalizers = <EqualizerSettings>[];
   Completer<void>? nextLoad;
+
+  @override
+  Future<void> setEqualizer(EqualizerSettings settings) async {
+    equalizers.add(settings);
+  }
 
   @override
   Future<void> setSources(
@@ -180,6 +188,22 @@ void main() {
     );
   });
   tearDown(() => container.dispose());
+
+  testWidgets('player applies saved equalizer settings at startup and debounces live changes', (tester) async {
+    final saved = EqualizerSettings(enabled: true).withPreset('bass');
+    container.read(equalizerProvider.notifier).set(saved);
+    container.read(playerProvider);
+    expect(engine.equalizers.single.toJson(), saved.toJson());
+    container.read(equalizerProvider.notifier).set(saved.withGain(0, 2));
+    await tester.pump(const Duration(milliseconds: 40));
+    container.read(equalizerProvider.notifier).set(saved.withGain(0, -4.5));
+    await tester.pump(const Duration(milliseconds: 79));
+    expect(engine.equalizers, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(engine.equalizers, hasLength(2));
+    expect(engine.equalizers.last.preset, 'custom');
+    expect(engine.equalizers.last.gains.first, -4.5);
+  });
 
   test('Station.fromJson keeps directory metadata and nullable fields', () {
     final station = Station.fromJson({

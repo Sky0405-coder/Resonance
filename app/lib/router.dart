@@ -14,6 +14,7 @@ import 'ui/pages/book_pages.dart';
 import 'ui/pages/browse_pages.dart';
 import 'ui/pages/collection_pages.dart';
 import 'ui/pages/download_pages.dart';
+import 'ui/pages/equalizer_page.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/pages/world_radio_page.dart';
 import 'ui/pages/now_playing_page.dart';
@@ -160,6 +161,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/books/series', builder: (_, _) => const BookGroupsPage(series: true)),
           GoRoute(path: '/books/requests', builder: (_, _) => const BookRequestsPage()),
           GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+          GoRoute(path: '/settings/equalizer', builder: (_, _) => const EqualizerPage()),
           GoRoute(path: '/spotify', builder: (_, _) => const SpotifyImportPage()),
           GoRoute(
             path: '/admin',

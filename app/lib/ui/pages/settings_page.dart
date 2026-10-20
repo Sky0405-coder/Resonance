@@ -16,7 +16,9 @@ import '../../core/theme.dart';
 import '../../integrations/discord_presence.dart';
 import '../../player/player.dart';
 import '../../player/spectrum.dart';
+import '../../player/equalizer_controller.dart';
 import '../../offline/offline_store.dart';
+import 'equalizer_page.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
@@ -230,6 +232,18 @@ class SettingsPage extends ConsumerWidget {
             value: ref.watch(visualizerEnabledProvider),
             onChanged: ref.read(visualizerEnabledProvider.notifier).set,
           ),
+          if (supportsEqualizer)
+            ListTile(
+              leading: const Icon(Icons.equalizer),
+              title: Text(context.l10n.equalizerTitle),
+              subtitle: Text(
+                ref.watch(equalizerProvider).enabled
+                    ? equalizerPresetName(context.l10n, ref.watch(equalizerProvider).preset)
+                    : context.l10n.equalizerOff,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/equalizer'),
+            ),
           ListTile(
             leading: const Icon(Icons.queue_music),
             title: Text(context.l10n.spotifyTitle),

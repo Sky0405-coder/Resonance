@@ -42,7 +42,8 @@ dependencies:
   go_router: ^18.0.2
   dio: ^5.11.1
   just_audio: ^0.10.6
-  just_audio_media_kit: ^2.1.0
+  just_audio_media_kit:
+    path: packages/just_audio_media_kit
   media_kit_libs_linux: ^1.2.1
   media_kit_libs_windows_audio: ^1.0.9
   shared_preferences: ^2.5.6

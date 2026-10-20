@@ -3338,6 +3338,108 @@ abstract class AppLocalizations {
   /// **'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet.'**
   String get settingsAutomixHint;
 
+  /// No description provided for @equalizerTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Equalizer'**
+  String get equalizerTitle;
+
+  /// No description provided for @equalizerOff.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus'**
+  String get equalizerOff;
+
+  /// No description provided for @equalizerPresetFlat.
+  ///
+  /// In de, this message translates to:
+  /// **'Flach'**
+  String get equalizerPresetFlat;
+
+  /// No description provided for @equalizerPresetBass.
+  ///
+  /// In de, this message translates to:
+  /// **'Bass-Boost'**
+  String get equalizerPresetBass;
+
+  /// No description provided for @equalizerPresetTreble.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhen'**
+  String get equalizerPresetTreble;
+
+  /// No description provided for @equalizerPresetVocal.
+  ///
+  /// In de, this message translates to:
+  /// **'Stimme'**
+  String get equalizerPresetVocal;
+
+  /// No description provided for @equalizerPresetRock.
+  ///
+  /// In de, this message translates to:
+  /// **'Rock'**
+  String get equalizerPresetRock;
+
+  /// No description provided for @equalizerPresetPop.
+  ///
+  /// In de, this message translates to:
+  /// **'Pop'**
+  String get equalizerPresetPop;
+
+  /// No description provided for @equalizerPresetHiphop.
+  ///
+  /// In de, this message translates to:
+  /// **'Hip-Hop'**
+  String get equalizerPresetHiphop;
+
+  /// No description provided for @equalizerPresetElectronic.
+  ///
+  /// In de, this message translates to:
+  /// **'Electronic'**
+  String get equalizerPresetElectronic;
+
+  /// No description provided for @equalizerPresetAcoustic.
+  ///
+  /// In de, this message translates to:
+  /// **'Akustik'**
+  String get equalizerPresetAcoustic;
+
+  /// No description provided for @equalizerPresetLoudness.
+  ///
+  /// In de, this message translates to:
+  /// **'Loudness'**
+  String get equalizerPresetLoudness;
+
+  /// No description provided for @equalizerPresetCustom.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigene'**
+  String get equalizerPresetCustom;
+
+  /// No description provided for @equalizerReset.
+  ///
+  /// In de, this message translates to:
+  /// **'Zurücksetzen'**
+  String get equalizerReset;
+
+  /// No description provided for @equalizerDecibels.
+  ///
+  /// In de, this message translates to:
+  /// **'{value} dB'**
+  String equalizerDecibels(String value);
+
+  /// No description provided for @equalizerBandLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'{frequency} Hz'**
+  String equalizerBandLabel(int frequency);
+
+  /// No description provided for @equalizerFrequencyK.
+  ///
+  /// In de, this message translates to:
+  /// **'{frequency}k'**
+  String equalizerFrequencyK(int frequency);
+
   /// No description provided for @settingsSubsonicTitle.
   ///
   /// In de, this message translates to:

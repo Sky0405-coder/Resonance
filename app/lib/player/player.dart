@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
 import 'engine.dart';
+import 'equalizer_controller.dart';
 import 'radio_follow.dart';
 
 import '../core/api.dart';
@@ -110,6 +111,7 @@ class PlayerController extends Notifier<PlayerView> {
   final PlaybackEngine engine;
   final errors = StreamController<Object>.broadcast();
   Timer? _stationRetry;
+  Timer? _equalizerDebounce;
   bool _stationRetried = false;
   bool _stationFailed = false;
   int _stationGeneration = 0;
@@ -161,6 +163,11 @@ class PlayerController extends Notifier<PlayerView> {
     engine.crossfadeSeconds = (prefs.getInt('crossfade_seconds') ?? 0).clamp(0, 12);
     engine.targetVolumeForIndex = (index) => userVolume.value * _gainForTrack(state.queue[index]);
     engine.automix = prefs.getBool('automix') ?? false;
+    engine.setEqualizer(ref.read(equalizerProvider)).ignore();
+    ref.listen(equalizerProvider, (_, settings) {
+      _equalizerDebounce?.cancel();
+      _equalizerDebounce = Timer(const Duration(milliseconds: 80), () => engine.setEqualizer(settings).ignore());
+    });
     engine.mixPointsForIndex = _mixPointsFor;
     _subs.addAll([
       engine.playerStateStream.listen((s) {
@@ -222,6 +229,7 @@ class PlayerController extends Notifier<PlayerView> {
       _bookSync?.cancel();
       _stationGeneration++;
       _stationRetry?.cancel();
+      _equalizerDebounce?.cancel();
       errors.close();
       _sleepTimer?.cancel();
       engine.dispose();

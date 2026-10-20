@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+
+import 'equalizer.dart';
 
 typedef SourceFactory = AudioSource Function();
 
@@ -146,6 +150,12 @@ class _Fade {
 /// Two independent playlists built from factories; only the active player drives the UI.
 class PlaybackEngine {
   PlaybackEngine() {
+    final android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    _equalizers = android ? [AndroidEqualizer(), AndroidEqualizer()] : [];
+    _players = [
+      for (var i = 0; i < 2; i++)
+        AudioPlayer(audioPipeline: android ? AudioPipeline(androidAudioEffects: [_equalizers[i]]) : null),
+    ];
     for (final player in _players) {
       _forward(player, player.playerStateStream, _states);
       _subs.add(
@@ -200,7 +210,10 @@ class PlaybackEngine {
     }
   }
 
-  final _players = [AudioPlayer(), AudioPlayer()];
+  late final List<AudioPlayer> _players;
+  late final List<AndroidEqualizer> _equalizers;
+  EqualizerSettings _equalizer = EqualizerSettings();
+  Future<void> _equalizerUpdate = Future.value();
   int _activeIndex = 0;
   AudioPlayer get _active => _players[_activeIndex];
   AudioPlayer get _inactive => _players[1 - _activeIndex];
@@ -274,6 +287,45 @@ class PlaybackEngine {
   bool get hasPrevious => _active.hasPrevious;
   List<SourceFactory> get audioSources => List.unmodifiable(_sources);
 
+  Future<void> setEqualizer(EqualizerSettings settings) {
+    _equalizer = settings;
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows)) {
+      JustAudioMediaKit.setAudioFilter(mpvEqualizerFilter(settings));
+    }
+    return _applyEqualizer();
+  }
+
+  Future<void> _applyEqualizer() {
+    // Serialize writes so a slower parameter lookup cannot overwrite a newer slider change.
+    _equalizerUpdate = _equalizerUpdate.then((_) async {
+      if (_disposed) return;
+      await Future.wait(
+        _equalizers.map((eq) async {
+          try {
+            await eq.setEnabled(_equalizer.enabled);
+            // Before the first source, just_audio's parameter future has not completed yet.
+            final parameters = await eq.parameters.timeout(const Duration(milliseconds: 100));
+            if (_disposed) return;
+            final settings = _equalizer;
+            final levels = androidBandLevels(
+              settings.gains,
+              [for (final band in parameters.bands) (band.centerFrequency * 1000).round()],
+              (parameters.minDecibels * 100).round(),
+              (parameters.maxDecibels * 100).round(),
+            );
+            for (var i = 0; i < parameters.bands.length; i++) {
+              await parameters.bands[i].setGain(levels[i] / 100);
+            }
+            await eq.setEnabled(settings.enabled);
+          } catch (_) {
+            // Audio sessions can be absent or replaced; retry the remembered settings after loading.
+          }
+        }),
+      );
+    });
+    return _equalizerUpdate;
+  }
+
   void _emitCurrent() {
     _indices.add(currentIndex);
     _states.add(_active.playerState);
@@ -334,6 +386,7 @@ class PlaybackEngine {
       _speedRamp?.cancel();
       await fade.incoming.setVolume(0);
       await fade.incoming.load();
+      await _applyEqualizer();
       await fade.incoming.seek(fade.plan!.incomingStart, index: fade.index);
       await fade.incoming.setSpeed(_speed * fade.plan!.speed);
       if (_disposed || currentIndex != index || _fade != fade) {
@@ -396,6 +449,7 @@ class PlaybackEngine {
       await fade.incoming.setVolume(0);
       // Loading an idle playlist resets its initial index, so seek after loading.
       await fade.incoming.load();
+      await _applyEqualizer();
       await fade.incoming.seek(Duration.zero, index: fade.index);
       // A slow load may have outlived the outgoing item.
       if (_disposed || currentIndex != index) {
@@ -561,6 +615,7 @@ class PlaybackEngine {
             preload: player == _active,
           );
         }
+        await _applyEqualizer();
       }
       _sources = [...sources];
     } finally {

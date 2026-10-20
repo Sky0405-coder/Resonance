@@ -1880,6 +1880,63 @@ class AppLocalizationsDe extends AppLocalizations {
       'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet.';
 
   @override
+  String get equalizerTitle => 'Equalizer';
+
+  @override
+  String get equalizerOff => 'Aus';
+
+  @override
+  String get equalizerPresetFlat => 'Flach';
+
+  @override
+  String get equalizerPresetBass => 'Bass-Boost';
+
+  @override
+  String get equalizerPresetTreble => 'Höhen';
+
+  @override
+  String get equalizerPresetVocal => 'Stimme';
+
+  @override
+  String get equalizerPresetRock => 'Rock';
+
+  @override
+  String get equalizerPresetPop => 'Pop';
+
+  @override
+  String get equalizerPresetHiphop => 'Hip-Hop';
+
+  @override
+  String get equalizerPresetElectronic => 'Electronic';
+
+  @override
+  String get equalizerPresetAcoustic => 'Akustik';
+
+  @override
+  String get equalizerPresetLoudness => 'Loudness';
+
+  @override
+  String get equalizerPresetCustom => 'Eigene';
+
+  @override
+  String get equalizerReset => 'Zurücksetzen';
+
+  @override
+  String equalizerDecibels(String value) {
+    return '$value dB';
+  }
+
+  @override
+  String equalizerBandLabel(int frequency) {
+    return '$frequency Hz';
+  }
+
+  @override
+  String equalizerFrequencyK(int frequency) {
+    return '${frequency}k';
+  }
+
+  @override
   String get settingsSubsonicTitle => 'Andere Musik-Apps (Subsonic)';
 
   @override
