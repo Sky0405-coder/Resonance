@@ -43,17 +43,21 @@ bool shouldStartFade({
 
 /// AutoMix analysis of a song from the server (seconds).
 class MixPoints {
-  const MixPoints({required this.bpm, required this.mixIn, required this.mixOut, required this.end});
+  const MixPoints({required this.bpm, required this.mixIn, required this.mixOut, required this.end, this.key});
   final double? bpm;
   final double mixIn;
   final double mixOut;
   final double end;
+
+  /// Musical key as a Camelot code ("8A" = A minor, "8B" = C major), when the server could tell.
+  final String? key;
 
   factory MixPoints.fromJson(Map<String, dynamic> j) => MixPoints(
     bpm: (j['bpm'] as num?)?.toDouble(),
     mixIn: (j['mix_in'] as num).toDouble(),
     mixOut: (j['mix_out'] as num).toDouble(),
     end: (j['end'] as num).toDouble(),
+    key: j['key'] as String?,
   );
 }
 
@@ -68,6 +72,7 @@ class AutomixPlan {
     required this.speed,
     required this.bassSwap,
     this.outgoingSpeed = 1,
+    this.filterOut = false,
   });
   final Duration start;
   final Duration incomingStart;
@@ -80,6 +85,10 @@ class AutomixPlan {
 
   /// When the bass moves from the outgoing to the incoming song (on a beat near the middle of the overlap).
   final Duration bassSwap;
+
+  /// Songs that do not go together (tempo too far apart or clashing keys) do not blend: the current song is
+  /// filtered away from the bass up, with an echo on the beat on the desktop, while the next one comes in quickly.
+  final bool filterOut;
 
   bool get beatMatched => speed != 1;
 }
@@ -98,10 +107,29 @@ const automixBassCutDb = -15.0;
 const automixVocalCutDb = -7.0;
 const automixBassFilter = 'lavfi=[bass=g=-15:f=180:w=0.6,equalizer=f=1500:t=o:w=2.5:g=-7]';
 
-/// Tempos within 16 % (also at double or half time) are matched; otherwise the songs just blend at their mix points.
+/// Camelot codes that mix well: the same key, a neighbour on the wheel (±1, 12 wraps to 1), or the relative
+/// major/minor (same number, other letter).
+bool camelotCompatible(String a, String b) {
+  final ma = RegExp(r'^(\d{1,2})([AB])$').firstMatch(a);
+  final mb = RegExp(r'^(\d{1,2})([AB])$').firstMatch(b);
+  if (ma == null || mb == null) return true;
+  final na = int.parse(ma[1]!), nb = int.parse(mb[1]!);
+  if (ma[2] != mb[2]) return na == nb;
+  final distance = (na - nb).abs() % 12;
+  return distance <= 1 || distance == 11;
+}
+
+/// The filter-out transition is short: about four beats, between 2.5 and 5 seconds.
+Duration _filterOutDuration(double? bpm) =>
+    _seconds((bpm != null && bpm > 0 ? 4 * 60 / bpm : 3.0).clamp(2.5, 5.0).toDouble());
+
+/// Tempos within 16 % (also at double or half time) are matched; otherwise, or when the keys clash, the current song
+/// is filtered out instead of a long blend.
 AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
   final overlap = outgoing.end - outgoing.mixOut;
   if (outgoing.mixOut <= 0 || overlap < 2) return null;
+  final keysClash = outgoing.key != null && incoming.key != null && !camelotCompatible(outgoing.key!, incoming.key!);
+  var tempoMismatch = false;
   var speed = 1.0;
   var outgoingSpeed = 1.0;
   if (outgoing.bpm != null && incoming.bpm != null && outgoing.bpm! > 0 && incoming.bpm! > 0) {
@@ -114,10 +142,24 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
     }
     // A ratio of exactly 1 needs no tempo change but still starts on the beat.
     if ((ratio - 1).abs() <= automixMaxTempoChange) speed = ratio == 1 ? 1.0000001 : ratio;
+    tempoMismatch = speed == 1;
     if ((ratio - 1).abs() > automixShareTempoChange && speed != 1) {
       outgoingSpeed = 1 / math.sqrt(ratio);
       speed = math.sqrt(ratio);
     }
+  }
+  if (keysClash || tempoMismatch) {
+    final short = _filterOutDuration(outgoing.bpm);
+    return AutomixPlan(
+      start: _seconds(math.max(outgoing.mixOut, outgoing.end - overlap.clamp(0, 6).toDouble())),
+      incomingStart: _seconds(incoming.mixIn),
+      duration: short,
+      // Still on the beat when the tempos match, even if the keys do not.
+      speed: speed,
+      outgoingSpeed: outgoingSpeed,
+      bassSwap: Duration.zero,
+      filterOut: true,
+    );
   }
   final duration = overlap.clamp(3, 14).toDouble();
   // Swap the bass on the outgoing song's beat closest to the middle.
@@ -135,6 +177,55 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
     outgoingSpeed: outgoingSpeed,
     bassSwap: _seconds(swap),
   );
+}
+
+/// Filter-out volumes: the next song is up within the first 40 %, the current one fades over the whole time.
+(double, double) filterOutVolumes({
+  required Duration elapsed,
+  required Duration duration,
+  required double outgoingTarget,
+  required double incomingTarget,
+}) {
+  final t = duration == Duration.zero ? 1.0 : (elapsed.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0);
+  return (
+    outgoingTarget * math.pow(1 - t, 1.5).toDouble(),
+    incomingTarget * math.sin(math.min(1, t / 0.4) * math.pi / 2),
+  );
+}
+
+/// A step of the filter-out: the low end disappears in four steps (sweeping from 250 Hz up to 2 kHz).
+AutomixCut filterOutCut(int step, {double? bpm}) => AutomixCut(
+  lowDb: -6.0 * step,
+  lowUpTo: 250.0 * math.pow(2, step - 1),
+  echoMs: bpm != null && bpm > 0 ? (60000 / bpm / 2).round() : 250,
+);
+
+/// How one player's sound is cut during an AutoMix transition.
+class AutomixCut {
+  const AutomixCut({this.lowDb = 0, this.lowUpTo = automixBassCutoff, this.vocalDb = 0, this.echoMs});
+
+  /// The blend's bass swap: no bass, less of the vocal range.
+  static const bassSwap = AutomixCut(lowDb: automixBassCutDb, vocalDb: automixVocalCutDb);
+
+  final double lowDb;
+  final double lowUpTo;
+  final double vocalDb;
+
+  /// Desktop only: an echo of this delay (half a beat) as the song leaves.
+  final int? echoMs;
+
+  /// The reduction (dB) of an equalizer band at [frequency] Hz.
+  double reductionAt(double frequency) => frequency <= lowUpTo
+      ? lowDb
+      : frequency >= 500 && frequency <= 4000
+      ? vocalDb
+      : 0;
+
+  /// The same as an mpv filter (desktop).
+  String get mpvFilter {
+    if (echoMs == null) return automixBassFilter;
+    return 'lavfi=[highpass=f=${lowUpTo.round()}:p=2,aecho=0.8:0.6:$echoMs:0.35]';
+  }
 }
 
 /// Equal-power curves keep the loudness steady while both songs play.
@@ -299,7 +390,7 @@ class PlaybackEngine {
   late final List<AudioPlayer> _players;
 
   /// AutoMix bass swap: which player's low end is cut, and (desktop) the source keys with a cut filter.
-  final _bassCut = [false, false];
+  final _bassCut = <AutomixCut?>[null, null];
   final _bassCutKeys = <String>{};
   static final _desktop =
       !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows);
@@ -403,7 +494,7 @@ class PlaybackEngine {
           try {
             final cut = _bassCut[slot];
             // With AutoMix the effect stays on (flat when unused): switching it on and off mid-song stutters.
-            final enabled = _equalizer.enabled || cut || automix;
+            final enabled = _equalizer.enabled || cut != null || automix;
             await eq.setEnabled(enabled);
             // Before the first source, just_audio's parameter future has not completed yet.
             final parameters = await eq.parameters.timeout(const Duration(milliseconds: 100));
@@ -418,14 +509,7 @@ class PlaybackEngine {
               maxMb,
             );
             for (var i = 0; i < parameters.bands.length; i++) {
-              final frequency = parameters.bands[i].centerFrequency;
-              final reduction = !cut
-                  ? 0.0
-                  : frequency <= automixBassCutoff
-                  ? automixBassCutDb
-                  : frequency >= 500 && frequency <= 4000
-                  ? automixVocalCutDb
-                  : 0.0;
+              final reduction = cut?.reductionAt(parameters.bands[i].centerFrequency) ?? 0.0;
               final level = (levels[i] + reduction * 100).round().clamp(minMb, maxMb);
               await parameters.bands[i].setGain(level / 100);
             }
@@ -503,7 +587,7 @@ class PlaybackEngine {
       await fade.incoming.seek(fade.plan!.incomingStart, index: fade.index);
       await fade.incoming.setSpeed(_speed * fade.plan!.speed);
       // The next song comes in without its bass; the bass swaps over halfway (see [_startAutomix]).
-      await _setBassCut(fade.incoming, fade.index, true);
+      if (!fade.plan!.filterOut) await _setCut(fade.incoming, fade.index, AutomixCut.bassSwap);
       if (_disposed || currentIndex != index || _fade != fade) {
         if (_fade == fade) _fade = null;
         return;
@@ -527,17 +611,27 @@ class PlaybackEngine {
     fade.clock.start();
     automixing.value = true;
     var swapped = false;
+    var filterStep = 0;
+    final outgoingIndex = fade.outgoingIndex;
+    final bpm = outgoingIndex == null ? null : mixPointsForIndex?.call(outgoingIndex)?.bpm;
     fade.timer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (fade.clock.elapsed >= fade.duration) {
         finishFade().ignore();
         return;
       }
-      if (!swapped && fade.clock.elapsed >= plan.bassSwap) {
+      if (plan.filterOut) {
+        // Four steps over the first 80 %: the sweep moves up while the song fades.
+        final step = (fade.clock.elapsed.inMicroseconds / fade.duration.inMicroseconds / 0.2).floor() + 1;
+        if (step > filterStep && step <= 4) {
+          filterStep = step;
+          _setCut(fade.outgoing, fade.outgoingIndex, filterOutCut(step, bpm: bpm)).ignore();
+        }
+      } else if (!swapped && fade.clock.elapsed >= plan.bassSwap) {
         swapped = true;
-        _setBassCut(fade.outgoing, fade.outgoingIndex, true).ignore();
-        _setBassCut(fade.incoming, fade.index, false).ignore();
+        _setCut(fade.outgoing, fade.outgoingIndex, AutomixCut.bassSwap).ignore();
+        _setCut(fade.incoming, fade.index, null).ignore();
       }
-      final (outgoing, incoming) = automixVolumes(
+      final (outgoing, incoming) = (plan.filterOut ? filterOutVolumes : automixVolumes)(
         elapsed: fade.clock.elapsed,
         duration: fade.duration,
         outgoingTarget: _targetVolume,
@@ -602,14 +696,14 @@ class PlaybackEngine {
     }
   }
 
-  /// Cut or restore the low end of the song at [index] playing on [player].
-  Future<void> _setBassCut(AudioPlayer player, int? index, bool cut) async {
+  /// Apply or remove ([cut] null) an AutoMix cut on the song at [index] playing on [player].
+  Future<void> _setCut(AudioPlayer player, int? index, AutomixCut? cut) async {
     final slot = _players.indexOf(player);
     if (_desktop) {
       final key = index == null ? null : sourceKeyForIndex?.call(index);
       if (key == null) return;
-      JustAudioMediaKit.setSourceFilter(key, cut ? automixBassFilter : null);
-      cut ? _bassCutKeys.add(key) : _bassCutKeys.remove(key);
+      JustAudioMediaKit.setSourceFilter(key, cut?.mpvFilter);
+      cut != null ? _bassCutKeys.add(key) : _bassCutKeys.remove(key);
     } else if (_equalizers.isNotEmpty && _bassCut[slot] != cut) {
       _bassCut[slot] = cut;
       await _applyEqualizer();
@@ -621,8 +715,8 @@ class PlaybackEngine {
       JustAudioMediaKit.setSourceFilter(key, null);
     }
     _bassCutKeys.clear();
-    if (_bassCut.any((cut) => cut)) {
-      _bassCut.fillRange(0, 2, false);
+    if (_bassCut.any((cut) => cut != null)) {
+      _bassCut.fillRange(0, 2, null);
       await _applyEqualizer();
     }
   }

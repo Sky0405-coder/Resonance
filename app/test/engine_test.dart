@@ -224,6 +224,55 @@ void main() {
       expect(112 * large.outgoingSpeed, closeTo(100 * large.speed, 1e-9));
     });
 
+    test('camelot compatibility', () {
+      expect(camelotCompatible('8A', '8A'), isTrue);
+      expect(camelotCompatible('8A', '9A'), isTrue);
+      expect(camelotCompatible('12B', '1B'), isTrue);
+      expect(camelotCompatible('8A', '8B'), isTrue);
+      expect(camelotCompatible('8A', '10A'), isFalse);
+      expect(camelotCompatible('8A', '9B'), isFalse);
+    });
+
+    test('clashing keys or tempos filter out quickly instead of blending', () {
+      MixPoints keyed({double? bpm, String? key}) => MixPoints(bpm: bpm, mixIn: 0.5, mixOut: 190, end: 210, key: key);
+      final clash = automixPlan(keyed(bpm: 120, key: '8A'), keyed(bpm: 121, key: '3B'))!;
+      expect(clash.filterOut, isTrue);
+      // Tempo still matched, short (four beats at 120 BPM = 2 s, at least 2.5 s), near the end.
+      expect(clash.beatMatched, isTrue);
+      expect(clash.duration, const Duration(milliseconds: 2500));
+      expect(clash.start, const Duration(seconds: 204));
+      final tempo = automixPlan(keyed(bpm: 128), keyed(bpm: 100))!;
+      expect((tempo.filterOut, tempo.beatMatched), (true, false));
+      expect(automixPlan(keyed(bpm: 120, key: '8A'), keyed(bpm: 120, key: '9A'))!.filterOut, isFalse);
+      expect(automixPlan(keyed(), keyed())!.filterOut, isFalse);
+    });
+
+    test('filter-out volumes and sweep steps', () {
+      const d = Duration(seconds: 4);
+      final (outStart, inStart) = filterOutVolumes(
+        elapsed: Duration.zero,
+        duration: d,
+        outgoingTarget: 1,
+        incomingTarget: 1,
+      );
+      expect((outStart, inStart), (1.0, 0.0));
+      final (_, inEarly) = filterOutVolumes(
+        elapsed: const Duration(milliseconds: 1600),
+        duration: d,
+        outgoingTarget: 1,
+        incomingTarget: 1,
+      );
+      expect(inEarly, closeTo(1, 1e-9));
+      expect(filterOutCut(1).lowUpTo, 250);
+      expect(filterOutCut(4).lowUpTo, 2000);
+      expect(filterOutCut(4).lowDb, -24);
+      expect(filterOutCut(2, bpm: 120).echoMs, 250);
+      expect(filterOutCut(3, bpm: 120).mpvFilter, 'lavfi=[highpass=f=1000:p=2,aecho=0.8:0.6:250:0.35]');
+      expect(AutomixCut.bassSwap.reductionAt(100), automixBassCutDb);
+      expect(AutomixCut.bassSwap.reductionAt(1000), automixVocalCutDb);
+      expect(AutomixCut.bassSwap.reductionAt(8000), 0);
+    });
+
     test('equal-power volumes', () {
       final (start, _) = automixVolumes(
         elapsed: Duration.zero,
