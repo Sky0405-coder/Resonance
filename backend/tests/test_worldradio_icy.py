@@ -215,3 +215,21 @@ async def test_proxy_strips_metadata_and_cleans_up(
     assert radio.now_playing("station-1") is None
     await response.background()
     assert not radio._active_streams
+
+
+async def test_title_slash_artist_format(monkeypatch) -> None:
+    async def no_enrichment(*_) -> None:
+        return None
+
+    monkeypatch.setattr(radio, "_enrich", no_enrichment)
+    radio._active_streams["swr"] = 1
+    try:
+        radio.set_now_playing("swr", "SWR3", "You are not alone / Michael Jackson")
+        entry = radio.now_playing("swr")
+        assert (entry.title, entry.artist) == ("You are not alone", "Michael Jackson")
+        radio.set_now_playing("swr", "SWR3", "AC/DC - Thunderstruck")
+        entry = radio.now_playing("swr")
+        assert (entry.title, entry.artist) == ("Thunderstruck", "AC/DC")
+    finally:
+        radio._active_streams.pop("swr", None)
+        radio._now_playing.pop("swr", None)

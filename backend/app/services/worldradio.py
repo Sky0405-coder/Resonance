@@ -109,6 +109,10 @@ def set_now_playing(id: str, station_name: str, raw: str) -> None:
     artist, separator, title = raw.partition(" - ")
     raw = raw.strip()
     artist, title = (artist.strip() or None, title.strip()) if separator else (None, raw)
+    if not separator and raw.count(" / ") == 1:
+        # Some stations (e.g. SWR3) send "Title / Artist".
+        title, _, artist = (part.strip() for part in raw.partition(" / "))
+        artist = artist or None
     station_key = station_name.strip().casefold()
     if not title or raw.casefold() == station_key or title.casefold() == station_key:
         _now_playing[id] = None
