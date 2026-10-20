@@ -17,7 +17,15 @@ from sqlalchemy.orm import joinedload
 
 from app.deps import DB, CurrentUser
 from app.i18n import language
-from app.models import Playlist, PlaylistEntry, PlaylistShare, RadioPending, Track, User
+from app.models import (
+    Album,
+    Playlist,
+    PlaylistEntry,
+    PlaylistShare,
+    RadioPending,
+    Track,
+    User,
+)
 from app.schemas import (
     AddTracksIn,
     MoveEntryIn,
@@ -28,7 +36,7 @@ from app.schemas import (
     PlaylistPatch,
     PlaylistSharesIn,
 )
-from app.services import covers
+from app.services import covers, mix_covers
 from app.services.views import playlists_out, tracks_out
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
@@ -176,6 +184,42 @@ async def delete_cover(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> Non
     await db.commit()
 
 
+# Album cover files → stored mosaic, so it is rendered once per combination.
+_mosaics: dict[tuple[str, ...], str] = {}
+
+
+async def _mosaic(db: DB, playlist_id: uuid.UUID) -> str | None:
+    """Playlists without their own cover: the first four album covers as one image (for Android Auto and other
+    clients that show a single picture; the app draws the tiles itself)."""
+    files: list[str] = []
+    rows = await db.execute(
+        select(Album.cover_file)
+        .join(Track, Track.album_id == Album.id)
+        .join(PlaylistEntry, PlaylistEntry.track_id == Track.id)
+        .where(PlaylistEntry.playlist_id == playlist_id, Album.cover_file.is_not(None))
+        .order_by(PlaylistEntry.position)
+        .limit(200)
+    )
+    for (file,) in rows:
+        if file not in files:
+            files.append(file)
+        if len(files) == 4:
+            break
+    if not files:
+        return None
+    if len(files) < 4:
+        return files[0]
+    key = tuple(files)
+    if key not in _mosaics:
+        data = [path.read_bytes() for name in files if (path := covers.resized(name, None)) is not None]
+        image = await asyncio.to_thread(mix_covers.mosaic, data)
+        stored = image and await asyncio.to_thread(covers.store, image)
+        if stored is None:
+            return files[0]
+        _mosaics[key] = stored
+    return _mosaics[key]
+
+
 @router.get("/{playlist_id}/cover")
 async def playlist_cover(
     playlist_id: uuid.UUID,
@@ -184,9 +228,10 @@ async def playlist_cover(
     size: int | None = Query(None, ge=32, le=2000),
 ) -> Response:
     playlist = await _get_visible(db, user, playlist_id)
-    if playlist.cover_file is None:
+    name = playlist.cover_file or await _mosaic(db, playlist_id)
+    if name is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
-    path = covers.resized(playlist.cover_file, size)
+    path = covers.resized(name, size)
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})

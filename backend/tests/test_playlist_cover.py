@@ -125,3 +125,41 @@ async def test_subsonic_custom_cover(env: SimpleNamespace) -> None:
     assert result.content == (await env.client.get(env.url, headers=env.headers, params={"size": 64})).content
     result = await env.client.get("/rest/getPlaylist", params=params)
     assert result.json()["subsonic-response"]["playlist"]["coverArt"] == env.id
+
+
+async def test_playlists_without_cover_get_a_mosaic_and_liked_songs_a_heart(env: SimpleNamespace) -> None:
+    from app.models import Album, Artist, PlaylistEntry, Track
+    from app.services import covers
+
+    async with SessionLocal() as db:
+        artist = Artist(name="Tiles", name_key="tiles")
+        db.add(artist)
+        await db.flush()
+        for index, color in enumerate(["red", "green", "blue", "yellow", "white"]):
+            buf = io.BytesIO()
+            Image.new("RGB", (100, 100), color).save(buf, "PNG")
+            album = Album(
+                title=f"A{index}", title_key=f"a{index}", artist_id=artist.id, cover_file=covers.store(buf.getvalue())
+            )
+            db.add(album)
+            await db.flush()
+            track = Track(
+                path=f"t{index}.mp3", title=f"T{index}", album_id=album.id, artist_id=artist.id, artist_credit="Tiles"
+            )
+            db.add(track)
+            await db.flush()
+            db.add(PlaylistEntry(playlist_id=uuid.UUID(env.id), track_id=track.id, position=index))
+        await db.commit()
+    first = await env.client.get(env.url, headers=env.headers)
+    assert first.status_code == 200
+    with Image.open(io.BytesIO(first.content)) as mosaic:
+        rgb = mosaic.convert("RGB")
+        # Red, green, blue and yellow quarters; the fifth album is not part of it.
+        assert rgb.getpixel((160, 160))[0] > 200 and rgb.getpixel((480, 160))[1] > 100
+        assert rgb.getpixel((160, 480))[2] > 200 and rgb.getpixel((480, 480))[:2] > (200, 200)
+    assert (await env.client.get(env.url, headers=env.headers)).content == first.content
+    heart = await env.client.get("/api/me/likes/cover", params={"size": 300}, headers=env.headers)
+    assert heart.status_code == 200 and heart.headers["content-type"] == "image/jpeg"
+    with Image.open(io.BytesIO(heart.content)) as cover:
+        assert cover.size == (300, 300) and cover.convert("RGB").getpixel((150, 150)) == (255, 255, 255)
+    assert (await env.client.get("/api/me/likes/cover")).status_code == 401

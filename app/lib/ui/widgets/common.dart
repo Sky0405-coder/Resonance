@@ -102,6 +102,10 @@ class CoverImage extends ConsumerWidget {
         ? null
         : ref.watch(offlineProvider.select((s) => s.coverPath(albumId!)));
     final version = albumId == null ? 0 : ref.watch(coverVersionsProvider.select((v) => v[albumId] ?? 0));
+    final key = albumId == null ? null : coverKeys[albumId];
+    final current = albumId == null || ref.watch(offlineProvider.select((s) => s.coverCurrent(albumId!)));
+    final suffix = '${key == null ? '' : ':$key'}${version > 0 ? ':$version' : ''}';
+    final query = '${key == null ? '' : '&v=$key'}${version > 0 ? '&r=$version' : ''}';
     final placeholder = Container(
       color: const Color(0xFF282828),
       alignment: Alignment.center,
@@ -115,16 +119,19 @@ class CoverImage extends ConsumerWidget {
         aspectRatio: 1,
         child: albumId == null
             ? placeholder
-            : localCover != null
+            : localCover != null && current
             ? Image.file(File(localCover), fit: BoxFit.cover, errorBuilder: (_, _, _) => placeholder)
             : CachedNetworkImage(
-                imageUrl: '${ref.watch(apiProvider).coverUrl(albumId!, size: size)}${version > 0 ? '&v=$version' : ''}',
-                // Cache key without the token so a re-login keeps the cache.
-                cacheKey: 'cover:$albumId:$size${version > 0 ? ':$version' : ''}',
+                imageUrl: '${ref.watch(apiProvider).coverUrl(albumId!, size: size)}$query',
+                // Cache key without the token so a re-login keeps the cache; the cover key changes with the image.
+                cacheKey: 'cover:$albumId:$size$suffix',
                 fit: BoxFit.cover,
                 fadeInDuration: const Duration(milliseconds: 150),
                 placeholder: (_, _) => placeholder,
-                errorWidget: (_, _, _) => placeholder,
+                // An outdated downloaded cover still beats an empty square while offline.
+                errorWidget: (_, _, _) => localCover != null
+                    ? Image.file(File(localCover), fit: BoxFit.cover, errorBuilder: (_, _, _) => placeholder)
+                    : placeholder,
               ),
       ),
     );

@@ -124,6 +124,9 @@ class CollectionStatus {
   final int total;
 }
 
+/// Cover version files read so far (`<directory>/<albumId>` → key).
+final _storedCoverKeys = <String, String?>{};
+
 class OfflineState {
   const OfflineState({
     this.collections = const {},
@@ -159,6 +162,17 @@ class OfflineState {
     if (kIsWeb || directory == null) return null;
     final path = '$directory/covers/$albumId.jpg';
     return File(path).existsSync() ? path : null;
+  }
+
+  /// Whether the downloaded cover is the server's current one (false after a cover was replaced on the server).
+  bool coverCurrent(String albumId) {
+    final expected = coverKeys[albumId];
+    if (expected == null || kIsWeb || directory == null) return true;
+    return _storedCoverKeys.putIfAbsent('$directory/$albumId', () {
+          final file = File('$directory/covers/$albumId.key');
+          return file.existsSync() ? file.readAsStringSync().trim() : null;
+        }) ==
+        expected;
   }
 
   CollectionStatus status(String key) {
@@ -450,7 +464,8 @@ class OfflineController extends Notifier<OfflineState> {
     await _deleteOrphanCovers();
     for (final track in ordered) {
       if (!state.isDownloaded(track.id) ||
-          (state.coverPath(track.album.id) == null && !_coverAttempts.contains(track.album.id))) {
+          ((state.coverPath(track.album.id) == null || !state.coverCurrent(track.album.id)) &&
+              !_coverAttempts.contains(track.album.id))) {
         _queue.putIfAbsent(track.id, () => _nextTicket++);
       }
     }
@@ -840,13 +855,18 @@ class OfflineController extends Notifier<OfflineState> {
   }
 
   Future<void> _downloadCover(ApiClient api, String albumId, int generation, CancelToken cancel) async {
-    if (state.coverPath(albumId) != null || !_coverAttempts.add(albumId)) return;
+    if ((state.coverPath(albumId) != null && state.coverCurrent(albumId)) || !_coverAttempts.add(albumId)) return;
     final path = '${state.directory}/covers/$albumId.jpg';
+    final key = coverKeys[albumId];
     try {
       await api.downloadMedia(api.coverUrl(albumId, size: 600), (_) => '$path.part', cancelToken: cancel);
       await _serialize(() async {
         if (generation != _generation || !state.tracks.values.any((t) => t.albumId == albumId)) return;
         await File('$path.part').rename(path);
+        if (key != null) {
+          await File('${state.directory}/covers/$albumId.key').writeAsString(key);
+          _storedCoverKeys['${state.directory}/$albumId'] = key;
+        }
         _publish();
       });
     } on ApiException catch (e) {

@@ -66,6 +66,8 @@ Future<void> main() async {
         androidBrowsableRootExtras: const {
           'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 2,
           'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1,
+          // Shows the search button in Android Auto (searches songs and radio stations).
+          'android.media.browse.SEARCH_SUPPORTED': true,
         },
       ),
     );

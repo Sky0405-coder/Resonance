@@ -48,6 +48,11 @@ class Album(Base):
     mb_release_id: Mapped[str | None] = mapped_column(String(36), index=True)
     # Cached, normalised cover image (relative to the cover cache dir).
     cover_file: Mapped[str | None] = mapped_column(String(128))
+
+    @property
+    def cover_key(self) -> str | None:
+        """Short version of the cover (its content hash), for clients' caches."""
+        return self.cover_file[:12] if self.cover_file else None
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     artist: Mapped[Artist] = relationship(back_populates="albums")

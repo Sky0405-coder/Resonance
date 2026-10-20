@@ -259,6 +259,10 @@ class ApiClient {
 
   Future<void> deletePlaylist(String id) => _delete('/api/playlists/$id');
 
+  /// Playlists without their own cover: the server renders their album covers as one mosaic (Android Auto).
+  String playlistMosaicUrl(String id, List<String> albumIds, {int size = 600}) =>
+      '$baseUrl/api/playlists/$id/cover?size=$size&token=$token&v=${Object.hashAll(albumIds).toUnsigned(32)}';
+  String likedCoverUrl({int size = 600}) => '$baseUrl/api/me/likes/cover?size=$size&token=$token';
   String playlistCoverUrl(String id, String key, {int size = 300}) =>
       '$baseUrl/api/playlists/$id/cover?size=$size&v=$key&token=$token';
 

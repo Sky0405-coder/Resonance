@@ -46,7 +46,10 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
 
   Uri _cover(String albumId) {
     final file = _offline.coverPath(albumId);
-    if (file == null) return Uri.parse(_api.coverUrl(albumId, size: 600));
+    if (file == null || !_offline.coverCurrent(albumId)) {
+      final key = coverKeys[albumId];
+      return Uri.parse('${_api.coverUrl(albumId, size: 600)}${key == null ? '' : '&v=$key'}');
+    }
     // Android Auto cannot read the app's private files; the app's CoverProvider serves downloaded covers.
     return defaultTargetPlatform == TargetPlatform.android
         ? Uri.parse('content://de.knode.resonance.covers/$albumId')
@@ -228,6 +231,8 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
         ? Uri.parse(_api.playlistCoverUrl(playlist.id, playlist.coverKey!))
         : playlist.coverAlbumIds.isEmpty
         ? null
+        : playlist.coverAlbumIds.length >= 4 && !container.read(sessionProvider).offline
+        ? Uri.parse(_api.playlistMosaicUrl(playlist.id, playlist.coverAlbumIds))
         : _cover(playlist.coverAlbumIds.first),
   );
 
@@ -249,7 +254,11 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
             'playlist' => PlaylistDetail.fromJson(collection.data).playlist.owner.name,
             _ => container.read(sessionProvider).user?.displayName,
           },
-          artUri: collection.orderedTracks.isEmpty ? null : _cover(collection.orderedTracks.first.album.id),
+          artUri: collection.kind == 'liked' && !container.read(sessionProvider).offline
+              ? Uri.parse(_api.likedCoverUrl())
+              : collection.orderedTracks.isEmpty
+              ? null
+              : _cover(collection.orderedTracks.first.album.id),
         ),
   ];
 
@@ -341,7 +350,7 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
               'liked',
               _l10n.libraryLikedSongs,
               subtitle: _l10n.commonSongs(liked.length),
-              artUri: liked.isEmpty ? null : _cover(liked.first.album.id),
+              artUri: Uri.parse(_api.likedCoverUrl()),
             ),
             for (final playlist in await container.read(playlistsProvider.future))
               if (!playlist.isMix && !playlist.isRadio) _playlist(playlist),
@@ -466,6 +475,15 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
       final collection = 'search:${Uri.encodeComponent(query)}';
       _searchResults[collection] = tracks;
       final items = _trackItems(tracks, collection);
+      // Radio stations by name, after the songs.
+      if (!container.read(sessionProvider).offline) {
+        try {
+          final stations = await _api.worldRadioStations(q: query.trim());
+          items.addAll([for (final station in stations.take(10)) _stationItem(_rememberStation(station))]);
+        } catch (_) {
+          // Songs alone when the station directory is unavailable.
+        }
+      }
       for (final item in items) {
         _items[item.id] = item;
       }

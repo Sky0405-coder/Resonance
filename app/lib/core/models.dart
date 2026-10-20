@@ -116,7 +116,7 @@ class Track {
     title: j['title'],
     artist: NamedRef.fromJson(j['artist']),
     artistCredit: j['artist_credit'],
-    album: NamedRef.fromJson(j['album']),
+    album: NamedRef.fromJson(noteCoverKey(j['album'])),
     duration: (j['duration'] as num).toDouble(),
     trackNo: j['track_no'],
     discNo: j['disc_no'],
@@ -180,7 +180,7 @@ class Album {
   final int trackCount;
 
   factory Album.fromJson(Map<String, dynamic> j) => Album(
-    id: j['id'],
+    id: noteCoverKey(j)['id'],
     title: j['title'],
     artist: NamedRef.fromJson(j['artist']),
     year: j['year'],
@@ -1101,4 +1101,14 @@ class Station {
     bitrate: (json['bitrate'] as num?)?.toInt(),
     homepage: json['homepage'],
   );
+}
+
+/// The server's cover version per album id (changes when a cover is replaced), collected while parsing tracks and
+/// albums so cover images and downloaded covers can tell when they are out of date.
+final coverKeys = <String, String>{};
+
+Map<String, dynamic> noteCoverKey(Map<String, dynamic> album) {
+  final key = album['cover_key'];
+  if (key is String) coverKeys[album['id'] as String] = key;
+  return album;
 }

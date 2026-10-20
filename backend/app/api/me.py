@@ -1,13 +1,16 @@
+import asyncio
 import secrets
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
 from sqlalchemy import delete, select
 
 from app.deps import DB, CurrentUser
 from app.models import AuthSession, PlayEvent, SavedAlbum, Track, TrackLike
 from app.schemas import PlayEventIn, ProfilePatch, SessionOut, TrackOut, UserOut
 from app.security import hash_password, verify_password
+from app.services import covers, mix_covers
 from app.services.views import track_options, tracks_out
 
 router = APIRouter(prefix="/api/me", tags=["me"])
@@ -65,6 +68,21 @@ async def revoke_session(session_id: uuid.UUID, user: CurrentUser, db: DB) -> No
 
 
 # --- likes ------------------------------------------------------------------
+
+
+_liked_cover: str | None = None
+
+
+@router.get("/likes/cover")
+async def liked_cover(user: CurrentUser, size: int | None = Query(None, ge=32, le=2000)) -> FileResponse:
+    """The Liked Songs cover (a heart), for clients that show one picture per collection, such as Android Auto."""
+    global _liked_cover
+    if _liked_cover is None:
+        _liked_cover = await asyncio.to_thread(lambda: covers.store(mix_covers.liked()))
+    path = covers.resized(_liked_cover, size) if _liked_cover else None
+    if path is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})
 
 
 @router.get("/likes/tracks", response_model=list[TrackOut])

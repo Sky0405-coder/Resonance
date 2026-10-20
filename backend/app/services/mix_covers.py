@@ -3,6 +3,7 @@
 import colorsys
 import hashlib
 import io
+import math
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
@@ -99,4 +100,47 @@ def render(name: str, subtitle: str | None, covers: list[bytes], accent_seed: st
         draw.text((40, top - 44), subtitle, font=_font(28), fill=(255, 255, 255, 204), anchor="lt")
     out = io.BytesIO()
     Image.alpha_composite(image, overlay).convert("RGB").save(out, "JPEG", quality=90)
+    return out.getvalue()
+
+
+def mosaic(covers: list[bytes]) -> bytes | None:
+    """A playlist's album covers as one image (2×2 from four, else the first), for clients that show a single
+    picture such as Android Auto."""
+    images = []
+    for data in covers:
+        try:
+            with Image.open(io.BytesIO(data)) as image:
+                images.append(image.convert("RGB"))
+        except (OSError, ValueError):
+            continue
+    if not images:
+        return None
+    if len(images) >= 4:
+        image = Image.new("RGB", (640, 640))
+        for index, cover in enumerate(images[:4]):
+            image.paste(ImageOps.fit(cover, (320, 320)), ((index % 2) * 320, (index // 2) * 320))
+    else:
+        image = ImageOps.fit(images[0], (640, 640))
+    out = io.BytesIO()
+    image.save(out, "JPEG", quality=90)
+    return out.getvalue()
+
+
+def liked() -> bytes:
+    """The Liked Songs cover: a white heart on a violet-to-blue gradient."""
+    mask = Image.frombytes("L", (640, 640), bytes((x + y) * 255 // 1278 for y in range(640) for x in range(640)))
+    image = Image.composite(Image.new("RGB", (640, 640), (120, 200, 230)), Image.new("RGB", (640, 640), (72, 24, 230)), mask)
+    # The classic heart curve, drawn large and scaled down for smooth edges.
+    scale = 4
+    points = []
+    for step in range(360):
+        t = math.radians(step)
+        x = 16 * math.sin(t) ** 3
+        y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
+        points.append(((320 + x * 9) * scale, (305 - y * 9) * scale))
+    heart = Image.new("L", (640 * scale, 640 * scale))
+    ImageDraw.Draw(heart).polygon(points, fill=255)
+    image.paste(Image.new("RGB", (640, 640), "white"), mask=heart.resize((640, 640), Image.LANCZOS))
+    out = io.BytesIO()
+    image.save(out, "JPEG", quality=92)
     return out.getvalue()

@@ -158,6 +158,8 @@ class ArtistRef(ORM):
 class AlbumRef(ORM):
     id: uuid.UUID
     title: str
+    # Changes with the cover image, so clients can refresh cached covers.
+    cover_key: str | None = None
 
 
 class LyricLine(BaseModel):
@@ -201,6 +203,7 @@ class AlbumOut(ORM):
     year: int | None
     genre: str | None
     has_cover: bool = False
+    cover_key: str | None = None
     track_count: int = 0
 
 
