@@ -1,13 +1,8 @@
 import 'dart:math';
 
-bool camelotCompatible(String a, String b) {
-  final code = RegExp(r'^(1[0-2]|[1-9])[AB]$');
-  if (!code.hasMatch(a) || !code.hasMatch(b)) return false;
-  final numberA = int.parse(a.substring(0, a.length - 1));
-  final numberB = int.parse(b.substring(0, b.length - 1));
-  final distance = (numberA - numberB).abs();
-  return numberA == numberB || (a[a.length - 1] == b[b.length - 1] && (distance == 1 || distance == 11));
-}
+import 'engine.dart' show camelotCompatible;
+
+export 'engine.dart' show camelotCompatible;
 
 double harmonicScore(String? keyA, double? bpmA, String? keyB, double? bpmB) {
   final keyPart = keyA == null || keyB == null ? 0.5 : (camelotCompatible(keyA, keyB) ? 1.0 : 0.0);

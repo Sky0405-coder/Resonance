@@ -234,7 +234,8 @@ void main() {
     });
 
     test('clashing keys or tempos filter out quickly instead of blending', () {
-      MixPoints keyed({double? bpm, String? key}) => MixPoints(bpm: bpm, mixIn: 0.5, mixOut: 190, end: 210, key: key);
+      MixPoints keyed({double? bpm, String? key}) =>
+          MixPoints(bpm: bpm, mixIn: 0.5, mixOut: 190, end: 210, key: key, keyConfidence: 0.3);
       final clash = automixPlan(keyed(bpm: 120, key: '8A'), keyed(bpm: 121, key: '3B'))!;
       expect(clash.filterOut, isTrue);
       // Tempo still matched, short (four beats at 120 BPM = 2 s, at least 2.5 s), near the end.

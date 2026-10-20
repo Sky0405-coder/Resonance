@@ -43,7 +43,14 @@ bool shouldStartFade({
 
 /// AutoMix analysis of a song from the server (seconds).
 class MixPoints {
-  const MixPoints({required this.bpm, required this.mixIn, required this.mixOut, required this.end, this.key});
+  const MixPoints({
+    required this.bpm,
+    required this.mixIn,
+    required this.mixOut,
+    required this.end,
+    this.key,
+    this.keyConfidence,
+  });
   final double? bpm;
   final double mixIn;
   final double mixOut;
@@ -51,6 +58,10 @@ class MixPoints {
 
   /// Musical key as a Camelot code ("8A" = A minor, "8B" = C major), when the server could tell.
   final String? key;
+  final double? keyConfidence;
+
+  /// The key only when the analysis was reasonably sure (a wrong key would cause needless filter-outs).
+  String? get reliableKey => (keyConfidence ?? 0) >= 0.1 ? key : null;
 
   factory MixPoints.fromJson(Map<String, dynamic> j) => MixPoints(
     bpm: (j['bpm'] as num?)?.toDouble(),
@@ -58,6 +69,7 @@ class MixPoints {
     mixOut: (j['mix_out'] as num).toDouble(),
     end: (j['end'] as num).toDouble(),
     key: j['key'] as String?,
+    keyConfidence: (j['key_confidence'] as num?)?.toDouble(),
   );
 }
 
@@ -110,9 +122,9 @@ const automixBassFilter = 'lavfi=[bass=g=-15:f=180:w=0.6,equalizer=f=1500:t=o:w=
 /// Camelot codes that mix well: the same key, a neighbour on the wheel (±1, 12 wraps to 1), or the relative
 /// major/minor (same number, other letter).
 bool camelotCompatible(String a, String b) {
-  final ma = RegExp(r'^(\d{1,2})([AB])$').firstMatch(a);
-  final mb = RegExp(r'^(\d{1,2})([AB])$').firstMatch(b);
-  if (ma == null || mb == null) return true;
+  final ma = RegExp(r'^(1[0-2]|[1-9])([AB])$').firstMatch(a);
+  final mb = RegExp(r'^(1[0-2]|[1-9])([AB])$').firstMatch(b);
+  if (ma == null || mb == null) return false;
   final na = int.parse(ma[1]!), nb = int.parse(mb[1]!);
   if (ma[2] != mb[2]) return na == nb;
   final distance = (na - nb).abs() % 12;
@@ -128,7 +140,8 @@ Duration _filterOutDuration(double? bpm) =>
 AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
   final overlap = outgoing.end - outgoing.mixOut;
   if (outgoing.mixOut <= 0 || overlap < 2) return null;
-  final keysClash = outgoing.key != null && incoming.key != null && !camelotCompatible(outgoing.key!, incoming.key!);
+  final (keyOut, keyIn) = (outgoing.reliableKey, incoming.reliableKey);
+  final keysClash = keyOut != null && keyIn != null && !camelotCompatible(keyOut, keyIn);
   var tempoMismatch = false;
   var speed = 1.0;
   var outgoingSpeed = 1.0;
