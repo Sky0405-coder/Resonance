@@ -207,9 +207,21 @@ void main() {
       final plan = automixPlan(points(bpm: 124, mixOut: 200.25), points(bpm: 120, mixIn: 1.5))!;
       expect(plan.bassSwap.inMicroseconds / 1e6, closeTo(10 * 60 / 124, 1e-3));
       expect(automixPlan(points(mixOut: 100, end: 110), points())!.bassSwap, const Duration(seconds: 5));
-      // Up to 10 % tempo difference is matched.
-      expect(automixPlan(points(bpm: 109), points(bpm: 100))!.beatMatched, isTrue);
-      expect(automixPlan(points(bpm: 112), points(bpm: 100))!.beatMatched, isFalse);
+      // Up to 16 % tempo difference is matched.
+      expect(automixPlan(points(bpm: 115), points(bpm: 100))!.beatMatched, isTrue);
+      expect(automixPlan(points(bpm: 120), points(bpm: 100))!.beatMatched, isFalse);
+    });
+
+    test('larger tempo differences meet in the middle', () {
+      final small = automixPlan(points(bpm: 103), points(bpm: 100))!;
+      expect(small.outgoingSpeed, 1);
+      expect(small.speed, closeTo(1.03, 1e-9));
+      final large = automixPlan(points(bpm: 112), points(bpm: 100))!;
+      // Both move about 5.8 %, and the incoming song still follows the outgoing beat.
+      expect(large.outgoingSpeed, closeTo(1 / sqrt(1.12), 1e-9));
+      expect(large.speed, closeTo(sqrt(1.12), 1e-9));
+      expect(large.ratio, closeTo(1.12, 1e-9));
+      expect(112 * large.outgoingSpeed, closeTo(100 * large.speed, 1e-9));
     });
 
     test('equal-power volumes', () {

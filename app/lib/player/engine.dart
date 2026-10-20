@@ -58,7 +58,8 @@ class MixPoints {
 }
 
 /// How an AutoMix transition runs: the next song starts at [incomingStart] when the current one reaches [start],
-/// both overlap for [duration], and the next song plays at [speed] meanwhile so the beats line up.
+/// both overlap for [duration], and the next song plays at [speed] meanwhile so the beats line up. Like a DJ, larger
+/// tempo differences meet in the middle: the current song drifts to [outgoingSpeed] in the seconds before.
 class AutomixPlan {
   const AutomixPlan({
     required this.start,
@@ -66,11 +67,16 @@ class AutomixPlan {
     required this.duration,
     required this.speed,
     required this.bassSwap,
+    this.outgoingSpeed = 1,
   });
   final Duration start;
   final Duration incomingStart;
   final Duration duration;
   final double speed;
+  final double outgoingSpeed;
+
+  /// Song time of the incoming song per song time of the outgoing one while both play.
+  double get ratio => speed / outgoingSpeed;
 
   /// When the bass moves from the outgoing to the incoming song (on a beat near the middle of the overlap).
   final Duration bassSwap;
@@ -80,19 +86,24 @@ class AutomixPlan {
 
 Duration _seconds(double s) => Duration(microseconds: (s * 1e6).round());
 
-/// Tempo differences up to this are matched (time-stretched without changing the pitch).
-const automixMaxTempoChange = 0.10;
+/// Tempo differences up to this are matched (time-stretched without changing the pitch); above
+/// [automixShareTempoChange] both songs move halfway, so neither changes by more than about 8 %.
+const automixMaxTempoChange = 0.16;
+const automixShareTempoChange = 0.04;
 
-/// The bass swap lowers the bands up to this frequency (Hz) by this many dB.
+/// The song without the bass also loses some of its vocal range, so two voices clash less: bands up to
+/// [automixBassCutoff] Hz drop by [automixBassCutDb], bands from 500 Hz to 4 kHz by [automixVocalCutDb].
 const automixBassCutoff = 250.0;
 const automixBassCutDb = -15.0;
-const automixBassFilter = 'lavfi=[bass=g=-15:f=180:w=0.6]';
+const automixVocalCutDb = -7.0;
+const automixBassFilter = 'lavfi=[bass=g=-15:f=180:w=0.6,equalizer=f=1500:t=o:w=2.5:g=-7]';
 
-/// Tempos within 10 % (also at double or half time) are matched; otherwise the songs just blend at their mix points.
+/// Tempos within 16 % (also at double or half time) are matched; otherwise the songs just blend at their mix points.
 AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
   final overlap = outgoing.end - outgoing.mixOut;
   if (outgoing.mixOut <= 0 || overlap < 2) return null;
   var speed = 1.0;
+  var outgoingSpeed = 1.0;
   if (outgoing.bpm != null && incoming.bpm != null && outgoing.bpm! > 0 && incoming.bpm! > 0) {
     var ratio = outgoing.bpm! / incoming.bpm!;
     while (ratio > 1.5) {
@@ -103,6 +114,10 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
     }
     // A ratio of exactly 1 needs no tempo change but still starts on the beat.
     if ((ratio - 1).abs() <= automixMaxTempoChange) speed = ratio == 1 ? 1.0000001 : ratio;
+    if ((ratio - 1).abs() > automixShareTempoChange && speed != 1) {
+      outgoingSpeed = 1 / math.sqrt(ratio);
+      speed = math.sqrt(ratio);
+    }
   }
   final duration = overlap.clamp(3, 14).toDouble();
   // Swap the bass on the outgoing song's beat closest to the middle.
@@ -117,6 +132,7 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
     incomingStart: _seconds(incoming.mixIn),
     duration: _seconds(duration),
     speed: speed,
+    outgoingSpeed: outgoingSpeed,
     bassSwap: _seconds(swap),
   );
 }
@@ -256,7 +272,8 @@ class PlaybackEngine {
           }
           // Position updates come every ~200 ms; a timer hits the mix point more precisely.
           if (fade != null && fade.plan != null && fade.prepared && !fade.started && fade.startTimer == null) {
-            final wait = fade.plan!.start - position;
+            // Song time to real time at the current (possibly ramped) speed.
+            final wait = (fade.plan!.start - position) * (1 / player.speed);
             if (wait <= const Duration(milliseconds: 400)) {
               fade.startTimer = Timer(wait.isNegative ? Duration.zero : wait, () {
                 if (_fade == fade && !fade.started && !_disposed) _startAutomix(fade);
@@ -385,7 +402,9 @@ class PlaybackEngine {
           final (slot, eq) = entry;
           try {
             final cut = _bassCut[slot];
-            await eq.setEnabled(_equalizer.enabled || cut);
+            // With AutoMix the effect stays on (flat when unused): switching it on and off mid-song stutters.
+            final enabled = _equalizer.enabled || cut || automix;
+            await eq.setEnabled(enabled);
             // Before the first source, just_audio's parameter future has not completed yet.
             final parameters = await eq.parameters.timeout(const Duration(milliseconds: 100));
             if (_disposed) return;
@@ -399,11 +418,18 @@ class PlaybackEngine {
               maxMb,
             );
             for (var i = 0; i < parameters.bands.length; i++) {
-              final low = parameters.bands[i].centerFrequency <= automixBassCutoff;
-              final level = cut && low ? (levels[i] + automixBassCutDb * 100).round().clamp(minMb, maxMb) : levels[i];
+              final frequency = parameters.bands[i].centerFrequency;
+              final reduction = !cut
+                  ? 0.0
+                  : frequency <= automixBassCutoff
+                  ? automixBassCutDb
+                  : frequency >= 500 && frequency <= 4000
+                  ? automixVocalCutDb
+                  : 0.0;
+              final level = (levels[i] + reduction * 100).round().clamp(minMb, maxMb);
               await parameters.bands[i].setGain(level / 100);
             }
-            await eq.setEnabled(settings.enabled || cut);
+            await eq.setEnabled(enabled);
           } catch (_) {
             // Audio sessions can be absent or replaced; retry the remembered settings after loading.
           }
@@ -483,6 +509,12 @@ class PlaybackEngine {
         return;
       }
       fade.prepared = true;
+      // The current song drifts toward the shared tempo until the mix point.
+      final outgoingSpeed = fade.plan!.outgoingSpeed;
+      if (outgoingSpeed != 1) {
+        final left = fade.plan!.start - fade.outgoing.position;
+        _rampSpeed(fade.outgoing, _speed, _speed * outgoingSpeed, left * 0.8);
+      }
     } catch (_) {
       _failedFadeIndex = index;
       if (_fade == fade) _fade = null;
@@ -512,29 +544,30 @@ class PlaybackEngine {
         incomingTarget: _incomingTarget(fade),
       );
       Future.wait([fade.outgoing.setVolume(outgoing), fade.incoming.setVolume(incoming)]).ignore();
-      // Starting playback takes a moment; while the next song is still quiet, line its beats up once or twice.
+      // Starting playback takes a moment; while the next song is still quiet, line its beats up once (a later
+      // seek would be audible as a hiccup).
       if (!plan.beatMatched) return;
-      for (final at in const [400, 1200]) {
-        if (fade.clock.elapsedMilliseconds >= at && fade.corrected.add(at)) {
-          final expected = plan.incomingStart + (fade.outgoing.position - plan.start) * plan.speed;
-          final error = fade.incoming.position - expected;
-          if (error.abs() > const Duration(milliseconds: 20) && error.abs() < const Duration(seconds: 2)) {
-            fade.incoming.seek(expected + const Duration(milliseconds: 10)).ignore();
-          }
+      if (fade.clock.elapsedMilliseconds >= 300 && fade.corrected.add(300)) {
+        final expected = plan.incomingStart + (fade.outgoing.position - plan.start) * plan.ratio;
+        final error = fade.incoming.position - expected;
+        if (error.abs() > const Duration(milliseconds: 30) && error.abs() < const Duration(seconds: 2)) {
+          fade.incoming.seek(expected + const Duration(milliseconds: 10)).ignore();
         }
       }
     });
   }
 
   /// After a beat-matched transition the new song drifts back to its own tempo.
-  void _rampSpeed(AudioPlayer player, double from) {
+  /// Moves [player] from [from] to [to] in half-second steps (each speed change costs the decoder a moment, so
+  /// few and even steps sound smoother than many tiny ones).
+  void _rampSpeed(AudioPlayer player, double from, double to, Duration duration) {
     _speedRamp?.cancel();
-    const steps = 32;
+    final steps = (duration.inMilliseconds / 500).round().clamp(1, 24);
     var step = 0;
-    _speedRamp = Timer.periodic(const Duration(milliseconds: 250), (timer) {
+    _speedRamp = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       step++;
-      final done = step >= steps || player != _active || _disposed;
-      player.setSpeed(done ? _speed : from + (_speed - from) * step / steps).ignore();
+      final done = step >= steps || _disposed;
+      player.setSpeed(done ? to : from + (to - from) * step / steps).ignore();
       if (done) timer.cancel();
     });
   }
@@ -627,6 +660,9 @@ class PlaybackEngine {
       _emitCurrent();
       await fade.incoming.pause();
       await fade.incoming.setSpeed(_speed);
+      // The current song may have started drifting toward the next one's tempo.
+      _speedRamp?.cancel();
+      await fade.outgoing.setSpeed(_speed);
       await _clearBassCuts();
       return;
     }
@@ -638,7 +674,9 @@ class PlaybackEngine {
       await fade.incoming.setVolume(_targetVolume);
       _activeIndex = 1 - _activeIndex;
       _fade = null;
-      if (fade.plan?.beatMatched ?? false) _rampSpeed(fade.incoming, _speed * fade.plan!.speed);
+      if (fade.plan?.beatMatched ?? false) {
+        _rampSpeed(fade.incoming, _speed * fade.plan!.speed, _speed, const Duration(seconds: 8));
+      }
     } finally {
       _editing = false;
       automixing.value = false;
@@ -646,6 +684,7 @@ class PlaybackEngine {
     }
     // Release the old playlist's decoder; its factories remain ready for the next fade.
     await fade.outgoing.stop();
+    await fade.outgoing.setSpeed(_speed);
     await _clearBassCuts();
   }
 
