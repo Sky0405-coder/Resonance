@@ -27,4 +27,8 @@ if ! "$ADB" shell "cat /proc/net/tcp /proc/net/tcp6 2>/dev/null" | grep -qiE ':1
 fi
 "$ADB" forward tcp:5277 tcp:5277
 cd "$DHU"
-LD_LIBRARY_PATH="$LIBCXX:$DHU" exec ./desktop-head-unit "$@"
+# The DHU reads console commands from stdin and quits at its end; keep it open when started without a terminal.
+if [ -t 0 ]; then
+  LD_LIBRARY_PATH="$LIBCXX:$DHU" exec ./desktop-head-unit "$@"
+fi
+tail -f /dev/null | LD_LIBRARY_PATH="$LIBCXX:$DHU" ./desktop-head-unit "$@"
