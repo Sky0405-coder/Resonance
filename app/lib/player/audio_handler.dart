@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -38,9 +39,18 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
   OfflineState get _offline => container.read(offlineProvider);
   AppLocalizations get _l10n => lookupAppLocalizations(container.read(appLocaleProvider));
 
+  /// Stations listed in the browse tree, to play them by id.
+  final _stations = <String, Station>{};
+
+  Station _rememberStation(Station station) => _stations[station.id] = station;
+
   Uri _cover(String albumId) {
     final file = _offline.coverPath(albumId);
-    return file == null ? Uri.parse(_api.coverUrl(albumId, size: 600)) : Uri.file(file);
+    if (file == null) return Uri.parse(_api.coverUrl(albumId, size: 600));
+    // Android Auto cannot read the app's private files; the app's CoverProvider serves downloaded covers.
+    return defaultTargetPlatform == TargetPlatform.android
+        ? Uri.parse('content://de.knode.resonance.covers/$albumId')
+        : Uri.file(file);
   }
 
   MediaItem _trackItem(Track track, String id) => MediaItem(
@@ -297,7 +307,19 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
       ];
     }
     if (id == 'world-radio') {
-      return [for (final station in await container.read(worldRadioFavoritesProvider.future)) _stationItem(station)];
+      // Favorites first, then the most popular German stations, so the list is never empty.
+      final favorites = await container.read(worldRadioFavoritesProvider.future);
+      var popular = <Station>[];
+      try {
+        popular = await _api.worldRadioStations(country: 'DE');
+      } catch (_) {
+        // Favorites alone still work without the station directory.
+      }
+      final seen = <String>{};
+      return [
+        for (final station in [...favorites, ...popular.take(40)])
+          if (seen.add(station.id)) _stationItem(_rememberStation(station)),
+      ];
     }
     if (id == 'downloads') return _offlineCollections();
     if (id == 'home' || id == 'playlists' || id == 'albums') {
@@ -312,7 +334,18 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
       }
       try {
         if (id == 'playlists') {
-          return [for (final playlist in await container.read(playlistsProvider.future)) _playlist(playlist)];
+          // Like the desktop sidebar: own and saved playlists, not the generated mixes and radios.
+          final liked = await _tracks('liked');
+          return [
+            _folder(
+              'liked',
+              _l10n.libraryLikedSongs,
+              subtitle: _l10n.commonSongs(liked.length),
+              artUri: liked.isEmpty ? null : _cover(liked.first.album.id),
+            ),
+            for (final playlist in await container.read(playlistsProvider.future))
+              if (!playlist.isMix && !playlist.isRadio) _playlist(playlist),
+          ];
         }
         if (id == 'albums') {
           return [for (final album in await container.read(savedAlbumsProvider.future)) _album(album)];
@@ -377,7 +410,9 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     try {
       if (mediaId.startsWith('station:')) {
         final id = mediaId.substring(8);
-        final station = (await container.read(worldRadioFavoritesProvider.future)).where((s) => s.id == id).firstOrNull;
+        final station =
+            _stations[id] ??
+            (await container.read(worldRadioFavoritesProvider.future)).where((s) => s.id == id).firstOrNull;
         if (station != null) await _controller.playStation(station);
         return;
       }
