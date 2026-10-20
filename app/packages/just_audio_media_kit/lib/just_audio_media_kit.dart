@@ -47,8 +47,39 @@ class JustAudioMediaKit extends JustAudioPlatform {
 
   static void setAudioFilter(String? filter) {
     audioFilter = filter;
+    _applyFilters();
+  }
+
+  /// Extra filters for whichever player is playing a media whose URI contains the key (e.g. a song's stream path),
+  /// added after [audioFilter]. Lets two players apply different filters, like AutoMix's bass swap.
+  static final _sourceFilters = <String, String>{};
+
+  static void setSourceFilter(String key, String? filter) {
+    if (filter == null) {
+      if (_sourceFilters.remove(key) == null) return;
+    } else {
+      if (_sourceFilters[key] == filter) return;
+      _sourceFilters[key] = filter;
+    }
+    _applyFilters();
+  }
+
+  static bool get hasFilters => audioFilter != null || _sourceFilters.isNotEmpty;
+
+  /// The combined filter for a player playing [uri].
+  static String? filterFor(String? uri) {
+    final parts = [
+      if (audioFilter != null && audioFilter!.isNotEmpty) audioFilter!,
+      if (uri != null)
+        for (final entry in _sourceFilters.entries)
+          if (uri.contains(entry.key)) entry.value,
+    ];
+    return parts.isEmpty ? null : parts.join(',');
+  }
+
+  static void _applyFilters() {
     for (final player in _filterPlayers) {
-      unawaited(player.setAudioFilter(filter).catchError((Object error) {
+      unawaited(player.applyFilters().catchError((Object error) {
         _logger.warning('Could not set audio filter', error);
       }));
     }
@@ -110,7 +141,7 @@ class JustAudioMediaKit extends JustAudioPlatform {
     _players[request.id] = player;
     _filterPlayers.add(player);
     await player.ready();
-    await player.setAudioFilter(audioFilter);
+    await player.applyFilters();
     _logger.fine('player ready! (players: $_players)');
     return player;
   }

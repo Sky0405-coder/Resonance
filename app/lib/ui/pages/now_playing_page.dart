@@ -116,12 +116,19 @@ class NowPlayingPage extends ConsumerWidget {
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                track.title,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: Theme.of(context).textTheme.headlineSmall
-                                                    ?.copyWith(fontWeight: FontWeight.w800),
+                                              Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      track.title,
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: Theme.of(context).textTheme.headlineSmall
+                                                          ?.copyWith(fontWeight: FontWeight.w800),
+                                                    ),
+                                                  ),
+                                                  const AutomixChip(),
+                                                ],
                                               ),
                                               InkWell(
                                                 onTap: () {

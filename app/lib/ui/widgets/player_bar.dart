@@ -337,6 +337,45 @@ class LikeButton extends ConsumerWidget {
 }
 
 /// Desktop: full-width bar at the bottom of the window.
+/// Shown while an AutoMix transition plays.
+class AutomixChip extends ConsumerWidget {
+  const AutomixChip({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => ValueListenableBuilder<bool>(
+    valueListenable: ref.read(playerProvider.notifier).engine.automixing,
+    builder: (context, mixing, _) => AnimatedOpacity(
+      opacity: mixing ? 1 : 0,
+      duration: const Duration(milliseconds: 300),
+      child: mixing
+          ? Container(
+              margin: const EdgeInsets.only(left: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).colorScheme.primary),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.graphic_eq, size: 12, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 3),
+                  Text(
+                    context.l10n.settingsAutomix,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : const SizedBox.shrink(),
+    ),
+  );
+}
+
 class DesktopPlayerBar extends ConsumerWidget {
   const DesktopPlayerBar({super.key});
 
@@ -380,6 +419,7 @@ class DesktopPlayerBar extends ConsumerWidget {
                                   ),
                                 ),
                                 const JamChip(),
+                                const AutomixChip(),
                               ],
                             ),
                             InkWell(

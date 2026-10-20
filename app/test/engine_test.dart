@@ -202,6 +202,16 @@ void main() {
       expect(automixPlan(points(mixOut: 0, end: 5), points()), isNull);
     });
 
+    test('swaps the bass on a beat near the middle of the overlap', () {
+      // 9.75 s overlap at 124 BPM: the middle (4.875 s) rounds to beat 10 (4.84 s).
+      final plan = automixPlan(points(bpm: 124, mixOut: 200.25), points(bpm: 120, mixIn: 1.5))!;
+      expect(plan.bassSwap.inMicroseconds / 1e6, closeTo(10 * 60 / 124, 1e-3));
+      expect(automixPlan(points(mixOut: 100, end: 110), points())!.bassSwap, const Duration(seconds: 5));
+      // Up to 10 % tempo difference is matched.
+      expect(automixPlan(points(bpm: 109), points(bpm: 100))!.beatMatched, isTrue);
+      expect(automixPlan(points(bpm: 112), points(bpm: 100))!.beatMatched, isFalse);
+    });
+
     test('equal-power volumes', () {
       final (start, _) = automixVolumes(
         elapsed: Duration.zero,

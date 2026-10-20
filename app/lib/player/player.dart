@@ -169,6 +169,8 @@ class PlayerController extends Notifier<PlayerView> {
       _equalizerDebounce = Timer(const Duration(milliseconds: 80), () => engine.setEqualizer(settings).ignore());
     });
     engine.mixPointsForIndex = _mixPointsFor;
+    // Stream URLs and offline files both contain the song id.
+    engine.sourceKeyForIndex = (index) => index < state.queue.length ? state.queue[index].id : null;
     _subs.addAll([
       engine.playerStateStream.listen((s) {
         if (_switching || state.jamRemote) return;

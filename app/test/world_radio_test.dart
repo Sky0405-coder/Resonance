@@ -65,6 +65,8 @@ class _Engine implements PlaybackEngine {
   @override
   MixPoints? Function(int index)? mixPointsForIndex;
   @override
+  String? Function(int index)? sourceKeyForIndex;
+  @override
   bool isBook = false;
   @override
   double Function(int)? targetVolumeForIndex;

@@ -25,6 +25,18 @@ class MediaKitPlayer extends AudioPlayerPlatform {
   /// Completes when the player is ready
   Future<void> ready() => _readyCompleter.future;
 
+  String? _appliedFilter;
+  bool _filterApplied = false;
+
+  /// Applies the global and this media's source filters (see [JustAudioMediaKit.setSourceFilter]).
+  Future<void> applyFilters({bool force = false}) async {
+    final filter = JustAudioMediaKit.filterFor(_currentMedia?.uri);
+    if (!force && _filterApplied && filter == _appliedFilter) return;
+    _appliedFilter = filter;
+    _filterApplied = true;
+    await setAudioFilter(filter);
+  }
+
   Future<void> setAudioFilter(String? filter) async {
     await ready();
     // media_kit uses the same property for tempo/pitch control. Keep it when
@@ -170,6 +182,8 @@ class MediaKitPlayer extends AudioPlayerPlatform {
           _bufferedPosition = _position = Duration.zero;
           _currentIndex = playlist.index;
         }
+        // Source filters follow the media (the bass swap belongs to one song, not the player).
+        if (JustAudioMediaKit.hasFilters || _appliedFilter != null) unawaited(applyFilters());
         _duration = _currentMedia?.extras?['overrideDuration'];
         _updatePlaybackEvent();
       }),
@@ -305,8 +319,8 @@ class MediaKitPlayer extends AudioPlayerPlatform {
   @override
   Future<SetSpeedResponse> setSpeed(SetSpeedRequest request) async {
     await _player.setRate(request.speed);
-    if (JustAudioMediaKit.audioFilter != null) {
-      await setAudioFilter(JustAudioMediaKit.audioFilter);
+    if (JustAudioMediaKit.hasFilters || _appliedFilter != null) {
+      await applyFilters(force: true);
     }
     return SetSpeedResponse();
   }
@@ -314,8 +328,8 @@ class MediaKitPlayer extends AudioPlayerPlatform {
   @override
   Future<SetPitchResponse> setPitch(SetPitchRequest request) async {
     await _player.setPitch(request.pitch);
-    if (JustAudioMediaKit.audioFilter != null) {
-      await setAudioFilter(JustAudioMediaKit.audioFilter);
+    if (JustAudioMediaKit.hasFilters || _appliedFilter != null) {
+      await applyFilters(force: true);
     }
     return SetPitchResponse();
   }
