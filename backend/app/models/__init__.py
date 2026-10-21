@@ -11,7 +11,20 @@ from app.models.collection import (
 )
 from app.models.downloads import DownloadItem, DownloadRequest, QualityUpgradeAttempt
 from app.models.imports import ImportBatch, ImportFile
-from app.models.library import Album, Artist, Track, TrackFingerprint, TrackLyrics, TrackMixPoints
+from app.models.library import (
+    Album,
+    Artist,
+    Track,
+    TrackFingerprint,
+    TrackLyrics,
+    TrackMixPoints,
+)
+from app.models.podcasts import (
+    EpisodeProgress,
+    Podcast,
+    PodcastEpisode,
+    PodcastSubscription,
+)
 from app.models.spotify import (
     SpotifyAccount,
     SpotifyImport,
@@ -21,7 +34,14 @@ from app.models.spotify import (
     SpotifyTrackMap,
 )
 from app.models.system import Job, ServerSetting
-from app.models.user import DEFAULT_ACCENT, AudiobookshelfAccount, AuthSession, Invite, Role, User
+from app.models.user import (
+    DEFAULT_ACCENT,
+    AudiobookshelfAccount,
+    AuthSession,
+    Invite,
+    Role,
+    User,
+)
 
 __all__ = [
     "DEFAULT_ACCENT",
@@ -34,6 +54,7 @@ __all__ = [
     "BookRequest",
     "DownloadItem",
     "DownloadRequest",
+    "EpisodeProgress",
     "ImportBatch",
     "ImportFile",
     "Invite",
@@ -42,6 +63,9 @@ __all__ = [
     "Playlist",
     "PlaylistEntry",
     "PlaylistShare",
+    "Podcast",
+    "PodcastEpisode",
+    "PodcastSubscription",
     "QualityUpgradeAttempt",
     "RadioPending",
     "RadioStationFavorite",

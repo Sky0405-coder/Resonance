@@ -17,6 +17,7 @@ import '../core/api.dart';
 import '../core/downloads.dart';
 import '../offline/offline_store.dart';
 import '../core/audiobooks.dart';
+import '../core/podcasts.dart';
 import '../core/models.dart';
 import '../core/session.dart';
 
@@ -28,7 +29,7 @@ class BookPart {
   final double duration;
 }
 
-/// An Audiobookshelf playback session that is currently loaded into the engine.
+/// Spoken-word playback: an Audiobookshelf session or one podcast episode.
 class BookPlayback {
   const BookPlayback({
     required this.itemId,
@@ -39,7 +40,9 @@ class BookPlayback {
     required this.parts,
     required this.chapters,
     this.author,
+    this.episode,
   });
+  final PodcastEpisode? episode;
   final String itemId;
   final String sessionId;
   final String title;
@@ -207,7 +210,10 @@ class PlayerController extends Notifier<PlayerView> {
     _subs.addAll([
       engine.playerStateStream.listen((s) {
         if (_switching || state.jamRemote) return;
-        // Save the audiobook position right away when pausing.
+        if (s.processingState == ProcessingState.completed && state.book?.episode != null) {
+          _syncBook(completed: true).ignore();
+        }
+        // Save the spoken-word position right away when pausing.
         if (state.playing && !s.playing && state.book != null) _syncBook().ignore();
         state = _copy(
           playing: s.playing,
@@ -406,6 +412,8 @@ class PlayerController extends Notifier<PlayerView> {
     final previousIndex = engine.currentIndex ?? 0;
     final previousPosition = engine.position;
     final previousBookPosition = bookPosition;
+    final previousBookDuration = _spokenDuration;
+    final previousCompleted = engine.processingState == ProcessingState.completed;
     _stopStationPolling();
     _switching = true;
     try {
@@ -440,13 +448,15 @@ class PlayerController extends Notifier<PlayerView> {
       throw ApiException(
         next.station != null
             ? _l10n.worldRadioUnavailable
+            : next.book?.episode != null
+            ? _l10n.playerPodcastLoadError
             : next.book == null
             ? _l10n.playerMusicLoadError
             : _l10n.playerAudiobookLoadError,
       );
     }
     // Use the old position: the player's sources now belong to the new item.
-    await _closeBook(position: previousBookPosition);
+    await _closeBook(position: previousBookPosition, duration: previousBookDuration, completed: previousCompleted);
     _flushPlayReport();
     _stationGeneration++;
     _stationRetry?.cancel();
@@ -517,6 +527,7 @@ class PlayerController extends Notifier<PlayerView> {
     _stationRetry = null;
     _stopStationPolling();
     await engine.pause();
+    if (state.book != null) await _syncBook();
   }
 
   Future<void> stop() async {
@@ -633,7 +644,7 @@ class PlayerController extends Notifier<PlayerView> {
     if (!engine.automix ||
         jam != null ||
         tracks.length < 2 ||
-        ['jam:', 'book:', 'station:'].any((prefix) => context?.startsWith(prefix) ?? false)) {
+        ['jam:', 'book:', 'episode:', 'station:'].any((prefix) => context?.startsWith(prefix) ?? false)) {
       return null;
     }
     try {
@@ -950,6 +961,38 @@ class PlayerController extends Notifier<PlayerView> {
 
   Timer? _bookSync;
   double _bookListened = 0;
+  Future<void> _pendingEpisodeSync = Future.value();
+
+  double get _spokenDuration => state.book == null
+      ? 0
+      : (state.book?.duration ?? 0) > 0
+      ? state.book!.duration
+      : (engine.duration?.inMilliseconds ?? 0) / 1000;
+
+  /// Uses the same single-source spoken-word mode as audiobooks, without an ABS session.
+  Future<void> playEpisode(PodcastEpisode episode) => _switch(() async {
+    final current = await _api.podcastEpisode(episode.id);
+    final url = _api.episodeStreamUrl(current.id);
+    final duration = current.durationSeconds ?? 0;
+    final position = current.completed ? 0.0 : current.positionSeconds;
+    final book = BookPlayback(
+      itemId: current.id,
+      sessionId: '',
+      title: current.title,
+      author: current.podcastTitle,
+      coverUrl: current.coverUrl ?? '',
+      duration: duration,
+      parts: [BookPart(url: url, start: 0, duration: duration)],
+      chapters: const [],
+      episode: current,
+    );
+    await _replacePlayback(
+      PlayerView(book: book, context: 'episode:${current.id}', speed: state.speed),
+      [() => AudioSource.uri(Uri.parse(url))],
+      index: 0,
+      position: Duration(milliseconds: ((duration > 0 ? position.clamp(0, duration) : position) * 1000).round()),
+    );
+  });
 
   /// Position within the whole book in seconds.
   double get bookPosition {
@@ -1008,7 +1051,8 @@ class PlayerController extends Notifier<PlayerView> {
   Future<void> seekBook(double seconds) async {
     final book = state.book;
     if (book == null) return;
-    final target = seconds.clamp(0, book.duration - 1).toDouble();
+    final duration = _spokenDuration;
+    final target = seconds.clamp(0, duration > 0 ? math.max(0, duration - 1) : double.infinity).toDouble();
     var index = book.parts.lastIndexWhere((p) => p.start <= target);
     if (index < 0) index = 0;
     await engine.seek(Duration(milliseconds: ((target - book.parts[index].start) * 1000).round()), index: index);
@@ -1016,9 +1060,31 @@ class PlayerController extends Notifier<PlayerView> {
 
   Future<void> skipBook(double seconds) => seekBook(bookPosition + seconds);
 
-  Future<void> _syncBook({bool close = false, double? position}) async {
+  Future<void> _syncBook({bool close = false, double? position, double? duration, bool? completed}) async {
     final book = state.book;
     if (book == null) return;
+    final episode = book.episode;
+    if (episode != null) {
+      final seconds = position ?? bookPosition;
+      final length = duration ?? _spokenDuration;
+      final finished =
+          (completed ?? engine.processingState == ProcessingState.completed) || (length > 0 && seconds >= length - 30);
+      // Preserve write order when a periodic save overlaps a pause or replacement.
+      final api = _api;
+      final pending = _pendingEpisodeSync.then(
+        (_) => api.saveEpisodeProgress(episode.id, seconds, completed: finished),
+      );
+      _pendingEpisodeSync = pending.catchError((Object _) {});
+      try {
+        await pending;
+        ref.invalidate(podcastContinueProvider);
+        ref.invalidate(podcastSubscriptionsProvider);
+        ref.invalidate(podcastProvider(episode.podcastId));
+      } catch (_) {
+        // A subsequent periodic save, pause or stop retries the current position.
+      }
+      return;
+    }
     final listened = _bookListened;
     _bookListened = 0;
     final body = {'currentTime': position ?? bookPosition, 'timeListened': listened, 'duration': book.duration};
@@ -1030,14 +1096,15 @@ class PlayerController extends Notifier<PlayerView> {
     }
   }
 
-  Future<void> _closeBook({required double position}) async {
+  Future<void> _closeBook({required double position, double? duration, bool? completed}) async {
     if (state.book == null) return;
     _bookSync?.cancel();
     _bookSync = null;
-    await _syncBook(close: true, position: position);
+    await _syncBook(close: true, position: position, duration: duration, completed: completed);
   }
 
   Future<void> setSpeed(double speed) async {
+    speed = speed.clamp(0.5, 2.0);
     state = _copy(speed: speed);
     await engine.setSpeed(speed);
   }

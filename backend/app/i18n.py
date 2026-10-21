@@ -5,6 +5,10 @@ import re
 from fastapi import Request
 
 _EXACT: dict[str, str] = {
+    "Podcast nicht gefunden": "Podcast not found",
+    "Episode nicht gefunden": "Episode not found",
+    "Podcast-Suche nicht erreichbar": "Podcast search unavailable",
+    "Podcast-Feed nicht erreichbar oder ungültig": "Podcast feed unavailable or invalid",
     "Bücher sind nicht aktiviert": "Books are not enabled",
     "Automatische Downloads sind deaktiviert": "Automatic downloads are disabled",
     "Das Buch ist schon in der Bibliothek": "The book is already in the library",

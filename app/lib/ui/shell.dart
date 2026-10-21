@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/audiobooks.dart';
+import '../core/podcasts.dart';
 import '../core/books.dart';
 import '../core/downloads.dart';
 import '../core/library.dart';
@@ -44,6 +45,8 @@ class AppShell extends ConsumerWidget {
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
     final audiobooks = ref.watch(audiobooksVisibleProvider);
     final ebooks = ref.watch(ebooksVisibleProvider);
+    final podcasts = ref.watch(podcastsVisibleProvider);
+    final combinedPodcasts = podcasts && (ebooks || audiobooks) && isAdmin;
     final pendingApproval = isAdmin ? ref.watch(downloadSummaryProvider).value?.pendingApproval ?? 0 : 0;
     // Refresh library views whenever downloads finish.
     ref.listen(downloadSummaryProvider, (prev, next) {
@@ -91,14 +94,20 @@ class AppShell extends ConsumerWidget {
       ('/', Icons.home_outlined, Icons.home, context.l10n.navHome),
       ('/search', Icons.search, Icons.search, context.l10n.navSearch),
       ('/library', Icons.library_music_outlined, Icons.library_music, context.l10n.navLibrary),
-      // Ebooks and audiobooks share one tab so the bar stays short.
-      if (ebooks)
+      // Ebooks and audiobooks share one tab; podcasts join it when the bar would exceed five.
+      if (ebooks || combinedPodcasts)
         ('/books', Icons.menu_book_outlined, Icons.menu_book, context.l10n.navBooks)
       else if (audiobooks)
         ('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
+      if (podcasts && !combinedPodcasts)
+        ('/podcasts', Icons.podcasts_outlined, Icons.podcasts, context.l10n.navPodcasts),
       if (isAdmin) ('/admin', Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, context.l10n.navAdmin),
     ];
-    final tabLocation = ebooks && location.startsWith('/audiobooks') ? '/books' : location;
+    final tabLocation =
+        (ebooks && location.startsWith('/audiobooks')) ||
+            (combinedPodcasts && (location.startsWith('/podcasts') || location.startsWith('/audiobooks')))
+        ? '/books'
+        : location;
     var selected = tabs.lastIndexWhere((t) => t.$1 != '/' && tabLocation.startsWith(t.$1));
     if (selected < 0) selected = 0;
 
@@ -185,6 +194,8 @@ class _Sidebar extends ConsumerWidget {
                 nav('/books', Icons.menu_book_outlined, Icons.menu_book, context.l10n.navBooks)
               else if (ref.watch(audiobooksVisibleProvider))
                 nav('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
+              if (ref.watch(podcastsVisibleProvider))
+                nav('/podcasts', Icons.podcasts_outlined, Icons.podcasts, context.l10n.navPodcasts),
               if (isAdmin)
                 nav(
                   '/admin',

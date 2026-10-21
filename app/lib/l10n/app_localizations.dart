@@ -4639,6 +4639,114 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Alle Neuigkeiten'**
   String get changelogAll;
+
+  /// No description provided for @navPodcasts.
+  ///
+  /// In de, this message translates to:
+  /// **'Podcasts'**
+  String get navPodcasts;
+
+  /// No description provided for @podcastsContinue.
+  ///
+  /// In de, this message translates to:
+  /// **'Weiterhören'**
+  String get podcastsContinue;
+
+  /// No description provided for @podcastsSubscriptions.
+  ///
+  /// In de, this message translates to:
+  /// **'Abos'**
+  String get podcastsSubscriptions;
+
+  /// No description provided for @podcastsSearch.
+  ///
+  /// In de, this message translates to:
+  /// **'Podcasts suchen'**
+  String get podcastsSearch;
+
+  /// No description provided for @podcastsAddRss.
+  ///
+  /// In de, this message translates to:
+  /// **'Per RSS-Link hinzufügen'**
+  String get podcastsAddRss;
+
+  /// No description provided for @podcastsRssUrl.
+  ///
+  /// In de, this message translates to:
+  /// **'RSS-Link'**
+  String get podcastsRssUrl;
+
+  /// No description provided for @podcastsEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine Abos. Suche nach einem Podcast oder füge einen RSS-Link hinzu.'**
+  String get podcastsEmpty;
+
+  /// No description provided for @podcastsSubscribe.
+  ///
+  /// In de, this message translates to:
+  /// **'Abonnieren'**
+  String get podcastsSubscribe;
+
+  /// No description provided for @podcastsSubscribed.
+  ///
+  /// In de, this message translates to:
+  /// **'Abonniert'**
+  String get podcastsSubscribed;
+
+  /// No description provided for @podcastsUnsubscribe.
+  ///
+  /// In de, this message translates to:
+  /// **'Abo beenden'**
+  String get podcastsUnsubscribe;
+
+  /// No description provided for @podcastsDescription.
+  ///
+  /// In de, this message translates to:
+  /// **'Beschreibung'**
+  String get podcastsDescription;
+
+  /// No description provided for @podcastsEpisodes.
+  ///
+  /// In de, this message translates to:
+  /// **'Episoden'**
+  String get podcastsEpisodes;
+
+  /// No description provided for @podcastsEpisode.
+  ///
+  /// In de, this message translates to:
+  /// **'Podcast-Episode'**
+  String get podcastsEpisode;
+
+  /// No description provided for @podcastsCompleted.
+  ///
+  /// In de, this message translates to:
+  /// **'Abgeschlossen'**
+  String get podcastsCompleted;
+
+  /// No description provided for @podcastsLoadMore.
+  ///
+  /// In de, this message translates to:
+  /// **'Weitere Episoden laden'**
+  String get podcastsLoadMore;
+
+  /// No description provided for @podcastsOpen.
+  ///
+  /// In de, this message translates to:
+  /// **'Podcast öffnen'**
+  String get podcastsOpen;
+
+  /// No description provided for @podcastsSkipBack.
+  ///
+  /// In de, this message translates to:
+  /// **'15 Sekunden zurück'**
+  String get podcastsSkipBack;
+
+  /// No description provided for @playerPodcastLoadError.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut.'**
+  String get playerPodcastLoadError;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

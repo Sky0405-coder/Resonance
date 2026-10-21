@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/audiobooks.dart';
 import '../../core/books.dart';
+import '../../core/podcasts.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
@@ -13,6 +14,7 @@ import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/track_list.dart';
 import 'audiobook_pages.dart';
+import 'podcast_pages.dart';
 
 String _statusText(AppLocalizations l10n, String status) => switch (status) {
   'pending_approval' => l10n.booksStatusPending,
@@ -89,32 +91,33 @@ class BooksHubPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ebooks = ref.watch(ebooksVisibleProvider);
     final audiobooks = ref.watch(audiobooksVisibleProvider);
-    if (!ebooks) return const AudiobooksPage();
-    final title = Text(context.l10n.navBooks, style: const TextStyle(fontWeight: FontWeight.w800));
-    if (!audiobooks) {
-      return Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(title: title, actions: const [_EbookActions()]),
-        body: const _EbooksView(),
-      );
-    }
+    final podcasts =
+        !isWide(context) &&
+        ref.watch(podcastsVisibleProvider) &&
+        ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
+    final tabs = <(String, Widget)>[
+      if (ebooks) (context.l10n.booksEbooks, const _EbooksView()),
+      if (audiobooks) (context.l10n.navAudiobooks, const AudiobooksPage(embedded: true)),
+      if (podcasts) (context.l10n.navPodcasts, const PodcastsPage(embedded: true)),
+    ];
+    if (tabs.isEmpty) return const PodcastsPage();
+    if (tabs.length == 1 && audiobooks) return const AudiobooksPage();
     return DefaultTabController(
-      length: 2,
+      length: tabs.length,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: title,
-          actions: const [_EbookActions()],
-          bottom: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [
-              Tab(text: context.l10n.booksEbooks),
-              Tab(text: context.l10n.navAudiobooks),
-            ],
-          ),
+          title: Text(context.l10n.navBooks, style: const TextStyle(fontWeight: FontWeight.w800)),
+          actions: [if (ebooks) const _EbookActions(), if (podcasts) const PodcastActions()],
+          bottom: tabs.length > 1
+              ? TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  tabs: [for (final tab in tabs) Tab(text: tab.$1)],
+                )
+              : null,
         ),
-        body: const TabBarView(children: [_EbooksView(), AudiobooksPage(embedded: true)]),
+        body: TabBarView(children: [for (final tab in tabs) tab.$2]),
       ),
     );
   }

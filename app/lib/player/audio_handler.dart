@@ -136,9 +136,11 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
                 id: '${book.itemId}:$index',
                 title: book.title,
                 artist: book.author,
-                album: book.parts.length > 1 ? _l10n.playerBookPart(index + 1, book.parts.length) : null,
-                duration: Duration(milliseconds: (part.duration * 1000).round()),
-                artUri: Uri.parse(book.coverUrl),
+                album:
+                    book.episode?.podcastTitle ??
+                    (book.parts.length > 1 ? _l10n.playerBookPart(index + 1, book.parts.length) : null),
+                duration: part.duration > 0 ? Duration(milliseconds: (part.duration * 1000).round()) : null,
+                artUri: book.coverUrl.isEmpty ? null : Uri.parse(book.coverUrl),
               ),
           ];
     queue.add(items);
@@ -260,7 +262,7 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
 
   @override
   Future<void> rewind() async {
-    if (_view.book != null) await _controller.skipBook(-30);
+    if (_view.book != null) await _controller.skipBook(_view.book?.episode != null ? -15 : -30);
   }
 
   @override

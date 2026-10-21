@@ -25,6 +25,7 @@ from app.api import (
     mixes,
     opds,
     playlists,
+    podcasts,
     radio,
     recommendations,
     requests,
@@ -49,6 +50,7 @@ from app.services import (
 )
 from app.services import audiobookshelf as abs_service
 from app.services import mixes as mixes_service
+from app.services import podcasts as podcasts_service
 from app.services import radio as radio_service
 from app.services import spotify as spotify_service
 from app.services import spotify_sync as spotify_sync_service
@@ -76,6 +78,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await artist_info.start()
     await mixpoints.start()
     await lyrics.start()
+    await podcasts_service.start()
     await duplicates.start()
     await upgrades.start()
     await jam_hub.start()
@@ -85,6 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await duplicates.stop()
         await mixpoints.stop()
         await lyrics.stop()
+        await podcasts_service.stop()
         await artist_info.stop()
         await genres.stop()
         await jam_hub.stop()
@@ -123,6 +127,7 @@ for module in (
     me,
     library,
     playlists,
+    podcasts,
     radio,
     recommendations,
     mixes,

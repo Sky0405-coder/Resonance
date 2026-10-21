@@ -1,0 +1,484 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:resonance/core/api.dart';
+import 'package:resonance/core/audiobooks.dart';
+import 'package:resonance/core/books.dart';
+import 'package:resonance/core/downloads.dart';
+import 'package:resonance/core/media_sections.dart';
+import 'package:resonance/core/models.dart';
+import 'package:resonance/core/podcasts.dart';
+import 'package:resonance/core/session.dart';
+import 'package:resonance/l10n/l10n.dart';
+import 'package:resonance/offline/offline_store.dart';
+import 'package:resonance/player/engine.dart';
+import 'package:resonance/player/equalizer.dart';
+import 'package:resonance/player/player.dart';
+import 'package:resonance/ui/pages/book_pages.dart';
+import 'package:resonance/ui/pages/podcast_pages.dart';
+import 'package:resonance/ui/widgets/player_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const _episode = PodcastEpisode(
+  id: 'episode',
+  podcastId: 'podcast',
+  title: 'Episode title',
+  podcastTitle: 'Podcast title',
+  durationSeconds: 300,
+  positionSeconds: 60,
+);
+const _track = Track(
+  id: 'track',
+  title: 'Music',
+  duration: 120,
+  artist: NamedRef('artist', 'Artist'),
+  artistCredit: 'Artist',
+  album: NamedRef('album', 'Album'),
+);
+
+class _Api extends ApiClient {
+  _Api() : super('https://resonance.example', 'secret-token');
+  PodcastEpisode episode = _episode;
+  final saves = <(String, double, bool)>[];
+  final queries = <String>[];
+  final feeds = <String>[];
+  final pages = <int>[];
+  bool subscribed = true;
+  bool manyEpisodes = false;
+  int absCalls = 0;
+
+  @override
+  Future<PodcastEpisode> podcastEpisode(String id) async => episode;
+  @override
+  Future<void> saveEpisodeProgress(String id, double position, {required bool completed}) async {
+    saves.add((id, position, completed));
+  }
+
+  @override
+  Future<dynamic> absPost(String path, [Object? body]) async {
+    absCalls++;
+    throw StateError('Episodes must not use ABS sessions');
+  }
+
+  @override
+  Future<List<PodcastEpisode>> podcastContinue() async => [episode];
+  @override
+  Future<List<Podcast>> podcastSubscriptions() async => subscribed ? [await podcast('podcast')] : [];
+  @override
+  Future<Podcast> podcast(String id, {int offset = 0, int limit = 50}) async {
+    pages.add(offset);
+    return Podcast(
+      id: id,
+      feedUrl: 'https://pod.example/feed',
+      title: 'Podcast title',
+      author: 'Author',
+      description: 'Plain description',
+      subscribed: subscribed,
+      unplayedCount: 3,
+      episodes: offset > 0
+          ? []
+          : manyEpisodes
+          ? List.filled(50, episode)
+          : [episode],
+    );
+  }
+
+  @override
+  Future<List<PodcastSearchResult>> podcastSearch(String query) async {
+    queries.add(query);
+    return const [PodcastSearchResult(feedUrl: 'https://pod.example/feed', title: 'Search result', author: 'Author')];
+  }
+
+  @override
+  Future<Podcast> openPodcast(String feedUrl) async => podcast('podcast');
+  @override
+  Future<Podcast> subscribePodcast(String feedUrl) async {
+    feeds.add(feedUrl);
+    subscribed = true;
+    return podcast('podcast');
+  }
+
+  @override
+  Future<void> unsubscribePodcast(String id) async {
+    subscribed = false;
+  }
+
+  @override
+  Future<List<Track>> recommendations({
+    required List<String> trackIds,
+    List<String> excludeIds = const [],
+    int limit = 20,
+  }) async => [];
+}
+
+class _Engine implements PlaybackEngine {
+  final states = StreamController<PlayerState>.broadcast(sync: true);
+  @override
+  Stream<PlayerState> get playerStateStream => states.stream;
+  @override
+  Stream<Object> get errorStream => const Stream.empty();
+  @override
+  Stream<Duration> get positionStream => const Stream.empty();
+  @override
+  Stream<int?> get currentIndexStream => const Stream.empty();
+  @override
+  Stream<LoopMode> get loopModeStream => const Stream.empty();
+  @override
+  bool playing = false;
+  @override
+  ProcessingState processingState = ProcessingState.ready;
+  @override
+  Duration position = Duration.zero;
+  @override
+  Duration? duration = const Duration(seconds: 300);
+  @override
+  int? currentIndex;
+  @override
+  List<SourceFactory> audioSources = [];
+  @override
+  bool isBook = false;
+  @override
+  int crossfadeSeconds = 0;
+  @override
+  bool automix = false;
+  @override
+  double speed = 1;
+  @override
+  double Function(int)? targetVolumeForIndex;
+  @override
+  MixPoints? Function(int)? mixPointsForIndex;
+  @override
+  String? Function(int)? sourceKeyForIndex;
+  @override
+  Future<void> setEqualizer(EqualizerSettings settings) async {}
+  @override
+  Future<void> setVolume(double value) async {}
+  @override
+  Future<void> finishFade() async {}
+  @override
+  Future<void> setLoopMode(LoopMode mode) async {}
+  @override
+  Future<void> setSpeed(double value) async {
+    speed = value;
+  }
+
+  @override
+  Future<void> setSources(
+    List<SourceFactory> sources, {
+    int initialIndex = 0,
+    Duration initialPosition = Duration.zero,
+    bool preserveCurrent = false,
+  }) async {
+    audioSources = sources;
+    currentIndex = initialIndex;
+    position = initialPosition;
+  }
+
+  @override
+  Future<void> play() async {
+    playing = true;
+    states.add(PlayerState(true, processingState));
+  }
+
+  @override
+  Future<void> pause() async {
+    playing = false;
+    states.add(PlayerState(false, processingState));
+  }
+
+  @override
+  Future<void> stop() => pause();
+  @override
+  Future<void> seek(Duration value, {int? index}) async {
+    position = value;
+  }
+
+  @override
+  Future<void> dispose() => states.close();
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Offline extends OfflineController {
+  @override
+  OfflineState build() => const OfflineState();
+}
+
+class _Session extends SessionNotifier {
+  @override
+  SessionState build() => SessionState(
+    user: User(
+      id: 'user',
+      username: 'admin',
+      displayName: 'Admin',
+      role: 'admin',
+      accentColor: '#1db954',
+      isDisabled: false,
+      createdAt: DateTime.utc(2026),
+    ),
+  );
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late ProviderContainer container;
+  late _Api api;
+  late _Engine engine;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    api = _Api();
+    engine = _Engine();
+    container = ProviderContainer(
+      overrides: [
+        prefsProvider.overrideWithValue(prefs),
+        apiProvider.overrideWithValue(api),
+        playerProvider.overrideWith(() => PlayerController(engine: engine)),
+        offlineProvider.overrideWith(_Offline.new),
+        downloadSummaryProvider.overrideWith((ref) async => const DownloadSummary()),
+        sessionProvider.overrideWith(_Session.new),
+        booksStatusProvider.overrideWith(
+          (ref) async => const BooksStatus(enabled: true, requestsEnabled: false, defaultLanguage: 'en'),
+        ),
+        absStatusProvider.overrideWith((ref) async => const AbsStatus(enabled: false, url: '', linked: false)),
+        bookLibraryProvider.overrideWith((ref, query) async => []),
+        bookRequestsProvider.overrideWith((ref, all) async => []),
+      ],
+    );
+  });
+  tearDown(() => container.dispose());
+
+  Future<void> page(WidgetTester tester, Widget child, {String language = 'en'}) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          locale: Locale(language),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: child,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  test('podcast models preserve nullable duration, per-user progress, and cover fallback', () {
+    final episode = PodcastEpisode.fromJson({
+      'id': 'one',
+      'podcast_id': 'pod',
+      'title': 'Title',
+      'podcast_title': 'Podcast',
+      'position_seconds': 35.5,
+      'completed': true,
+      'podcast_image_url': 'https://cover.example/pod',
+      'published_at': '2026-10-21T10:00:00Z',
+    });
+    expect(episode.durationSeconds, isNull);
+    expect(episode.positionSeconds, 35.5);
+    expect(episode.completed, true);
+    expect(episode.coverUrl, 'https://cover.example/pod');
+    expect(episode.publishedAt, DateTime.utc(2026, 10, 21, 10));
+    expect(
+      api.episodeStreamUrl('episode'),
+      'https://resonance.example/api/podcasts/episodes/episode/stream?token=secret-token',
+    );
+  });
+
+  test('podcasts default visible without any configured book service and can be hidden', () {
+    expect(container.read(podcastsVisibleProvider), true);
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, true);
+    expect(container.read(podcastsVisibleProvider), false);
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, false);
+    expect(container.read(podcastsVisibleProvider), true);
+  });
+
+  testWidgets('episodes resume, use spoken-word mode, save every 15 seconds, pause, stop and replacement', (
+    tester,
+  ) async {
+    final player = container.read(playerProvider.notifier);
+    player.setCrossfade(8);
+    player.setAutomix(true);
+    await player.playEpisode(_episode);
+    expect(engine.isBook, true);
+    expect(engine.position, const Duration(seconds: 60));
+    expect(container.read(playerProvider).queue, isEmpty);
+    expect(container.read(playerProvider).book!.author, 'Podcast title');
+    final source = engine.audioSources.single() as UriAudioSource;
+    expect(source.uri.toString(), api.episodeStreamUrl('episode'));
+    engine.position = const Duration(seconds: 80);
+    await tester.pump(const Duration(seconds: 15));
+    expect(api.saves.last, ('episode', 80.0, false));
+    engine.position = const Duration(seconds: 90);
+    await player.pause();
+    expect(api.saves.last, ('episode', 90.0, false));
+    engine.position = const Duration(seconds: 275);
+    await player.stop();
+    expect(api.saves.last, ('episode', 275.0, true));
+    await player.playTracks([_track], index: 0);
+    expect(api.saves.last, ('episode', 275.0, true));
+    expect(engine.isBook, false);
+    expect(engine.speed, 1);
+    expect(api.absCalls, 0);
+  });
+
+  testWidgets('unknown feed durations use engine duration, skips clamp, completed episodes restart', (tester) async {
+    final player = container.read(playerProvider.notifier);
+    api.episode = const PodcastEpisode(
+      id: 'episode',
+      podcastId: 'podcast',
+      title: 'Unknown',
+      podcastTitle: 'Podcast',
+      positionSeconds: 100,
+    );
+    await player.playEpisode(_episode);
+    await player.skipBook(-15);
+    expect(engine.position, const Duration(seconds: 85));
+    await player.skipBook(30);
+    expect(engine.position, const Duration(seconds: 115));
+    await player.seekBook(-20);
+    expect(engine.position, Duration.zero);
+    engine.position = const Duration(seconds: 280);
+    await player.pause();
+    expect(api.saves.last.$3, true);
+    api.episode = const PodcastEpisode(
+      id: 'episode',
+      podcastId: 'podcast',
+      title: 'Finished',
+      podcastTitle: 'Podcast',
+      durationSeconds: 300,
+      positionSeconds: 290,
+      completed: true,
+    );
+    await player.playEpisode(_episode);
+    expect(engine.position, Duration.zero);
+    engine.position = const Duration(seconds: 300);
+    engine.states.add(PlayerState(true, ProcessingState.completed));
+    await tester.pump();
+    expect(api.saves.last, ('episode', 300.0, true));
+    container.dispose();
+  });
+
+  for (final language in ['en', 'de']) {
+    testWidgets('podcasts home renders localized shelves, subscriptions and badge in $language', (tester) async {
+      await page(tester, const PodcastsPage(), language: language);
+      expect(find.text(language == 'de' ? 'Weiterhören' : 'Continue listening'), findsOneWidget);
+      expect(find.text(language == 'de' ? 'Abos' : 'Subscriptions'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('Episode title'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('detail shows episode progress, completed state, and subscription toggle', (tester) async {
+    await page(tester, const PodcastPage(id: 'podcast'));
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('Unsubscribe'), findsOneWidget);
+    await tester.tap(find.text('Unsubscribe'));
+    await tester.pumpAndSettle();
+    expect(api.subscribed, false);
+    expect(find.text('Subscribe'), findsOneWidget);
+    await tester.tap(find.text('Subscribe'));
+    await tester.pumpAndSettle();
+    expect(api.feeds, ['https://pod.example/feed']);
+    await page(
+      tester,
+      const Scaffold(
+        body: PodcastEpisodeTile(
+          episode: PodcastEpisode(
+            id: 'done',
+            podcastId: 'podcast',
+            title: 'Done',
+            podcastTitle: 'Podcast',
+            completed: true,
+          ),
+        ),
+      ),
+    );
+    expect(find.byIcon(Icons.check), findsOneWidget);
+  });
+
+  testWidgets('search debounces, opens without subscribing, and offers explicit subscribe and RSS add', (tester) async {
+    api.subscribed = false;
+    final router = GoRouter(
+      initialLocation: '/podcasts/search',
+      routes: [
+        GoRoute(path: '/podcasts/search', builder: (_, _) => const PodcastSearchPage()),
+        GoRoute(
+          path: '/podcasts/:id',
+          builder: (_, s) => PodcastPage(id: s.pathParameters['id']!),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'science');
+    await tester.pump(const Duration(milliseconds: 349));
+    expect(api.queries, isEmpty);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+    expect(api.queries, ['science']);
+    await tester.tap(find.text('Search result'));
+    await tester.pumpAndSettle();
+    expect(find.text('Podcast title'), findsOneWidget);
+    expect(api.subscribed, false);
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Subscribe'));
+    await tester.pumpAndSettle();
+    expect(api.subscribed, true);
+    await tester.tap(find.byTooltip('Add by RSS link'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'https://other.example/rss');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(api.feeds.last, 'https://other.example/rss');
+  });
+
+  testWidgets('combined books hub exposes Podcasts for the mobile admin overflow case', (tester) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await page(tester, const BooksHubPage());
+    expect(find.widgetWithText(Tab, 'Podcasts'), findsOneWidget);
+    await tester.tap(find.widgetWithText(Tab, 'Podcasts'));
+    await tester.pumpAndSettle();
+    expect(find.text('Continue listening'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('episode transport has a fifteen second back button and required speeds', (tester) async {
+    final player = container.read(playerProvider.notifier);
+    await player.playEpisode(_episode);
+    await page(tester, const Scaffold(body: TransportControls(big: true)));
+    await tester.tap(find.byTooltip('Back 15 seconds'));
+    expect(engine.position, const Duration(seconds: 45));
+    await tester.tap(find.text('1×'));
+    await tester.pumpAndSettle();
+    for (final speed in ['0.75×', '1×', '1.25×', '1.50×', '1.75×', '2×']) {
+      expect(find.text(speed), findsWidgets);
+    }
+    expect(find.text('1.10×'), findsNothing);
+    await tester.tap(find.text('1.50×'));
+    await tester.pumpAndSettle();
+    expect(engine.speed, 1.5);
+    await tester.pumpWidget(const SizedBox.shrink());
+    container.dispose();
+  });
+}

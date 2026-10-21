@@ -2610,4 +2610,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get changelogAll => 'All updates';
+
+  @override
+  String get navPodcasts => 'Podcasts';
+
+  @override
+  String get podcastsContinue => 'Continue listening';
+
+  @override
+  String get podcastsSubscriptions => 'Subscriptions';
+
+  @override
+  String get podcastsSearch => 'Search podcasts';
+
+  @override
+  String get podcastsAddRss => 'Add by RSS link';
+
+  @override
+  String get podcastsRssUrl => 'RSS URL';
+
+  @override
+  String get podcastsEmpty => 'No subscriptions yet. Search for a podcast or add an RSS link.';
+
+  @override
+  String get podcastsSubscribe => 'Subscribe';
+
+  @override
+  String get podcastsSubscribed => 'Subscribed';
+
+  @override
+  String get podcastsUnsubscribe => 'Unsubscribe';
+
+  @override
+  String get podcastsDescription => 'Description';
+
+  @override
+  String get podcastsEpisodes => 'Episodes';
+
+  @override
+  String get podcastsEpisode => 'Podcast episode';
+
+  @override
+  String get podcastsCompleted => 'Completed';
+
+  @override
+  String get podcastsLoadMore => 'Load more episodes';
+
+  @override
+  String get podcastsOpen => 'Open podcast';
+
+  @override
+  String get podcastsSkipBack => 'Back 15 seconds';
+
+  @override
+  String get playerPodcastLoadError => 'The podcast episode couldn\'t be loaded. Please try again.';
 }

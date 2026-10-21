@@ -10,6 +10,7 @@ import '../l10n/l10n.dart';
 import 'package:dio/dio.dart';
 
 import 'models.dart';
+import 'podcasts.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, [this.statusCode]);
@@ -133,6 +134,31 @@ class ApiClient {
 
   Future<void> addWorldRadioFavorite(String id) => _put('/api/worldradio/favorites/$id');
   Future<void> removeWorldRadioFavorite(String id) => _delete('/api/worldradio/favorites/$id');
+
+  // --- podcasts -------------------------------------------------------------
+
+  String episodeStreamUrl(String id) => '$baseUrl/api/podcasts/episodes/$id/stream?token=$token';
+
+  Future<List<Podcast>> podcastSubscriptions() async => [
+    for (final item in await _get('/api/podcasts/subscriptions')) Podcast.fromJson(item),
+  ];
+  Future<List<PodcastEpisode>> podcastContinue() async => [
+    for (final item in await _get('/api/podcasts/continue')) PodcastEpisode.fromJson(item),
+  ];
+  Future<Podcast> podcast(String id, {int offset = 0, int limit = 50}) async =>
+      Podcast.fromJson(await _get('/api/podcasts/$id', {'offset': offset, 'limit': limit}));
+  Future<PodcastEpisode> podcastEpisode(String id) async =>
+      PodcastEpisode.fromJson(await _get('/api/podcasts/episodes/$id'));
+  Future<List<PodcastSearchResult>> podcastSearch(String query) async => [
+    for (final item in await _get('/api/podcasts/search', {'q': query})) PodcastSearchResult.fromJson(item),
+  ];
+  Future<Podcast> openPodcast(String feedUrl) async =>
+      Podcast.fromJson(await _get('/api/podcasts/preview', {'feed_url': feedUrl}));
+  Future<Podcast> subscribePodcast(String feedUrl) async =>
+      Podcast.fromJson(await _post('/api/podcasts/subscriptions', {'feed_url': feedUrl}));
+  Future<void> unsubscribePodcast(String id) => _delete('/api/podcasts/subscriptions/$id');
+  Future<void> saveEpisodeProgress(String id, double position, {required bool completed}) =>
+      _put('/api/podcasts/episodes/$id/progress', {'position_seconds': position, 'completed': completed});
 
   // --- jam ------------------------------------------------------------------
 

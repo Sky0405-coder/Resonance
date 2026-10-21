@@ -643,17 +643,19 @@ class _BookNowPlaying extends ConsumerWidget {
               IconButton(icon: const Icon(Icons.keyboard_arrow_down, size: 32), onPressed: () => context.pop()),
               Expanded(
                 child: Text(
-                  context.l10n.audiobooksBook,
+                  book.episode != null ? context.l10n.podcastsEpisode : context.l10n.audiobooksBook,
                   textAlign: TextAlign.center,
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
               IconButton(
-                tooltip: context.l10n.playerGoToAudiobook,
+                tooltip: book.episode != null ? context.l10n.podcastsOpen : context.l10n.playerGoToAudiobook,
                 icon: const Icon(Icons.info_outline),
                 onPressed: () {
                   context.pop();
-                  context.push('/audiobooks/item/${book.itemId}');
+                  context.push(
+                    book.episode != null ? '/podcasts/${book.episode!.podcastId}' : '/audiobooks/item/${book.itemId}',
+                  );
                 },
               ),
             ],
@@ -665,7 +667,7 @@ class _BookNowPlaying extends ConsumerWidget {
               elevation: 16,
               borderRadius: BorderRadius.circular(8),
               clipBehavior: Clip.antiAlias,
-              child: NetworkCover(url: book.coverUrl, radius: 8, icon: Icons.headphones),
+              child: NetworkCover(url: book.coverUrl.isEmpty ? null : book.coverUrl, radius: 8, icon: Icons.headphones),
             ),
           ),
           const Spacer(),

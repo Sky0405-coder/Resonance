@@ -40,7 +40,7 @@ class _SeekBarState extends ConsumerState<SeekBar> {
     final pos = book != null
         ? Duration(milliseconds: (ref.watch(bookPositionProvider) * 1000).round())
         : ref.watch(positionProvider).value ?? Duration.zero;
-    final dur = book != null
+    final dur = book != null && book.duration > 0
         ? Duration(milliseconds: (book.duration * 1000).round())
         : ref.watch(durationProvider).value ?? track?.length ?? Duration.zero;
     final max = dur.inMilliseconds.toDouble().clamp(1.0, double.infinity);
@@ -138,10 +138,10 @@ class TransportControls extends ConsumerWidget {
         children: [
           const SpeedButton(),
           IconButton(
-            tooltip: context.l10n.playerSkipBack,
+            tooltip: p.book?.episode != null ? context.l10n.podcastsSkipBack : context.l10n.playerSkipBack,
             iconSize: iconSize,
-            icon: const Icon(Icons.replay_30),
-            onPressed: () => ctrl.skipBook(-30),
+            icon: p.book?.episode != null ? const PodcastBackIcon() : const Icon(Icons.replay_30),
+            onPressed: () => ctrl.skipBook(p.book?.episode != null ? -15 : -30),
           ),
           SizedBox(width: big ? 12 : 4),
           playButton,
@@ -187,6 +187,21 @@ class TransportControls extends ConsumerWidget {
   }
 }
 
+class PodcastBackIcon extends StatelessWidget {
+  const PodcastBackIcon({super.key});
+  @override
+  Widget build(BuildContext context) => const Stack(
+    alignment: Alignment.center,
+    children: [
+      Icon(Icons.replay),
+      Padding(
+        padding: EdgeInsets.only(top: 3),
+        child: Text('15', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700)),
+      ),
+    ],
+  );
+}
+
 class SpeedButton extends ConsumerWidget {
   const SpeedButton({super.key});
 
@@ -202,7 +217,11 @@ class SpeedButton extends ConsumerWidget {
       tooltip: context.l10n.playerSpeed,
       initialValue: speed,
       onSelected: ref.read(playerProvider.notifier).setSpeed,
-      itemBuilder: (_) => [for (final v in speeds) PopupMenuItem(value: v, child: Text(label(v)))],
+      itemBuilder: (_) => [
+        for (final v in speeds)
+          if (ref.read(playerProvider).book?.episode == null || v != 1.1)
+            PopupMenuItem(value: v, child: Text(label(v))),
+      ],
       child: SizedBox(
         width: 48,
         child: Center(
@@ -255,12 +274,14 @@ class _BookInfo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chapter = book.chapterAt(ref.watch(bookPositionProvider));
     return InkWell(
-      onTap: () => context.push('/audiobooks/item/${book.itemId}'),
+      onTap: () => context.push(
+        book.episode != null ? '/podcasts/${book.episode!.podcastId}' : '/audiobooks/item/${book.itemId}',
+      ),
       child: Row(
         children: [
           SizedBox(
             width: coverSize,
-            child: NetworkCover(url: book.coverUrl, icon: Icons.headphones),
+            child: NetworkCover(url: book.coverUrl.isEmpty ? null : book.coverUrl, icon: Icons.headphones),
           ),
           const SizedBox(width: 12),
           Flexible(
@@ -500,7 +521,11 @@ class MiniPlayer extends ConsumerWidget {
                       Expanded(child: StationInfo(station: p.station!, now: p.stationNow, coverSize: 42)),
                     ] else if (p.book != null) ...[
                       Expanded(child: _BookInfo(book: p.book!, coverSize: 42)),
-                      IconButton(icon: const Icon(Icons.replay_30), onPressed: () => ctrl.skipBook(-30)),
+                      IconButton(
+                        tooltip: p.book?.episode != null ? context.l10n.podcastsSkipBack : context.l10n.playerSkipBack,
+                        icon: p.book?.episode != null ? const PodcastBackIcon() : const Icon(Icons.replay_30),
+                        onPressed: () => ctrl.skipBook(p.book?.episode != null ? -15 : -30),
+                      ),
                     ] else ...[
                       SizedBox(width: 42, child: CoverImage(albumId: track!.album.id, size: 64)),
                       const SizedBox(width: 10),

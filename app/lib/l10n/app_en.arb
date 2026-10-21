@@ -275,10 +275,18 @@
   "adminLyricsProgress": "{synced} synced, {plainOnly} plain only, {none} none · {pending} pending",
   "@adminLyricsProgress": {
     "placeholders": {
-      "synced": {"type": "String"},
-      "plainOnly": {"type": "String"},
-      "none": {"type": "String"},
-      "pending": {"type": "String"}
+      "synced": {
+        "type": "String"
+      },
+      "plainOnly": {
+        "type": "String"
+      },
+      "none": {
+        "type": "String"
+      },
+      "pending": {
+        "type": "String"
+      }
     }
   },
   "adminLyricsBackgroundFetch": "Fetch lyrics in the background",
@@ -934,5 +942,23 @@
   "changelogTitle": "What's new",
   "changelogInstalled": "Installed",
   "changelogNewVersion": "New in version {version}",
-  "changelogAll": "All updates"
+  "changelogAll": "All updates",
+  "navPodcasts": "Podcasts",
+  "podcastsContinue": "Continue listening",
+  "podcastsSubscriptions": "Subscriptions",
+  "podcastsSearch": "Search podcasts",
+  "podcastsAddRss": "Add by RSS link",
+  "podcastsRssUrl": "RSS URL",
+  "podcastsEmpty": "No subscriptions yet. Search for a podcast or add an RSS link.",
+  "podcastsSubscribe": "Subscribe",
+  "podcastsSubscribed": "Subscribed",
+  "podcastsUnsubscribe": "Unsubscribe",
+  "podcastsDescription": "Description",
+  "podcastsEpisodes": "Episodes",
+  "podcastsEpisode": "Podcast episode",
+  "podcastsCompleted": "Completed",
+  "podcastsLoadMore": "Load more episodes",
+  "podcastsOpen": "Open podcast",
+  "podcastsSkipBack": "Back 15 seconds",
+  "playerPodcastLoadError": "The podcast episode couldn't be loaded. Please try again."
 }

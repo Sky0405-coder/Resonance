@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>Resonance Podcast</title><itunes:author>Radio Author</itunes:author>
+    <description><![CDATA[<p>Feed <b>description</b> &amp; more.</p>]]></description>
+    <link>https://pod.example</link><itunes:image href="https://pod.example/cover.jpg"/>
+    <item><title>Seconds</title><guid>seconds</guid>
+      <description><![CDATA[<p>Hello <b>world</b> &amp; friends.</p><script>hidden()</script><p>Next.</p>]]></description>
+      <pubDate>Wed, 21 Oct 2026 10:00:00 +0000</pubDate><itunes:duration>123.5</itunes:duration>
+      <enclosure url="https://pod.example/1.mp3" type="audio/mpeg"/>
+      <itunes:image href="https://pod.example/episode.jpg"/>
+    </item>
+    <item><title>Minutes</title><itunes:duration>12:34</itunes:duration>
+      <pubDate>Tue, 20 Oct 2026 10:00:00 GMT</pubDate>
+      <enclosure url="https://pod.example/2.mp3" type="audio/mpeg"/>
+    </item>
+    <item><title>Hours</title><guid>hours</guid><itunes:duration>1:02:03</itunes:duration>
+      <pubDate>Mon, 01 Jun 2026 10:00:00 +0000</pubDate>
+      <enclosure url="https://pod.example/3.m4a" type="audio/mp4"/>
+    </item>
+    <item><title>Unknown duration</title><guid>unknown</guid><pubDate>invalid</pubDate>
+      <enclosure url="https://pod.example/4.mp3" type="audio/mpeg"/>
+    </item>
+    <item><title>No audio</title></item>
+  </channel>
+</rss>

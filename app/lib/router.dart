@@ -16,6 +16,7 @@ import 'ui/tv/tv_now_playing.dart';
 import 'ui/pages/admin/admin_page.dart';
 import 'ui/pages/admin/duplicates_page.dart';
 import 'ui/pages/audiobook_pages.dart';
+import 'ui/pages/podcast_pages.dart';
 import 'ui/pages/auth_pages.dart';
 import 'ui/pages/book_pages.dart';
 import 'ui/pages/browse_pages.dart';
@@ -173,6 +174,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/downloads/:id',
             builder: (_, s) => RequestDetailPage(id: s.pathParameters['id']!),
           ),
+          GoRoute(
+            path: '/podcasts',
+            pageBuilder: (_, _) => const NoTransitionPage(child: PodcastsPage()),
+          ),
+          GoRoute(path: '/podcasts/search', builder: (_, _) => const PodcastSearchPage()),
+          GoRoute(path: '/podcasts/:id', builder: (_, s) => PodcastPage(id: s.pathParameters['id']!)),
           GoRoute(
             path: '/audiobooks',
             pageBuilder: (_, _) => const NoTransitionPage(child: AudiobooksPage()),

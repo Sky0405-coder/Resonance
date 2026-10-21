@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/audiobooks.dart';
+import '../../core/podcasts.dart';
 import '../../core/books.dart';
 import '../../core/desktop.dart';
 import '../../core/media_sections.dart';
@@ -169,7 +170,7 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
-          if (ebooksEnabled || audiobooksEnabled) _Section(context.l10n.settingsMediaTabs),
+          _Section(context.l10n.settingsMediaTabs),
           if (ebooksEnabled)
             SwitchListTile(
               title: Text(context.l10n.settingsEbooks),
@@ -184,6 +185,12 @@ class SettingsPage extends ConsumerWidget {
               value: ref.watch(audiobooksVisibleProvider),
               onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.audiobooks, !v),
             ),
+          SwitchListTile(
+            title: Text(context.l10n.navPodcasts),
+            subtitle: Text(context.l10n.settingsShowInMenu),
+            value: ref.watch(podcastsVisibleProvider),
+            onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, !v),
+          ),
           _Section(context.l10n.settingsPlayback),
           if (isDiscordDesktop)
             SwitchListTile(
