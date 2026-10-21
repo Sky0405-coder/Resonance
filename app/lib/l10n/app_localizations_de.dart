@@ -927,6 +927,17 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminMixAnalysis => 'AutoMix-Analyse';
 
   @override
+  String get adminLyrics => 'Songtexte';
+
+  @override
+  String adminLyricsProgress(String synced, String plainOnly, String none, String pending) {
+    return '$synced mit synchronisiertem Text, $plainOnly nur Text, $none ohne · $pending noch offen';
+  }
+
+  @override
+  String get adminLyricsBackgroundFetch => 'Songtexte im Hintergrund laden';
+
+  @override
   String adminMixAnalysisProgress(String analyzed, String total) {
     return '$analyzed von $total Songs analysiert';
   }

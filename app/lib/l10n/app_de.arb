@@ -605,6 +605,17 @@
   "adminStorage": "Speicher",
   "adminPlaytime": "Spielzeit",
   "adminMixAnalysis": "AutoMix-Analyse",
+  "adminLyrics": "Songtexte",
+  "adminLyricsProgress": "{synced} mit synchronisiertem Text, {plainOnly} nur Text, {none} ohne · {pending} noch offen",
+  "@adminLyricsProgress": {
+    "placeholders": {
+      "synced": {"type": "String"},
+      "plainOnly": {"type": "String"},
+      "none": {"type": "String"},
+      "pending": {"type": "String"}
+    }
+  },
+  "adminLyricsBackgroundFetch": "Songtexte im Hintergrund laden",
   "adminMixAnalysisProgress": "{analyzed} von {total} Songs analysiert",
   "@adminMixAnalysisProgress": {
     "placeholders": {

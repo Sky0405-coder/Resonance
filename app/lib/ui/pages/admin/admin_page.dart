@@ -57,6 +57,7 @@ final _jobsProvider = FutureProvider.autoDispose<List<Job>>((ref) => ref.watch(a
 final _mixAnalysisStatusProvider = FutureProvider.autoDispose<({int total, int analyzed, int failed})>(
   (ref) => ref.watch(apiProvider).mixAnalysisStatus(),
 );
+final _lyricsStatusProvider = FutureProvider.autoDispose((ref) => ref.watch(apiProvider).lyricsStatus());
 
 String formatBytes(int b, {String? locale, bool megabytes = false}) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -87,7 +88,10 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
   @override
   void initState() {
     super.initState();
-    _mixPoll = Timer.periodic(const Duration(seconds: 5), (_) => ref.invalidate(_mixAnalysisStatusProvider));
+    _mixPoll = Timer.periodic(const Duration(seconds: 5), (_) {
+      ref.invalidate(_mixAnalysisStatusProvider);
+      ref.invalidate(_lyricsStatusProvider);
+    });
   }
 
   @override
@@ -124,6 +128,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
     final stats = ref.watch(_statsProvider);
     final jobs = ref.watch(_jobsProvider);
     final mixStatus = ref.watch(_mixAnalysisStatusProvider);
+    final lyricsStatus = ref.watch(_lyricsStatusProvider);
     final numbers = NumberFormat.decimalPattern(Localizations.localeOf(context).toLanguageTag());
     jobs.whenData(_ensurePolling);
 
@@ -170,6 +175,41 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                       Text(
                         context.l10n.adminMixAnalysisProgress(numbers.format(s.analyzed), numbers.format(s.total)) +
                             (s.failed > 0 ? context.l10n.adminMixAnalysisFailed(numbers.format(s.failed)) : ''),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Card(
+          color: Palette.card,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.l10n.adminLyrics, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                lyricsStatus.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('$e'),
+                  data: (s) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LinearProgressIndicator(
+                        value: s.total == 0 ? 0 : ((s.total - s.missing) / s.total).clamp(0.0, 1.0),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.adminLyricsProgress(
+                          numbers.format(s.synced),
+                          numbers.format(s.plainOnly),
+                          numbers.format(s.none),
+                          numbers.format(s.missing),
+                        ),
                       ),
                     ],
                   ),
@@ -580,6 +620,7 @@ class _ServerTab extends ConsumerWidget {
         final mixes = (c['mixes'] ?? const {}) as Map;
         final dl = c['downloads'] as Map;
         final lib = (c['library'] ?? const {}) as Map;
+        final lyrics = (c['lyrics'] ?? const {}) as Map;
         final abs = (c['audiobookshelf'] ?? const {}) as Map;
         final books = (c['books'] ?? const {}) as Map;
         final spotify = (c['spotify'] ?? const {}) as Map;
@@ -730,6 +771,13 @@ class _ServerTab extends ConsumerWidget {
               value: lib['lyrics_online'] ?? true,
               onChanged: (v) => patch({
                 'library': {'lyrics_online': v},
+              }),
+            ),
+            SwitchListTile(
+              title: Text(context.l10n.adminLyricsBackgroundFetch),
+              value: lyrics['background_fetch'] ?? true,
+              onChanged: (v) => patch({
+                'lyrics': {'background_fetch': v},
               }),
             ),
             _Group(context.l10n.adminMixes),

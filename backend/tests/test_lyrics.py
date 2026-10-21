@@ -1,15 +1,27 @@
+import asyncio
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import httpx
 import mutagen
 import pytest
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
-from app.models import Album, Artist, ImportBatch, ImportFile, Track, TrackLyrics
+from app.main import app
+from app.models import (
+    Album,
+    Artist,
+    ImportBatch,
+    ImportFile,
+    PlayEvent,
+    Track,
+    TrackLyrics,
+    User,
+)
 from app.services import importer, lyrics
 from app.services.deletion import delete_tracks
 from app.services.musicbrainz import TrackMeta
@@ -179,7 +191,6 @@ async def test_api_none_retry(env: SimpleNamespace, monkeypatch: pytest.MonkeyPa
     async def lookup(*args: object) -> None:
         nonlocal calls
         calls += 1
-        return None
 
     monkeypatch.setattr(lyrics, "lrclib_lookup", lookup)
     url = f"/api/tracks/{env.track.id}/lyrics"
@@ -217,6 +228,218 @@ async def test_api_error_and_disabled(env: SimpleNamespace, monkeypatch: pytest.
         await update_config(db, {"library": {"lyrics_online": False}})
     await env.client.get(f"/api/tracks/{env.track.id}/lyrics", headers=env.headers)
     assert calls == 2
+
+
+async def add_track(db, env: SimpleNamespace, title: str, **values) -> Track:
+    track = Track(
+        title=title, path=f"{title}.flac", album_id=env.track.album_id, artist_id=env.track.artist_id,
+        artist_credit="Artist", duration=120.4, **values,
+    )
+    db.add(track)
+    await db.flush()
+    return track
+
+
+async def test_background_selection_order_and_expired_misses(env: SimpleNamespace, monkeypatch) -> None:
+    now = datetime.now(UTC)
+    async with SessionLocal() as db:
+        user = await db.scalar(select(User))
+        (await db.get(Track, env.track.id)).created_at = now - timedelta(days=20)
+        recent = await add_track(db, env, "recent", created_at=now - timedelta(days=10))
+        played = await add_track(db, env, "played", created_at=now)
+        await add_track(db, env, "new", created_at=now)
+        await add_track(db, env, "old", created_at=now - timedelta(days=1))
+        stale = await add_track(db, env, "stale", created_at=now)
+        stale_played = await add_track(db, env, "stale-played", created_at=now - timedelta(days=40))
+        fresh = await add_track(db, env, "fresh")
+        cached = await add_track(db, env, "cached")
+        await add_track(db, env, "temporary", is_temporary=True)
+        db.add_all([
+            PlayEvent(user_id=user.id, track_id=recent.id, played_at=now - timedelta(days=50)),
+            PlayEvent(user_id=user.id, track_id=recent.id, played_at=now - timedelta(hours=1)),
+            PlayEvent(user_id=user.id, track_id=played.id, played_at=now - timedelta(days=1)),
+            PlayEvent(user_id=user.id, track_id=stale_played.id, played_at=now),
+            TrackLyrics(track_id=stale.id, source="none", fetched_at=now - timedelta(days=31)),
+            TrackLyrics(track_id=stale_played.id, source="none", fetched_at=now - timedelta(days=31)),
+            TrackLyrics(track_id=fresh.id, source="none", fetched_at=now - timedelta(days=29)),
+            TrackLyrics(track_id=cached.id, source="lrclib", plain="Cached", fetched_at=now - timedelta(days=60)),
+        ])
+        await db.commit()
+    lookup = AsyncMock(return_value={"syncedLyrics": "[00:01]Fetched", "plainLyrics": "Fetched"})
+    sleep = AsyncMock()
+    monkeypatch.setattr(lyrics, "lrclib_lookup", lookup)
+    monkeypatch.setattr(lyrics.asyncio, "sleep", sleep)
+    # Background fetching fills the remote cache even for songs with a local sidecar.
+    env.path.with_suffix(".lrc").write_text("[00:01]Local")
+    await lyrics.run_once()
+    assert [call.args[1] for call in lookup.await_args_list] == [
+        "recent", "played", "new", "old", "Song", "stale-played", "stale",
+    ]
+    assert [call.args for call in sleep.await_args_list] == [(3,)] * 7
+    async with SessionLocal() as db:
+        row = await db.get(TrackLyrics, stale.id)
+        assert row.source == "lrclib" and row.synced == "[00:01]Fetched" and row.fetched_at > now
+    await lyrics.run_once()
+    assert lookup.await_count == 7
+    env.path.with_suffix(".lrc").unlink()
+    response = await env.client.get(f"/api/tracks/{env.track.id}/lyrics", headers=env.headers)
+    assert response.json()["synced"] and lookup.await_count == 7
+
+
+async def test_background_batch_limit_and_negative_cache(env: SimpleNamespace, monkeypatch) -> None:
+    async with SessionLocal() as db:
+        for i in range(101):
+            await add_track(db, env, f"batch-{i}")
+        await db.commit()
+    lookup = AsyncMock(return_value=None)
+    monkeypatch.setattr(lyrics, "lrclib_lookup", lookup)
+    monkeypatch.setattr(lyrics.asyncio, "sleep", AsyncMock())
+    await lyrics.run_once()
+    assert lookup.await_count == 100
+    async with SessionLocal() as db:
+        rows = list(await db.scalars(select(TrackLyrics)))
+        assert len(rows) == 100 and all(row.source == "none" for row in rows)
+    await lyrics.run_once()
+    assert lookup.await_count == 102
+    await lyrics.run_once()
+    assert lookup.await_count == 102
+
+
+@pytest.mark.parametrize("message", ["LRCLIB: HTTP 429", "offline"])
+async def test_background_errors_abort_batch_and_back_off(env: SimpleNamespace, monkeypatch, message: str) -> None:
+    old = datetime.now(UTC) - timedelta(days=31)
+    async with SessionLocal() as db:
+        stale = await add_track(db, env, "stale")
+        db.add(TrackLyrics(track_id=stale.id, source="none", fetched_at=old))
+        await db.commit()
+    lookup = AsyncMock(side_effect=[lyrics.LyricsError(message), {"plainLyrics": "Found"}, None])
+    delays = []
+
+    async def sleep(seconds):
+        delays.append(seconds)
+        if seconds == 600:
+            assert lookup.await_count == 1
+            async with SessionLocal() as db:
+                assert await db.get(TrackLyrics, env.track.id) is None
+                assert (await db.get(TrackLyrics, stale.id)).fetched_at == old
+        if seconds == 60 and 600 in delays:
+            raise asyncio.CancelledError
+
+    monkeypatch.setattr(lyrics, "lrclib_lookup", lookup)
+    monkeypatch.setattr(lyrics.asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await lyrics._loop()
+    assert delays == [60, 3, 600, 3, 3, 60]
+    assert [call.args[1] for call in lookup.await_args_list] == ["Song", "Song", "stale"]
+
+
+async def test_background_retry_error_preserves_expired_miss(env: SimpleNamespace, monkeypatch) -> None:
+    old = datetime.now(UTC) - timedelta(days=31)
+    async with SessionLocal() as db:
+        db.add(TrackLyrics(track_id=env.track.id, source="none", fetched_at=old))
+        await db.commit()
+    monkeypatch.setattr(lyrics, "lrclib_lookup", AsyncMock(side_effect=lyrics.LyricsError("offline")))
+    monkeypatch.setattr(lyrics.asyncio, "sleep", AsyncMock())
+    with pytest.raises(lyrics.LyricsError):
+        await lyrics.run_once()
+    async with SessionLocal() as db:
+        row = await db.get(TrackLyrics, env.track.id)
+        assert row.source == "none" and row.fetched_at == old
+
+
+@pytest.mark.parametrize("section,field", [("lyrics", "background_fetch"), ("library", "lyrics_online")])
+async def test_background_config_switch(env: SimpleNamespace, monkeypatch, section: str, field: str) -> None:
+    config = (await env.client.get("/api/admin/config", headers=env.headers)).json()
+    assert config["lyrics"]["background_fetch"] is True
+    response = await env.client.patch("/api/admin/config", json={section: {field: False}}, headers=env.headers)
+    assert response.status_code == 200 and response.json()[section][field] is False
+    lookup = AsyncMock(return_value={"plainLyrics": "On demand"})
+    sleep = AsyncMock()
+    monkeypatch.setattr(lyrics, "lrclib_lookup", lookup)
+    monkeypatch.setattr(lyrics.asyncio, "sleep", sleep)
+    await lyrics.run_once()
+    lookup.assert_not_awaited()
+    sleep.assert_not_awaited()
+    async with SessionLocal() as db:
+        assert await db.get(TrackLyrics, env.track.id) is None
+    if section == "lyrics":
+        response = await env.client.get(f"/api/tracks/{env.track.id}/lyrics", headers=env.headers)
+        assert response.json()["source"] == "lrclib"
+    else:
+        await env.client.patch("/api/admin/config", json={section: {field: True}}, headers=env.headers)
+        await lyrics.run_once()
+    assert lookup.await_count == 1
+
+
+async def test_background_switch_stops_active_batch(env: SimpleNamespace, monkeypatch) -> None:
+    async with SessionLocal() as db:
+        await add_track(db, env, "second")
+        await db.commit()
+
+    async def lookup(*args):
+        async with SessionLocal() as db:
+            await update_config(db, {"lyrics": {"background_fetch": False}})
+
+    fetch = AsyncMock(side_effect=lookup)
+    monkeypatch.setattr(lyrics, "lrclib_lookup", fetch)
+    monkeypatch.setattr(lyrics.asyncio, "sleep", AsyncMock())
+    await lyrics.run_once()
+    assert fetch.await_count == 1
+
+
+async def test_lyrics_status_counts_permanent_tracks_and_requires_admin(env: SimpleNamespace, monkeypatch) -> None:
+    url = "/api/admin/lyrics/status"
+    assert (await env.client.get(url)).status_code == 401
+    response = await env.client.get(url, headers=env.headers)
+    assert response.json() == {"total": 1, "synced": 0, "plain_only": 0, "instrumental": 0, "none": 0, "missing": 1}
+    invite = (await env.client.post("/api/admin/invites", json={}, headers=env.headers)).json()["token"]
+    user = await register(env.client, "lyrics-listener", invite)
+    assert (await env.client.get(url, headers=auth(user["token"]))).status_code == 403
+    async with SessionLocal() as db:
+        for title in ("synced", "plain", "instrumental", "none"):
+            track = await add_track(db, env, title)
+            data = {
+                "synced": {"syncedLyrics": "[00:01]Synced", "plainLyrics": "Synced"},
+                "plain": {"syncedLyrics": "", "plainLyrics": "Plain"},
+                "instrumental": {"instrumental": True},
+                "none": None,
+            }[title]
+            monkeypatch.setattr(lyrics, "lrclib_lookup", AsyncMock(return_value=data))
+            await lyrics.fetch_online_lyrics(db, track)
+        for title, values in (
+            ("temp-synced", {"synced": "[00:01]Temporary", "plain": "Temporary", "source": "lrclib"}),
+            ("temp-instrumental", {"instrumental": True, "source": "lrclib"}),
+            ("temp-none", {"source": "none"}),
+            ("temp-missing", None),
+        ):
+            track = await add_track(db, env, title, is_temporary=True)
+            if values:
+                db.add(TrackLyrics(track_id=track.id, **values))
+        await db.commit()
+    lookup = AsyncMock(side_effect=AssertionError("Status must not fetch lyrics"))
+    monkeypatch.setattr(lyrics, "lrclib_lookup", lookup)
+    response = await env.client.get(url, headers=env.headers)
+    assert response.status_code == 200
+    assert response.json() == {"total": 5, "synced": 1, "plain_only": 1, "instrumental": 1, "none": 1, "missing": 1}
+    lookup.assert_not_awaited()
+    async with SessionLocal() as db:
+        await delete_tracks(db, list(await db.scalars(select(Track.id))))
+    assert (await env.client.get(url, headers=env.headers)).json() == {
+        "total": 0, "synced": 0, "plain_only": 0, "instrumental": 0, "none": 0, "missing": 0,
+    }
+
+
+async def test_background_lifecycle(env: SimpleNamespace) -> None:
+    await lyrics.start()
+    task = lyrics._loop_task
+    await lyrics.start()
+    assert lyrics._loop_task is task
+    await lyrics.stop()
+    assert task.cancelled() and lyrics._loop_task is None
+    await lyrics.stop()
+    async with app.router.lifespan_context(app):
+        assert lyrics._loop_task is not None and not lyrics._loop_task.done()
+    assert lyrics._loop_task is None
 
 
 @pytest.mark.parametrize("difference,found", [(3, True), (-3, True), (3.01, False)])

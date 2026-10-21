@@ -948,6 +948,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminMixAnalysis => 'AutoMix analysis';
 
   @override
+  String get adminLyrics => 'Lyrics';
+
+  @override
+  String adminLyricsProgress(String synced, String plainOnly, String none, String pending) {
+    return '$synced synced, $plainOnly plain only, $none none · $pending pending';
+  }
+
+  @override
+  String get adminLyricsBackgroundFetch => 'Fetch lyrics in the background';
+
+  @override
   String adminMixAnalysisProgress(String analyzed, String total) {
     return '$analyzed of $total songs analyzed';
   }

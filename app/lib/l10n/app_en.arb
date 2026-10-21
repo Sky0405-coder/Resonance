@@ -271,6 +271,17 @@
   "adminStorage": "Storage",
   "adminPlaytime": "Playtime",
   "adminMixAnalysis": "AutoMix analysis",
+  "adminLyrics": "Lyrics",
+  "adminLyricsProgress": "{synced} synced, {plainOnly} plain only, {none} none · {pending} pending",
+  "@adminLyricsProgress": {
+    "placeholders": {
+      "synced": {"type": "String"},
+      "plainOnly": {"type": "String"},
+      "none": {"type": "String"},
+      "pending": {"type": "String"}
+    }
+  },
+  "adminLyricsBackgroundFetch": "Fetch lyrics in the background",
   "adminMixAnalysisProgress": "{analyzed} of {total} songs analyzed",
   "@adminMixAnalysisProgress": {
     "placeholders": {

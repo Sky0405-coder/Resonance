@@ -7,7 +7,17 @@ from sqlalchemy.orm import aliased
 
 from app.deps import DB, AdminUser
 from app.i18n import language, translate
-from app.models import Album, Artist, AuthSession, Invite, Job, Role, Track, User
+from app.models import (
+    Album,
+    Artist,
+    AuthSession,
+    Invite,
+    Job,
+    Role,
+    Track,
+    TrackLyrics,
+    User,
+)
 from app.schemas import (
     DuplicateGroupOut,
     DuplicateMergeIn,
@@ -48,6 +58,26 @@ async def patch_config(patch: dict, admin: AdminUser, db: DB) -> ServerConfig:
 async def run_upgrades(admin: AdminUser, background_tasks: BackgroundTasks) -> dict[str, bool]:
     background_tasks.add_task(upgrades.run_once)
     return {"started": True}
+
+
+@router.get("/lyrics/status")
+async def lyrics_status(admin: AdminUser, db: DB) -> dict[str, int]:
+    synced = func.coalesce(TrackLyrics.synced, "") != ""
+    plain = func.coalesce(TrackLyrics.plain, "") != ""
+    row = (await db.execute(
+        select(
+            func.count().label("total"),
+            func.count().filter(synced).label("synced"),
+            func.count().filter(plain, ~synced).label("plain_only"),
+            func.count().filter(TrackLyrics.instrumental.is_(True)).label("instrumental"),
+            func.count().filter(TrackLyrics.source == "none").label("none"),
+            func.count().filter(TrackLyrics.track_id.is_(None)).label("missing"),
+        )
+        .select_from(Track)
+        .outerjoin(TrackLyrics, TrackLyrics.track_id == Track.id)
+        .where(Track.is_temporary.is_(False))
+    )).one()
+    return dict(row._mapping)
 
 
 @router.post("/genres/fill", response_model=JobOut, status_code=status.HTTP_202_ACCEPTED)

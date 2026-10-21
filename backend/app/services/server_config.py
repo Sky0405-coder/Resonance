@@ -70,6 +70,10 @@ class DownloadConfig(BaseModel):
     auto_approve_requests: bool = True
 
 
+class LyricsConfig(BaseModel):
+    background_fetch: bool = True
+
+
 class LibraryConfig(BaseModel):
     # Look up lyrics on lrclib.net when a song has no local lyrics.
     lyrics_online: bool = True
@@ -136,6 +140,7 @@ class ServerConfig(BaseModel):
     mixes: MixesConfig = MixesConfig()
     downloads: DownloadConfig = DownloadConfig()
     library: LibraryConfig = LibraryConfig()
+    lyrics: LyricsConfig = LyricsConfig()
     audiobookshelf: AudiobookshelfConfig = AudiobookshelfConfig()
     books: BooksConfig = BooksConfig()
     spotify: SpotifyConfig = SpotifyConfig()

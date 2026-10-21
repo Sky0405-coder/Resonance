@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -6,14 +7,19 @@ from pathlib import Path
 import httpx
 import mutagen
 from mutagen.id3 import ID3
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.models import Album, Track, TrackLyrics
+from app.db import SessionLocal
+from app.models import Album, PlayEvent, Track, TrackLyrics
 from app.schemas import LyricLine, LyricsOut
 from app.services.musicbrainz import VERSION
 from app.services.server_config import load_config
 from app.services.tags import primary_artist
+
+log = logging.getLogger(__name__)
 
 
 class LyricsError(Exception):
@@ -136,24 +142,104 @@ async def get_lyrics(db: AsyncSession, track: Track) -> LyricsOut:
     if local is not None:
         source = "file" if await asyncio.to_thread(sidecar_path, path) else "embedded"
         return _result(local, None, False, source)
+    try:
+        row = await fetch_online_lyrics(db, track)
+    except LyricsError:
+        row = None
+    return _result(row.synced, row.plain, row.instrumental, "lrclib") if row else _result(None, None, False, None)
+
+
+async def fetch_online_lyrics(db: AsyncSession, track: Track) -> TrackLyrics | None:
+    """Shared LRCLIB cache for on-demand and background callers; errors remain uncached."""
     cached = await db.get(TrackLyrics, track.id)
     if cached is not None and (cached.source != "none" or cached.fetched_at > datetime.now(UTC) - timedelta(days=30)):
-        return _result(cached.synced, cached.plain, cached.instrumental, "lrclib")
+        return cached
     cfg = await load_config(db)
-    if cfg.library.lyrics_online:
-        album = await db.get(Album, track.album_id)
+    if not cfg.library.lyrics_online:
+        return None
+    album = await db.get(Album, track.album_id)
+    data = await lrclib_lookup(primary_artist(track.artist_credit), track.title, album.title, track.duration) or {}
+    values = {
+        "synced": data.get("syncedLyrics"),
+        "plain": data.get("plainLyrics"),
+        "instrumental": bool(data.get("instrumental", False)),
+        "source": (
+            "lrclib" if data.get("syncedLyrics") or data.get("plainLyrics") or data.get("instrumental") else "none"
+        ),
+        "fetched_at": datetime.now(UTC),
+    }
+    # A lyrics view can request the same song while the background lookup is in flight.
+    row = await db.scalar(
+        insert(TrackLyrics)
+        .values(track_id=track.id, **values)
+        .on_conflict_do_update(index_elements=[TrackLyrics.track_id], set_=values)
+        .returning(TrackLyrics)
+        .execution_options(populate_existing=True)
+    )
+    await db.commit()
+    return row
+
+
+_loop_task: asyncio.Task | None = None
+
+
+async def run_once() -> None:
+    async with SessionLocal() as db:
+        cfg = await load_config(db)
+        if not cfg.lyrics.background_fetch or not cfg.library.lyrics_online:
+            return
+        played = select(PlayEvent.track_id, func.max(PlayEvent.played_at).label("last_played")).group_by(
+            PlayEvent.track_id
+        ).subquery()
+        missing = TrackLyrics.track_id.is_(None)
+        ids = list(await db.scalars(
+            select(Track.id)
+            .outerjoin(TrackLyrics, TrackLyrics.track_id == Track.id)
+            .outerjoin(played, played.c.track_id == Track.id)
+            .where(
+                Track.is_temporary.is_(False),
+                or_(missing, and_(
+                    TrackLyrics.source == "none", TrackLyrics.fetched_at < datetime.now(UTC) - timedelta(days=30)
+                )),
+            )
+            .order_by(missing.desc(), played.c.last_played.desc().nulls_last(), Track.created_at.desc(), Track.id)
+            .limit(100)
+        ))
+    for id in ids:
+        # At most 1200 lookups per hour, including across batch boundaries.
+        await asyncio.sleep(3)
+        async with SessionLocal() as db:
+            cfg = await load_config(db)
+            if not cfg.lyrics.background_fetch or not cfg.library.lyrics_online:
+                return
+            track = await db.get(Track, id)
+            if track is not None and not track.is_temporary:
+                await fetch_online_lyrics(db, track)
+
+
+async def _loop() -> None:
+    delay = 60
+    while True:
+        await asyncio.sleep(delay)
+        delay = 60
         try:
-            data = await lrclib_lookup(primary_artist(track.artist_credit), track.title, album.title, track.duration)
-        except LyricsError:
-            return _result(None, None, False, None)
-        data = data or {}
-        row = cached or TrackLyrics(track_id=track.id)
-        row.synced = data.get("syncedLyrics")
-        row.plain = data.get("plainLyrics")
-        row.instrumental = bool(data.get("instrumental", False))
-        row.source = "lrclib" if row.synced or row.plain or row.instrumental else "none"
-        row.fetched_at = datetime.now(UTC)
-        db.add(row)
-        await db.commit()
-        return _result(row.synced, row.plain, row.instrumental, "lrclib")
-    return _result(None, None, False, None)
+            await run_once()
+        except LyricsError as exc:
+            log.info("Background lyrics lookup failed; retrying in 10 minutes: %s", exc)
+            delay = 600
+        except Exception:
+            log.exception("Background lyrics loop failed")
+
+
+async def start() -> None:
+    global _loop_task
+    if _loop_task is None or _loop_task.done():
+        _loop_task = asyncio.create_task(_loop())
+
+
+async def stop() -> None:
+    global _loop_task
+    if _loop_task is not None:
+        _loop_task.cancel()
+        await asyncio.gather(_loop_task, return_exceptions=True)
+        _loop_task = None

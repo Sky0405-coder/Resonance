@@ -1718,6 +1718,24 @@ abstract class AppLocalizations {
   /// **'AutoMix-Analyse'**
   String get adminMixAnalysis;
 
+  /// No description provided for @adminLyrics.
+  ///
+  /// In de, this message translates to:
+  /// **'Songtexte'**
+  String get adminLyrics;
+
+  /// No description provided for @adminLyricsProgress.
+  ///
+  /// In de, this message translates to:
+  /// **'{synced} mit synchronisiertem Text, {plainOnly} nur Text, {none} ohne · {pending} noch offen'**
+  String adminLyricsProgress(String synced, String plainOnly, String none, String pending);
+
+  /// No description provided for @adminLyricsBackgroundFetch.
+  ///
+  /// In de, this message translates to:
+  /// **'Songtexte im Hintergrund laden'**
+  String get adminLyricsBackgroundFetch;
+
   /// No description provided for @adminMixAnalysisProgress.
   ///
   /// In de, this message translates to:

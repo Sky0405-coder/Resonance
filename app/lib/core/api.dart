@@ -435,6 +435,18 @@ class ApiClient {
     return (total: j['total'] as int, analyzed: j['analyzed'] as int, failed: j['failed'] as int);
   }
 
+  Future<({int total, int synced, int plainOnly, int instrumental, int none, int missing})> lyricsStatus() async {
+    final j = await _get('/api/admin/lyrics/status');
+    return (
+      total: j['total'] as int,
+      synced: j['synced'] as int,
+      plainOnly: j['plain_only'] as int,
+      instrumental: j['instrumental'] as int,
+      none: j['none'] as int,
+      missing: j['missing'] as int,
+    );
+  }
+
   Future<Map<String, ({String? key, double? bpm})?>> mixKeys(List<String> ids) async {
     final result = <String, ({String? key, double? bpm})?>{};
     for (var offset = 0; offset < ids.length; offset += 500) {
