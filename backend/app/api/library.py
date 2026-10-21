@@ -388,7 +388,7 @@ async def get_mixpoint_keys(user: CurrentUser, db: DB, ids: str = Query(max_leng
 
 @router.get("/mixpoints")
 async def get_mixpoints(user: CurrentUser, db: DB, ids: str = Query(max_length=400)) -> dict[str, dict | None]:
-    """Tempo and mix points for AutoMix, keyed by track id (null when a track cannot be analyzed)."""
+    """Tempo, mix points and lyric-based vocal bounds for AutoMix (null when a track cannot be analyzed)."""
     try:
         track_ids = list(dict.fromkeys(uuid.UUID(value) for value in ids.split(",") if value))[:10]
     except ValueError as e:

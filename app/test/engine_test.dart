@@ -172,8 +172,24 @@ void main() {
   });
 
   group('automix plan', () {
-    MixPoints points({double? bpm, double mixIn = 0.5, double mixOut = 200, double end = 210}) =>
-        MixPoints(bpm: bpm, mixIn: mixIn, mixOut: mixOut, end: end);
+    MixPoints points({
+      double? bpm,
+      double mixIn = 0.5,
+      double mixOut = 200,
+      double end = 210,
+      double? vocalsIn,
+      double? vocalsOut,
+    }) => MixPoints(bpm: bpm, mixIn: mixIn, mixOut: mixOut, end: end, vocalsIn: vocalsIn, vocalsOut: vocalsOut);
+
+    test('parses optional vocal bounds as doubles', () {
+      final json = <String, dynamic>{'bpm': 120, 'mix_in': 0.5, 'mix_out': 200, 'end': 210};
+      final missing = MixPoints.fromJson(json);
+      expect((missing.vocalsIn, missing.vocalsOut), (null, null));
+      final vocals = MixPoints.fromJson({...json, 'vocals_in': 8, 'vocals_out': 204.25});
+      expect((vocals.vocalsIn, vocals.vocalsOut), (8.0, 204.25));
+      final absent = MixPoints.fromJson({...json, 'vocals_in': null, 'vocals_out': null});
+      expect((absent.vocalsIn, absent.vocalsOut), (null, null));
+    });
 
     test('matches close tempos and starts the next song at its first beat', () {
       final plan = automixPlan(points(bpm: 124, mixOut: 200.25), points(bpm: 120, mixIn: 1.5))!;
@@ -213,6 +229,85 @@ void main() {
           const Duration(seconds: 10));
       // Never before the middle of the song.
       expect(automixPlan(points(mixOut: 20, end: 30), points(), minSeconds: 20)!.start, const Duration(seconds: 20));
+    });
+
+    test('waits for outgoing vocals on a whole bar after lengthening the blend', () {
+      final plan = automixPlan(
+        points(bpm: 120, mixOut: 200.25, end: 210.25, vocalsOut: 203.1),
+        points(bpm: 120),
+        minSeconds: 15,
+      )!;
+      // Lengthening starts at 194.25; five bars later is the first boundary after the vocals.
+      expect(plan.start, const Duration(milliseconds: 204250));
+      expect(plan.duration, const Duration(seconds: 6));
+      expect(plan.bassSwap, const Duration(seconds: 3));
+    });
+
+    test('waits until outgoing vocals end without bar rounding when tempo is unknown', () {
+      final plan = automixPlan(points(vocalsOut: 203.3), points())!;
+      expect(plan.start, const Duration(milliseconds: 203300));
+      expect(plan.duration, const Duration(milliseconds: 6700));
+      expect(plan.bassSwap, const Duration(milliseconds: 3350));
+    });
+
+    test('falls back to the final three seconds when outgoing vocals leave too little room', () {
+      final plan = automixPlan(
+        points(bpm: 120, mixOut: 200.25, end: 210.25, vocalsOut: 208.8),
+        points(bpm: 120),
+      )!;
+      expect(plan.start, const Duration(milliseconds: 207250));
+      expect(plan.duration, const Duration(seconds: 3));
+      expect(plan.bassSwap, const Duration(milliseconds: 1500));
+      final short = automixPlan(points(mixOut: 208, vocalsOut: 210), points())!;
+      expect(short.start, const Duration(seconds: 208));
+      expect(short.duration, const Duration(seconds: 2));
+    });
+
+    test('shortens a lengthened blend before incoming vocals and recomputes the bass swap', () {
+      final plan = automixPlan(
+        points(bpm: 120),
+        points(bpm: 120, mixIn: 1.25, vocalsIn: 6.75),
+        minSeconds: 15,
+      )!;
+      expect(plan.start, const Duration(seconds: 194));
+      expect(plan.incomingStart, const Duration(milliseconds: 1250));
+      expect(plan.duration, const Duration(milliseconds: 5500));
+      expect(plan.bassSwap, const Duration(seconds: 3));
+      final immediate = automixPlan(points(), points(vocalsIn: 0))!;
+      expect(immediate.duration, const Duration(seconds: 3));
+      expect(immediate.bassSwap, const Duration(milliseconds: 1500));
+    });
+
+    test('applies both vocal guards before choosing the bass swap', () {
+      final plan = automixPlan(points(bpm: 120, vocalsOut: 203.1), points(bpm: 120, vocalsIn: 3.75))!;
+      expect(plan.start, const Duration(seconds: 204));
+      expect(plan.duration, const Duration(milliseconds: 3250));
+      expect(plan.bassSwap, const Duration(milliseconds: 1500));
+    });
+
+    test('null vocal bounds preserve the existing lengthened blend', () {
+      final outgoing = MixPoints.fromJson({
+        'bpm': 120, 'mix_in': 0.5, 'mix_out': 200.25, 'end': 210.25, 'vocals_in': null, 'vocals_out': null,
+      });
+      final incoming = MixPoints.fromJson({
+        'bpm': 120, 'mix_in': 1.5, 'mix_out': 200, 'end': 210, 'vocals_in': null, 'vocals_out': null,
+      });
+      final plan = automixPlan(outgoing, incoming, minSeconds: 15)!;
+      expect(plan.start, const Duration(milliseconds: 194250));
+      expect(plan.incomingStart, const Duration(milliseconds: 1500));
+      expect(plan.duration, const Duration(seconds: 15));
+      expect(plan.bassSwap, const Duration(milliseconds: 7500));
+      expect(plan.speed, closeTo(1, 1e-6));
+      expect(plan.outgoingSpeed, 1);
+      expect(plan.filterOut, isFalse);
+    });
+
+    test('vocal bounds leave the short filter-out transition unchanged', () {
+      final plan = automixPlan(points(bpm: 128, vocalsOut: 210), points(bpm: 100, vocalsIn: 0), minSeconds: 20)!;
+      expect(plan.filterOut, isTrue);
+      expect(plan.start, const Duration(seconds: 204));
+      expect(plan.duration, const Duration(milliseconds: 2500));
+      expect(plan.bassSwap, Duration.zero);
     });
 
     test('swaps the bass on a beat near the middle of the overlap', () {

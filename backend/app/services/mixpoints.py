@@ -5,7 +5,9 @@ import logging
 import subprocess
 import uuid
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
+from statistics import median
 
 import numpy as np
 from sqlalchemy import select
@@ -13,7 +15,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import SessionLocal
-from app.models import Track, TrackMixPoints
+from app.models import Track, TrackLyrics, TrackMixPoints
+from app.services.lyrics import parse_lrc
 from app.services.transcode import resolve_path
 
 log = logging.getLogger(__name__)
@@ -40,6 +43,24 @@ class MixPoints:
     end: float
     key: str | None = None
     key_confidence: float | None = None
+    vocals_in: float | None = None
+    vocals_out: float | None = None
+
+
+def _vocal_bounds(
+    synced: str | None, duration: float, *, instrumental: bool = False
+) -> tuple[float | None, float | None]:
+    if not synced or instrumental:
+        return None, None
+    times = [
+        ms / 1000
+        for ms, text in parse_lrc(synced)
+        if ms is not None and text.replace("♪", "").replace("…", "").strip()
+    ]
+    if len(times) < 3:
+        return None, None
+    gap = median(b - a for a, b in pairwise(times))
+    return times[0], min(duration, times[-1] + min(6.0, max(2.0, gap)))
 
 
 def _decode(path: Path) -> np.ndarray:
@@ -236,6 +257,7 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
     stored = {row.track_id: row for row in await db.scalars(
         select(TrackMixPoints).where(TrackMixPoints.track_id.in_(ids))
     )}
+    lyrics = {row.track_id: row for row in await db.scalars(select(TrackLyrics).where(TrackLyrics.track_id.in_(ids)))}
     result: dict[uuid.UUID, MixPoints | None] = {}
     for id in ids:
         track = tracks.get(id)
@@ -267,6 +289,11 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
             .on_conflict_do_update(index_elements=[TrackMixPoints.track_id], set_=values)
         )
         await db.commit()
+    for id, points in result.items():
+        if points is not None and (lyric := lyrics.get(id)) is not None:
+            points.vocals_in, points.vocals_out = _vocal_bounds(
+                lyric.synced, tracks[id].duration, instrumental=lyric.instrumental
+            )
     return result
 
 

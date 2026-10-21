@@ -10,11 +10,36 @@ import pytest
 from sqlalchemy import select
 
 from app.db import Base, SessionLocal, engine
-from app.models import Album, Artist, Track, TrackMixPoints
+from app.models import Album, Artist, Track, TrackLyrics, TrackMixPoints
 from app.services import mixpoints
 from tests.conftest import MUSIC_DIR, auth, register
 
 RATE = 22050
+
+
+@pytest.mark.parametrize("synced, duration, expected", [
+    ("[00:10.250]First\n[00:13.750]Second\n[00:18.250]Last", 40, (10.25, 22.25)),
+    ("[00:01]♪\n[00:02]…\n[00:10]First\n[00:11] \n[00:14]Second\n[00:16]♪ …\n[00:18]Last\n[00:30]", 40, (10, 22)),
+    ("[00:10]First\n[00:11]Second\n[00:12]Last", 40, (10, 14)),
+    ("[00:10]First\n[00:20]Second\n[00:30]Last", 40, (10, 36)),
+    ("[00:10]First\n[00:14]Second\n[00:18]Third\n[00:30]Last", 50, (10, 34)),
+    ("[00:10]First\n[00:14]Second\n[00:18]Third\n[00:38]Last", 40, (10, 40)),
+    ("[offset:500]\n[00:18]Last\n[00:10][00:14]Repeated", 40, (9.5, 21.5)),
+])
+def test_vocal_bounds_estimate_last_line_from_median_gap(synced, duration, expected) -> None:
+    assert mixpoints._vocal_bounds(synced, duration) == expected
+
+
+@pytest.mark.parametrize("synced, instrumental", [
+    (None, False),
+    ("", False),
+    ("First\nSecond\nLast", False),
+    ("[00:10]First\n[00:14]Second", False),
+    ("[00:01]♪\n[00:02]…\n[00:10]First\n[00:14]Second\n[00:18]♪ …\n[00:30] ", False),
+    ("[00:10]First\n[00:14]Second\n[00:18]Last", True),
+])
+def test_vocal_bounds_require_at_least_three_synced_vocal_lines(synced, instrumental) -> None:
+    assert mixpoints._vocal_bounds(synced, 40, instrumental=instrumental) == (None, None)
 
 
 def beat_track(path: Path, *, bpm: float, seconds: float, lead: float = 0.0, tail: float = 0.0) -> Path:
@@ -145,6 +170,7 @@ async def test_api_analyzes_once_and_reanalyzes_changed_files(env, monkeypatch: 
     assert response.status_code == 200, response.text
     body = response.json()
     assert body[str(track_id)]["bpm"] == pytest.approx(120, rel=0.02)
+    assert body[str(track_id)]["vocals_in"] is None and body[str(track_id)]["vocals_out"] is None
     assert body[str(missing_id)] is None and body[str(unknown)] is None
     assert len(calls) == 2
     again = await client.get("/api/mixpoints", params={"ids": str(track_id)}, headers=headers)
@@ -161,6 +187,44 @@ async def test_api_analyzes_once_and_reanalyzes_changed_files(env, monkeypatch: 
         assert rows[missing_id].failed
     assert (await client.get("/api/mixpoints", params={"ids": "nope"}, headers=headers)).status_code == 422
     assert (await client.get("/api/mixpoints", params={"ids": str(track_id)})).status_code == 401
+
+
+async def test_api_vocal_bounds_follow_current_lyrics_without_reanalysis(env, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, headers, track_id, missing_id = env
+    calls = []
+
+    async def analyze(path):
+        calls.append(path)
+        return mixpoints.MixPoints(120, 0, 30, 39)
+
+    monkeypatch.setattr(mixpoints, "analyze_async", analyze)
+    synced = "[00:10]First\n[00:18]Second\n[00:38]Last"
+    async with SessionLocal() as db:
+        db.add_all([
+            TrackLyrics(track_id=track_id, synced=synced, source="lrclib"),
+            TrackLyrics(track_id=missing_id, synced=synced, instrumental=True, source="lrclib"),
+        ])
+        await db.commit()
+    response = await client.get("/api/mixpoints", params={"ids": f"{track_id},{missing_id}"}, headers=headers)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body[str(track_id)]["vocals_in"], body[str(track_id)]["vocals_out"]) == (10, 40)
+    assert body[str(missing_id)]["vocals_in"] is None and body[str(missing_id)]["vocals_out"] is None
+    assert len(calls) == 2
+    for synced, instrumental, expected in (
+        ("[00:02]First\n[00:06]Second\n[00:12]Last", False, (2, 17)),
+        ("[00:02]First\n[00:06]Second\n[00:12]Last", True, (None, None)),
+        (None, False, (None, None)),
+    ):
+        async with SessionLocal() as db:
+            lyric = await db.get(TrackLyrics, track_id)
+            lyric.synced, lyric.instrumental = synced, instrumental
+            await db.commit()
+        response = await client.get("/api/mixpoints", params={"ids": str(track_id)}, headers=headers)
+        assert response.status_code == 200, response.text
+        points = response.json()[str(track_id)]
+        assert (points["vocals_in"], points["vocals_out"]) == expected
+        assert len(calls) == 2
 
 
 @pytest.mark.parametrize("change", ["mtime", "version"])

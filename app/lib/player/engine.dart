@@ -50,6 +50,8 @@ class MixPoints {
     required this.end,
     this.key,
     this.keyConfidence,
+    this.vocalsIn,
+    this.vocalsOut,
   });
   final double? bpm;
   final double mixIn;
@@ -59,6 +61,8 @@ class MixPoints {
   /// Musical key as a Camelot code ("8A" = A minor, "8B" = C major), when the server could tell.
   final String? key;
   final double? keyConfidence;
+  final double? vocalsIn;
+  final double? vocalsOut;
 
   /// The key only when the analysis was reasonably sure (a wrong key would cause needless filter-outs).
   String? get reliableKey => (keyConfidence ?? 0) >= 0.1 ? key : null;
@@ -70,6 +74,8 @@ class MixPoints {
     end: (j['end'] as num).toDouble(),
     key: j['key'] as String?,
     keyConfidence: (j['key_confidence'] as num?)?.toDouble(),
+    vocalsIn: (j['vocals_in'] as num?)?.toDouble(),
+    vocalsOut: (j['vocals_out'] as num?)?.toDouble(),
   );
 }
 
@@ -188,6 +194,24 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds
     if (start - earlier < outgoing.end / 2) earlier = 0;
     start -= earlier;
     duration = math.max(duration, math.min(wanted, overlap + earlier));
+  }
+  final originalStart = start;
+  final vocalsOut = outgoing.vocalsOut;
+  if (vocalsOut != null && start < vocalsOut) {
+    start = vocalsOut;
+    if (outgoing.bpm != null && outgoing.bpm! > 0) {
+      final bar = 4 * 60 / outgoing.bpm!;
+      start = originalStart + ((vocalsOut - originalStart) / bar).ceil() * bar;
+    }
+    duration = math.min(duration, outgoing.end - start);
+    if (duration < 3) {
+      start = math.max(originalStart, outgoing.end - 3);
+      duration = outgoing.end - start;
+    }
+  }
+  final vocalsIn = incoming.vocalsIn;
+  if (vocalsIn != null && incoming.mixIn + duration > vocalsIn) {
+    duration = math.max(3.0, vocalsIn - incoming.mixIn);
   }
   // Swap the bass on the outgoing song's beat closest to the middle.
   var swap = duration / 2;
