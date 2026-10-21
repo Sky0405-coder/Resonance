@@ -1,0 +1,52 @@
+export const strings = {
+  de: {
+    home: 'Start', search: 'Suche', library: 'Bibliothek', radio: 'Weltradio', settings: 'Einstellungen',
+    login: 'Anmelden', username: 'Benutzername', password: 'Passwort', server: 'Server-Adresse',
+    welcome: 'Deine Musik. Dein Zuhause.', loginHint: 'Server und Zugangsdaten eingeben und loshören.',
+    save: 'Speichern', logout: 'Abmelden', play: 'Abspielen', pause: 'Pause', stop: 'Stopp',
+    shuffle: 'Zufall', repeat: 'Wiederholen', off: 'Aus', all: 'Alle', one: 'Ein Titel',
+    previous: 'Zurück', next: 'Weiter', rewind: '−10 Sek.', forward: '+10 Sek.',
+    recentlyPlayed: 'Zuletzt gehört', recentlyAdded: 'Neu in deiner Musik', mostPlayed: 'Deine Lieblingstitel',
+    playlists: 'Playlists', albums: 'Alben', artists: 'Künstler', liked: 'Lieblingssongs',
+    favorites: 'Favoriten', popular: 'Beliebte Sender', addFavorite: 'Als Favorit speichern', removeFavorite: 'Favorit entfernen',
+    searchHint: 'Was möchtest du hören?', radioHint: 'Sender suchen', space: 'Leerzeichen', delete: 'Löschen', clear: 'Leeren',
+    loading: 'Wird geladen …', empty: 'Hier ist noch keine Musik.', noResults: 'Keine Ergebnisse.',
+    nowPlaying: 'Jetzt läuft', nothingPlaying: 'Wähle deine Musik', lyrics: 'Songtext', noLyrics: 'Kein Songtext verfügbar.',
+    instrumental: 'Instrumental', live: 'LIVE', tracks: 'Titel', album: 'Album', playlist: 'Playlist', artist: 'Künstler',
+    back: 'Zurück', exit: 'Beenden?', yes: 'Beenden', cancel: 'Abbrechen', retry: 'Erneut versuchen',
+    networkError: 'Server nicht erreichbar. Adresse und Verbindung prüfen.', invalidServer: 'Bitte eine gültige HTTP(S)-Adresse eingeben.',
+    expired: 'Sitzung abgelaufen. Bitte erneut anmelden.', playbackError: 'Wiedergabe fehlgeschlagen. Bitte erneut abspielen.',
+    seekUnavailable: 'Spulen ist für diesen Stream derzeit nicht verfügbar.',
+    remoteHint: 'Pfeile: navigieren · OK: auswählen · Zurück: zurück',
+    colorHint: 'Gelb / Y: Songtext · Blau / N: Jetzt läuft', saved: 'Gespeichert',
+    serverHint: 'Ein Serverwechsel erfordert eine neue Anmeldung.', loginRequired: 'Bitte Benutzername und Passwort eingeben.',
+    connected: 'Verbunden mit', more: 'Mehr laden', error: 'Fehler', loginKeyboard: 'Tastatur',
+    keyboardDone: 'Fertig', showPassword: 'Passwort anzeigen', hidePassword: 'Passwort verbergen'
+  },
+  en: {
+    home: 'Home', search: 'Search', library: 'Library', radio: 'World radio', settings: 'Settings',
+    login: 'Sign in', username: 'Username', password: 'Password', server: 'Server address',
+    welcome: 'Your music. Your home.', loginHint: 'Enter your server and credentials to start listening.',
+    save: 'Save', logout: 'Sign out', play: 'Play', pause: 'Pause', stop: 'Stop',
+    shuffle: 'Shuffle', repeat: 'Repeat', off: 'Off', all: 'All', one: 'One track',
+    previous: 'Previous', next: 'Next', rewind: '−10 sec', forward: '+10 sec',
+    recentlyPlayed: 'Recently played', recentlyAdded: 'New in your music', mostPlayed: 'Your favorite tracks',
+    playlists: 'Playlists', albums: 'Albums', artists: 'Artists', liked: 'Liked songs',
+    favorites: 'Favorites', popular: 'Popular stations', addFavorite: 'Add to favorites', removeFavorite: 'Remove favorite',
+    searchHint: 'What would you like to hear?', radioHint: 'Search stations', space: 'Space', delete: 'Delete', clear: 'Clear',
+    loading: 'Loading …', empty: 'No music here yet.', noResults: 'No results.',
+    nowPlaying: 'Now playing', nothingPlaying: 'Choose your music', lyrics: 'Lyrics', noLyrics: 'No lyrics available.',
+    instrumental: 'Instrumental', live: 'LIVE', tracks: 'Tracks', album: 'Album', playlist: 'Playlist', artist: 'Artist',
+    back: 'Back', exit: 'Exit?', yes: 'Exit', cancel: 'Cancel', retry: 'Try again',
+    networkError: 'Cannot reach server. Check the address and connection.', invalidServer: 'Enter a valid HTTP(S) address.',
+    expired: 'Session expired. Please sign in again.', playbackError: 'Playback failed. Please try playing again.',
+    seekUnavailable: 'Seeking is currently unavailable for this stream.',
+    remoteHint: 'Arrows: navigate · OK: select · Back: go back',
+    colorHint: 'Yellow / Y: lyrics · Blue / N: now playing', saved: 'Saved',
+    serverHint: 'Changing servers requires signing in again.', loginRequired: 'Enter your username and password.',
+    connected: 'Connected to', more: 'Load more', error: 'Error', loginKeyboard: 'Keyboard',
+    keyboardDone: 'Done', showPassword: 'Show password', hidePassword: 'Hide password'
+  }
+};
+export const language = typeof navigator !== 'undefined' && /^de/i.test(navigator.language) ? 'de' : 'en';
+export function t(key) { return strings[language][key] || key; }
