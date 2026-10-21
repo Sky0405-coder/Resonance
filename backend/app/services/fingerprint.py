@@ -8,6 +8,17 @@ _semaphore = asyncio.Semaphore(max(1, (os.cpu_count() or 2) // 2))
 
 
 async def fingerprint(path: Path) -> str | None:
+    raw = await _fingerprint(path, "base64")
+    return raw.decode().strip() or None if raw is not None else None
+
+
+async def fingerprint_raw(path: Path) -> bytes | None:
+    """The first 120 seconds as Chromaprint's little-endian uint32 array."""
+    raw = await _fingerprint(path, "raw")
+    return raw if raw and len(raw) % 4 == 0 else None
+
+
+async def _fingerprint(path: Path, fmt: str) -> bytes | None:
     async with _semaphore:
         process = await asyncio.create_subprocess_exec(
             get_settings().ffmpeg_path,
@@ -23,7 +34,7 @@ async def fingerprint(path: Path) -> str | None:
             "-f",
             "chromaprint",
             "-fp_format",
-            "base64",
+            fmt,
             "-",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -35,4 +46,4 @@ async def fingerprint(path: Path) -> str | None:
                 process.kill()
             await process.wait()
             raise
-        return stdout.decode().strip() or None if process.returncode == 0 else None
+        return stdout or None if process.returncode == 0 else None

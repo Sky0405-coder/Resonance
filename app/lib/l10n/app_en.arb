@@ -759,8 +759,9 @@
   "jamChip": "Jam · {count}",
   "adminDuplicates": "Duplicates",
   "adminDuplicatesEmpty": "No duplicates found",
-  "adminDuplicatesDifferentAlbums": "Different albums",
-  "adminDuplicatesHint": "{groups} songs have multiple files. The best file for each song will be kept and the others deleted. Likes, playlists and listening history will be transferred to the kept file.",
+  "adminDuplicatesDifferentAlbums": "Different albums · same recording",
+  "adminDuplicatesPending": "Still being checked",
+  "adminDuplicatesHint": "{groups} songs have multiple files. The best file for each song will be kept and the others deleted. Likes, playlists and listening history will be transferred to the kept file. Playlists, likes and history then point to the kept file – nothing needs to be re-added. For different albums the song disappears from the other album.",
   "@adminDuplicatesHint": {
     "placeholders": {
       "groups": {

@@ -2236,14 +2236,17 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminDuplicates => 'Duplikate';
 
   @override
-  String get adminDuplicatesDifferentAlbums => 'Verschiedene Alben';
+  String get adminDuplicatesDifferentAlbums => 'Verschiedene Alben · gleiche Aufnahme';
+
+  @override
+  String get adminDuplicatesPending => 'Wird noch geprüft';
 
   @override
   String get adminDuplicatesEmpty => 'Keine Duplikate gefunden';
 
   @override
   String adminDuplicatesHint(int groups) {
-    return '$groups Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über.';
+    return '$groups Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über. Playlists, Likes und Verlauf zeigen danach auf die behaltene Datei – du musst nichts neu hinzufügen. Bei verschiedenen Alben verschwindet der Song vom anderen Album.';
   }
 
   @override

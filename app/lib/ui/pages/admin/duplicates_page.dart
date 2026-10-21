@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -26,6 +24,8 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
   Set<String>? _selected;
   bool _merging = false;
 
+  String _selectionKey(DuplicateGroup group) => '${group.kind}:${group.tracks.first.id}';
+
   /// Groups merged so far while deleting; sent in small batches so no request runs into the timeout.
   int _done = 0;
 
@@ -49,13 +49,18 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
     var deleted = 0;
     var freed = 0;
     try {
-      for (var i = 0; i < groups.length; i += 25) {
-        final batch = groups.skip(i).take(25);
-        final result = await ref.read(apiProvider).mergeDuplicates([for (final group in batch) group.tracks.first.id]);
-        deleted += result.deletedTracks;
-        freed += result.freedBytes;
-        if (!mounted) return;
-        setState(() => _done = math.min(i + 25, groups.length));
+      for (final kind in ['same_album', 'cross_album']) {
+        final matching = groups.where((group) => group.kind == kind).toList();
+        for (var i = 0; i < matching.length; i += 25) {
+          final batch = matching.skip(i).take(25).toList();
+          final result = await ref.read(apiProvider).mergeDuplicates([
+            for (final group in batch) group.tracks.first.id,
+          ], kind: kind);
+          deleted += result.deletedTracks;
+          freed += result.freedBytes;
+          if (!mounted) return;
+          setState(() => _done += batch.length);
+        }
       }
     } catch (e) {
       if (mounted) showError(context, e);
@@ -78,14 +83,23 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
   Widget build(BuildContext context) {
     final groups = ref.watch(_duplicatesProvider);
     final list = groups.value ?? <DuplicateGroup>[];
-    final selected = _selected ?? {for (final group in list) group.tracks.first.id};
-    final checked = [
+    final selectable = [
       for (final group in list)
-        if (selected.contains(group.tracks.first.id)) group,
+        if (group.verified && !group.pending) group,
+    ];
+    final selected =
+        _selected ??
+        {
+          for (final group in selectable)
+            if (group.kind == 'same_album') _selectionKey(group),
+        };
+    final checked = [
+      for (final group in selectable)
+        if (selected.contains(_selectionKey(group))) group,
     ];
     final count = checked.fold(0, (sum, group) => sum + group.tracks.length - 1);
 
-    final allSelected = list.isNotEmpty && checked.length == list.length;
+    final allSelected = selectable.isNotEmpty && checked.length == selectable.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -93,10 +107,11 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
         actions: [
           if (list.isNotEmpty)
             TextButton(
-              onPressed: _merging
+              onPressed: _merging || selectable.isEmpty
                   ? null
                   : () => setState(
-                      () => _selected = allSelected ? <String>{} : {for (final group in list) group.tracks.first.id},
+                      () =>
+                          _selected = allSelected ? <String>{} : {for (final group in selectable) _selectionKey(group)},
                     ),
               child: Text(allSelected ? context.l10n.adminDuplicatesSelectNone : context.l10n.adminDuplicatesSelectAll),
             ),
@@ -110,19 +125,19 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  Text(context.l10n.adminDuplicatesHint(data.length)),
+                  Text(context.l10n.adminDuplicatesHint(selectable.length)),
                   const SizedBox(height: 16),
                   for (final group in data)
                     CheckboxListTile(
-                      value: selected.contains(group.tracks.first.id),
-                      onChanged: _merging
+                      value: group.verified && !group.pending && selected.contains(_selectionKey(group)),
+                      onChanged: _merging || group.pending || !group.verified
                           ? null
                           : (value) => setState(() {
                               _selected = {...selected};
                               if (value == true) {
-                                _selected!.add(group.tracks.first.id);
+                                _selected!.add(_selectionKey(group));
                               } else {
-                                _selected!.remove(group.tracks.first.id);
+                                _selected!.remove(_selectionKey(group));
                               }
                             }),
                       title: Text(
@@ -135,7 +150,9 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (group.kind == 'cross_album')
+                          if (group.pending)
+                            Text(context.l10n.adminDuplicatesPending, style: Theme.of(context).textTheme.labelSmall)
+                          else if (group.kind == 'cross_album')
                             Text(
                               context.l10n.adminDuplicatesDifferentAlbums,
                               style: Theme.of(context).textTheme.labelSmall,

@@ -1,12 +1,19 @@
+import asyncio
+import logging
 import uuid
 from collections import Counter, defaultdict
-from itertools import pairwise
+from dataclasses import dataclass
+from itertools import combinations, pairwise
 from pathlib import PurePosixPath
+from typing import Literal
 
+import numpy as np
 from sqlalchemy import delete, func, or_, select, tuple_, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.db import SessionLocal
 from app.models import (
     Album,
     DownloadItem,
@@ -15,14 +22,43 @@ from app.models import (
     PlayEvent,
     PlaylistEntry,
     Track,
+    TrackFingerprint,
     TrackLike,
     TrackLyrics,
 )
 from app.services.deletion import delete_tracks
+from app.services.fingerprint import fingerprint_raw
 from app.services.matching import name_key
 from app.services.tags import primary_artist
+from app.services.transcode import resolve_path
 
+log = logging.getLogger(__name__)
 _LOSSLESS = {"flac", "alac", "ape", "wavpack", "wave", "wav", "aiff"}
+_SAME_RECORDING = 0.80
+
+
+@dataclass
+class DuplicateGroup:
+    tracks: list[Track]
+    kind: Literal["same_album", "cross_album"] = "same_album"
+    verified: bool = True
+    pending: bool = False
+
+
+def similarity(a: bytes, b: bytes) -> float:
+    if len(a) % 4 or len(b) % 4:
+        return 0.0
+    left, right = np.frombuffer(a, dtype="<u4"), np.frombuffer(b, dtype="<u4")
+    best = 0.0
+    for offset in range(-20, 21):
+        left_start, right_start = max(0, offset), max(0, -offset)
+        count = min(len(left) - left_start, len(right) - right_start)
+        if count < 50:
+            continue
+        xor = left[left_start : left_start + count] ^ right[right_start : right_start + count]
+        distance = int(np.unpackbits(xor.view(np.uint8)).sum())
+        best = max(best, 1 - distance / (32 * count))
+    return best
 
 
 def track_quality(track: Track) -> int:
@@ -48,7 +84,7 @@ async def _same_stem_track(db: AsyncSession, target: str, exclude_path: str | No
     return max(matches, key=track_quality, default=None)
 
 
-async def find_groups(db: AsyncSession) -> list[list[Track]]:
+async def _candidate_groups(db: AsyncSession) -> tuple[list[list[Track]], list[list[Track]]]:
     disc = func.coalesce(Track.disc_no, 1)
     candidates = (
         select(Track.album_id, disc, Track.track_no)
@@ -117,6 +153,7 @@ async def find_groups(db: AsyncSession) -> list[list[Track]]:
         components[key].append(row.id)
         component_albums[key].add(row.album_id)
     cross_ids = [ids for key, ids in components.items() if len(component_albums[key]) > 1]
+    cross_groups: list[list[Track]] = []
     if cross_ids:
         cross_tracks = {
             track.id: track
@@ -131,16 +168,141 @@ async def find_groups(db: AsyncSession) -> list[list[Track]]:
             group.sort(
                 key=lambda t: (-track_quality(t), -album_counts[t.album_id], t.is_temporary, t.created_at, t.id)
             )
-            groups.append(group)
+            cross_groups.append(group)
+    return groups, cross_groups
+
+
+async def _current_fingerprints(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, TrackFingerprint]:
+    if not ids:
+        return {}
+    return {
+        row.track_id: row
+        for row in await db.scalars(
+            select(TrackFingerprint)
+            .join(Track, Track.id == TrackFingerprint.track_id)
+            .where(Track.id.in_(ids), TrackFingerprint.mtime == Track.mtime)
+            .execution_options(populate_existing=True)
+        )
+    }
+
+
+def _verified_clusters(tracks: list[Track], fingerprints: dict[uuid.UUID, TrackFingerprint]) -> list[list[Track]]:
+    parents = list(range(len(tracks)))
+
+    def root(index: int) -> int:
+        while parents[index] != index:
+            parents[index] = parents[parents[index]]
+            index = parents[index]
+        return index
+
+    for left, right in combinations(range(len(tracks)), 2):
+        a, b = fingerprints[tracks[left].id], fingerprints[tracks[right].id]
+        if (
+            not a.failed
+            and not b.failed
+            and a.fingerprint
+            and b.fingerprint
+            and similarity(a.fingerprint, b.fingerprint) >= _SAME_RECORDING
+        ):
+            parents[root(left)] = root(right)
+    clusters: dict[int, list[Track]] = defaultdict(list)
+    for index, track in enumerate(tracks):
+        clusters[root(index)].append(track)
+    return [cluster for cluster in clusters.values() if len(cluster) >= 2]
+
+
+async def find_groups(db: AsyncSession) -> list[DuplicateGroup]:
+    same, cross = await _candidate_groups(db)
+    groups = [DuplicateGroup(tracks) for tracks in same]
+    fingerprints = await _current_fingerprints(db, [track.id for tracks in cross for track in tracks])
+    for tracks in cross:
+        if any(
+            track.id not in fingerprints
+            or (fingerprints[track.id].fingerprint is None and not fingerprints[track.id].failed)
+            for track in tracks
+        ):
+            groups.append(DuplicateGroup(tracks, "cross_album", verified=False, pending=True))
+            continue
+        groups.extend(DuplicateGroup(cluster, "cross_album") for cluster in _verified_clusters(tracks, fingerprints))
     groups.sort(
         key=lambda g: (
-            g[0].album.artist.name,
-            g[0].album.title,
-            g[0].disc_no if g[0].disc_no is not None else 1,
-            g[0].track_no if g[0].track_no is not None else 0,
+            g.tracks[0].album.artist.name,
+            g.tracks[0].album.title,
+            g.tracks[0].disc_no if g.tracks[0].disc_no is not None else 1,
+            g.tracks[0].track_no if g.tracks[0].track_no is not None else 0,
         )
     )
     return groups
+
+
+async def _pick_tracks(db: AsyncSession, limit: int = 200) -> list[uuid.UUID]:
+    _, cross = await _candidate_groups(db)
+    tracks = {track.id: track for group in cross for track in group}
+    current = await _current_fingerprints(db, list(tracks))
+    missing = [track for track in tracks.values() if track.id not in current]
+    missing.sort(key=lambda track: (track.created_at, track.id))
+    return [track.id for track in missing[:limit]]
+
+
+async def _fingerprint_track(id: uuid.UUID) -> None:
+    async with SessionLocal() as db:
+        track = await db.get(Track, id)
+        if track is None or id in await _current_fingerprints(db, [id]):
+            return
+        path, mtime = track.path, track.mtime
+        try:
+            raw = await fingerprint_raw(resolve_path(path))
+        except Exception:
+            log.exception("Fingerprint failed for %s", id)
+            raw = None
+        await db.refresh(track)
+        if (track.path, track.mtime) != (path, mtime):
+            return
+        values = {"mtime": mtime, "fingerprint": raw, "failed": raw is None}
+        await db.execute(
+            insert(TrackFingerprint)
+            .values(track_id=id, **values)
+            .on_conflict_do_update(index_elements=[TrackFingerprint.track_id], set_=values)
+        )
+        await db.commit()
+
+
+async def run_once() -> None:
+    async with SessionLocal() as db:
+        ids = await _pick_tracks(db)
+    for index, id in enumerate(ids):
+        if index:
+            await asyncio.sleep(1)
+        try:
+            await _fingerprint_track(id)
+        except Exception:
+            log.exception("Background fingerprint failed for %s", id)
+
+
+_loop_task: asyncio.Task | None = None
+
+
+async def _loop() -> None:
+    while True:
+        await asyncio.sleep(60)
+        try:
+            await run_once()
+        except Exception:
+            log.exception("Duplicate fingerprint loop failed")
+
+
+async def start() -> None:
+    global _loop_task
+    if _loop_task is None or _loop_task.done():
+        _loop_task = asyncio.create_task(_loop())
+
+
+async def stop() -> None:
+    global _loop_task
+    if _loop_task is not None:
+        _loop_task.cancel()
+        await asyncio.gather(_loop_task, return_exceptions=True)
+        _loop_task = None
 
 
 async def lossless_twin(db: AsyncSession, track: Track) -> Track | None:

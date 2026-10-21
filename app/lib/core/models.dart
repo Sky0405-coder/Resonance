@@ -446,6 +446,8 @@ class DuplicateGroup {
     required this.artistName,
     required this.tracks,
     this.kind = 'same_album',
+    this.verified = true,
+    this.pending = false,
   });
 
   final String albumId;
@@ -453,6 +455,8 @@ class DuplicateGroup {
   final String artistName;
   final List<DuplicateTrack> tracks;
   final String kind;
+  final bool verified;
+  final bool pending;
 
   factory DuplicateGroup.fromJson(Map<String, dynamic> j) => DuplicateGroup(
     albumId: j['album_id'],
@@ -460,6 +464,8 @@ class DuplicateGroup {
     artistName: j['artist_name'],
     tracks: [for (final track in j['tracks']) DuplicateTrack.fromJson(track)],
     kind: j['kind'] ?? 'same_album',
+    verified: j['verified'] ?? (j['kind'] != 'cross_album'),
+    pending: j['pending'] ?? false,
   );
 }
 

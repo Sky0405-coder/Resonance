@@ -139,6 +139,8 @@ class DuplicateTrackOut(ORM):
 
 class DuplicateGroupOut(BaseModel):
     kind: Literal["same_album", "cross_album"] = "same_album"
+    verified: bool = True
+    pending: bool = False
     album_id: uuid.UUID
     album_title: str
     artist_name: str
@@ -147,6 +149,7 @@ class DuplicateGroupOut(BaseModel):
 
 class DuplicateMergeIn(BaseModel):
     keep_ids: list[uuid.UUID] = Field(max_length=5000)
+    kind: Literal["same_album", "cross_album"] | None = None
 
 
 # --- library ----------------------------------------------------------------

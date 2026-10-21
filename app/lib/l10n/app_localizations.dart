@@ -4007,8 +4007,14 @@ abstract class AppLocalizations {
   /// No description provided for @adminDuplicatesDifferentAlbums.
   ///
   /// In de, this message translates to:
-  /// **'Verschiedene Alben'**
+  /// **'Verschiedene Alben · gleiche Aufnahme'**
   String get adminDuplicatesDifferentAlbums;
+
+  /// No description provided for @adminDuplicatesPending.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird noch geprüft'**
+  String get adminDuplicatesPending;
 
   /// No description provided for @adminDuplicatesEmpty.
   ///
@@ -4019,7 +4025,7 @@ abstract class AppLocalizations {
   /// No description provided for @adminDuplicatesHint.
   ///
   /// In de, this message translates to:
-  /// **'{groups} Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über.'**
+  /// **'{groups} Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über. Playlists, Likes und Verlauf zeigen danach auf die behaltene Datei – du musst nichts neu hinzufügen. Bei verschiedenen Alben verschwindet der Song vom anderen Album.'**
   String adminDuplicatesHint(int groups);
 
   /// No description provided for @adminDuplicatesGroupTitle.

@@ -11,7 +11,7 @@ from app.models.collection import (
 )
 from app.models.downloads import DownloadItem, DownloadRequest, QualityUpgradeAttempt
 from app.models.imports import ImportBatch, ImportFile
-from app.models.library import Album, Artist, Track, TrackLyrics, TrackMixPoints
+from app.models.library import Album, Artist, Track, TrackFingerprint, TrackLyrics, TrackMixPoints
 from app.models.spotify import (
     SpotifyAccount,
     SpotifyImport,
@@ -25,13 +25,13 @@ from app.models.user import DEFAULT_ACCENT, AudiobookshelfAccount, AuthSession, 
 
 __all__ = [
     "DEFAULT_ACCENT",
-    "Book",
-    "BookProgress",
-    "BookRequest",
     "Album",
     "Artist",
     "AudiobookshelfAccount",
     "AuthSession",
+    "Book",
+    "BookProgress",
+    "BookRequest",
     "DownloadItem",
     "DownloadRequest",
     "ImportBatch",
@@ -55,6 +55,7 @@ __all__ = [
     "SpotifySync",
     "SpotifyTrackMap",
     "Track",
+    "TrackFingerprint",
     "TrackLike",
     "TrackLyrics",
     "TrackMixPoints",

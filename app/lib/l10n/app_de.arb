@@ -1367,9 +1367,10 @@
     }
   },
   "adminDuplicates": "Duplikate",
-  "adminDuplicatesDifferentAlbums": "Verschiedene Alben",
+  "adminDuplicatesDifferentAlbums": "Verschiedene Alben · gleiche Aufnahme",
+  "adminDuplicatesPending": "Wird noch geprüft",
   "adminDuplicatesEmpty": "Keine Duplikate gefunden",
-  "adminDuplicatesHint": "{groups} Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über.",
+  "adminDuplicatesHint": "{groups} Songs liegen mehrfach vor. Behalten wird jeweils die beste Datei, die anderen werden gelöscht. Likes, Playlists und Verlauf gehen auf die behaltene Datei über. Playlists, Likes und Verlauf zeigen danach auf die behaltene Datei – du musst nichts neu hinzufügen. Bei verschiedenen Alben verschwindet der Song vom anderen Album.",
   "@adminDuplicatesHint": {
     "placeholders": {
       "groups": {

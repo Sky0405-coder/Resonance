@@ -7,8 +7,9 @@ from types import SimpleNamespace
 from typing import Any
 
 import httpx
+import numpy as np
 import pytest
-from sqlalchemy import event, insert, select
+from sqlalchemy import delete, event, insert, select
 
 from app.config import get_settings
 from app.db import Base, SessionLocal, engine
@@ -23,16 +24,18 @@ from app.models import (
     Playlist,
     PlaylistEntry,
     Track,
+    TrackFingerprint,
     TrackLike,
     TrackLyrics,
 )
-from app.services import downloads, importer, sources
+from app.services import downloads, duplicates, importer, sources
 from app.services.duplicates import (
     _same_stem_track,
     find_groups,
     lossless_twin,
     merge_group,
     merge_new_duplicates,
+    similarity,
     track_quality,
 )
 from app.services.library_paths import target_relpath
@@ -115,6 +118,175 @@ async def library(env: SimpleNamespace, overrides: list[dict[str, Any]] | None =
         return tracks
 
 
+def raw_fingerprint(seed: int = 1, count: int = 160) -> bytes:
+    return np.random.default_rng(seed).integers(0, 2**32, size=count, dtype="<u4").tobytes()
+
+
+async def store_fingerprints(tracks: list[Track], values: list[bytes | None] | None = None) -> None:
+    if values is None:
+        values = [raw_fingerprint()] * len(tracks)
+    async with SessionLocal() as db:
+        db.add_all([
+            TrackFingerprint(track_id=track.id, mtime=track.mtime, fingerprint=raw, failed=raw is None)
+            for track, raw in zip(tracks, values, strict=True)
+        ])
+        await db.commit()
+
+
+def test_fingerprint_similarity() -> None:
+    raw = raw_fingerprint()
+    assert similarity(raw, raw) == 1.0
+    shifted = raw_fingerprint(2, 7) + raw[:-28]
+    assert similarity(raw, shifted) == 1.0
+    assert similarity(shifted, raw) == 1.0
+    assert 0.48 < similarity(raw, raw_fingerprint(3)) < 0.55
+    assert similarity(raw[:196], raw[:196]) == 0.0
+    assert similarity(raw[:200], raw[:200]) == 1.0
+    assert similarity(b"", raw) == 0.0
+    assert similarity(b"invalid", raw) == 0.0
+
+
+async def test_verified_clusters_split_recordings(env: SimpleNamespace) -> None:
+    tracks = await library(env, [{"album": album, "isrc": "US1234567890"} for album in "ABCDE"])
+    first, second = raw_fingerprint(1), raw_fingerprint(2)
+    await store_fingerprints(tracks, [first, first, second, second, raw_fingerprint(3)])
+    async with SessionLocal() as db:
+        groups = await find_groups(db)
+        assert {frozenset(track.id for track in group.tracks) for group in groups} == {
+            frozenset(track.id for track in tracks[:2]), frozenset(track.id for track in tracks[2:4])
+        }
+        assert all(group.kind == "cross_album" and group.verified and not group.pending for group in groups)
+
+
+async def test_verified_clusters_connect_transitively(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    tracks = await library(env, [{"album": album} for album in "ABC"])
+    await store_fingerprints(tracks, [raw_fingerprint(seed) for seed in range(3)])
+    links = {
+        frozenset((raw_fingerprint(0), raw_fingerprint(1))),
+        frozenset((raw_fingerprint(1), raw_fingerprint(2))),
+    }
+    monkeypatch.setattr(duplicates, "similarity", lambda a, b: 0.80 if frozenset((a, b)) in links else 0.79)
+    async with SessionLocal() as db:
+        group, = await find_groups(db)
+        assert group.verified and {track.id for track in group.tracks} == {track.id for track in tracks}
+
+
+@pytest.mark.parametrize("state", ["missing", "stale"])
+async def test_incomplete_components_remain_pending(env: SimpleNamespace, state: str) -> None:
+    tracks = await library(env, [{"album": album} for album in "ABC"])
+    await store_fingerprints(tracks[:2])
+    if state == "stale":
+        tracks[2].mtime = -1
+        await store_fingerprints(tracks[2:])
+    response = await env.client.get("/api/admin/library/duplicates", headers=env.headers)
+    group, = response.json()
+    assert group["kind"] == "cross_album" and not group["verified"] and group["pending"]
+    assert {track["id"] for track in group["tracks"]} == {str(track.id) for track in tracks}
+
+
+@pytest.mark.parametrize("failed", [False, True])
+async def test_nonmatching_components_are_dropped(env: SimpleNamespace, failed: bool) -> None:
+    tracks = await library(env, [{"album": "A"}, {"album": "B"}])
+    await store_fingerprints(tracks, [raw_fingerprint(), None if failed else raw_fingerprint(2)])
+    async with SessionLocal() as db:
+        assert await find_groups(db) == []
+
+
+async def test_failed_track_does_not_hide_verified_pair(env: SimpleNamespace) -> None:
+    tracks = await library(env, [{"album": album} for album in "ABC"])
+    await store_fingerprints(tracks, [raw_fingerprint(), raw_fingerprint(), None])
+    async with SessionLocal() as db:
+        group, = await find_groups(db)
+        assert group.verified and not group.pending
+        assert {track.id for track in group.tracks} == {track.id for track in tracks[:2]}
+
+
+@pytest.mark.parametrize("state", ["missing", "stale", "failed", "different"])
+async def test_merge_rechecks_recordings(env: SimpleNamespace, state: str) -> None:
+    tracks = await library(env, [{"album": "A"}, {"album": "B"}])
+    await store_fingerprints(tracks)
+    url = "/api/admin/library/duplicates"
+    listed, = (await env.client.get(url, headers=env.headers)).json()
+    assert listed["verified"] and not listed["pending"]
+    async with SessionLocal() as db:
+        row = await db.get(TrackFingerprint, tracks[1].id)
+        if state == "missing":
+            await db.delete(row)
+        elif state == "stale":
+            (await db.get(Track, tracks[1].id)).mtime += 1
+        elif state == "failed":
+            row.fingerprint, row.failed = None, True
+        else:
+            row.fingerprint = raw_fingerprint(2)
+        await db.commit()
+    response = await env.client.post(
+        f"{url}/merge", headers=env.headers, json={"keep_ids": [listed["tracks"][0]["id"]]}
+    )
+    assert response.status_code == 200
+    assert response.json() == {"merged_groups": 0, "deleted_tracks": 0, "freed_bytes": 0}
+    async with SessionLocal() as db:
+        assert set(await db.scalars(select(Track.id))) == {track.id for track in tracks}
+    assert all((env.settings.music_dir / track.path).exists() for track in tracks)
+
+
+async def test_background_picker_uses_only_missing_or_stale_candidates(env: SimpleNamespace) -> None:
+    tracks = await library(
+        env,
+        [{"album": "AB"[i % 2], "track_no": None} for i in range(205)]
+        + [{"title": "Unrelated"}, {"title": "Same album only"}, {"title": "Same album only"}],
+    )
+    await store_fingerprints(tracks[:3], [raw_fingerprint(), None, raw_fingerprint()])
+    async with SessionLocal() as db:
+        (await db.get(Track, tracks[2].id)).mtime += 1
+        await db.commit()
+        picked = await duplicates._pick_tracks(db)
+        assert len(picked) == 200 and len(set(picked)) == 200
+        assert not set(picked) & {track.id for track in [*tracks[:2], *tracks[205:]]}
+        all_picked = await duplicates._pick_tracks(db, limit=1000)
+        assert set(all_picked) == {track.id for track in tracks[2:205]}
+
+
+async def test_background_fingerprints_serially_and_caches_failures(
+    env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tracks = await library(env, [{"album": album} for album in "ABC"])
+    paths: list[Path] = []
+    sleeps: list[float] = []
+
+    async def fingerprint(path: Path) -> bytes | None:
+        paths.append(path)
+        if path == env.settings.music_dir / tracks[1].path:
+            return None
+        if path == env.settings.music_dir / tracks[2].path:
+            raise OSError("ffmpeg unavailable")
+        return raw_fingerprint()
+
+    async def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(duplicates, "fingerprint_raw", fingerprint)
+    monkeypatch.setattr(duplicates.asyncio, "sleep", sleep)
+    await duplicates.run_once()
+    assert set(paths) == {env.settings.music_dir / track.path for track in tracks}
+    assert sleeps == [1, 1]
+    async with SessionLocal() as db:
+        rows = {row.track_id: row for row in await db.scalars(select(TrackFingerprint))}
+        assert rows[tracks[0].id].fingerprint == raw_fingerprint() and not rows[tracks[0].id].failed
+        assert all(rows[track.id].failed and rows[track.id].fingerprint is None for track in tracks[1:])
+        assert await duplicates._pick_tracks(db) == []
+        assert await find_groups(db) == []
+        (await db.get(Track, tracks[1].id)).mtime += 1
+        await db.commit()
+    await duplicates.run_once()
+    assert len(paths) == 4
+    async with SessionLocal() as db:
+        row = await db.get(TrackFingerprint, tracks[1].id)
+        assert row.failed and row.mtime == tracks[1].mtime + 1
+        await db.execute(delete(Track).where(Track.id == tracks[1].id))
+        await db.commit()
+        assert await db.get(TrackFingerprint, tracks[1].id, populate_existing=True) is None
+
+
 @pytest.mark.parametrize(
     ("changes", "expected"),
     [
@@ -140,7 +312,7 @@ async def test_find_groups(env: SimpleNamespace, changes: dict[str, Any], expect
     async with SessionLocal() as db:
         event.listen(engine.sync_engine, "before_cursor_execute", executed)
         try:
-            groups = await find_groups(db)
+            groups = [group.tracks for group in await find_groups(db)]
             assert len(groups) == expected
             if expected:
                 assert [track.id for track in groups[0]] == [track.id for track in tracks]
@@ -148,7 +320,7 @@ async def test_find_groups(env: SimpleNamespace, changes: dict[str, Any], expect
                 assert groups[0][0].artist.name == "Artist"
         finally:
             event.remove(engine.sync_engine, "before_cursor_execute", executed)
-    assert len(queries) == (3 if changes.get("album") else 2)
+    assert len(queries) == (4 if changes.get("album") else 2)
 
 
 async def test_greedy_duration_and_keeper_order(env: SimpleNamespace) -> None:
@@ -162,7 +334,7 @@ async def test_greedy_duration_and_keeper_order(env: SimpleNamespace) -> None:
         ],
     )
     async with SessionLocal() as db:
-        groups = await find_groups(db)
+        groups = [group.tracks for group in await find_groups(db)]
         assert [[track.id for track in group] for group in groups] == [[tracks[1].id, tracks[0].id]]
 
 
@@ -248,6 +420,7 @@ async def test_api_lists_and_merges_server_keeper(env: SimpleNamespace) -> None:
     assert group["album_id"] == str(tracks[0].album_id)
     assert group["album_title"] == "Album" and group["artist_name"] == "Artist"
     assert group["kind"] == "same_album"
+    assert group["verified"] and not group["pending"]
     assert [track["keep"] for track in group["tracks"]] == [True, False]
     assert group["tracks"][0] == {
         "id": str(tracks[0].id),
@@ -312,7 +485,7 @@ async def test_cross_album_matching(
 ) -> None:
     tracks = await library(env, [{"album": "Single", **first}, {"album": "Album", **second}])
     async with SessionLocal() as db:
-        groups = await find_groups(db)
+        groups = [group.tracks for group in await find_groups(db)]
         assert len(groups) == int(expected)
         if expected:
             assert {track.id for track in groups[0]} == {track.id for track in tracks}
@@ -329,7 +502,7 @@ async def test_cross_album_components_connect_duration_and_isrc(env: SimpleNames
         ],
     )
     async with SessionLocal() as db:
-        groups = await find_groups(db)
+        groups = [group.tracks for group in await find_groups(db)]
         assert len(groups) == 1
         assert {track.id for track in groups[0]} == {track.id for track in tracks}
 
@@ -345,7 +518,7 @@ async def test_cross_album_excludes_same_album_losers(env: SimpleNamespace) -> N
         ],
     )
     async with SessionLocal() as db:
-        groups = await find_groups(db)
+        groups = [group.tracks for group in await find_groups(db)]
         assert [[track.id for track in group] for group in groups] == [
             [tracks[0].id, tracks[1].id], [tracks[0].id, tracks[2].id]
         ]
@@ -371,12 +544,13 @@ async def test_cross_album_keeper_order(env: SimpleNamespace, tie_breaker: str) 
         second["id"] = uuid.UUID(int=1)
     tracks = await library(env, [first, second, *extra])
     async with SessionLocal() as db:
-        group, = await find_groups(db)
+        group, = [group.tracks for group in await find_groups(db)]
         assert [track.id for track in group] == [tracks[1].id, tracks[0].id]
 
 
 async def test_merge_cross_album_moves_playlist_and_likes(env: SimpleNamespace) -> None:
     tracks = await library(env, [{"album": "Single", "codec": "opus"}, {"album": "Album", "codec": "flac"}])
+    await store_fingerprints(tracks)
     async with SessionLocal() as db:
         playlist = Playlist(owner_id=env.user_id, name="Cross album")
         db.add(playlist)
@@ -396,6 +570,23 @@ async def test_merge_cross_album_moves_playlist_and_likes(env: SimpleNamespace) 
     assert not (env.settings.music_dir / tracks[0].path).exists()
 
 
+@pytest.mark.parametrize("kind", ["same_album", "cross_album"])
+async def test_merge_only_selected_kind_when_keepers_overlap(env: SimpleNamespace, kind: str) -> None:
+    tracks = await library(env, [{"codec": "flac"}, {"codec": "mp3"}, {"album": "Single", "codec": "mp3"}])
+    await store_fingerprints(tracks)
+    response = await env.client.post(
+        "/api/admin/library/duplicates/merge",
+        headers=env.headers,
+        json={"keep_ids": [str(tracks[0].id)], "kind": kind},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"merged_groups": 1, "deleted_tracks": 1, "freed_bytes": 5}
+    removed = tracks[1 if kind == "same_album" else 2]
+    async with SessionLocal() as db:
+        assert set(await db.scalars(select(Track.id))) == {track.id for track in tracks if track.id != removed.id}
+    assert not (env.settings.music_dir / removed.path).exists()
+
+
 @pytest.mark.parametrize("cross_keeper", [False, True])
 async def test_merge_overlapping_groups(env: SimpleNamespace, cross_keeper: bool) -> None:
     tracks = await library(
@@ -406,6 +597,7 @@ async def test_merge_overlapping_groups(env: SimpleNamespace, cross_keeper: bool
             {"album": "A Album", "codec": "flac" if cross_keeper else "mp3"},
         ],
     )
+    await store_fingerprints(tracks)
     response = await env.client.get("/api/admin/library/duplicates", headers=env.headers)
     assert len(response.json()) == 2
     response = await env.client.post(
@@ -465,7 +657,7 @@ async def test_find_groups_large_library(env: SimpleNamespace) -> None:
             ],
         )
         await db.commit()
-        groups = await find_groups(db)
+        groups = [group.tracks for group in await find_groups(db)]
         assert len(groups) == 1500
         assert all(len(group) == 2 and len({track.album_id for track in group}) == 2 for group in groups)
 

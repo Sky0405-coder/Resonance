@@ -7,6 +7,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    LargeBinary,
     String,
     Text,
     false,
@@ -101,6 +102,15 @@ class TrackLyrics(Base):
     instrumental: Mapped[bool] = mapped_column(default=False)
     source: Mapped[str] = mapped_column(String(16))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TrackFingerprint(Base):
+    __tablename__ = "track_fingerprints"
+
+    track_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True)
+    mtime: Mapped[float] = mapped_column(Float)
+    fingerprint: Mapped[bytes | None] = mapped_column(LargeBinary)
+    failed: Mapped[bool] = mapped_column(default=False, server_default=false())
 
 
 class TrackMixPoints(Base):
