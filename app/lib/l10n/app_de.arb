@@ -1566,5 +1566,14 @@
   "tvPlay": "Abspielen",
   "tvPause": "Pause",
   "tvBack": "Zurück",
-  "tvPopularStations": "Beliebte Sender"
+  "tvPopularStations": "Beliebte Sender",
+  "changelogTitle": "Neuigkeiten",
+  "changelogInstalled": "Installiert",
+  "changelogNewVersion": "Neu in Version {version}",
+  "changelogAll": "Alle Neuigkeiten",
+  "@changelogNewVersion": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  }
 }

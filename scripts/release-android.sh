@@ -1,7 +1,8 @@
 #!/bin/sh
-# Release: bumps the version (patch +1, or VERSION=x.y.z; the build number always +1), builds the signed APK, uploads it to the Resonance
-# server (installed apps offer it as an in-app update), commits + tags the version and creates a GitHub
-# release with the APK. Publishing the release triggers .github/workflows/desktop-release.yml, which adds
+# Add an entry in app/assets/changelog.json for the new version before releasing.
+# Release: bumps the version (patch +1, or VERSION=x.y.z; the build number always +1), builds the signed APK,
+# uploads it to the Resonance server (installed apps offer it as an in-app update), commits + tags the version
+# and creates a GitHub release with the APK. Publishing it triggers .github/workflows/desktop-release.yml, which adds
 # the Linux, Windows and iOS builds.
 #
 # Needs: app/android/key.properties (release keystore), JAVA_HOME with JDK 17/21,
@@ -11,7 +12,6 @@
 set -eu
 cd "$(dirname "$0")/../app"
 URL=${RESONANCE_URL:-https://resonance.k-node.de}
-TOKEN=${RESONANCE_TOKEN:-$(cat ~/.config/resonance/server-token)}
 FLUTTER=${FLUTTER:-$HOME/flutter/bin/flutter}
 GH=${GH:-$(command -v gh || echo "$HOME/.local/bin/gh")}
 
@@ -20,6 +20,22 @@ current=$(sed -n 's/^version: //p' pubspec.yaml)
 code=$(( ${current#*+} + 1 ))
 base=${current%+*}
 name=${VERSION:-${base%.*}.$(( ${base##*.} + 1 ))}
+python3 - "$name" <<'PY'
+import json
+import sys
+
+version = sys.argv[1]
+try:
+    with open('assets/changelog.json', encoding='utf-8') as source:
+        entries = json.load(source)
+    if not isinstance(entries, list) or not any(
+        isinstance(entry, dict) and entry.get('version') == version for entry in entries
+    ):
+        raise ValueError(f'no entry for version {version}')
+except (OSError, ValueError) as error:
+    sys.exit(f'Release blocked: app/assets/changelog.json: {error}. Add the changelog entry before releasing.')
+PY
+TOKEN=${RESONANCE_TOKEN:-$(cat ~/.config/resonance/server-token)}
 sed -i "s/^version: .*/version: $name+$code/" pubspec.yaml
 echo "Building $name ..."
 

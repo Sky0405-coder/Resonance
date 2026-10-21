@@ -14,6 +14,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/desktop.dart';
+import 'core/changelog.dart';
 import 'core/session.dart';
 import 'integrations/discord_presence.dart';
 import 'offline/offline_store.dart';
@@ -44,6 +45,7 @@ Future<void> main() async {
   final container = ProviderContainer(
     overrides: [
       prefsProvider.overrideWithValue(prefs),
+      whatsNewEnabledProvider.overrideWithValue(true),
       androidTvProvider.overrideWithValue(androidTv),
       audioHandlerProvider.overrideWithValue(null),
     ],
@@ -80,6 +82,7 @@ Future<void> main() async {
     );
     container.updateOverrides([
       prefsProvider.overrideWithValue(prefs),
+      whatsNewEnabledProvider.overrideWithValue(true),
       androidTvProvider.overrideWithValue(androidTv),
       audioHandlerProvider.overrideWith((ref) {
         ref.onDispose(handler.dispose);

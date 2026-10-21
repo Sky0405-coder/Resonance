@@ -1,0 +1,508 @@
+[
+  {
+    "version": "1.6.10",
+    "date": "2026-10-21",
+    "de": [
+      "Die Samsung-TV-App zeigt nach dem Start wieder ihre Inhalte an.",
+      "In Coverflow bleibt das mittlere Cover besser sichtbar und die Nachbarcover passen auf den Bildschirm."
+    ],
+    "en": [
+      "The Samsung TV app displays its content again after launch.",
+      "Coverflow keeps the centre artwork more visible and fits neighbouring covers on screen."
+    ]
+  },
+  {
+    "version": "1.6.9",
+    "date": "2026-10-21",
+    "de": [
+      "Nutze den TV-Modus mit Fernbedienung oder Controller auf Android TV und am Desktop.",
+      "Aktiviere den TV-Modus am Desktop in den Einstellungen oder mit F11.",
+      "Resonance ist als Samsung-TV-App mit Suche, Bibliothek, Radio und Songtexten verfügbar.",
+      "Die Wiedergabe im Querformat und Coverflow wurden überarbeitet."
+    ],
+    "en": [
+      "Use TV mode with a remote or controller on Android TV and desktop.",
+      "Enable desktop TV mode in settings or with F11.",
+      "Resonance is available as a Samsung TV app with search, library, radio and lyrics.",
+      "Landscape playback and Coverflow have been improved."
+    ]
+  },
+  {
+    "version": "1.6.8",
+    "date": "2026-10-21",
+    "de": [
+      "Der Visualizer läuft flüssiger und die Cover passen besser ins Player-Layout.",
+      "AutoMix berücksichtigt Gesangspausen, damit sich Stimmen beim Übergang seltener überlagern.",
+      "Doppelte Songs auf verschiedenen Alben werden anhand der Aufnahme zuverlässiger überprüft."
+    ],
+    "en": [
+      "The visualizer runs more smoothly and artwork fits the player layout better.",
+      "AutoMix considers vocal timing to reduce overlapping voices during transitions.",
+      "Duplicate tracks across albums are verified more reliably using the recording itself."
+    ]
+  },
+  {
+    "version": "1.6.7",
+    "date": "2026-10-21",
+    "de": [
+      "Blende die Bereiche für E-Books und Hörbücher unabhängig voneinander aus.",
+      "Stöbere mit Coverflow durch deine Musik und sieh Cover-Spiegelungen und schwebende Visualizer-Spitzen.",
+      "Wähle doppelte Songs gesammelt aus und verfolge den Fortschritt beim Löschen.",
+      "Stelle Überblendungen bis zu 20 Sekunden ein und bestimme damit die Mindestlänge für AutoMix.",
+      "Die Musiksuche erkennt Titel und Künstler trotz unterschiedlicher Schreibweisen besser.",
+      "Admins sehen den Fortschritt der AutoMix-Analyse übersichtlicher."
+    ],
+    "en": [
+      "Hide ebook and audiobook sections independently.",
+      "Browse your music with Coverflow, reflected artwork and floating visualizer peaks.",
+      "Select duplicate tracks in bulk and follow deletion progress.",
+      "Set crossfades up to 20 seconds and use that setting as the minimum AutoMix transition length.",
+      "Music matching recognises titles and artists more reliably despite spelling differences.",
+      "Admins get a clearer view of AutoMix analysis progress."
+    ]
+  },
+  {
+    "version": "1.6.6",
+    "date": "2026-10-21",
+    "de": [
+      "Sortiere deine Warteschlange harmonisch nach passenden Tonarten.",
+      "AutoMix erkennt unpassende Tempi und Tonarten und nutzt dafür kürzere, passendere Übergänge."
+    ],
+    "en": [
+      "Sort your queue harmonically by compatible musical keys.",
+      "AutoMix detects incompatible tempos and keys and uses shorter, more suitable transitions."
+    ]
+  },
+  {
+    "version": "1.6.5",
+    "date": "2026-10-21",
+    "de": [
+      "Höre Radio in Android Auto und speichere Sender mit der Herz-Taste als Favoriten.",
+      "Suche in Android Auto nach Künstlern und spiele ihre beliebtesten Songs ab.",
+      "Radiosender bleiben bei Ausfällen des Verzeichnisses leichter erreichbar; Songtitel werden besser erkannt.",
+      "Admins können doppelte Songs jetzt auch über verschiedene Alben hinweg finden.",
+      "Wähle auf Wunsch ein anderes Design für deinen Visualizer."
+    ],
+    "en": [
+      "Listen to radio in Android Auto and save stations as favourites with the heart button.",
+      "Search for artists in Android Auto and play their top tracks.",
+      "Radio stations stay easier to reach during directory outages; track titles are recognised more accurately.",
+      "Admins can now find duplicate tracks across different albums.",
+      "Choose an alternative visualizer theme if you like."
+    ]
+  },
+  {
+    "version": "1.6.4",
+    "date": "2026-10-20",
+    "de": [
+      "Aktualisierte Albumcover erscheinen auch in deinem Cache und deinen Downloads.",
+      "Suche in Android Auto nach Songs und Radiosendern und erkenne Playlists an ihren Covern.",
+      "Der Visualizer auf dem Handy passt sich farblich deinem Albumcover an und startet schneller.",
+      "Im Equalizer erreichst du alle zehn Bänder leichter und siehst eine Vorschau der Klangvoreinstellungen.",
+      "AutoMix gleicht größere Tempounterschiede aus und wechselt auf Android ruhiger zwischen Songs."
+    ],
+    "en": [
+      "Updated album artwork also appears in your cache and downloads.",
+      "Search songs and radio stations in Android Auto and recognise playlists by their artwork.",
+      "The phone visualizer matches your album artwork’s colour and starts faster.",
+      "Reach all ten equalizer bands more easily and preview the preset curves.",
+      "AutoMix handles larger tempo differences and switches tracks more smoothly on Android."
+    ]
+  },
+  {
+    "version": "1.6.3",
+    "date": "2026-10-20",
+    "de": [
+      "Android Auto zeigt deine Lieblingssongs sowie eigene und gespeicherte Playlists übersichtlich an.",
+      "Albumcover sind in Android Auto auch für heruntergeladene Musik sichtbar.",
+      "Beim Welt-Radio findest du deine Favoriten und beliebte deutsche Sender."
+    ],
+    "en": [
+      "Android Auto clearly shows your liked songs and your own and saved playlists.",
+      "Android Auto also displays album artwork for downloaded music.",
+      "World radio lists your favourites and popular German stations."
+    ]
+  },
+  {
+    "version": "1.6.2",
+    "date": "2026-10-20",
+    "de": [
+      "Ordne Alben mit zusätzlichen Treffern von Apple Music und Discogs zu.",
+      "Entdecke bessere Cover, ergänzte Genres sowie Künstlerbilder und Biografien aus weiteren Quellen."
+    ],
+    "en": [
+      "Match albums using additional results from Apple Music and Discogs.",
+      "Discover better artwork, additional genres, artist images and biographies from more sources."
+    ]
+  },
+  {
+    "version": "1.6.1",
+    "date": "2026-10-20",
+    "de": [
+      "Sieh deine Musik mit einem animierten Visualizer im Player.",
+      "Passe den Klang mit einem Zehn-Band-Equalizer und Klangvoreinstellungen an.",
+      "AutoMix sorgt mit abgestimmtem Bass und musikalischen Übergängen für flüssigere Wechsel.",
+      "Live-Radios zeigen dir den gerade gespielten Song an, wenn der Sender ihn übermittelt.",
+      "Entdecke redaktionelle Apple-Music-Playlists und neue Cover für deine Mixe.",
+      "Autoplay spielt passende Songs weiter; Smart Shuffle ergänzt Empfehlungen in deiner Warteschlange."
+    ],
+    "en": [
+      "Watch your music with an animated visualizer in the player.",
+      "Shape the sound with a ten-band equalizer and presets.",
+      "AutoMix makes transitions smoother with coordinated bass and musical phrasing.",
+      "Live radio shows the current track when the station provides it.",
+      "Discover editorial Apple Music playlists and new artwork for your mixes.",
+      "Autoplay keeps matching tracks playing; Smart Shuffle adds recommendations to your queue."
+    ]
+  },
+  {
+    "version": "1.6.0",
+    "date": "2026-10-19",
+    "de": [
+      "Offline-Downloads laufen auf Android und iOS auch im Hintergrund weiter.",
+      "Unterbrochene Downloads werden nach Neustart oder erneuter Verbindung wieder aufgenommen.",
+      "Fehlende Chart-Songs werden zuverlässiger ergänzt.",
+      "Neu zugeordnete Alben erhalten ihr aktualisiertes Cover.",
+      "Du findest mehr Genre-Mixe für einzelne Jahrzehnte."
+    ],
+    "en": [
+      "Offline downloads continue in the background on Android and iOS.",
+      "Interrupted downloads resume after restarting or reconnecting.",
+      "Missing chart tracks are filled in more reliably.",
+      "Rematched albums receive their updated artwork.",
+      "You can discover more genre mixes for individual decades."
+    ]
+  },
+  {
+    "version": "1.5.1",
+    "date": "2026-10-19",
+    "de": [
+      "In der Desktop-Seitenleiste findest du übersichtlich deine eigenen und geteilten Playlists.",
+      "Generierte Mixe und Radios belegen keine Plätze mehr in der Seitenleiste."
+    ],
+    "en": [
+      "The desktop sidebar clearly lists your own and shared playlists.",
+      "Generated mixes and radios no longer take up space in the sidebar."
+    ]
+  },
+  {
+    "version": "1.5.0",
+    "date": "2026-10-19",
+    "de": [
+      "Deine Mixe öffnen sich schneller, auch wenn noch Songs für die Charts fehlen.",
+      "In Chart-Playlists siehst du jetzt die Platzierung jedes Songs.",
+      "Die Größe des Mix der Woche lässt sich zwischen 10 und 100 Songs einstellen."
+    ],
+    "en": [
+      "Your mixes open faster, even when chart tracks are still missing.",
+      "Chart playlists now show each track’s chart position.",
+      "Discover Weekly can be set to contain between 10 and 100 tracks."
+    ]
+  },
+  {
+    "version": "1.4.0",
+    "date": "2026-10-19",
+    "de": [
+      "Höre die täglich aktualisierten Top 100 aus Deutschland und weltweit.",
+      "Entdecke Genre-Mixe nach Jahrzehnt und Mixe deiner Lieblingskünstler.",
+      "Mit „Auf Repeat“ findest du Songs wieder, die du in letzter Zeit oft gehört hast."
+    ],
+    "en": [
+      "Listen to the daily updated Top 100 from Germany and around the world.",
+      "Discover genre mixes by decade and mixes of your favourite artists.",
+      "On Repeat brings back the songs you have listened to often recently."
+    ]
+  },
+  {
+    "version": "1.3.0",
+    "date": "2026-10-19",
+    "de": [
+      "Importiere öffentliche Apple-Music-Playlists direkt per Link.",
+      "Entdecke Jahrzehnt-Mixe sowie Mixe mit deinen Favoriten und neuer Musik.",
+      "Finde eigene und öffentliche Playlists sowie Mixe über die Suche.",
+      "Aktiviere AutoMix für Übergänge mit aufeinander abgestimmtem Tempo und Beat.",
+      "Stöbere in der neu gestalteten Bücherübersicht mit zuletzt gelesenen Büchern und Cover-Raster."
+    ],
+    "en": [
+      "Import public Apple Music playlists directly by link.",
+      "Discover decade mixes alongside mixes of your favourites and new music.",
+      "Find your own playlists, public playlists and mixes through search.",
+      "Enable AutoMix for transitions with matched tempo and beats.",
+      "Browse the redesigned books page with recent reads and a cover grid."
+    ]
+  },
+  {
+    "version": "1.2.0",
+    "date": "2026-10-18",
+    "de": [
+      "Verwalte E-Books, suche im Katalog und fordere neue Bücher an.",
+      "Greife per OPDS auf deine Bücher zu und synchronisiere deinen Lesefortschritt mit KOReader.",
+      "Bereits erkannte Songs werden bei der Bibliotheksprüfung korrekt berücksichtigt.",
+      "Kleinere Fehlerbehebungen"
+    ],
+    "en": [
+      "Manage ebooks, search the catalogue and request new books.",
+      "Access your books through OPDS and sync your reading progress with KOReader.",
+      "Already identified tracks are handled correctly during library review.",
+      "Minor fixes"
+    ]
+  },
+  {
+    "version": "1.1.2",
+    "date": "2026-10-17",
+    "de": [
+      "Wenn du Resonance auf Android aus der App-Übersicht wegwischst, endet auch die Wiedergabe.",
+      "Beim Stoppen werden deine Hörbuchposition und der aktuelle Hörfortschritt gespeichert."
+    ],
+    "en": [
+      "Swiping Resonance away from Android’s recent apps also stops playback.",
+      "Stopping saves your audiobook position and records the current listening progress."
+    ]
+  },
+  {
+    "version": "1.1.1",
+    "date": "2026-10-17",
+    "de": [
+      "Neue Importe und Downloads erzeugen seltener doppelte Songs im selben Album.",
+      "Der Player läuft am Desktop flüssiger und erfasst deinen Hörverlauf zuverlässiger.",
+      "Beim Spotify-Import erfährst du, wie du die Begrenzung auf 100 Songs umgehen kannst."
+    ],
+    "en": [
+      "New imports and downloads are less likely to create duplicate tracks within an album.",
+      "The desktop player runs more smoothly and records your listening history more reliably.",
+      "Spotify import explains how to work around the 100-song limit."
+    ]
+  },
+  {
+    "version": "1.1.0",
+    "date": "2026-10-17",
+    "de": [
+      "Resonance ist jetzt auch als iOS-App verfügbar.",
+      "Höre deine Musik auf dem iPhone auch im Hintergrund weiter.",
+      "Die Update-Prüfung erkennt Versionssprünge zuverlässiger."
+    ],
+    "en": [
+      "Resonance is now also available as an iOS app.",
+      "Keep listening to music in the background on your iPhone.",
+      "Update checks recognise version jumps more reliably."
+    ]
+  },
+  {
+    "version": "1.0.21",
+    "date": "2026-10-17",
+    "de": [
+      "Exportiere deine Resonance-Playlists nach Spotify.",
+      "Halte verknüpfte Playlists in beide Richtungen mit Spotify synchron."
+    ],
+    "en": [
+      "Export your Resonance playlists to Spotify.",
+      "Keep linked playlists in sync with Spotify in both directions."
+    ]
+  },
+  {
+    "version": "1.0.20",
+    "date": "2026-10-17",
+    "de": [
+      "Das Linux-AppImage zeigt sein Symbol im Anwendungsmenü zuverlässiger an.",
+      "Wenn du Gear Lever oder AppImageLauncher nutzt, vermeidest du doppelte Menüeinträge."
+    ],
+    "en": [
+      "The Linux AppImage displays its icon in the application menu more reliably.",
+      "Duplicate menu entries are avoided when you use Gear Lever or AppImageLauncher."
+    ]
+  },
+  {
+    "version": "1.0.19",
+    "date": "2026-10-17",
+    "de": [
+      "Du bekommst Update-Hinweise jetzt auch im Desktop-Layout.",
+      "Öffne Songtexte am Desktop direkt über die neue Schaltfläche.",
+      "Unter Linux gibt es einen Menüeintrag mit App-Symbol und eine native KDE-Titelleiste.",
+      "Gib bei fehlgeschlagenen Downloads einen eigenen Quellenlink an."
+    ],
+    "en": [
+      "Update notifications now also appear in the desktop layout.",
+      "Open lyrics directly from the new desktop button.",
+      "Linux gains an application menu entry with an icon and a native KDE title bar.",
+      "Provide your own source link for failed downloads."
+    ]
+  },
+  {
+    "version": "1.0.18",
+    "date": "2026-10-17",
+    "de": [
+      "Installiere Resonance als Linux-AppImage oder mit dem Windows-Installer.",
+      "Nutze Medien- und Tastenkürzel am Desktop; Fenstergröße und Position werden gespeichert.",
+      "Installiere neue Desktop-Versionen direkt über die App.",
+      "Admins können doppelte Songs zusammenführen; Likes, Playlists und Hörverlauf bleiben erhalten."
+    ],
+    "en": [
+      "Install Resonance as a Linux AppImage or with the Windows installer.",
+      "Use media keys and keyboard shortcuts on desktop; window size and position are remembered.",
+      "Install new desktop versions directly through the app.",
+      "Admins can merge duplicate tracks while keeping likes, playlists and listening history."
+    ]
+  },
+  {
+    "version": "1.0.17",
+    "date": "2026-10-17",
+    "de": [
+      "Höre in einem Jam gemeinsam mit anderen dieselbe Musik zur gleichen Zeit.",
+      "Lade andere per Code oder Link ein und teile eine gemeinsame Warteschlange.",
+      "Das Jam-Fenster schließt sich automatisch, wenn die gemeinsame Sitzung endet."
+    ],
+    "en": [
+      "Listen to the same music at the same time with others in a Jam.",
+      "Invite others by code or link and share a playback queue.",
+      "The Jam window closes automatically when the shared session ends."
+    ]
+  },
+  {
+    "version": "1.0.16",
+    "date": "2026-10-17",
+    "de": [
+      "Entdecke mit dem Mix der Woche neue Musik und höre weltweite Live-Radiosender.",
+      "Speichere deine Lieblingssender und finde sie schnell wieder.",
+      "Gib deinen Playlists eigene Cover und nutze die neuen Album- und Playlist-Menüs.",
+      "Seltenere Songs lassen sich dank zusätzlicher Musikquellen leichter finden.",
+      "Bestätige bereits korrekt erkannte Musik bei der Überprüfung deiner Bibliothek.",
+      "Kleinere Fehlerbehebungen"
+    ],
+    "en": [
+      "Discover new music with Discover Weekly and listen to live radio stations worldwide.",
+      "Save your favourite radio stations and find them again quickly.",
+      "Give your playlists custom covers and use the new album and playlist menus.",
+      "Additional music sources make rarer tracks easier to find.",
+      "Confirm correctly identified music when reviewing your library.",
+      "Minor fixes"
+    ]
+  },
+  {
+    "version": "1.0.15",
+    "date": "2026-10-16",
+    "de": [
+      "Teile auf dem Linux-Desktop auf Wunsch den gerade gehörten Song als Discord-Status.",
+      "Deine Musik kann automatisch durch verfügbare Aufnahmen in besserer Qualität ersetzt werden.",
+      "Ein Radio startet sofort mit deinem gewählten Song und ergänzt weitere Songs nach und nach.",
+      "Servermeldungen passen sich deiner gewählten Sprache an."
+    ],
+    "en": [
+      "Optionally share your current song as your Discord status on the Linux desktop.",
+      "Your music can automatically be upgraded when higher-quality recordings become available.",
+      "A radio starts immediately with your chosen song and adds more tracks as they become ready.",
+      "Server messages follow your chosen language."
+    ]
+  },
+  {
+    "version": "1.0.14",
+    "date": "2026-10-16",
+    "de": [
+      "Höre deine Resonance-Bibliothek auch mit OpenSubsonic-Apps wie Symfonium, Feishin oder DSub.",
+      "Erstelle in den Einstellungen ein eigenes App-Passwort für andere Musik-Apps."
+    ],
+    "en": [
+      "Listen to your Resonance library with OpenSubsonic apps such as Symfonium, Feishin or DSub.",
+      "Create a dedicated app password for other music apps in settings."
+    ]
+  },
+  {
+    "version": "1.0.13",
+    "date": "2026-10-16",
+    "de": [
+      "Blende Songs ineinander über oder höre sie ohne Pause mit lückenloser Wiedergabe.",
+      "Durchstöbere und durchsuche deine Musik mit Android Auto.",
+      "Importiere öffentliche Spotify-Playlists per Link, auch ohne Spotify-Konto.",
+      "Ersetze falsche Songversionen, ohne deine Likes oder Playlist-Einträge zu verlieren.",
+      "Bei der Musiksuche werden unzensierte Originalversionen bevorzugt."
+    ],
+    "en": [
+      "Crossfade between songs or listen without pauses using gapless playback.",
+      "Browse and search your music with Android Auto.",
+      "Import public Spotify playlists by link, even without a Spotify account.",
+      "Replace incorrect song versions without losing likes or playlist entries.",
+      "Music searches favour uncensored original versions."
+    ]
+  },
+  {
+    "version": "1.0.12",
+    "date": "2026-10-16",
+    "de": [
+      "Lies Songtexte direkt im Player oder in einer eigenen Vollbildansicht.",
+      "Zeitlich abgestimmte Songtexte folgen der Musik und sind auch offline verfügbar."
+    ],
+    "en": [
+      "Read lyrics in the player or in a dedicated full-screen view.",
+      "Synced lyrics follow the music and are also available offline."
+    ]
+  },
+  {
+    "version": "1.0.11",
+    "date": "2026-10-15",
+    "de": [
+      "Entdecke täglich neue persönliche Mixe, Genre-Mixe und lange nicht gehörte Songs.",
+      "Lade Alben, Playlists und Lieblingssongs herunter und höre sie offline.",
+      "Radios mit ähnlicher Musik werden schneller zusammengestellt.",
+      "Nach einem Serverneustart bleiben unterbrochene Bibliotheksscans nicht mehr hängen."
+    ],
+    "en": [
+      "Discover new personal mixes, genre mixes and forgotten favourites every day.",
+      "Download albums, playlists and liked songs to listen offline.",
+      "Radios with similar music are put together faster.",
+      "Interrupted library scans no longer stay stuck after a server restart."
+    ]
+  },
+  {
+    "version": "1.0.10",
+    "date": "2026-10-15",
+    "de": [
+      "Starte aus einem Song oder Album ein Radio mit ähnlicher Musik.",
+      "Finde deine Radios in der Bibliothek und speichere sie als Playlist."
+    ],
+    "en": [
+      "Start a radio with similar music from any song or album.",
+      "Find your radios in the library and save them as playlists."
+    ]
+  },
+  {
+    "version": "1.0.9",
+    "date": "2026-10-15",
+    "de": [
+      "Die Android-Musikbenachrichtigung hat jetzt ein passendes einfarbiges Symbol.",
+      "Die Wiedergabesteuerung auf dem Sperrbildschirm ist im Android-Release wieder verfügbar."
+    ],
+    "en": [
+      "The Android music notification now has a matching monochrome icon.",
+      "Lock screen playback controls are available again in the Android release."
+    ]
+  },
+  {
+    "version": "1.0.8",
+    "date": "2026-10-15",
+    "de": [
+      "Die Wiedergabe bleibt beim Wechsel zum nächsten Song mit Android verbunden.",
+      "Du kannst die Musik beim Songwechsel weiter über Benachrichtigung und Sperrbildschirm steuern."
+    ],
+    "en": [
+      "Playback stays connected to Android when switching to the next song.",
+      "You can keep controlling music from the notification and lock screen when tracks change."
+    ]
+  },
+  {
+    "version": "1.0.7",
+    "date": "2026-10-15",
+    "de": [
+      "Streame deine Musiksammlung und verwalte Alben, Playlists und Lieblingssongs.",
+      "Importiere deine Lieblingssongs und Playlists aus Spotify.",
+      "Höre deine Hörbücher mit Schlaftimer und stöbere nach Serien, Autoren und Sprechern.",
+      "Teile Playlists mit anderen und finde fehlende Songs deiner Alben.",
+      "Nutze Resonance auf Deutsch oder Englisch und installiere Android-Updates direkt in der App."
+    ],
+    "en": [
+      "Stream your music collection and manage albums, playlists and liked songs.",
+      "Import your liked songs and playlists from Spotify.",
+      "Listen to audiobooks with a sleep timer and browse by series, author and narrator.",
+      "Share playlists with others and find missing songs from your albums.",
+      "Use Resonance in German or English and install Android updates directly in the app."
+    ]
+  }
+]

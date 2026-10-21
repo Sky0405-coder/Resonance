@@ -24,6 +24,7 @@ import '../../player/equalizer_controller.dart';
 import '../../offline/offline_store.dart';
 import 'equalizer_page.dart';
 import '../widgets/collection.dart';
+import '../widgets/changelog.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import '../widgets/shortcuts.dart';
@@ -316,6 +317,7 @@ class SettingsPage extends ConsumerWidget {
             ),
           if (!kIsWeb) const _OfflineSettings(),
           const AppVersionTile(),
+          const ChangelogTile(),
           _Section(context.l10n.settingsSignedInDevices),
           sessions.when(
             loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'ui/widgets/jam_sheet.dart';
+import 'ui/widgets/changelog.dart';
 
 import 'core/session.dart';
 import 'core/tv_mode.dart';
@@ -18,6 +19,7 @@ import 'ui/pages/audiobook_pages.dart';
 import 'ui/pages/auth_pages.dart';
 import 'ui/pages/book_pages.dart';
 import 'ui/pages/browse_pages.dart';
+import 'ui/pages/changelog_page.dart';
 import 'ui/pages/collection_pages.dart';
 import 'ui/pages/download_pages.dart';
 import 'ui/pages/equalizer_page.dart';
@@ -87,11 +89,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Outside the shell so it opens above the now-playing page and the mini player.
       GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
       GoRoute(path: '/lyrics', builder: (_, _) => const LyricsPage()),
+      GoRoute(path: '/changelog', builder: (_, _) => const ChangelogPage()),
       ShellRoute(
-        builder: (context, state, child) => Consumer(
-          builder: (_, ref, _) => ref.watch(tvModeProvider)
-              ? TvShell(location: state.matchedLocation, child: child)
-              : AppShell(location: state.matchedLocation, child: child),
+        builder: (context, state, child) => WhatsNewNotifier(
+          child: Consumer(
+            builder: (_, ref, _) => ref.watch(tvModeProvider)
+                ? TvShell(location: state.matchedLocation, child: child)
+                : AppShell(location: state.matchedLocation, child: child),
+          ),
         ),
         routes: [
           GoRoute(

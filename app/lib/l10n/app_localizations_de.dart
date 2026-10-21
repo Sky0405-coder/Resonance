@@ -2562,4 +2562,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get tvPopularStations => 'Beliebte Sender';
+
+  @override
+  String get changelogTitle => 'Neuigkeiten';
+
+  @override
+  String get changelogInstalled => 'Installiert';
+
+  @override
+  String changelogNewVersion(String version) {
+    return 'Neu in Version $version';
+  }
+
+  @override
+  String get changelogAll => 'Alle Neuigkeiten';
 }

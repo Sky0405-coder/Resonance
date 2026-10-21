@@ -919,5 +919,9 @@
   "tvPlay": "Play",
   "tvPause": "Pause",
   "tvBack": "Back",
-  "tvPopularStations": "Popular stations"
+  "tvPopularStations": "Popular stations",
+  "changelogTitle": "What's new",
+  "changelogInstalled": "Installed",
+  "changelogNewVersion": "New in version {version}",
+  "changelogAll": "All updates"
 }

@@ -4597,6 +4597,30 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Beliebte Sender'**
   String get tvPopularStations;
+
+  /// No description provided for @changelogTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Neuigkeiten'**
+  String get changelogTitle;
+
+  /// No description provided for @changelogInstalled.
+  ///
+  /// In de, this message translates to:
+  /// **'Installiert'**
+  String get changelogInstalled;
+
+  /// No description provided for @changelogNewVersion.
+  ///
+  /// In de, this message translates to:
+  /// **'Neu in Version {version}'**
+  String changelogNewVersion(String version);
+
+  /// No description provided for @changelogAll.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Neuigkeiten'**
+  String get changelogAll;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
