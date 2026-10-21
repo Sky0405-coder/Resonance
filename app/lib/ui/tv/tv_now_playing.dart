@@ -47,7 +47,8 @@ class TvPlaybackArtwork extends StatelessWidget {
 }
 
 class TvNowPlayingBar extends ConsumerWidget {
-  const TvNowPlayingBar({super.key});
+  const TvNowPlayingBar({super.key, this.focusNode});
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,6 +59,8 @@ class TvNowPlayingBar extends ConsumerWidget {
         children: [
           Expanded(
             child: TvFocusable(
+              focusNode: focusNode,
+              focusScale: 1.01,
               label: context.l10n.playerNowPlaying,
               onActivate: () => context.push('/now-playing'),
               child: Padding(

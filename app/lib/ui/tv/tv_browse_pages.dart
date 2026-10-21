@@ -207,6 +207,7 @@ class _TvSearchPageState extends ConsumerState<TvSearchPage> {
       Padding(
         padding: const EdgeInsets.all(32),
         child: TvFocusable(
+          focusScale: 1.015,
           skipTraversal: true,
           descendantsAreFocusable: true,
           onActivate: () {

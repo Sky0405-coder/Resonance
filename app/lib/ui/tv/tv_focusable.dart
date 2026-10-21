@@ -23,6 +23,7 @@ class TvFocusable extends StatefulWidget {
     this.label,
     this.descendantsAreFocusable = false,
     this.skipTraversal = false,
+    this.focusScale = 1.06,
   });
 
   final Widget child;
@@ -30,6 +31,9 @@ class TvFocusable extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final String? label;
+
+  /// Wide rows grow less so they stay on screen.
+  final double focusScale;
   final bool descendantsAreFocusable;
   final bool skipTraversal;
 
@@ -81,7 +85,7 @@ class _TvFocusableState extends State<TvFocusable> {
         child: GestureDetector(
           onTap: widget.onActivate,
           child: AnimatedScale(
-            scale: _focused ? 1.06 : 1,
+            scale: _focused ? widget.focusScale : 1,
             duration: const Duration(milliseconds: 150),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),

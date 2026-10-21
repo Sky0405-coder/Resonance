@@ -133,6 +133,7 @@ class _DetailBody extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: TvFocusable(
+              focusScale: 1.015,
               onActivate: () => _play(context, ref, index: index),
               child: Padding(
                 padding: const EdgeInsets.all(18),

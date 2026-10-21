@@ -25,6 +25,37 @@ class _TvShellState extends ConsumerState<TvShell> {
   final _rail = FocusScopeNode(debugLabel: 'TV navigation');
   final _content = FocusScopeNode(debugLabel: 'TV content');
   final _home = FocusNode(debugLabel: 'TV Home');
+  final _bar = FocusNode(debugLabel: 'TV now playing bar');
+
+  /// Directions the content cannot move further in leave it: down to the now-playing bar, left to the rail.
+  KeyEventResult _leaveContent(KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final focus = FocusManager.instance.primaryFocus;
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (focus == null || !focus.focusInDirection(TraversalDirection.down)) _bar.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      if (focus == null || !focus.focusInDirection(TraversalDirection.left)) _home.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _leaveBar(KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final focus = FocusManager.instance.primaryFocus;
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _enterContent();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+        (focus == null || !focus.focusInDirection(TraversalDirection.left))) {
+      _home.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   void _enterContent() {
     FocusNode target = _content;
@@ -56,6 +87,7 @@ class _TvShellState extends ConsumerState<TvShell> {
     _rail.dispose();
     _content.dispose();
     _home.dispose();
+    _bar.dispose();
     super.dispose();
   }
 
@@ -92,6 +124,7 @@ class _TvShellState extends ConsumerState<TvShell> {
                 children: [
                   Expanded(
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SizedBox(
                           width: MediaQuery.sizeOf(context).width < 1100 ? 210 : 280,
@@ -159,15 +192,25 @@ class _TvShellState extends ConsumerState<TvShell> {
                           ),
                         ),
                         Expanded(
-                          child: FocusScope(
-                            node: _content,
-                            child: FocusTraversalGroup(child: widget.child),
+                          child: Focus(
+                            canRequestFocus: false,
+                            skipTraversal: true,
+                            onKeyEvent: (_, event) => _leaveContent(event),
+                            child: FocusScope(
+                              node: _content,
+                              child: FocusTraversalGroup(child: widget.child),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const TvNowPlayingBar(),
+                  Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onKeyEvent: (_, event) => _leaveBar(event),
+                    child: TvNowPlayingBar(focusNode: _bar),
+                  ),
                 ],
               ),
             ),

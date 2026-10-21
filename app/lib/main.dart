@@ -126,7 +126,8 @@ class _ResonanceAppState extends ConsumerState<ResonanceApp> {
             if (mounted) ref.read(appLocaleProvider.notifier).setLocale(locale);
           });
         }
-        return TvInput(child: PlayerShortcuts(child: child!));
+        final app = TvInput(child: PlayerShortcuts(child: child!));
+        return ref.watch(tvModeProvider) ? TvCanvas(child: app) : app;
       },
       debugShowCheckedModeBanner: false,
       theme: buildTheme(accent),

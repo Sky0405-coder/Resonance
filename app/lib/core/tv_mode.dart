@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,4 +47,39 @@ class TvMode extends Notifier<bool> {
       // A missing window host must not prevent switching the interface.
     }
   }
+}
+
+/// The TV interface is laid out for a 1920 px wide screen and scaled to the real one: Android TVs report 960x540
+/// logical pixels at 1080p, desktop windows anything.
+class TvCanvas extends StatelessWidget {
+  const TvCanvas({super.key, required this.child});
+  final Widget child;
+
+  static const width = 1920.0;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight || constraints.maxWidth == 0) return child;
+      final scale = constraints.maxWidth / width;
+      final size = Size(width, constraints.maxHeight / scale);
+      final media = MediaQuery.of(context);
+      return FittedBox(
+        fit: BoxFit.fill,
+        child: SizedBox.fromSize(
+          size: size,
+          child: MediaQuery(
+            data: media.copyWith(
+              size: size,
+              devicePixelRatio: media.devicePixelRatio * scale,
+              padding: media.padding / scale,
+              viewPadding: media.viewPadding / scale,
+              viewInsets: media.viewInsets / scale,
+            ),
+            child: child,
+          ),
+        ),
+      );
+    },
+  );
 }
