@@ -211,15 +211,23 @@ def analyze(path: Path) -> MixPoints:
 
 
 _limit = asyncio.Semaphore(2)
+_background_limit = asyncio.Semaphore(1)
+# Include waiting callers so background work yields before both slots fill up.
+_analysis_requests = 0
 
 
 async def analyze_async(path: Path) -> MixPoints | None:
-    async with _limit:
-        try:
-            return await asyncio.to_thread(analyze, path)
-        except (OSError, subprocess.SubprocessError, ValueError) as e:
-            log.info("Mix point analysis failed for %s: %s", path, e)
-            return None
+    global _analysis_requests
+    _analysis_requests += 1
+    try:
+        async with _limit:
+            try:
+                return await asyncio.to_thread(analyze, path)
+            except (OSError, subprocess.SubprocessError, ValueError) as e:
+                log.info("Mix point analysis failed for %s: %s", path, e)
+                return None
+    finally:
+        _analysis_requests -= 1
 
 
 async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, MixPoints | None]:
@@ -236,27 +244,29 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
             continue
         row = stored.get(id)
         if row is not None and row.version == VERSION and row.mtime == track.mtime:
-            result[id] = MixPoints(row.bpm, row.mix_in, row.mix_out, row.end, row.key, row.key_confidence)
+            result[id] = None if row.failed else MixPoints(
+                row.bpm, row.mix_in, row.mix_out, row.end, row.key, row.key_confidence
+            )
             continue
         points = await analyze_async(resolve_path(track.path))
         result[id] = points
-        if points is not None:
-            values = {
-                "version": VERSION,
-                "mtime": track.mtime,
-                "bpm": points.bpm,
-                "mix_in": points.mix_in,
-                "mix_out": points.mix_out,
-                "end": points.end,
-                "key": points.key,
-                "key_confidence": points.key_confidence,
-            }
-            await db.execute(
-                insert(TrackMixPoints)
-                .values(track_id=id, **values)
-                .on_conflict_do_update(index_elements=[TrackMixPoints.track_id], set_=values)
-            )
-            await db.commit()
+        values = {
+            "version": VERSION,
+            "mtime": track.mtime,
+            "failed": points is None,
+            "bpm": points.bpm if points else None,
+            "mix_in": points.mix_in if points else None,
+            "mix_out": points.mix_out if points else None,
+            "end": points.end if points else None,
+            "key": points.key if points else None,
+            "key_confidence": points.key_confidence if points else None,
+        }
+        await db.execute(
+            insert(TrackMixPoints)
+            .values(track_id=id, **values)
+            .on_conflict_do_update(index_elements=[TrackMixPoints.track_id], set_=values)
+        )
+        await db.commit()
     return result
 
 
@@ -273,10 +283,13 @@ async def run_once() -> None:
             .limit(120)
         ))
     for id in ids:
-        # One analysis every 30 seconds, including failed files: at most 120 per hour.
-        await asyncio.sleep(30)
+        # At most 720 per hour; leave both analysis slots available to on-demand requests between ticks.
+        while True:
+            await asyncio.sleep(5)
+            if not _analysis_requests and not _limit.locked() and not _background_limit.locked():
+                break
         try:
-            async with SessionLocal() as db:
+            async with _background_limit, SessionLocal() as db:
                 await for_tracks(db, [id])
         except Exception:
             log.exception("Background mix point analysis failed for %s", id)

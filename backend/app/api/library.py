@@ -10,7 +10,7 @@ from sqlalchemy import Select, func, or_, select
 
 from app.api.catalog import _track as catalog_track
 from app.api.requests import _out as request_out
-from app.deps import DB, CurrentUser
+from app.deps import DB, AdminUser, CurrentUser
 from app.i18n import language, translate
 from app.models import (
     Album,
@@ -345,6 +345,24 @@ async def stream_track(
 
 
 # --- AutoMix ----------------------------------------------------------------
+
+
+@router.get("/mixpoints/status")
+async def get_mixpoint_status(admin: AdminUser, db: DB) -> dict[str, int]:
+    total, analyzed, failed = (await db.execute(
+        select(
+            func.count(Track.id),
+            func.count(TrackMixPoints.track_id).filter(
+                TrackMixPoints.failed.is_(False), TrackMixPoints.mtime == Track.mtime
+            ),
+            func.count(TrackMixPoints.track_id).filter(TrackMixPoints.failed.is_(True)),
+        )
+        .outerjoin(
+            TrackMixPoints, (TrackMixPoints.track_id == Track.id) & (TrackMixPoints.version == mixpoints.VERSION)
+        )
+        .where(Track.is_temporary.is_(False))
+    )).one()
+    return {"total": total, "analyzed": analyzed, "failed": failed}
 
 
 @router.get("/mixpoints/keys")

@@ -1,3 +1,4 @@
+import asyncio
 import shutil
 import uuid
 import wave
@@ -154,10 +155,104 @@ async def test_api_analyzes_once_and_reanalyzes_changed_files(env, monkeypatch: 
     await client.get("/api/mixpoints", params={"ids": str(track_id)}, headers=headers)
     assert len(calls) == 3
     async with SessionLocal() as db:
-        rows = list(await db.scalars(select(TrackMixPoints)))
-        assert [row.track_id for row in rows] == [track_id] and rows[0].version == mixpoints.VERSION
+        rows = {row.track_id: row for row in await db.scalars(select(TrackMixPoints))}
+        assert set(rows) == {track_id, missing_id}
+        assert rows[track_id].version == mixpoints.VERSION and not rows[track_id].failed
+        assert rows[missing_id].failed
     assert (await client.get("/api/mixpoints", params={"ids": "nope"}, headers=headers)).status_code == 422
     assert (await client.get("/api/mixpoints", params={"ids": str(track_id)})).status_code == 401
+
+
+@pytest.mark.parametrize("change", ["mtime", "version"])
+async def test_failed_analysis_is_stored_and_cached_until_file_or_version_changes(
+    env, monkeypatch: pytest.MonkeyPatch, change: str
+) -> None:
+    client, headers, _, missing_id = env
+    calls = []
+
+    def fail(path):
+        calls.append(path)
+        raise ValueError("Broken audio")
+
+    monkeypatch.setattr(mixpoints, "analyze", fail)
+    async with SessionLocal() as db:
+        track = await db.get(Track, missing_id)
+        db.add(TrackMixPoints(
+            track_id=missing_id, version=mixpoints.VERSION - 1, mtime=track.mtime,
+            bpm=120, mix_in=0, mix_out=30, end=40, key="8A", key_confidence=0.2,
+        ))
+        await db.commit()
+    for _ in range(2):
+        response = await client.get("/api/mixpoints", params={"ids": str(missing_id)}, headers=headers)
+        assert response.status_code == 200 and response.json() == {str(missing_id): None}
+    assert len(calls) == 1
+    async with SessionLocal() as db:
+        row = await db.get(TrackMixPoints, missing_id)
+        track = await db.get(Track, missing_id)
+        assert row.failed and row.version == mixpoints.VERSION and row.mtime == track.mtime
+        assert (row.bpm, row.mix_in, row.mix_out, row.end, row.key, row.key_confidence) == (None,) * 6
+        if change == "mtime":
+            track.mtime += 1
+        else:
+            row.version -= 1
+        await db.commit()
+
+    def succeed(path):
+        calls.append(path)
+        return mixpoints.MixPoints(120, 0, 30, 40, "8B", 0.1)
+
+    monkeypatch.setattr(mixpoints, "analyze", succeed)
+    response = await client.get("/api/mixpoints", params={"ids": str(missing_id)}, headers=headers)
+    assert response.json()[str(missing_id)]["key"] == "8B" and len(calls) == 2
+    async with SessionLocal() as db:
+        row = await db.get(TrackMixPoints, missing_id)
+        assert not row.failed and row.version == mixpoints.VERSION
+        assert row.mtime == (await db.get(Track, missing_id)).mtime
+
+
+async def test_status_counts_current_results_for_permanent_tracks_and_requires_admin(
+    env, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, headers, track_id, missing_id = env
+
+    async def no_analysis(path):
+        pytest.fail("Status must not analyze audio")
+
+    monkeypatch.setattr(mixpoints, "analyze_async", no_analysis)
+    assert (await client.get("/api/mixpoints/status")).status_code == 401
+    empty = await client.get("/api/mixpoints/status", headers=headers)
+    assert empty.status_code == 200 and empty.json() == {"total": 2, "analyzed": 0, "failed": 0}
+    invite = (await client.post("/api/admin/invites", json={}, headers=headers)).json()["token"]
+    user = await register(client, "mix-listener", invite)
+    assert (await client.get("/api/mixpoints/status", headers=auth(user["token"]))).status_code == 403
+    async with SessionLocal() as db:
+        track = await db.get(Track, track_id)
+        db.add(TrackMixPoints(
+            track_id=track_id, version=mixpoints.VERSION, mtime=track.mtime, bpm=None,
+            mix_in=0, mix_out=30, end=40,
+        ))
+        db.add(TrackMixPoints(track_id=missing_id, version=mixpoints.VERSION, mtime=0, failed=True))
+        for name, version, failed, mtime, temporary in (
+            ("stale-success", mixpoints.VERSION, False, 1, False),
+            ("old-success", mixpoints.VERSION - 1, False, 0, False),
+            ("old-failure", mixpoints.VERSION - 1, True, 0, False),
+            ("temporary-success", mixpoints.VERSION, False, 0, True),
+            ("temporary-failure", mixpoints.VERSION, True, 0, True),
+            ("stale-failure", mixpoints.VERSION, True, 1, False),
+        ):
+            extra = Track(
+                path=f"{name}.wav", title=name, album_id=track.album_id, artist_id=track.artist_id,
+                artist_credit="Beats", is_temporary=temporary, mtime=0,
+            )
+            db.add(extra)
+            await db.flush()
+            db.add(TrackMixPoints(
+                track_id=extra.id, version=version, mtime=mtime, failed=failed,
+                mix_in=None if failed else 0, mix_out=None if failed else 30, end=None if failed else 40,
+            ))
+        await db.commit()
+    response = await client.get("/api/mixpoints/status", headers=headers)
+    assert response.status_code == 200 and response.json() == {"total": 6, "analyzed": 1, "failed": 2}
 
 
 async def test_keys_api_reads_stored_keys_without_analysis(env, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -219,7 +314,90 @@ async def test_background_batch_selects_oldest_without_current_rows(env, monkeyp
     monkeypatch.setattr(mixpoints.asyncio, "sleep", sleep)
     await mixpoints.run_once()
     assert paths == [MUSIC_DIR / "Beats/missing.wav", *[MUSIC_DIR / f"background/{i}.wav" for i in range(119)]]
-    assert sleeps == [30] * 120
+    assert sleeps == [5] * 120
     async with SessionLocal() as db:
         row = await db.get(TrackMixPoints, missing_id)
         assert row.version == mixpoints.VERSION and row.key == "8B" and row.key_confidence == 0.1
+
+
+async def test_background_moves_past_a_full_batch_of_broken_files(env, monkeypatch: pytest.MonkeyPatch) -> None:
+    _, _, track_id, missing_id = env
+    async with SessionLocal() as db:
+        track = await db.get(Track, track_id)
+        for i in range(120):
+            db.add(Track(
+                path=f"broken/{i}.wav", title=str(i), album_id=track.album_id, artist_id=track.artist_id,
+                artist_credit="Beats", created_at=datetime(2020, 1, 1, tzinfo=UTC),
+            ))
+        await db.commit()
+    paths = []
+
+    def analyze(path):
+        paths.append(path)
+        if path != MUSIC_DIR / "Beats/beat.wav":
+            raise ValueError("Broken audio")
+        return mixpoints.MixPoints(120, 0, 30, 40)
+
+    async def sleep(seconds):
+        assert seconds == 5
+
+    monkeypatch.setattr(mixpoints, "analyze", analyze)
+    monkeypatch.setattr(mixpoints.asyncio, "sleep", sleep)
+    await mixpoints.run_once()
+    assert len(paths) == 120 and all("broken" in str(path) for path in paths)
+    await mixpoints.run_once()
+    assert len(paths) == 122
+    await mixpoints.run_once()
+    assert len(paths) == 122
+    async with SessionLocal() as db:
+        assert not (await db.get(TrackMixPoints, track_id)).failed
+        assert (await db.get(TrackMixPoints, missing_id)).failed
+
+
+async def test_background_skips_busy_ticks_and_only_runs_one_analysis(env, monkeypatch: pytest.MonkeyPatch) -> None:
+    _, _, track_id, missing_id = env
+    ticks = 0
+    paths = []
+    on_demand_path = Path("on-demand.wav")
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def to_thread(fn, path):
+        paths.append(path)
+        if path == on_demand_path:
+            started.set()
+            await release.wait()
+        else:
+            assert mixpoints._background_limit.locked()
+        return mixpoints.MixPoints(120, 0, 30, 40)
+
+    async def sleep(seconds):
+        nonlocal ticks
+        assert seconds == 5
+        ticks += 1
+        if ticks == 2:
+            assert paths == [on_demand_path]
+            release.set()
+            await on_demand
+            await mixpoints._background_limit.acquire()
+        elif ticks == 3:
+            assert paths == [on_demand_path]
+            mixpoints._background_limit.release()
+
+    monkeypatch.setattr(mixpoints, "_limit", asyncio.Semaphore(2))
+    monkeypatch.setattr(mixpoints, "_background_limit", asyncio.Semaphore(1))
+    monkeypatch.setattr(mixpoints.asyncio, "to_thread", to_thread)
+    monkeypatch.setattr(mixpoints.asyncio, "sleep", sleep)
+    on_demand = asyncio.create_task(mixpoints.analyze_async(on_demand_path))
+    try:
+        await started.wait()
+        # One on-demand analysis holds a slot, even though the two-slot semaphore is not locked.
+        assert not mixpoints._limit.locked()
+        await mixpoints.run_once()
+    finally:
+        on_demand.cancel()
+        await asyncio.gather(on_demand, return_exceptions=True)
+    assert ticks == 4 and len(paths) == 3 and mixpoints._analysis_requests == 0
+    async with SessionLocal() as db:
+        assert not (await db.get(TrackMixPoints, track_id)).failed
+        assert not (await db.get(TrackMixPoints, missing_id)).failed

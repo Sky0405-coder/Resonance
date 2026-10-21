@@ -924,6 +924,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminPlaytime => 'Spielzeit';
 
   @override
+  String get adminMixAnalysis => 'AutoMix-Analyse';
+
+  @override
+  String adminMixAnalysisProgress(String analyzed, String total) {
+    return '$analyzed von $total Songs analysiert';
+  }
+
+  @override
+  String adminMixAnalysisFailed(String failed) {
+    return ', $failed fehlgeschlagen';
+  }
+
+  @override
   String commonDurationHours(String hours) {
     return '$hours Std.';
   }

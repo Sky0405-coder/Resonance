@@ -5,6 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:resonance/core/api.dart';
 
 void main() {
+  test('mixAnalysisStatus requests the admin status endpoint with authentication', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      expect(request.uri.path, '/api/mixpoints/status');
+      expect(request.headers.value(HttpHeaders.authorizationHeader), 'Bearer token');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'total': 2000, 'analyzed': 1250, 'failed': 12}));
+      await request.response.close();
+    });
+    final api = ApiClient('http://${server.address.address}:${server.port}', 'token');
+    expect(await api.mixAnalysisStatus(), (total: 2000, analyzed: 1250, failed: 12));
+  });
+
   test('mixKeys parses nullable keys and numeric BPMs, authenticating and chunking at 500', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));

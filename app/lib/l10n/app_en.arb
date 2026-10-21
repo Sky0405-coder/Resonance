@@ -270,6 +270,26 @@
   "adminTabServer": "Server",
   "adminStorage": "Storage",
   "adminPlaytime": "Playtime",
+  "adminMixAnalysis": "AutoMix analysis",
+  "adminMixAnalysisProgress": "{analyzed} of {total} songs analyzed",
+  "@adminMixAnalysisProgress": {
+    "placeholders": {
+      "analyzed": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "adminMixAnalysisFailed": ", {failed} failed",
+  "@adminMixAnalysisFailed": {
+    "placeholders": {
+      "failed": {
+        "type": "String"
+      }
+    }
+  },
   "commonDurationHours": "{hours} hr",
   "adminScanHint": "A quick scan reads only new and changed files. A full scan rereads all tags and cover art.",
   "adminQuickScan": "Quick scan",

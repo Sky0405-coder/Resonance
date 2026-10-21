@@ -428,6 +428,11 @@ class ApiClient {
     return {for (final e in j.entries) e.key: e.value == null ? null : MixPoints.fromJson(e.value)};
   }
 
+  Future<({int total, int analyzed, int failed})> mixAnalysisStatus() async {
+    final j = await _get('/api/mixpoints/status');
+    return (total: j['total'] as int, analyzed: j['analyzed'] as int, failed: j['failed'] as int);
+  }
+
   Future<Map<String, ({String? key, double? bpm})?>> mixKeys(List<String> ids) async {
     final result = <String, ({String? key, double? bpm})?>{};
     for (var offset = 0; offset < ids.length; offset += 500) {

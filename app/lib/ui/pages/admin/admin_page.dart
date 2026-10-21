@@ -54,6 +54,9 @@ class AdminPage extends StatelessWidget {
 
 final _statsProvider = FutureProvider.autoDispose<LibraryStats>((ref) => ref.watch(apiProvider).libraryStats());
 final _jobsProvider = FutureProvider.autoDispose<List<Job>>((ref) => ref.watch(apiProvider).jobs());
+final _mixAnalysisStatusProvider = FutureProvider.autoDispose<({int total, int analyzed, int failed})>(
+  (ref) => ref.watch(apiProvider).mixAnalysisStatus(),
+);
 
 String formatBytes(int b, {String? locale, bool megabytes = false}) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -79,10 +82,18 @@ class _OverviewTab extends ConsumerStatefulWidget {
 
 class _OverviewTabState extends ConsumerState<_OverviewTab> {
   Timer? _poll;
+  Timer? _mixPoll;
+
+  @override
+  void initState() {
+    super.initState();
+    _mixPoll = Timer.periodic(const Duration(seconds: 5), (_) => ref.invalidate(_mixAnalysisStatusProvider));
+  }
 
   @override
   void dispose() {
     _poll?.cancel();
+    _mixPoll?.cancel();
     super.dispose();
   }
 
@@ -112,6 +123,8 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
   Widget build(BuildContext context) {
     final stats = ref.watch(_statsProvider);
     final jobs = ref.watch(_jobsProvider);
+    final mixStatus = ref.watch(_mixAnalysisStatusProvider);
+    final numbers = NumberFormat.decimalPattern(Localizations.localeOf(context).toLanguageTag());
     jobs.whenData(_ensurePolling);
 
     return ListView(
@@ -134,6 +147,35 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                 Icons.schedule,
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Card(
+          color: Palette.card,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.l10n.adminMixAnalysis, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                mixStatus.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('$e'),
+                  data: (s) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LinearProgressIndicator(value: s.total == 0 ? 0 : (s.analyzed / s.total).clamp(0.0, 1.0)),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.adminMixAnalysisProgress(numbers.format(s.analyzed), numbers.format(s.total)) +
+                            (s.failed > 0 ? context.l10n.adminMixAnalysisFailed(numbers.format(s.failed)) : ''),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 24),

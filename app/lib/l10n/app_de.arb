@@ -604,6 +604,26 @@
   "adminTabServer": "Server",
   "adminStorage": "Speicher",
   "adminPlaytime": "Spielzeit",
+  "adminMixAnalysis": "AutoMix-Analyse",
+  "adminMixAnalysisProgress": "{analyzed} von {total} Songs analysiert",
+  "@adminMixAnalysisProgress": {
+    "placeholders": {
+      "analyzed": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "adminMixAnalysisFailed": ", {failed} fehlgeschlagen",
+  "@adminMixAnalysisFailed": {
+    "placeholders": {
+      "failed": {
+        "type": "String"
+      }
+    }
+  },
   "commonDurationHours": "{hours} Std.",
   "@commonDurationHours": {
     "placeholders": {

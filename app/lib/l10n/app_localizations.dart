@@ -1712,6 +1712,24 @@ abstract class AppLocalizations {
   /// **'Spielzeit'**
   String get adminPlaytime;
 
+  /// No description provided for @adminMixAnalysis.
+  ///
+  /// In de, this message translates to:
+  /// **'AutoMix-Analyse'**
+  String get adminMixAnalysis;
+
+  /// No description provided for @adminMixAnalysisProgress.
+  ///
+  /// In de, this message translates to:
+  /// **'{analyzed} von {total} Songs analysiert'**
+  String adminMixAnalysisProgress(String analyzed, String total);
+
+  /// No description provided for @adminMixAnalysisFailed.
+  ///
+  /// In de, this message translates to:
+  /// **', {failed} fehlgeschlagen'**
+  String adminMixAnalysisFailed(String failed);
+
   /// No description provided for @commonDurationHours.
   ///
   /// In de, this message translates to:
