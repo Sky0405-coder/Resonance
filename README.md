@@ -1,24 +1,71 @@
-# Resonance
+<p align="center"><img src="branding/logo.svg" width="96" alt="Resonance"></p>
 
-Selbst gehosteter Musik-Streaming-Server im Spotify-Stil mit integrierter Download-Pipeline.
+<h1 align="center">Resonance</h1>
+
+<p align="center">
+Selbst gehosteter Musik-Streaming-Server im Spotify-Stil – mit eigener Download-Pipeline, Apps für Android,
+Desktop, Web und Fernseher.
+</p>
+
+<p align="center">
+<a href="https://github.com/Sky0405-coder/Resonance/releases/latest">Neueste Version herunterladen</a>
+</p>
+
+## Funktionen
+
+**Hören**
+- Bibliothek mit Alben, Künstlern, Playlists, Likes und Verlauf; Suche über Bibliothek und Katalog
+- AutoMix: Übergänge wie ein DJ – Beat- und Phrasenabgleich, Tempoangleich, Bass-Tausch, harmonisches Mixen
+  (Tonarterkennung), Gesangsschutz über synchronisierte Songtexte
+- Crossfade, Gapless, Equalizer, ReplayGain, Schlaftimer
+- Synchronisierte Songtexte (LRCLIB), Visualizer mit Themes, Coverflow
+- Autoplay, Smart Shuffle, Song-Radio, Daily Mixes, Mix der Woche, automatisch aktualisierte Charts- und
+  Jahrzehnte-Playlists mit eigenen Covern
+- Jam (gemeinsam hören), Offline-Downloads, Discord-Status
+- Weltradio mit über 50.000 Sendern inkl. aktuellem Titel und Cover
+- Hörbücher (Audiobookshelf) und E-Books
+
+**Bibliothek pflegen**
+- Anfragen mit Freigabe und Tageslimit, Downloads über YouTube Music, Torrents (Prowlarr + qBittorrent)
+- Automatisches Tagging (MusicBrainz, Deezer, Apple Music, Discogs), Genres (Last.fm), Künstlerbilder und -texte
+- Import-Ordner, Duplikat-Erkennung per Audio-Fingerabdruck, Qualitäts-Upgrades
+- Spotify-Import und -Abgleich von Playlists
+
+**Apps**
+
+| Plattform | Download | Hinweis |
+|---|---|---|
+| Android (Handy, Android Auto, Android TV) | `…-android.apk` | aktualisiert sich selbst |
+| Windows | `…-windows-setup.exe` oder portable ZIP | |
+| Linux | `…-linux-x86_64.AppImage` | |
+| Web | – | wird vom Server ausgeliefert |
+| Samsung Smart TV (Tizen) | `…-samsung-tizen-unsigned.wgt` | muss mit eigenem Samsung-Zertifikat signiert werden, siehe [tv/tizen](tv/tizen/README.md) |
+
+Am PC gibt es zusätzlich einen TV-/Controller-Modus (F11) für die Bedienung mit Fernbedienung oder Gamepad.
+Der Server spricht außerdem OpenSubsonic, damit lassen sich auch andere Subsonic-Clients verbinden.
+
+## Aufbau
 
 ```
 backend/   Python 3.12 · FastAPI · SQLAlchemy (async) · PostgreSQL + pgvector · Alembic
-app/       Flutter-Client für Android, Linux, Windows und Web (das Web-Build wird vom Server ausgeliefert)
-Dockerfile, docker-compose.yml   Deployment-Stack für Coolify (App, Postgres, gluetun/ProtonVPN, qBittorrent, Prowlarr)
+app/       Flutter-Client für Android, Linux, Windows und Web
+tv/tizen/  Samsung-TV-App (HTML/JavaScript, Tizen 5.5+)
+Dockerfile, docker-compose.yml   Deployment-Stack (App, Postgres, gluetun/ProtonVPN, qBittorrent, Prowlarr)
 ```
 
-## Roadmap
+## Installation mit Coolify
 
-| Phase | Inhalt | Status |
-|---|---|---|
-| 1 | Server-Grundgerüst, Benutzer und Rollen, Einladungslinks, Bibliotheks-Scan, Streaming/Transcoding, Playlists, Likes, Verlauf, Spotify-ähnlicher Client, Admin-Dashboard | ✅ |
-| 2a/b | Katalogsuche (Deezer), Anfragen mit Freigabe/Tageslimit, Download über YouTube Music (yt-dlp), Tagging über MusicBrainz (ISRC/Barcode), Einsortieren, Live-Fortschritt | ✅ |
-| 2c | Bibliothek aufräumen (AcoustID), Import-Ordner, Torrents über Prowlarr + qBittorrent | ⏳ |
-| 3 | Spotify-Import (OAuth und Playlist-Links, Abgleich per ISRC), abonnierte Playlists | |
-| 4 | Audio-Analyse (Essentia), Song-Radio, Daily Mixes, Release Radar, temporäre Songs, Qualitäts-Upgrades | |
-| 5 | Offline-Downloads, synchronisierte Lyrics (LRCLIB), Crossfade/Gapless-Feinschliff, Discord-Status, OpenSubsonic-API | |
-| 6 | Usenet (SABnzbd), Jam (gemeinsames Hören), Chromecast | |
+1. Neue Ressource → *Docker Compose* → dieses Repository wählen.
+2. Die Umgebungsvariablen eintragen, die oben in `docker-compose.yml` beschrieben sind (Pfade, `POSTGRES_PASSWORD`,
+   ProtonVPN-WireGuard-Key).
+3. Dem Service `resonance` die Domain zuweisen (Port 8000) und deployen.
+4. Die Domain öffnen, das Admin-Konto anlegen und im Admin-Dashboard einen Bibliotheks-Scan starten.
+
+Das **erste registrierte Konto wird Admin**. Danach ist die Registrierung nur noch über Einladungslinks möglich
+(Admin-Dashboard → Einladungen); unter Admin-Dashboard → Server lässt sie sich auf öffentlich umstellen.
+
+`MUSIC_PATH` und `DOWNLOADS_PATH` sollten auf derselben Platte liegen, dann werden fertige Torrents per Hardlink
+übernommen und seeden weiter. Datenbank und Caches (`APPDATA_PATH`) gehören auf die SSD.
 
 ## Lokale Entwicklung
 
@@ -41,18 +88,3 @@ flutter build web --wasm    # RESONANCE_WEB_DIR=app/build/web liefert die App un
 ```
 
 Für Linux-Desktop-Builds werden zusätzlich `clang cmake ninja-build gtk3-devel mpv-devel` benötigt (Fedora/Nobara).
-
-Das **erste registrierte Konto wird Admin**. Danach ist die Registrierung nur noch über
-Einladungslinks möglich (Admin-Dashboard → Einladungen). Unter Admin-Dashboard → Server lässt sie
-sich auf öffentlich umstellen.
-
-## Deployment mit Coolify
-
-1. Neue Ressource → *Docker Compose* → dieses Repository wählen.
-2. Die Umgebungsvariablen eintragen, die oben in `docker-compose.yml` beschrieben sind (Pfade, `POSTGRES_PASSWORD`, ProtonVPN-WireGuard-Key).
-3. Dem Service `resonance` die Domain zuweisen (Port 8000) und deployen.
-4. Die Domain öffnen, das Admin-Konto anlegen und im Admin-Dashboard einen Bibliotheks-Scan starten.
-
-`MUSIC_PATH` und `DOWNLOADS_PATH` sollten auf derselben Platte (HDD) liegen. Dann können fertige
-Torrents per Hardlink in die Bibliothek übernommen werden und trotzdem weiter seeden. Datenbank und
-Caches (`APPDATA_PATH`) gehören auf die SSD.
