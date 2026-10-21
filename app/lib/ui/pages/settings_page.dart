@@ -249,14 +249,13 @@ class SettingsPage extends ConsumerWidget {
               },
             ),
           ),
-          if (!isDesktop)
-            SwitchListTile(
-              title: Text(context.l10n.settingsVisualizer),
-              subtitle: Text(context.l10n.settingsVisualizerHint),
-              value: ref.watch(visualizerEnabledProvider),
-              onChanged: ref.read(visualizerEnabledProvider.notifier).set,
-            ),
-          if (!isDesktop && ref.watch(visualizerEnabledProvider))
+          SwitchListTile(
+            title: Text(context.l10n.settingsVisualizer),
+            subtitle: Text(context.l10n.settingsVisualizerHint),
+            value: ref.watch(visualizerEnabledProvider),
+            onChanged: ref.read(visualizerEnabledProvider.notifier).set,
+          ),
+          if (ref.watch(visualizerEnabledProvider))
             ListTile(
               title: Text(context.l10n.settingsVisualizerStyle),
               subtitle: Text(visualizerThemeName(context.l10n, ref.watch(visualizerThemeProvider).id)),

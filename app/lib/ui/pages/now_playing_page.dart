@@ -67,9 +67,8 @@ class NowPlayingPage extends ConsumerWidget {
               ? Center(child: Text(context.l10n.playerNothingPlaying))
               : LayoutBuilder(
                   builder: (context, constraints) {
-                    final landscape =
-                        (!isWide(context) || MediaQuery.sizeOf(context).width == 900) &&
-                        constraints.maxWidth > constraints.maxHeight;
+                    // Phones in landscape count as wide (about 1000 x 450), so the height decides, not isWide.
+                    final landscape = constraints.maxWidth > constraints.maxHeight && constraints.maxHeight < 600;
                     return ListView(
                       padding: EdgeInsets.zero,
                       children: [
@@ -412,7 +411,8 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
         // reach out to the screen edges, past the page padding.
         final side = TrackCover.sideFor(constraints, reflect) * 0.78;
         final height = side + (reflect ? 3 + side * 0.22 : 0);
-        final spread = math.max(0.0, MediaQuery.sizeOf(context).width / 2 - 4 - side / 2);
+        // A quarter of the cover beside it, but never past the screen edge (phones are narrower than that).
+        final spread = math.max(0.0, math.min(side * 0.25, MediaQuery.sizeOf(context).width / 2 - 4 - side / 2));
         return GestureDetector(
           key: const ValueKey('coverflow'),
           behavior: HitTestBehavior.opaque,

@@ -26,16 +26,15 @@ void main() {
     return result;
   }
 
-  test('desktop TV mode persists and enables the visualizer only in TV mode', () async {
+  test('desktop TV mode persists and leaves the visualizer to its own setting', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     final ref = await container();
     expect(ref.read(tvModeProvider), false);
-    expect(ref.read(visualizerEnabledProvider), false);
+    expect(ref.read(visualizerEnabledProvider), true);
     ref.read(tvModeProvider.notifier).set(true);
     expect(ref.read(tvModeProvider), true);
     expect(ref.read(prefsProvider).getBool('tv_mode'), true);
-    expect(ref.read(visualizerEnabledProvider), true);
-    ref.read(tvModeProvider.notifier).set(false);
+    ref.read(visualizerEnabledProvider.notifier).set(false);
     expect(ref.read(visualizerEnabledProvider), false);
   });
 

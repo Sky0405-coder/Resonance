@@ -6,9 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/desktop.dart';
 import '../core/session.dart';
-import '../core/tv_mode.dart';
 import 'player.dart';
 import 'visualizer_themes.dart';
 
@@ -79,7 +77,7 @@ final visualizerEnabledProvider = NotifierProvider<VisualizerEnabled, bool>(Visu
 
 class VisualizerEnabled extends Notifier<bool> {
   @override
-  bool build() => (!isDesktop || ref.watch(tvModeProvider)) && (ref.read(prefsProvider).getBool('visualizer') ?? true);
+  bool build() => ref.read(prefsProvider).getBool('visualizer') ?? true;
 
   void set(bool enabled) {
     ref.read(prefsProvider).setBool('visualizer', enabled);
