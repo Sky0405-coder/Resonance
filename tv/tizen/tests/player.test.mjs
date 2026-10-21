@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Player, playbackOrder } from '../js/player.js';
+import { Player, playbackOrder, reorderUpcoming } from '../js/player.js';
 class AudioStub {
-  constructor() { this.listeners = {}; this.currentTime = 0; this.paused = true; this.ended = false; this.src = ''; this.seekable = { length: 1, start: () => 0, end: () => 120 }; }
+  constructor() { this.listeners = {}; this.readyState = 4; this.volume = 1; this.playCalls = 0; this.loads = 0; this.pauses = 0; this.currentTime = 0; this.paused = true; this.ended = false; this.src = ''; this.seekable = { length: 1, start: () => 0, end: () => 120 }; }
   addEventListener(name, fn) { this.listeners[name] = fn; }
-  play() { this.paused = false; return Promise.resolve(); }
-  pause() { this.paused = true; }
-  load() { this.currentTime = 0; }
+  play() { this.playCalls++; this.paused = false; return Promise.resolve(); }
+  pause() { this.pauses++; this.paused = true; }
+  load() { this.loads++; this.currentTime = 0; }
   removeAttribute(name) { if (name === 'src') this.src = ''; }
   getAttribute(name) { return name === 'src' ? this.src : null; }
   fire(name) { if (this.listeners[name]) this.listeners[name](); }
@@ -26,7 +26,9 @@ test('shuffle order preserves current item and contains every track once', () =>
 });
 test('uses second audio for preload handoff; manual next skips repeat-one', () => {
   const { player, a, b } = setup(); player.setQueue(tracks, 0, 'album:test', false);
-  assert.equal(a.src, '/stream/a'); assert.equal(b.src, '/stream/b'); assert.equal(player.preloaded, 1);
+  assert.equal(a.src, '/stream/a'); assert.equal(b.src, ''); assert.equal(player.preloaded, -1);
+  a.currentTime = 76; a.fire('timeupdate');
+  assert.equal(b.src, '/stream/b'); assert.equal(player.preloaded, 1);
   player.next(); assert.equal(player.audio, b); assert.equal(player.track.id, 'b'); assert.equal(a.src, '/stream/c');
   player.repeat = 'one'; player.preload(); b.fire('ended'); assert.equal(player.track.id, 'b');
   player.next(); assert.equal(player.track.id, 'c'); player.stop();
@@ -52,4 +54,57 @@ test('short tracks report at half duration; unsupported seeks leave position unc
   await player.flush(); assert.equal(calls.length, 1);
   a.seekable = { length: 0 }; assert.equal(player.seekTo(25), false); assert.equal(a.currentTime, 10); assert.equal(errors.length, 1);
   player.stop(); assert.equal(a.src, ''); assert.equal(player.spare.src, ''); assert.equal(player.track, null);
+});
+
+test('manual next/previous and ended always start the selected track, even from pause', () => {
+  const { player } = setup(); player.setQueue(tracks, 0);
+  assert.equal(player.playing, true);
+  player.pause(); player.next(); assert.equal(player.track.id, 'b'); assert.equal(player.playing, true);
+  player.pause(); player.previous(); assert.equal(player.track.id, 'a'); assert.equal(player.playing, true);
+  player.audio.ended = true; player.audio.fire('ended'); player.audio.ended = false;
+  assert.equal(player.track.id, 'b'); assert.equal(player.playing, true);
+  player.audio.currentTime = 5; player.pause(); player.previous(); assert.equal(player.audio.currentTime, 0); assert.equal(player.playing, true);
+  player.stop();
+});
+test('waits for canplay, retries a rejected play once, and cancels stale play intentions', async () => {
+  const { player, a, errors } = setup();
+  a.readyState = 0; player.setQueue(tracks, 0); assert.equal(a.playCalls, 0);
+  a.play = function () { this.playCalls++; this.readyState = 0; return Promise.reject(new Error('Not ready')); };
+  a.readyState = 3; a.fire('canplay'); await Promise.resolve(); assert.equal(a.playCalls, 1); assert.equal(errors.length, 0);
+  a.play = AudioStub.prototype.play; a.readyState = 3; a.fire('canplay'); assert.equal(a.playCalls, 2); assert.equal(player.playing, true);
+  a.readyState = 0; player.next(); player.pause(); a.fire('canplay'); assert.equal(a.playCalls, 2);
+  player.play(); player.stop(); a.fire('canplay'); assert.equal(a.playCalls, 2);
+});
+test('a second play rejection reports one error without an unbounded retry', async () => {
+  const { player, a, errors } = setup();
+  a.play = function () { this.playCalls++; return Promise.reject(new Error('Cannot play')); };
+  player.setQueue(tracks, 0); await Promise.resolve(); await Promise.resolve();
+  assert.equal(a.playCalls, 2); assert.equal(errors.length, 1);
+  a.fire('canplay'); assert.equal(a.playCalls, 2); player.stop();
+});
+test('shuffle only reorders upcoming tracks and preserves current slot and played history', () => {
+  const order = [4, 1, 2, 0, 3];
+  assert.deepEqual(reorderUpcoming(order, 2, true, () => 0), [4, 1, 2, 3, 0]);
+  assert.deepEqual(reorderUpcoming(order, 2, false), [4, 1, 2, 0, 3]);
+  assert.deepEqual(order, [4, 1, 2, 0, 3]);
+});
+test('shuffle and repeat never pause, reload or seek the current audio, including after a handoff', () => {
+  const { player, a } = setup(); player.setQueue(tracks, 0);
+  a.currentTime = 76; a.fire('timeupdate'); player.next();
+  const audio = player.audio; audio.currentTime = 7;
+  const snapshot = { src: audio.src, loads: audio.loads, pauses: audio.pauses, plays: audio.playCalls };
+  const position = player.order.indexOf(player.index);
+  player.toggleShuffle(); player.toggleShuffle(); player.cycleRepeat(); player.cycleRepeat(); player.cycleRepeat();
+  assert.equal(player.order.indexOf(player.index), position);
+  assert.equal(player.playing, true); assert.equal(audio.currentTime, 7);
+  assert.deepEqual({ src: audio.src, loads: audio.loads, pauses: audio.pauses, plays: audio.playCalls }, snapshot);
+  player.stop();
+});
+test('preloading starts below 25 seconds remaining and is not restarted on every update', () => {
+  const { player, a, b } = setup(); player.setQueue(tracks, 0);
+  a.currentTime = 75; a.fire('timeupdate'); assert.equal(player.preloaded, -1);
+  a.currentTime = 76; a.fire('timeupdate'); assert.equal(player.preloaded, 1);
+  const loads = b.loads; a.currentTime = 77; a.fire('timeupdate'); assert.equal(b.loads, loads);
+  a.currentTime = 20; a.fire('timeupdate'); assert.equal(b.src, '');
+  player.stop();
 });

@@ -6,14 +6,28 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 const base = dirname(fileURLToPath(import.meta.url));
 
-export function violations(source) {
+export function violations(source, extension = ".js") {
   const problems = [];
-  // These deliberately scan raw text too, so unsupported snippets cannot creep into a template.
-  [[/\?\./g, 'optional chaining'], [/\?\?/g, 'nullish coalescing'],
-    [/#\s*[A-Za-z_$][\w$]*/g, 'private field'], [/\.\s*flat\s*\(/g, 'Array.flat']].forEach(rule => {
+  // Scan templates too: unsupported APIs and CSS can hide inside runtime strings.
+  const rules = [
+    [/\bObject\s*\.\s*fromEntries\s*\(/g, 'Object.fromEntries'], [/\bglobalThis\b/g, 'globalThis'],
+    [/\bPromise\s*\.\s*allSettled\s*\(/g, 'Promise.allSettled'], [/\.\s*replaceAll\s*\(/g, 'String.replaceAll'],
+    [/\bqueueMicrotask\s*\(/g, 'queueMicrotask'], [/\.\s*replaceChildren\s*\(/g, 'replaceChildren'],
+    [/\.\s*at\s*\(/g, 'Array.at'], [/\bloading\s*=\s*["']lazy["']/gi, 'native lazy images'],
+    [/\b(?:gap|row-gap|column-gap)\s*:/gi, 'CSS gap (use margins for TV flex layouts)'],
+    [/\binset(?:-(?:block|inline)(?:-start|-end)?)?\s*:/gi, 'CSS inset'],
+    [/\baspect-ratio\s*:/gi, 'CSS aspect-ratio'], [/:is\s*\(/gi, 'CSS :is()'],
+    [/\bbackdrop-filter\s*:/gi, 'CSS backdrop-filter']
+  ];
+  if (extension === '.js') rules.push(
+    [/\?\./g, 'optional chaining'], [/\?\?/g, 'nullish coalescing'],
+    [/#\s*[A-Za-z_$][\w$]*/g, 'private field'], [/\.\s*flat\s*\(/g, 'Array.flat']
+  );
+  rules.forEach(rule => {
     let match;
     while ((match = rule[0].exec(source))) problems.push({ index: match.index, reason: rule[1] });
   });
+  if (extension !== '.js') return problems;
   // Strip literals/comments before inspecting class members. Keep offsets for useful line numbers.
   const clean = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/g,
     value => value.replace(/[^\n]/g, ' '));
@@ -40,7 +54,7 @@ export function violations(source) {
     if (!scope || depth !== scope.depth || !scope.member) continue;
     if (token === ';') continue;
     let j = i;
-    while (tokens[j] && /^(static|async|get|set|\*)$/.test(tokens[j].value)) j++;
+    while (tokens[j] && /^(static|async|get|set|\*)$/.test(tokens[j].value) && tokens[j + 1] && tokens[j + 1].value !== '(') j++;
     if (tokens[j] && tokens[j].value === '[') {
       let brackets = 1; j++;
       while (tokens[j] && brackets) { if (tokens[j].value === '[') brackets++; if (tokens[j].value === ']') brackets--; j++; }
@@ -53,21 +67,22 @@ export function violations(source) {
 function files(path) {
   return readdirSync(path, { withFileTypes: true }).reduce((all, entry) => {
     const full = join(path, entry.name);
-    return all.concat(entry.isDirectory() ? files(full) : /\.js$/.test(entry.name) ? [full] : []);
+    return all.concat(entry.isDirectory() ? files(full) : /\.(js|css|html)$/.test(entry.name) ? [full] : []);
   }, []);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const paths = process.argv.length > 2 ? process.argv.slice(2).map(path => resolve(path)) : files(join(base, 'js'));
+  const paths = process.argv.length > 2 ? process.argv.slice(2).map(path => resolve(path)) : files(join(base, 'js')).concat(files(join(base, 'css')), [join(base, 'index.html')]);
   let failed = false;
   paths.forEach(path => {
     const source = readFileSync(path, 'utf8');
-    violations(source).forEach(problem => {
+    violations(source, path.slice(path.lastIndexOf('.'))).forEach(problem => {
       console.error(relative(base, path) + ':' + source.slice(0, problem.index).split('\n').length + ': ' + problem.reason);
       failed = true;
     });
+    if (!path.endsWith('.js')) return;
     const checked = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
     if (checked.status !== 0) { console.error(checked.stderr); failed = true; }
   });
   if (failed) process.exitCode = 1;
-  else console.log('TV compatibility and syntax: ' + paths.length + ' JavaScript files passed.');
+  else console.log('TV compatibility and syntax: ' + paths.length + ' runtime files passed.');
 }

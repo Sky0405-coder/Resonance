@@ -1,4 +1,19 @@
 import { language, t } from './i18n.js';
+export const codecMimes = {
+  mp3: 'audio/mpeg', aac: 'audio/mp4; codecs="mp4a.40.2"', flac: 'audio/flac',
+  vorbis: 'audio/ogg; codecs="vorbis"', opus: 'audio/ogg; codecs="opus"', wave: 'audio/wav'
+};
+export function detectCodecs(audio) {
+  const supported = {};
+  Object.keys(codecMimes).forEach(codec => {
+    const answer = audio.canPlayType(codecMimes[codec]);
+    supported[codec] = answer === 'probably' || answer === 'maybe';
+  });
+  return supported;
+}
+export function streamFormat(codec, supported) {
+  return Object.prototype.hasOwnProperty.call(codecMimes, codec) && supported[codec] ? 'raw' : 'mp3';
+}
 export const DEFAULT_SERVER = 'https://resonance.k-node.de';
 export function normalizeServer(value) {
   let url;
@@ -12,7 +27,8 @@ function stored(key, fallback) {
   try { return localStorage.getItem(key) || fallback; } catch (_) { return fallback; }
 }
 export class Api {
-  constructor() {
+  constructor(supported) {
+    this.supportedCodecs = supported || (typeof Audio !== 'undefined' ? detectCodecs(new Audio()) : {});
     this.server = stored('resonance.server', DEFAULT_SERVER);
     this.token = stored('resonance.token', '');
     this.onUnauthorized = null;
@@ -42,6 +58,10 @@ export class Api {
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), opts.binary ? 60000 : 20000);
+    const cancel = () => controller.abort();
+    if (opts.signal) {
+      if (opts.signal.aborted) cancel(); else opts.signal.addEventListener('abort', cancel);
+    }
     try {
       const response = await fetch(this.url(path, opts.query), {
         method: opts.method || 'GET', headers: headers,
@@ -62,7 +82,7 @@ export class Api {
     } catch (error) {
       if (error.status) throw error;
       throw new Error(t('networkError'));
-    } finally { clearTimeout(timer); }
+    } finally { clearTimeout(timer); if (opts.signal) opts.signal.removeEventListener('abort', cancel); }
   }
   async login(server, username, password) {
     this.save(server, '');
@@ -88,9 +108,8 @@ export class Api {
     return 'icon.png';
   }
   stream(track) {
-    // Raw MP3/AAC supports Range; other formats use the TV-compatible MP3 transcoder.
-    const format = /^(mp3|aac)$/.test(track.codec || '') ? 'raw' : 'mp3';
-    return this.url('/api/tracks/' + encodeURIComponent(track.id) + '/stream', { format: format, bitrate: 192 }, true);
+    const format = streamFormat(track.codec, this.supportedCodecs);
+    return this.url('/api/tracks/' + encodeURIComponent(track.id) + '/stream', { format: format, bitrate: format === 'mp3' ? 320 : undefined }, true);
   }
   stationStream(id) { return this.url('/api/worldradio/stations/' + encodeURIComponent(id) + '/stream', {}, true); }
 }

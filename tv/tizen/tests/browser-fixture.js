@@ -2,7 +2,7 @@
 import { Api } from '../js/api.js';
 const artist = { id: 'artist', name: 'Test Artist', has_image: false, album_count: 1 };
 const album = { id: 'album', title: 'Test Album', artist: artist, cover_key: 'test-v1', year: 2026, track_count: 3 };
-const tracks = ['First Song', 'Second Song', 'Third Song'].map((title, i) => ({ id: 'track' + i, title: title, artist: artist, artist_credit: artist.name, album: album, duration: 120, codec: 'mp3' }));
+const tracks = ['First Song', 'Second Song', 'Third Song'].map((title, i) => ({ id: 'track' + i, title: title, artist: artist, artist_credit: artist.name, album: album, duration: 120, codec: 'mp3', liked: false }));
 const playlist = { id: 'playlist', name: 'Test Playlist', track_count: 3, entries: tracks.map(track => ({ track: track, entry_id: track.id })) };
 const station = { id: 'station', name: 'Test FM', country: 'Deutschland', tags: [], codec: 'MP3' };
 export const requests = [];
@@ -18,7 +18,7 @@ function testAudio() {
 }
 export function installMocks() {
   window.tizen = { tvinputdevice: { registerKeyBatch(keys, success) { window.registeredRemoteKeys = keys; success(); } }, application: { getCurrentApplication() { return { exit() { window.exitCalled = true; } }; } } };
-  localStorage.removeItem('resonance.token'); localStorage.setItem('resonance.server', location.origin);
+  localStorage.removeItem('resonance.preferences'); localStorage.removeItem('resonance.token'); localStorage.setItem('resonance.server', location.origin);
   const audio = testAudio(); let favorites = [];
   Api.prototype.stream = () => audio; Api.prototype.stationStream = () => audio; Api.prototype.artwork = () => 'icon.png';
   const nativeFetch = window.fetch;
@@ -32,11 +32,12 @@ export function installMocks() {
     else if (path === '/api/home') data = { recently_played: [album], recently_added: [album], playlists: [playlist], most_played: tracks };
     else if (path === '/api/albums') data = { items: [album], total: 1 };
     else if (path === '/api/artists') data = { items: [artist], total: 1 };
-    else if (path === '/api/playlists') data = [playlist];
+    else if (path === '/api/playlists') data = [playlist, { id: 'mix', name: 'Generated mix', kind: 'mix' }, { id: 'radio', name: 'Generated radio', kind: 'radio' }];
     else if (path === '/api/albums/album') data = Object.assign({}, album, { tracks: tracks });
     else if (path === '/api/artists/artist') data = Object.assign({}, artist, { albums: [album], top_tracks: tracks });
     else if (path === '/api/playlists/playlist') data = playlist;
     else if (path === '/api/me/likes/tracks') data = tracks;
+    else if (/^\/api\/me\/likes\/tracks\//.test(path)) return new Response(null, { status: 204 });
     else if (path === '/api/search') data = { albums: [album], artists: [artist], playlists: [playlist], tracks: tracks };
     else if (/\/lyrics$/.test(path)) data = { synced: true, instrumental: false, lines: [{ time_ms: 0, text: 'A first line' }, { time_ms: 1000, text: 'A second line' }, { time_ms: 30000, text: 'A third line' }] };
     else if (/\/spectrum$/.test(path)) {
@@ -66,8 +67,8 @@ function focusId() { return document.activeElement.dataset.focusId; }
 function click(id) {
   const node = document.querySelector('[data-focus-id="' + id + '"]'); assert(node, 'Missing control ' + id); node.click();
 }
-function key(code, value) {
-  const event = new KeyboardEvent('keydown', { key: value || '', keyCode: code, which: code, bubbles: true, cancelable: true });
+function key(code, value, type) {
+  const event = new KeyboardEvent(type || 'keydown', { key: value || '', keyCode: code, which: code, bubbles: true, cancelable: true });
   document.activeElement.dispatchEvent(event);
 }
 export async function runSmoke() {
@@ -76,19 +77,43 @@ export async function runSmoke() {
   assert(document.documentElement.lang === 'de', 'German locale selected');
   assert(window.registeredRemoteKeys.length === 12, 'Samsung remote keys registered');
   click('login-keyboard');
-  click('key-A'); click('key-ä'); click('key-delete'); click('keyboard-done');
+  const q = document.querySelector('[data-focus-id="key-q"]'); q.focus(); key(39, 'ArrowRight');
+  assert(focusId() === 'key-w', 'Keyboard owns horizontal navigation'); key(40, 'ArrowDown');
+  assert(focusId() === 'key-s', 'Keyboard keeps column'); key(38, 'ArrowUp'); key(38, 'ArrowUp');
+  assert(focusId() === 'key-2', 'Keyboard reaches number row'); key(38, 'ArrowUp');
+  assert(focusId() === 'keyboard-value', 'Top edge leaves keyboard');
+  if (window.__screenshotScene === 'keyboard') return { passed: ['keyboard scene'] };
+  click('key-case'); click('key-1');
+  assert(document.querySelector('[data-focus-id="key-case"]').classList.contains('shift-once'), 'Digits preserve one-shot shift');
+  click('key-clear'); click('key-a');
+  assert(document.querySelector('[data-focus-id="key-q"]').textContent === 'q', 'Shift resets after next letter');
+  click('key-ä'); click('key-delete');
+  click('key-case'); click('key-case');
+  assert(document.querySelector('[data-focus-id="key-case"]').classList.contains('shift-caps'), 'Double Shift locks capitals');
+  click('key-case');
+  const shiftKey = document.querySelector('[data-focus-id="key-case"]'); shiftKey.focus(); key(13, 'Enter'); await sleep(450); key(13, 'Enter', 'keyup');
+  assert(shiftKey.classList.contains('shift-caps'), 'Holding Shift locks capitals'); click('key-case');
+  click('key-symbols'); assert(document.querySelector('[data-focus-id="key-1"]').textContent === '!', 'Symbol page');
+  assert(document.querySelector('[data-focus-id="key-y"]').disabled, 'Unused symbol cells disabled');
+  click('key-symbols'); click('keyboard-done');
   assert(document.querySelector('[name="username"]').value === 'A', 'Remote keyboard edit');
   document.querySelector('[name="username"]').value = 'test'; document.querySelector('[name="password"]').value = 'fixture';
   click('login-submit'); await wait(() => document.querySelector('.home-page .card'), 'home shelves');
   assert(localStorage.getItem('resonance.token') === 'fixture-token', 'Persist login token'); passed.push('login, keyboard and home shelves');
+  if (window.__screenshotScene === 'home') return { passed: passed };
   key(10009); assert(!document.getElementById('modal').hidden, 'Home Back opens exit confirmation');
   key(10009); assert(document.getElementById('modal').hidden, 'Back dismisses exit confirmation');
+  assert(!document.querySelector('[data-focus-id="playlist-mix"]') && !document.querySelector('[data-focus-id="playlist-radio"]'), 'Generated playlists excluded');
+  assert(document.querySelector('[data-row="your-playlists"]').firstChild.dataset.focusId === 'liked-liked', 'Liked songs first');
   const first = document.querySelector('.home-page .card'); first.focus(); key(40, 'ArrowDown');
-  assert(document.activeElement.closest('[data-row]').dataset.row === 'recently_added', 'D-pad moves to next shelf');
-  document.activeElement.focus(); key(13, 'Enter'); await wait(() => document.querySelector('.detail-page'), 'album detail');
+  assert(document.activeElement.closest('[data-row]').dataset.row === 'your-playlists', 'D-pad moves to next shelf');
+  key(13, 'Enter'); await wait(() => document.querySelector('.detail-page .liked-cover'), 'home liked songs detail');
+  assert(document.querySelectorAll('.track-row').length === 3, 'Home liked songs opens track list');
+  key(10009); await wait(() => document.querySelector('.home-page'), 'home after liked');
+  const playlistCard = document.querySelector('.home-page [data-focus-id="playlist-playlist"]'); playlistCard.focus(); key(13, 'Enter'); await wait(() => document.querySelector('.detail-page'), 'album detail');
   assert(focusId() === 'detail-play', 'Detail Play focused first');
   key(10009); await wait(() => document.querySelector('.home-page'), 'back home');
-  assert(focusId() === 'album-album', 'Back restores card focus'); passed.push('D-pad, detail focus and view stack');
+  assert(focusId() === 'playlist-playlist', 'Back restores card focus'); passed.push('D-pad, detail focus and view stack');
   click('nav-library'); await wait(() => document.querySelector('.library-grid .card'), 'playlists');
   click('playlist-playlist'); await wait(() => document.querySelector('.detail-page'), 'playlist detail');
   assert(document.querySelectorAll('.track-row').length === 3, 'Playlist entries decoded');
@@ -101,7 +126,7 @@ export async function runSmoke() {
   assert(document.querySelectorAll('.track-row').length === 3, 'Liked array decoded'); passed.push('library, playlist, artist and liked songs');
   click('nav-search'); await wait(() => document.querySelector('.search-page'), 'search');
   const before = requests.filter(request => request.path === '/api/search').length;
-  click('key-A'); click('key-B'); click('key-ä');
+  click('key-a'); click('key-b'); click('key-ä');
   await sleep(200); assert(requests.filter(request => request.path === '/api/search').length === before, '400 ms debounce');
   await wait(() => document.querySelector('.search-results .track'), 'search results');
   assert(requests.filter(request => request.path === '/api/search').length === before + 1, 'Single debounced request');
@@ -110,14 +135,47 @@ export async function runSmoke() {
   assert(focusId() === 'now-play', 'Transport focused');
   key(10252); await sleep(100); assert(document.querySelector('[data-focus-id="mini-toggle"]').getAttribute('aria-label') === 'Abspielen', 'Media pause');
   key(415); await sleep(100); assert(document.querySelector('[data-focus-id="mini-toggle"]').getAttribute('aria-label') === 'Pause', 'Media play');
-  key(405); await wait(() => document.querySelector('.lyric-line.active'), 'synced lyrics');
+  assert(document.querySelectorAll('.transport button svg').length === 7, 'All seven transport icons are SVG');
+  assert(!document.querySelector('[data-focus-id="now-rewind"]') && !document.querySelector('[data-focus-id="now-stop"]'), 'Pill controls removed');
+  assert(getComputedStyle(document.querySelector('[data-focus-id="now-play"]')).width === '72px', '72px transport buttons');
+  assert(getComputedStyle(document.querySelector('[data-focus-id="mini-toggle"]')).width === '56px', '56px mini buttons');
+  click('now-like'); await wait(() => document.querySelector('[data-focus-id="now-like"]').getAttribute('aria-pressed') === 'true', 'like PUT');
+  click('now-like'); await wait(() => document.querySelector('[data-focus-id="now-like"]').getAttribute('aria-pressed') === 'false', 'like DELETE');
+  assert(requests.some(request => request.method === 'PUT' && request.path === '/api/me/likes/tracks/track0'), 'Like endpoint');
+  const currentAudio = [document.getElementById('audio-a'), document.getElementById('audio-b')].find(audio => !audio.paused);
+  key(19); currentAudio.currentTime = 30;
+  document.querySelector('[data-focus-id="now-progress"]').focus(); key(39, 'ArrowRight'); await sleep(650); key(39, 'ArrowRight', 'keyup');
+  assert(Math.abs(currentAudio.currentTime - 60) < 1, 'Held seek repeats every 300ms');
+  assert(!document.querySelector('.seek-bubble').hidden, 'Seeking shows time bubble');
+  await sleep(350); assert(Math.abs(currentAudio.currentTime - 60) < 1, 'Seek stops on release');
+  key(37, 'ArrowLeft'); key(37, 'ArrowLeft', 'keyup'); assert(Math.abs(currentAudio.currentTime - 50) < 1, 'Left seeks ten seconds');
+  key(415); key(405); await wait(() => document.querySelector('.lyric-line.active'), 'synced lyrics');
   key(10233); await wait(() => document.querySelector('.now-title').textContent === 'Second Song', 'next');
+  await wait(() => !document.getElementById('audio-a').paused || !document.getElementById('audio-b').paused, 'next starts playback');
   key(10232); await wait(() => document.querySelector('.now-title').textContent === 'First Song', 'previous');
+  await wait(() => !document.getElementById('audio-a').paused || !document.getElementById('audio-b').paused, 'previous starts playback');
+  const continuingAudio = [document.getElementById('audio-a'), document.getElementById('audio-b')].find(audio => !audio.paused);
+  const continuingSource = continuingAudio.currentSrc;
   click('now-shuffle'); assert(document.querySelector('[data-focus-id="now-shuffle"]').getAttribute('aria-pressed') === 'true', 'Shuffle enabled');
   click('now-repeat'); assert(document.querySelector('[data-focus-id="now-repeat"]').getAttribute('aria-label').indexOf('Alle') >= 0, 'Repeat-all');
-  passed.push('search debounce, audio, preload handoff, media keys, shuffle, repeat and lyrics');
+  assert(!continuingAudio.paused && continuingAudio.currentSrc === continuingSource, 'Shuffle/repeat preserve active audio');
+  passed.push('SVG controls, likes, held seeking, search debounce, audio, preload handoff, media keys, shuffle, repeat and lyrics');
   click('now-back'); await wait(() => document.querySelector('.search-page'), 'back search');
-  assert(document.querySelector('.search-input').value === 'ABä', 'Search retained across back');
+  assert(document.querySelector('.search-input').value === 'abä', 'Search retained across back');
+  click('nav-settings'); await wait(() => document.querySelector('.settings-page'), 'display settings');
+  if (window.__screenshotScene === 'settings') return { passed: passed };
+  assert(document.querySelector('[data-focus-id="settings-background"]').textContent.indexOf('Dunkel') >= 0, 'Dark background default');
+  click('settings-background'); await wait(() => document.querySelector('.app-background').style.backgroundImage, 'dynamic background');
+  click('settings-background'); assert(!document.querySelector('.app-background').style.backgroundImage, 'Dark applies immediately');
+  click('settings-visualizer');
+  const spectraBefore = requests.filter(request => /\/spectrum$/.test(request.path)).length;
+  click('mini-open'); await wait(() => document.querySelector('.now-page'), 'player with visualizer disabled');
+  key(10233); await sleep(200);
+  assert(!document.querySelector('canvas.visualizer'), 'Disabled visualizer creates no canvas');
+  assert(requests.filter(request => /\/spectrum$/.test(request.path)).length === spectraBefore, 'Disabled visualizer does not download spectrum');
+  assert(JSON.parse(localStorage.getItem('resonance.preferences')).visualizer === false, 'Display settings persisted');
+  click('now-back'); await wait(() => document.querySelector('.settings-page'), 'back settings');
+  click('settings-visualizer'); passed.push('persistent visualizer and immediate background preferences');
   click('nav-radio'); await wait(() => document.querySelector('.radio-page .station'), 'radio');
   click('station-station'); await wait(() => document.querySelector('[data-focus-id="station-favorite"]:not(:disabled)'), 'radio favorite');
   click('station-favorite'); await wait(() => requests.some(request => request.method === 'PUT' && request.path.indexOf('/favorites/station') > 0), 'favorite PUT');

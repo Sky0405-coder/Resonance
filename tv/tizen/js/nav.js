@@ -43,11 +43,11 @@ export class Navigation {
     this.remember(el);
   }
   first(scope) { this.focus(this.elements(scope)[0]); }
-  move(direction) {
+  move(direction, excludedRoot) {
     const elements = this.elements();
     const current = document.activeElement;
     if (elements.indexOf(current) < 0) { this.focus(elements[0]); return; }
-    const found = nearestInDirection(current.getBoundingClientRect(), elements.filter(el => el !== current)
+    const found = nearestInDirection(current.getBoundingClientRect(), elements.filter(el => el !== current && (!excludedRoot || !excludedRoot.contains(el)))
       .map(el => ({ el: el, rect: el.getBoundingClientRect() })), direction);
     if (!found) return;
     let target = found.el;

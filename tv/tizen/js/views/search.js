@@ -1,5 +1,5 @@
 import { t } from '../i18n.js';
-import { el, heading, shelf, errorBox } from '../ui.js';
+import { el, heading, shelf, errorBox, releaseImages } from '../ui.js';
 import { keyboard, editText } from './keyboard.js';
 export function searchView(ctx) {
   const root = el('div', 'search-page'); root.appendChild(heading(t('search'), t('searchHint')));
@@ -18,7 +18,7 @@ export function searchView(ctx) {
   async function search() {
     const current = ++version;
     const query = input.value.trim();
-    results.textContent = t('loading');
+    releaseImages(results); results.textContent = t('loading');
     if (!query) { results.textContent = t('searchHint'); return; }
     try {
       const data = await ctx.api.request('/api/search', { query: { q: query } });

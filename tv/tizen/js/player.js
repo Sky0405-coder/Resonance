@@ -10,6 +10,19 @@ export function playbackOrder(length, start, shuffle, random) {
   }
   return Array.from({ length: length }, (_, i) => i);
 }
+// Preserve the played prefix and current slot; only the unplayed suffix changes.
+export function reorderUpcoming(order, current, shuffle, random) {
+  const position = order.indexOf(current);
+  if (position < 0) return order.slice();
+  const upcoming = order.slice(position + 1);
+  if (shuffle) {
+    for (let i = upcoming.length - 1; i > 0; i--) {
+      const j = Math.floor((random || Math.random)() * (i + 1));
+      const value = upcoming[i]; upcoming[i] = upcoming[j]; upcoming[j] = value;
+    }
+  } else upcoming.sort((a, b) => a - b);
+  return order.slice(0, position + 1).concat(upcoming);
+}
 export class Player {
   constructor(api, audioA, audioB, onError) {
     this.api = api;
@@ -30,15 +43,22 @@ export class Player {
     this.preloaded = -1;
     this.radioTimer = null;
     this.generation = 0;
+    this.playIntent = null;
     [audioA, audioB].forEach(audio => {
       ['play', 'pause', 'waiting', 'playing', 'loadedmetadata', 'durationchange'].forEach(name => audio.addEventListener(name, () => {
         if (audio === this.audio) this.emit('state');
       }));
+      audio.volume = Math.min(1, audio.volume === undefined ? 1 : audio.volume);
+      audio.addEventListener('canplay', () => {
+        const intent = this.playIntent;
+        if (intent && intent.audio === audio && intent.waiting) this.attemptPlay(intent);
+      });
       audio.addEventListener('timeupdate', () => {
         if (audio !== this.audio) return;
         const delta = audio.currentTime - this.lastPosition;
         if (!audio.paused && delta > 0 && delta < 2 && !this.station) this.listened += delta;
         this.lastPosition = audio.currentTime;
+        this.preload();
         this.emit('time');
       });
       audio.addEventListener('ended', () => { if (audio === this.audio && !this.station) this.next(false); });
@@ -81,6 +101,8 @@ export class Player {
   }
   load(index, usePreload) {
     this.generation++;
+    this.playIntent = null;
+    this.index = index;
     this.listened = 0;
     this.lastPosition = 0;
     if (usePreload && this.preloaded === index) {
@@ -89,11 +111,11 @@ export class Player {
       this.spare = old;
       this.release(this.spare);
     } else {
+      this.release(this.spare);
       this.release(this.audio);
       this.audio.src = this.api.stream(this.queue[index]);
       this.audio.load();
     }
-    this.index = index;
     this.preloaded = -1;
     this.play();
     this.preload();
@@ -107,26 +129,48 @@ export class Player {
     return this.repeat === 'all' ? this.order[0] : -1;
   }
   preload() {
+    const remaining = this.duration - this.audio.currentTime;
+    const index = !this.station && this.track && this.duration > 0 && remaining < 25 ? this.nextIndex(false) : -1;
+    if (index === this.preloaded) return;
     this.release(this.spare);
-    this.preloaded = this.nextIndex(false);
-    if (this.preloaded >= 0) {
-      this.spare.src = this.api.stream(this.queue[this.preloaded]);
+    this.preloaded = index;
+    if (index >= 0) {
+      this.spare.src = this.api.stream(this.queue[index]);
       this.spare.load();
     }
   }
   play() {
     if (!this.track && !this.station) return;
-    const generation = this.generation;
-    const result = this.audio.play();
-    if (result && result.catch) result.catch(() => {
-      if (generation === this.generation) { this.onError(t('playbackError')); this.emit('state'); }
-    });
+    const intent = { audio: this.audio, generation: this.generation, retried: false, waiting: this.audio.readyState < 3 };
+    this.playIntent = intent;
+    if (!intent.waiting) this.attemptPlay(intent);
   }
-  pause() { this.audio.pause(); }
+  attemptPlay(intent) {
+    if (intent !== this.playIntent || intent.generation !== this.generation || intent.audio !== this.audio) return;
+    intent.waiting = false;
+    const failed = () => {
+      if (intent !== this.playIntent || intent.generation !== this.generation) return;
+      if (!intent.retried) {
+        intent.retried = true;
+        intent.waiting = true;
+        // A preloaded element may already have fired canplay. Its ready state is equivalent.
+        if (intent.audio.readyState >= 3) this.attemptPlay(intent);
+      } else {
+        this.playIntent = null;
+        this.onError(t('playbackError')); this.emit('state');
+      }
+    };
+    try {
+      const result = intent.audio.play();
+      if (result && result.catch) result.catch(failed);
+    } catch (_) { failed(); }
+  }
+  pause() { this.playIntent = null; this.audio.pause(); }
   toggle() { if (this.playing) this.pause(); else this.play(); }
   stop() {
     this.flush();
     this.generation++;
+    this.playIntent = null;
     this.clearRadio();
     this.station = null;
     this.queue = []; this.order = []; this.index = -1; this.preloaded = -1;
@@ -142,7 +186,7 @@ export class Player {
   }
   previous() {
     if (this.station || !this.track) return;
-    if (this.audio.currentTime > 3 && this.seekTo(0)) return;
+    if (this.audio.currentTime > 3 && this.seekTo(0)) { this.play(); return; }
     const position = this.order.indexOf(this.index);
     const index = position > 0 ? this.order[position - 1] : (this.repeat === 'all' ? this.order[this.order.length - 1] : this.order[0]);
     this.flush();
@@ -166,7 +210,7 @@ export class Player {
   seek(delta) { this.seekTo(this.audio.currentTime + delta); }
   toggleShuffle() {
     this.shuffle = !this.shuffle;
-    this.order = playbackOrder(this.queue.length, this.index, this.shuffle);
+    this.order = reorderUpcoming(this.order, this.index, this.shuffle);
     if (!this.station) this.preload();
     this.emit('state');
   }

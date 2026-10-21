@@ -1,20 +1,22 @@
 import { parseSpectrum, levelsAt } from './spectrum.js';
 const cache = new Map();
-async function loadSpectrum(api, id) {
+async function loadSpectrum(api, id, signal) {
   const key = api.server + ':' + api.token + ':' + id;
   if (cache.has(key)) return cache.get(key);
-  const pending = (async function () {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const bytes = await api.request('/api/tracks/' + encodeURIComponent(id) + '/spectrum', { binary: true });
-        return bytes ? parseSpectrum(bytes) : null;
-      } catch (_) { if (attempt < 2) await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 2000)); }
+  for (let attempt = 0; attempt < 3 && !signal.aborted; attempt++) {
+    try {
+      const bytes = await api.request('/api/tracks/' + encodeURIComponent(id) + '/spectrum', { binary: true, signal: signal });
+      if (signal.aborted) return null;
+      const data = bytes ? parseSpectrum(bytes) : null;
+      cache.set(key, data);
+      while (cache.size > 3) cache.delete(cache.keys().next().value);
+      return data;
+    } catch (_) {
+      if (signal.aborted) return null;
+      if (attempt < 2) await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 2000));
     }
-    return null;
-  })();
-  cache.set(key, pending);
-  while (cache.size > 3) cache.delete(cache.keys().next().value);
-  return pending;
+  }
+  return null;
 }
 export function coverColor(url) {
   return new Promise(resolve => {
@@ -49,34 +51,63 @@ export function coverColor(url) {
     image.src = url;
   });
 }
-export function attachVisualizer(canvas, player, api, track, cover) {
-  let disposed = false;
-  let spectrum = null;
-  let color = '#1DB954';
-  let last = -Infinity;
-  let frame = 0;
+export function attachVisualizer(canvas, player, api, track, cover, isVisible) {
+  let disposed = false; let requested = false;
+  let spectrum = null; let last = -Infinity; let frame = 0;
+  const controller = new AbortController();
   const levels = new Array(24).fill(0);
   const ctx = canvas.getContext('2d');
-  if (track) loadSpectrum(api, track.id).then(data => { if (!disposed) spectrum = data; });
-  coverColor(cover).then(value => { if (!disposed) color = value; });
-  function draw(now) {
-    if (disposed) return;
-    frame = requestAnimationFrame(draw);
-    if (document.hidden || now - last < 1000 / 30) return;
-    last = now;
+  let gradient;
+  // Canvas pixels equal its CSS dimensions. No device pixel ratio scaling on the TV.
+  function setColor(color) {
+    gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+    gradient.addColorStop(0, color); gradient.addColorStop(1, 'rgba(255,255,255,0.18)');
+  }
+  setColor('#1DB954');
+  function visible() { return !disposed && !document.hidden && (!isVisible || isVisible()); }
+  function paint() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!spectrum) return;
     levelsAt(spectrum, player.audio.currentTime, levels);
-    const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-    gradient.addColorStop(0, color); gradient.addColorStop(1, 'rgba(255,255,255,0.18)');
     ctx.fillStyle = gradient;
     const slot = canvas.width / 48;
-    for (let i = 0; i < 48; i++) {
-      const band = i < 24 ? 23 - i : i - 24;
-      const height = Math.max(3, levels[band] * canvas.height);
-      ctx.fillRect(i * slot + slot * 0.15, canvas.height - height, slot * 0.7, height);
+    // One path/fill per half; the mirrored half is deliberately lighter.
+    for (let side = 0; side < 2; side++) {
+      ctx.beginPath(); ctx.globalAlpha = side ? 0.65 : 1;
+      for (let i = 0; i < 24; i++) {
+        const band = side ? i : 23 - i;
+        const height = Math.max(3, levels[band] * canvas.height);
+        ctx.rect((side * 24 + i) * slot + slot * 0.15, canvas.height - height, slot * 0.7, height);
+      }
+      ctx.fill();
     }
+    ctx.globalAlpha = 1;
   }
-  frame = requestAnimationFrame(draw);
-  return () => { disposed = true; cancelAnimationFrame(frame); ctx.clearRect(0, 0, canvas.width, canvas.height); };
+  function draw(timestamp) {
+    frame = 0;
+    if (!visible()) return;
+    if (timestamp - last >= 1000 / 24) { last = timestamp; paint(); }
+    if (player.playing) frame = requestAnimationFrame(draw);
+    else paint();
+  }
+  function sync() {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    if (!visible()) return;
+    if (!requested && track) {
+      requested = true;
+      loadSpectrum(api, track.id, controller.signal).then(data => { if (!disposed) { spectrum = data; sync(); } });
+      coverColor(cover).then(color => { if (!disposed) { setColor(color); sync(); } });
+    }
+    if (!player.playing) { paint(); return; }
+    if (spectrum) frame = requestAnimationFrame(draw);
+  }
+  const unsubscribe = player.subscribe(kind => { if (kind !== 'time') sync(); });
+  document.addEventListener('visibilitychange', sync);
+  sync();
+  return () => {
+    disposed = true; controller.abort(); unsubscribe(); document.removeEventListener('visibilitychange', sync);
+    if (frame) cancelAnimationFrame(frame);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
 }

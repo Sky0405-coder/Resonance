@@ -20,7 +20,7 @@ const server = createServer(async (request, response) => {
       const html = (await readFile(join(app, 'index.html'), 'utf8')).replace('href="css/', 'href="/css/').replace('href="icon.png"', 'href="/icon.png"')
         .replace('<script type="module" src="js/main.js"></script>', `<script>Object.defineProperty(navigator, 'language', { get: () => 'de-DE' });</script><script type="module">
           import { installMocks, runSmoke } from '/tests/browser-fixture.js';
-          installMocks();
+          installMocks(); window.__screenshotScene = ${JSON.stringify(process.env.TV_SCREENSHOT_SCENE || '')};
           await import('/js/main.js');
           runSmoke().then(result => { window.__smoke = { ok: true, result }; }, error => { window.__smoke = { ok: false, error: error.stack }; });
         </script>`);
@@ -35,6 +35,10 @@ const server = createServer(async (request, response) => {
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const port = server.address().port;
+if (process.argv.indexOf('--serve') >= 0) {
+  console.log('Browser fixture: http://127.0.0.1:' + port + '/__test__');
+  await new Promise(() => {});
+}
 const child = spawn(chromium, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--window-size=1920,1080',
   '--autoplay-policy=no-user-gesture-required', '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
 let stderr = ''; child.stderr.on('data', data => { stderr += data.toString(); });
@@ -77,5 +81,5 @@ try {
 } finally {
   if (socket) socket.close();
   child.kill('SIGTERM'); await new Promise(resolve => { if (child.exitCode !== null) resolve(); else child.once('exit', resolve); });
-  await new Promise(resolve => server.close(resolve)); await rm(profile, { recursive: true, force: true });
+  await new Promise(resolve => server.close(resolve)); await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

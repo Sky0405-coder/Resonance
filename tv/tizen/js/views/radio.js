@@ -1,5 +1,5 @@
 import { t } from '../i18n.js';
-import { el, button, heading, shelf, errorBox } from '../ui.js';
+import { el, button, heading, shelf, errorBox, releaseImages } from '../ui.js';
 import { keyboard, editText } from './keyboard.js';
 export async function radioView(ctx) {
   const root = el('div', 'radio-page'); root.appendChild(heading(t('radio'), t('radioHint')));
@@ -16,7 +16,7 @@ export async function radioView(ctx) {
   async function load(append) {
     const current = ++version;
     const query = input.value.trim();
-    if (!append) { offset = 0; results.textContent = t('loading'); }
+    if (!append) { offset = 0; releaseImages(results); results.textContent = t('loading'); }
     try {
       const requests = [ctx.api.request('/api/worldradio/stations', { query: { q: query, offset: offset, limit: 50 } })];
       if (!query && !append) requests.push(ctx.api.request('/api/worldradio/favorites'));

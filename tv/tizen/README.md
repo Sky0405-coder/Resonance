@@ -87,10 +87,17 @@ Bei Signaturfehlern DUID, Samsung-Distributor-Zertifikat und Profilzuordnung pr�
 - Play/Pause oder Leertaste: Wiedergabe umschalten; Play, Pause, Stop, vorheriger/nächster
   Titel sowie Vor-/Rückspulen werden als Samsung-Medientasten registriert.
 - Gelb oder **Y**: Songtext; Blau oder **N**: „Jetzt läuft“.
-- Suche und Weltradio: Bildschirmtastatur mit A–Z, Ziffern und ä/ö/ü/ß,
-  Leerzeichen und Löschen. Abfrage nach 400 ms ohne Eingabe.
+- Suche und Weltradio: QWERTZ-Tastatur mit elf gleich breiten Spalten und eigener
+  Pfeilnavigation. Links/rechts umlaufen die Reihe, hoch/runter behalten die Spalte;
+  nur am oberen/unteren Rand wird die Tastatur verlassen. Shift gilt für einen Buchstaben,
+  zweimal Shift innerhalb von 400 ms oder Halten aktiviert die Feststelltaste.
+  „Symbole“ wechselt die Zeichenseite. Abfrage nach 400 ms ohne Eingabe.
 - Anmeldung und Server-Einstellungen haben eine zusätzliche Bildschirmtastatur mit
   Klein-/Großschreibung und Sonderzeichen. Im Desktop-Browser sind Felder auch direkt editierbar.
+- In „Jetzt läuft“: Fortschrittsbalken fokussieren und mit links/rechts zehn Sekunden spulen;
+  Halten wiederholt alle 300 ms. Die runden Symbole öffnen Songtext und speichern Lieblingssongs.
+- Einstellungen speichern Visualizer (standardmäßig an) und Hintergrund (standardmäßig
+  Dunkel, optional dynamische Coverfarbe). Änderungen gelten sofort.
 - Im Songtext blättern Hoch/Runter; synchronisierte Texte folgen der Audioposition.
 
 Beim ersten Start Server-Adresse (Vorgabe `https://resonance.k-node.de`), Benutzername
@@ -106,9 +113,10 @@ Die Verträge wurden aus `app/lib/core/api.dart`, `app/lib/core/models.dart`,
 
 - JSON-Login: `POST /api/auth/login` mit `username`, `password`, `device_name` → `token`.
   API-Abfragen verwenden `Authorization: Bearer …` und `Accept-Language`.
-- Audio: `/api/tracks/{id}/stream?format=raw|mp3&bitrate=192&token=…`.
-  MP3 und AAC werden roh abgespielt, andere Codecs als MP3 transcodiert.
-  Das zweite Audioelement lädt den Folgetitel; echtes samplegenaues Gapless ist damit nicht garantiert.
+- Audio: `/api/tracks/{id}/stream?format=raw|mp3&bitrate=320&token=…`.
+  Einmal beim Start wird `canPlayType` für mp3, aac, flac, vorbis, opus und wave geprüft.
+  Unterstützte Codecs werden roh abgespielt, andere als MP3 mit 320 kbit/s transcodiert.
+  Das zweite Audioelement lädt den Folgetitel erst unter 25 Sekunden Restzeit; echtes samplegenaues Gapless ist damit nicht garantiert.
 - Cover: `/api/albums/{id}/cover?size=…&v=cover_key&token=…`, dazu Playlist-Cover,
   Künstlerbilder und das Lieblingssongs-Cover. Farbabtastung über 32 × 32 Canvas-Pixel.
 - Start: `/api/home` (`recently_played`, `recently_added`, `playlists`, `most_played`).
@@ -119,7 +127,8 @@ Die Verträge wurden aus `app/lib/core/api.dart`, `app/lib/core/models.dart`,
   `/stations/{id}/now` (Polling alle 12 Sekunden).
 - Songtext: `/api/tracks/{id}/lyrics`, `lines[].time_ms`; Spektrum:
   `/api/tracks/{id}/spectrum` mit **RSP1**, 13-Byte-Header, LE-f32-fps und LE-u32-Framezahl.
-  Interpolierte 24 Bänder werden gespiegelt, höchstens 30 Bilder/s, nur in „Jetzt läuft“.
+  Interpolierte 24 Bänder werden gespiegelt, höchstens 24 Bilder/s, nur in „Jetzt läuft“, bei sichtbarem Dokument und laufender
+  Wiedergabe. Deaktivieren entfernt den Canvas und verhindert Spektrum-Downloads.
 - Hörereignisse: `POST /api/me/plays` mit `track_id`, `seconds_played`, `context`,
   ab 30 gehörten Sekunden oder der halben Titellänge, entsprechend Flutter.
 
@@ -147,13 +156,15 @@ CHROMIUM=/pfad/zu/chromium node tests/browser-smoke.mjs
 python3 tools/render_icon.py  # 117×117 PNG aus branding/logo.svg, mit Pillow
 ```
 
-Der Kompatibilitätscheck durchsucht sämtliche Laufzeit-JS-Dateien auf die geforderten
+Der Kompatibilitätscheck durchsucht sämtliche Laufzeit-JS-, HTML- und CSS-Dateien auf die geforderten
 verbotenen Sprachmerkmale, erkennt Klassenfelder und führt zusätzlich `node --check` aus.
-Die Node-Tests prüfen RSP1, Navigation samt Reihen-Erinnerung, Media-URLs, Queue/Repeat/Shuffle,
-Preload-Wechsel und Hörereignisse. Der Chromium-Test startet einen eigenen lokalen Server,
+Die Node-Tests prüfen RSP1, Navigation samt Reihen-Erinnerung, QWERTZ-Gitter und Shift, Codec-Auswahl, Media-URLs,
+Queue/Repeat/Shuffle, Play-Retries, späten Preload-Wechsel, Anzeige-Einstellungen,
+Lazy-Cover, Visualizer-Lebenszyklus und Hörereignisse. Der Chromium-Test startet einen eigenen lokalen Server,
 ein temporäres Browserprofil und ausschließlich gemockte API-/Audio-Daten. Er prüft
 Anmeldung, Fernbedienung, Ansichten, Suche, Wiedergabe, Songtext und Radio-Favoriten;
-er braucht keine npm-Pakete. Screenshot: `/tmp/resonance-tv-smoke.png`
+er braucht keine npm-Pakete. Screenshots der Szenen `keyboard`, `home` oder `settings` sind zusätzlich mit
+`TV_SCREENSHOT_SCENE=…` möglich. Screenshot: `/tmp/resonance-tv-smoke.png`
 (überschreibbar über `TV_SCREENSHOT`). Ein moderner Browser-Smoke-Test ersetzt keinen
 Test auf dem realen Tizen-5.5-TV.
 

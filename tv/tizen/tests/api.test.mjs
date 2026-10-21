@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Api, normalizeServer } from '../js/api.js';
+import { Api, normalizeServer, streamFormat, detectCodecs, codecMimes } from '../js/api.js';
 test('media URLs mirror Flutter auth and include cover revision', () => {
-  const api = new Api(); api.server = 'https://example.test'; api.token = 'a &/b';
+  const api = new Api({ mp3: true, aac: true }); api.server = 'https://example.test'; api.token = 'a &/b';
   const stream = new URL(api.stream({ id: 'track', codec: 'mp3' }));
   assert.equal(stream.pathname, '/api/tracks/track/stream'); assert.equal(stream.searchParams.get('token'), 'a &/b');
   assert.equal(stream.searchParams.get('format'), 'raw');
@@ -23,4 +23,24 @@ test('fetch uses bearer auth, JSON login contract and treats 404 spectrum as una
   };
   try { assert.equal(await api.request('/api/tracks/a/spectrum', { binary: true }), null); }
   finally { globalThis.fetch = original; }
+});
+
+test('native formats follow the TV capabilities; unknown/unsupported codecs use MP3 320', () => {
+  const supported = {};
+  Object.keys(codecMimes).forEach(codec => {
+    supported[codec] = true;
+    assert.equal(streamFormat(codec, supported), 'raw');
+    assert.equal(streamFormat(codec, {}), 'mp3');
+  });
+  [undefined, null, 'alac', 'wav', 'toString', ''].forEach(codec => assert.equal(streamFormat(codec, supported), 'mp3'));
+  const api = new Api(supported); api.server = 'https://example.test';
+  assert.equal(new URL(api.stream({ id: 'x', codec: 'opus' })).searchParams.get('format'), 'raw');
+  const fallback = new URL(api.stream({ id: 'x', codec: 'alac' }));
+  assert.equal(fallback.searchParams.get('format'), 'mp3'); assert.equal(fallback.searchParams.get('bitrate'), '320');
+});
+test('capability detection probes each backend codec once with its explicit MIME', () => {
+  const calls = [];
+  const supported = detectCodecs({ canPlayType(mime) { calls.push(mime); return mime === 'audio/flac' ? '' : 'maybe'; } });
+  assert.deepEqual(calls, Object.keys(codecMimes).map(codec => codecMimes[codec]));
+  assert.equal(supported.flac, false); assert.equal(supported.opus, true); assert.equal(supported.wave, true);
 });

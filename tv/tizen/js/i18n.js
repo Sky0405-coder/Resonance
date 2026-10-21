@@ -7,7 +7,7 @@ export const strings = {
     shuffle: 'Zufall', repeat: 'Wiederholen', off: 'Aus', all: 'Alle', one: 'Ein Titel',
     previous: 'Zurück', next: 'Weiter', rewind: '−10 Sek.', forward: '+10 Sek.',
     recentlyPlayed: 'Zuletzt gehört', recentlyAdded: 'Neu in deiner Musik', mostPlayed: 'Deine Lieblingstitel',
-    playlists: 'Playlists', albums: 'Alben', artists: 'Künstler', liked: 'Lieblingssongs',
+    yourPlaylists: 'Deine Playlists', playlists: 'Playlists', albums: 'Alben', artists: 'Künstler', liked: 'Lieblingssongs',
     favorites: 'Favoriten', popular: 'Beliebte Sender', addFavorite: 'Als Favorit speichern', removeFavorite: 'Favorit entfernen',
     searchHint: 'Was möchtest du hören?', radioHint: 'Sender suchen', space: 'Leerzeichen', delete: 'Löschen', clear: 'Leeren',
     loading: 'Wird geladen …', empty: 'Hier ist noch keine Musik.', noResults: 'Keine Ergebnisse.',
@@ -21,6 +21,9 @@ export const strings = {
     colorHint: 'Gelb / Y: Songtext · Blau / N: Jetzt läuft', saved: 'Gespeichert',
     serverHint: 'Ein Serverwechsel erfordert eine neue Anmeldung.', loginRequired: 'Bitte Benutzername und Passwort eingeben.',
     connected: 'Verbunden mit', more: 'Mehr laden', error: 'Fehler', loginKeyboard: 'Tastatur',
+    showVisualizer: 'Visualizer anzeigen', on: 'An', background: 'Hintergrund', dark: 'Dunkel', dynamic: 'Dynamisch (Coverfarbe)',
+    like: 'Gefällt mir', unlike: 'Gefällt mir nicht mehr', seek: 'Spulen', lyricsHint: 'Gelb: Songtext',
+    shift: 'Shift', capsLock: 'Feststelltaste', symbols: 'Symbole',
     keyboardDone: 'Fertig', showPassword: 'Passwort anzeigen', hidePassword: 'Passwort verbergen'
   },
   en: {
@@ -31,7 +34,7 @@ export const strings = {
     shuffle: 'Shuffle', repeat: 'Repeat', off: 'Off', all: 'All', one: 'One track',
     previous: 'Previous', next: 'Next', rewind: '−10 sec', forward: '+10 sec',
     recentlyPlayed: 'Recently played', recentlyAdded: 'New in your music', mostPlayed: 'Your favorite tracks',
-    playlists: 'Playlists', albums: 'Albums', artists: 'Artists', liked: 'Liked songs',
+    yourPlaylists: 'Your playlists', playlists: 'Playlists', albums: 'Albums', artists: 'Artists', liked: 'Liked Songs',
     favorites: 'Favorites', popular: 'Popular stations', addFavorite: 'Add to favorites', removeFavorite: 'Remove favorite',
     searchHint: 'What would you like to hear?', radioHint: 'Search stations', space: 'Space', delete: 'Delete', clear: 'Clear',
     loading: 'Loading …', empty: 'No music here yet.', noResults: 'No results.',
@@ -45,6 +48,9 @@ export const strings = {
     colorHint: 'Yellow / Y: lyrics · Blue / N: now playing', saved: 'Saved',
     serverHint: 'Changing servers requires signing in again.', loginRequired: 'Enter your username and password.',
     connected: 'Connected to', more: 'Load more', error: 'Error', loginKeyboard: 'Keyboard',
+    showVisualizer: 'Show visualizer', on: 'On', background: 'Background', dark: 'Dark', dynamic: 'Dynamic (cover color)',
+    like: 'Like', unlike: 'Unlike', seek: 'Seek', lyricsHint: 'Yellow: Lyrics',
+    shift: 'Shift', capsLock: 'Caps lock', symbols: 'Symbols',
     keyboardDone: 'Done', showPassword: 'Show password', hidePassword: 'Hide password'
   }
 };

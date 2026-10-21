@@ -1,5 +1,5 @@
 import { t } from '../i18n.js';
-import { el, button, row, image, trackList, shelf, artistName } from '../ui.js';
+import { el, button, row, image, trackList, shelf, artistName, likedArtwork } from '../ui.js';
 export async function detailView(ctx) {
   const kind = ctx.route.kind; const id = ctx.route.id;
   const path = kind === 'liked' ? '/api/me/likes/tracks' : '/api/' + kind + 's/' + encodeURIComponent(id);
@@ -7,7 +7,7 @@ export async function detailView(ctx) {
   const tracks = kind === 'liked' ? data : kind === 'playlist' ? data.entries.map(entry => entry.track) : kind === 'artist' ? data.top_tracks : data.tracks;
   const item = kind === 'liked' ? { id: 'liked', title: t('liked') } : data;
   const root = el('div', 'detail-page'); const header = el('header', 'detail-header');
-  header.appendChild(image(ctx.api.artwork(kind, item, 600), 'detail-cover'));
+  header.appendChild(kind === 'liked' ? likedArtwork('detail-cover') : image(ctx.api.artwork(kind, item, 300), 'detail-cover'));
   const info = el('div', 'detail-info');
   info.appendChild(el('p', 'eyebrow', t(kind)));
   info.appendChild(el('h1', '', item.title || item.name));

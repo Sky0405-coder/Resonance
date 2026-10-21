@@ -3,7 +3,10 @@ import { language, t } from './i18n.js';
 import { Navigation } from './nav.js';
 import { bindKeys } from './keys.js';
 import { Player } from './player.js';
-import { el, button, row, image, time, artistName, errorBox } from './ui.js';
+import { Preferences } from './preferences.js';
+import { coverColor } from './visualizer.js';
+import { setIcon } from './icons.js';
+import { el, button, row, image, time, artistName, errorBox, releaseImages } from './ui.js';
 import { keyboard, editText } from './views/keyboard.js';
 import { loginView } from './views/login.js';
 import { homeView } from './views/home.js';
@@ -21,6 +24,9 @@ const mini = document.getElementById('mini');
 const modal = document.getElementById('modal');
 const nav = new Navigation(root);
 const api = new Api();
+const preferences = new Preferences();
+const backgroundLayer = el('div', 'app-background'); backgroundLayer.setAttribute('aria-hidden', 'true');
+root.insertBefore(backgroundLayer, root.firstChild);
 const app = {
   stack: [], current: null, controller: null, epoch: 0, closeModal: null, toastTimer: null,
   toast(message) {
@@ -47,14 +53,16 @@ const app = {
     this.controller = null;
     root.classList.toggle('login-mode', route.name === 'login'); root.classList.toggle('now-mode', route.name === 'now');
     Array.from(rail.querySelectorAll('[data-route]')).forEach(node => node.classList.toggle('selected', node.dataset.route === route.name));
+    releaseImages(view);
     view.textContent = ''; view.scrollTop = 0; view.appendChild(el('p', 'loading', t('loading')));
-    const ctx = { api: api, nav: nav, player: player, app: this, route: route, active: () => epoch === this.epoch };
+    const ctx = { api: api, preferences: preferences, nav: nav, player: player, app: this, route: route, active: () => epoch === this.epoch };
     const loaders = { login: loginView, home: homeView, search: searchView, library: libraryView, detail: detailView, radio: radioView, settings: settingsView, now: nowPlayingView };
     try {
       const controller = await loaders[route.name](ctx);
-      if (epoch !== this.epoch) { if (controller.dispose) controller.dispose(); return; }
+      if (epoch !== this.epoch) { if (controller.dispose) controller.dispose(); releaseImages(controller.node); return; }
       this.controller = controller;
       view.textContent = ''; view.appendChild(controller.node);
+      if (controller.mounted) controller.mounted();
       nav.restore(route.focus || controller.initialFocus, view);
       // Restore shelves as well as the vertical page position after returning from a detail view.
       (route.rows || []).forEach(saved => {
@@ -112,7 +120,7 @@ const app = {
     }, 'keyboard-done', 'button primary'));
     actions.appendChild(button(t('cancel'), () => this.closeModal(), 'keyboard-cancel')); panel.appendChild(actions);
     this.showModal(panel);
-    nav.focus(panel.querySelector('[data-focus-id="key-A"]'));
+    nav.focus(panel.querySelector('[data-focus-id="key-q"]'));
   },
   confirmExit() {
     const panel = el('div', 'exit-dialog'); panel.appendChild(el('h1', '', t('exit')));
@@ -147,9 +155,9 @@ miniOpen.appendChild(miniArt); const miniInfo = el('span', 'mini-info');
 const miniTitle = el('strong', '', t('nothingPlaying')); const miniArtist = el('span', 'muted'); miniInfo.appendChild(miniTitle); miniInfo.appendChild(miniArtist); miniOpen.appendChild(miniInfo);
 mini.appendChild(miniOpen);
 const miniControls = row('mini-controls', 'mini-controls');
-miniControls.appendChild(button('❮❮', () => player.previous(), 'mini-previous', 'button icon-button'));
-const miniToggle = button('▶', () => player.toggle(), 'mini-toggle', 'button primary icon-button'); miniControls.appendChild(miniToggle);
-miniControls.appendChild(button('❯❯', () => player.next(), 'mini-next', 'button icon-button')); mini.appendChild(miniControls);
+const miniPrevious = button('', () => player.previous(), 'mini-previous', 'button icon-button'); setIcon(miniPrevious, 'skip_previous'); miniControls.appendChild(miniPrevious);
+const miniToggle = button('', () => player.toggle(), 'mini-toggle', 'button primary icon-button'); miniControls.appendChild(miniToggle);
+const miniNext = button('', () => player.next(), 'mini-next', 'button icon-button'); setIcon(miniNext, 'skip_next'); miniControls.appendChild(miniNext); mini.appendChild(miniControls);
 const miniTime = el('div', 'mini-time muted', '0:00 / 0:00'); mini.appendChild(miniTime);
 miniControls.children[0].setAttribute('aria-label', t('previous')); miniControls.children[2].setAttribute('aria-label', t('next'));
 function updateMini(kind) {
@@ -157,14 +165,34 @@ function updateMini(kind) {
     const track = player.track; const station = player.station; const now = player.now;
     miniTitle.textContent = station ? (now && (now.title || now.raw)) || station.name : track ? track.title : t('nothingPlaying');
     miniArtist.textContent = station ? station.name : track ? artistName(track) : '';
-    const url = track ? api.artwork('track', track, 128) : station ? api.artwork('station', station, 128) : 'icon.png';
+    const url = track ? api.artwork('track', track, 96) : station ? api.artwork('station', station, 96) : 'icon.png';
     if (miniArt.getAttribute('src') !== url) miniArt.src = url;
-    miniToggle.textContent = player.playing ? 'Ⅱ' : '▶'; miniToggle.setAttribute('aria-label', t(player.playing ? 'pause' : 'play'));
+    setIcon(miniToggle, player.playing ? 'pause' : 'play_arrow'); miniToggle.setAttribute('aria-label', t(player.playing ? 'pause' : 'play'));
     miniControls.children[0].disabled = !!station || !track; miniControls.children[2].disabled = !!station || !track;
   }
   miniTime.textContent = player.station ? t('live') : time(player.audio.currentTime) + ' / ' + time(player.duration);
 }
 player.subscribe(updateMini); updateMini('track');
+let backgroundVersion = 0;
+function updateBackground() {
+  const version = ++backgroundVersion;
+  backgroundLayer.style.backgroundImage = '';
+  if (preferences.value.background !== 'dynamic') return;
+  const item = player.track || player.station;
+  if (!item) return;
+  const cover = api.artwork(player.station ? 'station' : 'track', item, 96);
+  coverColor(cover).then(color => {
+    if (version !== backgroundVersion) return;
+    backgroundLayer.style.backgroundImage = 'linear-gradient(rgba(18,18,18,0.55), rgba(18,18,18,0.9)), radial-gradient(ellipse at 23% 30%, ' + color + ' 0, #121212 75%)';
+  });
+}
+let backgroundMode = preferences.value.background;
+preferences.subscribe(value => {
+  if (value.background === backgroundMode) return;
+  backgroundMode = value.background; updateBackground();
+});
+player.subscribe(kind => { if (kind === 'track') updateBackground(); });
+updateBackground();
 function direction(value) {
   const focused = document.activeElement;
   if (focused && focused.classList.contains('lyrics-pane') && (value === 'up' || value === 'down')) {
@@ -173,7 +201,7 @@ function direction(value) {
       focused.scrollBy({ top: delta, behavior: 'smooth' }); return;
     }
   }
-  nav.move(value);
+  nav.move(value, focused && focused.closest('.keyboard'));
 }
 bindKeys({
   left: () => direction('left'), right: () => direction('right'), up: () => direction('up'), down: () => direction('down'),

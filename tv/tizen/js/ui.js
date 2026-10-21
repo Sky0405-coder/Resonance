@@ -1,4 +1,5 @@
 import { t } from './i18n.js';
+import { svgIcon } from './icons.js';
 export function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -12,8 +13,28 @@ export function button(label, action, id, className) {
   return node;
 }
 export function row(id, className) { const node = el('div', className || 'actions'); node.dataset.row = id; return node; }
-export function image(url, className, alt) {
-  const node = el('img', className); node.alt = alt || ''; node.src = url;
+let shelfObserver = null;
+function observeCover(node, url) {
+  if (typeof IntersectionObserver === 'undefined') { node.src = url; return; }
+  if (!shelfObserver) shelfObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const target = entry.target;
+      if (!target.dataset.coverSrc) return;
+      target.src = target.dataset.coverSrc; delete target.dataset.coverSrc; shelfObserver.unobserve(target);
+    });
+  }, { rootMargin: window.innerWidth + 'px' });
+  node.dataset.coverSrc = url; shelfObserver.observe(node);
+}
+export function releaseImages(scope) {
+  if (!shelfObserver) return;
+  Array.from(scope.querySelectorAll('img[data-cover-src]')).forEach(node => {
+    shelfObserver.unobserve(node); delete node.dataset.coverSrc;
+  });
+}
+export function image(url, className, alt, lazy) {
+  const node = el('img', className); node.alt = alt || '';
+  if (lazy) observeCover(node, url); else node.src = url;
   node.addEventListener('error', () => { if (node.getAttribute('src') !== 'icon.png') node.src = 'icon.png'; });
   return node;
 }
@@ -28,6 +49,10 @@ export function heading(title, subtitle) {
   if (subtitle) node.appendChild(el('p', 'muted', subtitle));
   return node;
 }
+export function likedArtwork(className) {
+  const cover = el('div', className + ' liked-cover'); cover.setAttribute('aria-hidden', 'true');
+  cover.appendChild(svgIcon('favorite')); return cover;
+}
 export function card(ctx, kind, item, index, tracks) {
   const label = item.title || item.name || t('liked');
   const node = button('', () => {
@@ -35,7 +60,7 @@ export function card(ctx, kind, item, index, tracks) {
     else if (kind === 'station') { ctx.player.playStation(item); ctx.app.navigate({ name: 'now' }); }
     else ctx.app.navigate({ name: 'detail', kind: kind, id: item.id });
   }, kind + '-' + item.id, 'card ' + kind);
-  node.appendChild(image(ctx.api.artwork(kind, item), 'card-cover', ''));
+  node.appendChild(kind === 'liked' ? likedArtwork('card-cover') : image(ctx.api.artwork(kind, item, 300), 'card-cover', '', true));
   node.appendChild(el('strong', '', label));
   const subtitle = kind === 'station' ? item.country : artistName(item);
   node.appendChild(el('span', 'muted', subtitle || (item.track_count !== undefined ? item.track_count + ' ' + t('tracks') : t(kind))));
