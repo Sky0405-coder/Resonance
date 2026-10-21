@@ -16,7 +16,6 @@ class VisualizerTheme {
     this.glow = false,
     this.peaks = false,
     this.rainbow = false,
-    this.reflect = false,
   });
 
   final String id;
@@ -25,7 +24,6 @@ class VisualizerTheme {
   final bool glow;
   final bool peaks;
   final bool rainbow;
-  final bool reflect;
 }
 
 /// Colors run from the bottom to the top. Automatic uses the cover's color instead.
@@ -36,16 +34,14 @@ const visualizerThemes = <VisualizerTheme>[
     style: VisualizerStyle.segments,
     colors: [Color(0xFF3DDC84), Color(0xFFFFD60A), Color(0xFFFF453A)],
     peaks: true,
-    reflect: true,
   ),
   VisualizerTheme(
     id: 'synthwave',
     style: VisualizerStyle.bars,
     colors: [Color(0xFFFF2BD6), Color(0xFF00E5FF)],
     glow: true,
-    reflect: true,
   ),
-  VisualizerTheme(id: 'neon', style: VisualizerStyle.bars, colors: [Color(0xFF39FF14)], glow: true, reflect: true),
+  VisualizerTheme(id: 'neon', style: VisualizerStyle.bars, colors: [Color(0xFF39FF14)], glow: true),
   VisualizerTheme(id: 'ocean', style: VisualizerStyle.area, colors: [Color(0xFF0A3D91), Color(0xFF2EE6D6)]),
   VisualizerTheme(
     id: 'sunset',
@@ -57,24 +53,16 @@ const visualizerThemes = <VisualizerTheme>[
     style: VisualizerStyle.bars,
     colors: [Color(0xFFB00000), Color(0xFFFF4500), Color(0xFFFFD000)],
     glow: true,
-    reflect: true,
   ),
-  VisualizerTheme(
-    id: 'matrix',
-    style: VisualizerStyle.segments,
-    colors: [Color(0xFF00FF41)],
-    peaks: true,
-    reflect: true,
-  ),
+  VisualizerTheme(id: 'matrix', style: VisualizerStyle.segments, colors: [Color(0xFF00FF41)], peaks: true),
   VisualizerTheme(
     id: 'aurora',
     style: VisualizerStyle.area,
     colors: [Color(0xFF00C9A7), Color(0xFF4FFFB0), Color(0xFFA06CFF)],
     glow: true,
-    reflect: true,
   ),
   VisualizerTheme(id: 'mono', style: VisualizerStyle.bars, colors: [Color.from(alpha: 0.9, red: 1, green: 1, blue: 1)]),
-  VisualizerTheme(id: 'rainbow', style: VisualizerStyle.bars, colors: [], rainbow: true, reflect: true),
+  VisualizerTheme(id: 'rainbow', style: VisualizerStyle.bars, colors: [], rainbow: true),
 ];
 
 String visualizerThemeName(AppLocalizations l10n, String id) => switch (id) {
@@ -116,6 +104,20 @@ class VisualizerPeaksController extends Notifier<bool> {
 
   void set(bool enabled) {
     ref.read(prefsProvider).setBool('visualizer_peaks', enabled);
+    state = enabled;
+  }
+}
+
+final visualizerReflectionProvider = NotifierProvider<VisualizerReflectionController, bool>(
+  VisualizerReflectionController.new,
+);
+
+class VisualizerReflectionController extends Notifier<bool> {
+  @override
+  bool build() => ref.read(prefsProvider).getBool('visualizer_reflection') ?? true;
+
+  void set(bool enabled) {
+    ref.read(prefsProvider).setBool('visualizer_reflection', enabled);
     state = enabled;
   }
 }

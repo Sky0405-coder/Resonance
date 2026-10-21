@@ -263,6 +263,12 @@ class SettingsPage extends ConsumerWidget {
             onChanged: ref.read(visualizerPeaksProvider.notifier).set,
           ),
           SwitchListTile(
+            title: Text(context.l10n.settingsVisualizerReflection),
+            subtitle: Text(context.l10n.settingsVisualizerReflectionHint),
+            value: ref.watch(visualizerReflectionProvider),
+            onChanged: ref.read(visualizerReflectionProvider.notifier).set,
+          ),
+          SwitchListTile(
             title: Text(context.l10n.settingsCoverflow),
             subtitle: Text(context.l10n.settingsCoverflowHint),
             value: ref.watch(coverflowProvider),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// A faded mirror of static cover artwork. Animated overlays paint their own reflection.
 class CoverReflection extends StatelessWidget {
   const CoverReflection({super.key, required this.child, this.fraction = 0.22, this.radius = 8});
 

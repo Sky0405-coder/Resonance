@@ -72,16 +72,15 @@ void main() {
     expect(visualizerThemes.first.style, VisualizerStyle.bars);
   });
 
-  test('only the specified themes reflect their visualizers', () {
-    expect(visualizerThemes.where((theme) => theme.reflect).map((theme) => theme.id).toSet(), {
-      'synthwave',
-      'neon',
-      'fire',
-      'aurora',
-      'rainbow',
-      'retro',
-      'matrix',
-    });
+  test('the reflection setting has the requested labels in both locales', () {
+    for (final (locale, title, hint) in [
+      ('en', 'Reflection', 'Mirror the cover and visualizer'),
+      ('de', 'Spiegelung', 'Cover und Visualizer spiegeln'),
+    ]) {
+      final l10n = lookupAppLocalizations(Locale(locale));
+      expect(l10n.settingsVisualizerReflection, title);
+      expect(l10n.settingsVisualizerReflectionHint, hint);
+    }
   });
 
   test('peak dots follow rising and held bars without releasing bubbles', () {
@@ -132,21 +131,26 @@ void main() {
     expect(const PeakDots().advance(0, 0.1).bubbles, isEmpty);
   });
 
-  test('peak and coverflow preferences default, persist and restore', () async {
+  test('peak, reflection and coverflow preferences default, persist and restore', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(overrides: [prefsProvider.overrideWithValue(prefs)]);
     expect(container.read(visualizerPeaksProvider), isTrue);
+    expect(container.read(visualizerReflectionProvider), isTrue);
     expect(container.read(coverflowProvider), isFalse);
     container.read(visualizerPeaksProvider.notifier).set(false);
+    container.read(visualizerReflectionProvider.notifier).set(false);
     container.read(coverflowProvider.notifier).set(true);
     expect(container.read(visualizerPeaksProvider), isFalse);
+    expect(container.read(visualizerReflectionProvider), isFalse);
     expect(container.read(coverflowProvider), isTrue);
     expect(prefs.getBool('visualizer_peaks'), isFalse);
+    expect(prefs.getBool('visualizer_reflection'), isFalse);
     expect(prefs.getBool('coverflow'), isTrue);
     container.dispose();
     final restored = ProviderContainer(overrides: [prefsProvider.overrideWithValue(prefs)]);
     expect(restored.read(visualizerPeaksProvider), isFalse);
+    expect(restored.read(visualizerReflectionProvider), isFalse);
     expect(restored.read(coverflowProvider), isTrue);
     restored.dispose();
   });

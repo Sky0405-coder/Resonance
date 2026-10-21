@@ -3404,6 +3404,18 @@ abstract class AppLocalizations {
   /// **'Punkte bei Retro und Matrix'**
   String get settingsVisualizerPeaks;
 
+  /// No description provided for @settingsVisualizerReflection.
+  ///
+  /// In de, this message translates to:
+  /// **'Spiegelung'**
+  String get settingsVisualizerReflection;
+
+  /// No description provided for @settingsVisualizerReflectionHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Cover und Visualizer spiegeln'**
+  String get settingsVisualizerReflectionHint;
+
   /// No description provided for @visualizerPeaksOn.
   ///
   /// In de, this message translates to:

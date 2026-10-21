@@ -98,6 +98,7 @@ class SpectrumVisualizer extends ConsumerStatefulWidget {
     this.gap = 0.3,
     this.minHeight = 0.02,
     this.boost,
+    this.reflection = 0,
   });
   final String trackId;
   final Color color;
@@ -107,6 +108,9 @@ class SpectrumVisualizer extends ConsumerStatefulWidget {
   /// Gap between bars as a fraction of the bar slot.
   final double gap;
   final double minHeight;
+
+  /// Height of the faded reflection below the spectrum, separated by a three-pixel gap.
+  final double reflection;
 
   /// Extra dB per frequency (Hz), e.g. the equalizer's curve, so the bars show its effect.
   final double Function(double frequency)? boost;
@@ -215,17 +219,25 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
   Widget build(BuildContext context) {
     ref.watch(spectrumProvider(widget.trackId));
     final peaksEnabled = ref.watch(visualizerPeaksProvider);
-    return RepaintBoundary(
-      child: CustomPaint(
-        size: Size.infinite,
-        painter: _BarsPainter(
-          _levels,
-          color: widget.color,
-          theme: widget.theme,
-          peaks: peaksEnabled ? _peaks : const [],
-          mirrored: widget.mirrored,
-          gap: widget.gap,
-          minHeight: widget.minHeight,
+    return LayoutBuilder(
+      builder: (context, constraints) => OverflowBox(
+        alignment: Alignment.topCenter,
+        minHeight: constraints.maxHeight + (widget.reflection > 0 ? widget.reflection + 3 : 0),
+        maxHeight: constraints.maxHeight + (widget.reflection > 0 ? widget.reflection + 3 : 0),
+        child: RepaintBoundary(
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _BarsPainter(
+              _levels,
+              color: widget.color,
+              theme: widget.theme,
+              peaks: peaksEnabled ? _peaks : const [],
+              mirrored: widget.mirrored,
+              gap: widget.gap,
+              minHeight: widget.minHeight,
+              reflection: widget.reflection,
+            ),
+          ),
         ),
       ),
     );
@@ -289,6 +301,7 @@ class _BarsPainter extends CustomPainter {
     required this.minHeight,
     this.theme,
     this.peaks = const [],
+    this.reflection = 0,
   }) : super(repaint: levels) {
     final colors = theme?.colors;
     _gradient = LinearGradient(
@@ -326,9 +339,12 @@ class _BarsPainter extends CustomPainter {
   final bool mirrored;
   final double gap;
   final double minHeight;
+  final double reflection;
   final _paint = Paint();
   final _glowPaint = Paint();
   final _linePaint = Paint();
+  final _reflectionMask = Paint()..blendMode = BlendMode.dstIn;
+  final _bars = Path();
   final _area = Path();
   final _top = Path();
   late final LinearGradient _gradient;
@@ -336,6 +352,11 @@ class _BarsPainter extends CustomPainter {
   List<Paint> _unlitSegments = const [];
   List<Paint> _rainbowPaints = const [];
   Size? _shaderSize;
+  static const _reflectionFade = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color.from(alpha: 0.35, red: 1, green: 1, blue: 1), Color(0x00FFFFFF)],
+  );
 
   int _band(int bar, int bands) => mirrored ? (bar < bands ? bands - 1 - bar : bar - bands) : bar;
 
@@ -350,6 +371,11 @@ class _BarsPainter extends CustomPainter {
         _paint.shader = shader;
         _glowPaint.shader = shader;
       }
+      if (reflection > 0) {
+        _reflectionMask.shader = _reflectionFade.createShader(
+          Rect.fromLTWH(0, size.height + 3, size.width, reflection),
+        );
+      }
     }
     if ((theme?.rainbow ?? false) && _rainbowPaints.length != bars) {
       _rainbowPaints = List.generate(bars, (i) => Paint()..color = rainbowColor(i, bars));
@@ -359,6 +385,7 @@ class _BarsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final values = levels.value;
+    if (reflection > 0) size = Size(size.width, math.max(0.0, size.height - reflection - 3));
     if (values.isEmpty || size.isEmpty) return;
     final bars = values.length * (mirrored ? 2 : 1);
     _prepare(size, bars);
@@ -370,14 +397,40 @@ class _BarsPainter extends CustomPainter {
         canvas.drawLine(Offset(0, y), Offset(size.width, y), _linePaint);
       }
     }
+    _drawSpectrum(canvas, size, values, bars, slot, width);
+    if (reflection > 0) {
+      final bounds = Rect.fromLTWH(0, size.height + 3, size.width, reflection);
+      canvas.save();
+      canvas.clipRect(bounds);
+      canvas.saveLayer(bounds, Paint());
+      canvas.save();
+      canvas.translate(0, size.height + 3);
+      canvas.scale(1, -0.6);
+      canvas.translate(0, -size.height);
+      _drawSpectrum(canvas, size, values, bars, slot, width, reflected: true);
+      canvas.restore();
+      canvas.drawRect(bounds, _reflectionMask);
+      canvas.restore();
+      canvas.restore();
+    }
+  }
+
+  void _drawSpectrum(
+    Canvas canvas,
+    Size size,
+    List<double> values,
+    int bars,
+    double slot,
+    double width, {
+    bool reflected = false,
+  }) {
     switch (theme?.style ?? VisualizerStyle.bars) {
       case VisualizerStyle.bars:
-        if (theme?.glow ?? false) _drawBars(canvas, size, values, bars, slot, width, glow: true);
-        _drawBars(canvas, size, values, bars, slot, width);
+        _drawBars(canvas, size, values, bars, slot, width, reflected: reflected);
       case VisualizerStyle.segments:
         _drawSegments(canvas, size, values, bars, slot, width);
       case VisualizerStyle.area:
-        _drawArea(canvas, size, values, bars, slot);
+        _drawArea(canvas, size, values, bars, slot, reflected: reflected);
     }
   }
 
@@ -388,29 +441,37 @@ class _BarsPainter extends CustomPainter {
     int bars,
     double slot,
     double width, {
-    bool glow = false,
+    bool reflected = false,
   }) {
     final radius = Radius.circular(theme?.id == 'neon' ? width / 2 : math.min(width / 2, 4));
-    for (var i = 0; i < bars; i++) {
+    RRect bar(int i) {
       final height = _height(values, i, size.height);
       final left = i * slot + (slot - width) / 2;
-      canvas.drawRRect(
-        RRect.fromLTRBAndCorners(
-          left,
-          size.height - height,
-          left + width,
-          size.height,
-          topLeft: radius,
-          topRight: radius,
-          bottomLeft: theme?.id == 'neon' ? radius : Radius.zero,
-          bottomRight: theme?.id == 'neon' ? radius : Radius.zero,
-        ),
-        glow
-            ? _glowPaint
-            : (theme?.rainbow ?? false)
-            ? _rainbowPaints[i]
-            : _paint,
+      return RRect.fromLTRBAndCorners(
+        left,
+        size.height - height,
+        left + width,
+        size.height,
+        topLeft: radius,
+        topRight: radius,
+        bottomLeft: theme?.id == 'neon' ? radius : Radius.zero,
+        bottomRight: theme?.id == 'neon' ? radius : Radius.zero,
       );
+    }
+
+    if (!reflected) {
+      _bars.reset();
+      for (var i = 0; i < bars; i++) {
+        _bars.addRRect(bar(i));
+      }
+      if (theme?.glow ?? false) canvas.drawPath(_bars, _glowPaint);
+    }
+    if (theme?.rainbow ?? false) {
+      for (var i = 0; i < bars; i++) {
+        canvas.drawRRect(bar(i), _rainbowPaints[i]);
+      }
+    } else {
+      canvas.drawPath(_bars, _paint);
     }
   }
 
@@ -445,7 +506,12 @@ class _BarsPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(left, size.height * (1 - height), width, 3), paint);
   }
 
-  void _drawArea(Canvas canvas, Size size, List<double> values, int bars, double slot) {
+  void _drawArea(Canvas canvas, Size size, List<double> values, int bars, double slot, {bool reflected = false}) {
+    if (reflected) {
+      canvas.drawPath(_area, _paint);
+      if (theme?.id == 'ocean') canvas.drawPath(_top, _linePaint);
+      return;
+    }
     var previousY = size.height - _height(values, 0, size.height);
     _top
       ..reset()
@@ -477,7 +543,8 @@ class _BarsPainter extends CustomPainter {
       old.levels != levels ||
       old.mirrored != mirrored ||
       old.gap != gap ||
-      old.minHeight != minHeight;
+      old.minHeight != minHeight ||
+      old.reflection != reflection;
 }
 
 /// Loads the spectra of the current and the next song while the visualizer is on, so the bars are there as soon

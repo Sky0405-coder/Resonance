@@ -648,6 +648,8 @@
   "settingsVisualizerHint": "Shows animated frequency bars in the player while music plays.",
   "settingsVisualizerStyle": "Visualizer style",
   "settingsVisualizerPeaks": "Peak dots for Retro and Matrix",
+  "settingsVisualizerReflection": "Reflection",
+  "settingsVisualizerReflectionHint": "Mirror the cover and visualizer",
   "visualizerPeaksOn": "Peak dots on",
   "visualizerPeaksOff": "Peak dots off",
   "settingsCoverflow": "Coverflow",

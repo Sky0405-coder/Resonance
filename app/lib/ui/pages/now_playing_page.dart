@@ -98,7 +98,10 @@ class NowPlayingPage extends ConsumerWidget {
                                 ],
                               ),
                               Expanded(
-                                child: ref.watch(coverflowProvider) ? const _Coverflow() : _TrackCover(track: track),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  child: ref.watch(coverflowProvider) ? const _Coverflow() : _TrackCover(track: track),
+                                ),
                               ),
                               ConstrainedBox(
                                 constraints: const BoxConstraints(maxWidth: 600),
@@ -190,43 +193,82 @@ class _TrackCover extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(visualizerThemeProvider);
     final enabled = ref.watch(visualizerEnabledProvider) && centered;
-    Widget artwork({required bool visualizer}) => Stack(
-      fit: StackFit.expand,
-      children: [
-        CoverImage(albumId: track.album.id, size: 600, radius: 8),
-        if (visualizer) Positioned.fill(child: _CoverVisualizer(track: track)),
-      ],
-    );
+    final reflect = ref.watch(visualizerReflectionProvider);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final height = math.min(480.0, constraints.maxHeight);
-        final size = math.max(0.0, math.min(constraints.maxWidth, (height - 3) / 1.22));
+        final availableHeight = reflect ? (constraints.maxHeight - 3) / 1.22 : constraints.maxHeight;
+        final size = math.max(0.0, math.min(math.min(constraints.maxWidth, 480.0), availableHeight));
+        final reflection = reflect ? size * 0.22 : 0.0;
         return Center(
           child: SizedBox(
             width: size,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            height: size + (reflect ? 3 + reflection : 0),
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                GestureDetector(
-                  onTap: centered && theme.peaks
-                      ? () {
-                          final peaks = !ref.read(visualizerPeaksProvider);
-                          ref.read(visualizerPeaksProvider.notifier).set(peaks);
-                          showInfo(context, peaks ? context.l10n.visualizerPeaksOn : context.l10n.visualizerPeaksOff);
-                        }
-                      : null,
-                  child: Material(
-                    elevation: 16,
-                    borderRadius: BorderRadius.circular(8),
-                    clipBehavior: Clip.antiAlias,
-                    child: SizedBox.square(
-                      dimension: size,
-                      child: artwork(visualizer: enabled),
+                if (reflect)
+                  Positioned(
+                    top: size + 3,
+                    left: 0,
+                    right: 0,
+                    child: CoverReflection(child: CoverImage(albumId: track.album.id, size: 600, radius: 8)),
+                  ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: size,
+                  child: GestureDetector(
+                    onTap: centered && theme.peaks
+                        ? () {
+                            final peaks = !ref.read(visualizerPeaksProvider);
+                            ref.read(visualizerPeaksProvider.notifier).set(peaks);
+                            showInfo(context, peaks ? context.l10n.visualizerPeaksOn : context.l10n.visualizerPeaksOff);
+                          }
+                        : null,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      clipBehavior: Clip.none,
+                      children: [
+                        Material(
+                          elevation: 16,
+                          borderRadius: BorderRadius.circular(8),
+                          clipBehavior: Clip.antiAlias,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              CoverImage(albumId: track.album.id, size: 600, radius: 8),
+                              if (enabled)
+                                Positioned(
+                                  top: size * 0.6,
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [Color(0x00000000), Color(0x8C000000)],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (enabled)
+                          Positioned(
+                            top: size * 0.6 + 24,
+                            height: math.max(0.0, size * 0.4 - 24),
+                            left: 12,
+                            right: 12,
+                            child: _CoverVisualizer(track: track, reflection: reflection),
+                          ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 3),
-                CoverReflection(child: artwork(visualizer: enabled && theme.reflect)),
               ],
             ),
           ),
@@ -245,36 +287,45 @@ class _Coverflow extends ConsumerStatefulWidget {
 
 class _CoverflowState extends ConsumerState<_Coverflow> {
   late final PageController _controller;
-  int? _targetIndex;
+  List<String> _queue = const [];
+  int? _index;
+  int _syncGeneration = 0;
+  bool _programmatic = false;
   bool _swiping = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = PageController(initialPage: ref.read(playerProvider).index ?? 0, viewportFraction: 0.72);
+    _controller = PageController(initialPage: ref.read(playerProvider).index ?? 0, viewportFraction: 0.86);
   }
 
-  void _syncIndex(int index) {
-    _targetIndex = index;
+  void _syncIndex(int index, {bool jump = false}) {
+    final generation = ++_syncGeneration;
+    _programmatic = true;
     _swiping = false;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || !_controller.hasClients || _targetIndex != index) return;
-      await _controller.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-      if (mounted && _targetIndex == index) _targetIndex = null;
+      if (!mounted || !_controller.hasClients || generation != _syncGeneration) return;
+      if (jump) {
+        _controller.jumpToPage(index);
+      } else if (_controller.page != index.toDouble()) {
+        await _controller.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      }
+      if (mounted && generation == _syncGeneration) _programmatic = false;
     });
   }
 
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth != 0) return false;
     if (notification is ScrollStartNotification && notification.dragDetails != null) {
-      _targetIndex = null;
+      _syncGeneration++;
+      _programmatic = false;
       _swiping = true;
     }
-    if (notification is ScrollEndNotification && _swiping && _targetIndex == null) {
+    if (notification is ScrollEndNotification && _swiping && !_programmatic) {
       _swiping = false;
       final index = _controller.page!.round();
       final player = ref.read(playerProvider);
-      if (index != player.index && index < player.queue.length) {
+      if (index != player.index && index >= 0 && index < player.queue.length) {
         ref.read(playerProvider.notifier).jumpTo(index);
       }
     }
@@ -290,9 +341,13 @@ class _CoverflowState extends ConsumerState<_Coverflow> {
   @override
   Widget build(BuildContext context) {
     final player = ref.watch(playerProvider.select((p) => (queue: p.queue, index: p.index)));
-    ref.listen(playerProvider.select((p) => p.index), (previous, next) {
-      if (next != null && next != previous) _syncIndex(next);
-    });
+    final index = player.index;
+    final validIndex = index != null && index >= 0 && index < player.queue.length;
+    final queueChanged =
+        _queue.length != player.queue.length || (validIndex && _queue[index] != player.queue[index].id);
+    if (validIndex && (queueChanged || index != _index)) _syncIndex(index, jump: queueChanged);
+    _queue = [for (final track in player.queue) track.id];
+    _index = index;
     return NotificationListener<ScrollNotification>(
       onNotification: _onScroll,
       child: PageView.builder(
@@ -305,15 +360,15 @@ class _CoverflowState extends ConsumerState<_Coverflow> {
                 ? _controller.page ?? _controller.initialPage.toDouble()
                 : _controller.initialPage.toDouble();
             final delta = (index - page).clamp(-1.0, 1.0);
-            final scale = 1 - 0.18 * delta.abs();
+            final scale = 1 - 0.08 * delta.abs();
             return Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()
                 ..setEntry(3, 2, 0.0012)
-                ..rotateY(-delta * 0.9),
+                ..rotateY(-delta * 0.55),
               child: Transform.scale(
                 scale: scale,
-                child: _TrackCover(track: player.queue[index], centered: (index - page).abs() < 0.001),
+                child: _TrackCover(track: player.queue[index], centered: index == page.round()),
               ),
             );
           },
@@ -626,43 +681,25 @@ class _QueueHeading extends StatelessWidget {
   );
 }
 
-/// The spectrum over the lower part of the cover, on a dark fade.
+/// The spectrum and its reflection, painted outside the cover's clipped Material.
 class _CoverVisualizer extends ConsumerWidget {
-  const _CoverVisualizer({required this.track});
+  const _CoverVisualizer({required this.track, required this.reflection});
   final Track track;
+  final double reflection;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final color = ref.watch(coverColorProvider(coverImageProvider(ref, track.album.id, size: 300))).value;
     final theme = ref.watch(visualizerThemeProvider);
     return IgnorePointer(
-      child: Column(
-        children: [
-          const Spacer(flex: 3),
-          Expanded(
-            flex: 2,
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x00000000), Color(0x8C000000)],
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 24, 12, 0),
-                child: SpectrumVisualizer(
-                  trackId: track.id,
-                  color: (color ?? Colors.white).withValues(alpha: 0.85),
-                  theme: theme.id == 'auto' ? null : theme,
-                  mirrored: true,
-                  gap: 0.35,
-                  minHeight: 0.015,
-                ),
-              ),
-            ),
-          ),
-        ],
+      child: SpectrumVisualizer(
+        trackId: track.id,
+        color: (color ?? Colors.white).withValues(alpha: 0.85),
+        theme: theme.id == 'auto' ? null : theme,
+        mirrored: true,
+        gap: 0.35,
+        minHeight: 0.015,
+        reflection: reflection,
       ),
     );
   }

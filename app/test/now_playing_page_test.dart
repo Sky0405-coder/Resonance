@@ -51,6 +51,18 @@ const _tracks = [
   ),
 ];
 
+Spectrum _spectrum(List<int> levels) {
+  final data = ByteData(13 + levels.length)
+    ..setUint32(0, 0x52535031)
+    ..setUint8(4, levels.length)
+    ..setFloat32(5, 20, Endian.little)
+    ..setUint32(9, 1, Endian.little);
+  for (var i = 0; i < levels.length; i++) {
+    data.setUint8(13 + i, levels[i]);
+  }
+  return Spectrum.parse(data.buffer.asUint8List())!;
+}
+
 class _Engine implements PlaybackEngine {
   @override
   final automixing = ValueNotifier(false);
@@ -116,13 +128,18 @@ void main() {
     WidgetTester tester, {
     bool coverflow = false,
     bool visualizer = true,
+    bool reflection = true,
     String theme = 'retro',
     Locale locale = const Locale('en'),
     PlayerView view = const PlayerView(queue: _tracks, index: 1),
     Color? color = Colors.orange,
     Spectrum? spectrum,
   }) async {
-    SharedPreferences.setMockInitialValues({'coverflow': coverflow, 'visualizer_theme': theme});
+    SharedPreferences.setMockInitialValues({
+      'coverflow': coverflow,
+      'visualizer_theme': theme,
+      'visualizer_reflection': reflection,
+    });
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
       overrides: [
@@ -192,6 +209,43 @@ void main() {
     }
   }
 
+  testWidgets('the cover fills a 450 by 1000 phone and has sixteen-pixel vertical margins', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(450, 1000);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await mount(tester);
+    final cover = find.descendant(of: find.byType(Material), matching: find.byType(CoverImage)).last;
+    final rect = tester.getRect(cover);
+    final header = tester.getRect(find.byIcon(Icons.keyboard_arrow_down));
+    final title = tester.getRect(find.text('Second song'));
+    final reflection = tester.getRect(find.byType(CoverReflection));
+    expect(rect.width, greaterThanOrEqualTo(400));
+    expect(rect.size.height, rect.size.width);
+    expect(rect.top - header.bottom, greaterThanOrEqualTo(16));
+    expect(title.top - reflection.bottom, greaterThanOrEqualTo(16));
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final coverflow in [false, true]) {
+    testWidgets('disabling reflection gives the cover its space back with coverflow $coverflow', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 640);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final container = await mount(tester, coverflow: coverflow);
+      double coverSide() => tester.getSize(find.byType(SpectrumVisualizer)).width + 24;
+      final reflectedSide = coverSide();
+      container.read(visualizerReflectionProvider.notifier).set(false);
+      await tester.pump();
+      expect(find.byType(CoverReflection), findsNothing);
+      expect(tester.widget<SpectrumVisualizer>(find.byType(SpectrumVisualizer)).reflection, 0);
+      expect(coverSide(), greaterThan(reflectedSide));
+      expect(container.read(prefsProvider).getBool('visualizer_reflection'), isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('cover tint uses capped HSL and animates track changes over 600 milliseconds', (tester) async {
     final container = await mount(tester);
     final expected = HSLColor.fromColor(Colors.orange).withLightness(0.22).withSaturation(0.65).toColor();
@@ -225,15 +279,18 @@ void main() {
     expect(background(tester).colors.first, HSLColor.fromColor(color).withAlpha(1).toColor());
   });
 
-  for (final theme in ['retro', 'matrix', 'auto', 'ocean']) {
+  for (final theme in visualizerThemes.map((theme) => theme.id)) {
     testWidgets('$theme reflects the requested artwork and toggles dots for peak themes', (tester) async {
       final container = await mount(tester, theme: theme, locale: const Locale('de'));
       final peaks = theme == 'retro' || theme == 'matrix';
       expect(
         find.descendant(of: find.byType(CoverReflection), matching: find.byType(SpectrumVisualizer)),
-        peaks ? findsOneWidget : findsNothing,
+        findsNothing,
       );
-      final cover = find.byType(CoverImage).first;
+      expect(find.byType(SpectrumVisualizer), findsOneWidget);
+      final visualizer = tester.widget<SpectrumVisualizer>(find.byType(SpectrumVisualizer));
+      expect(visualizer.reflection, greaterThan(0));
+      final cover = find.descendant(of: find.byType(Material), matching: find.byType(CoverImage)).last;
       await tester.tap(cover);
       await tester.pump();
       expect(container.read(visualizerPeaksProvider), !peaks);
@@ -283,10 +340,101 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final theme in ['synthwave', 'fire', 'neon', 'aurora']) {
+    testWidgets('$theme draws one combined glow and no blurred reflection', (tester) async {
+      final container = await mount(tester, theme: theme, spectrum: _spectrum([255, 128]));
+      (container.read(playerProvider.notifier).engine as _Engine).playing = true;
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      final visualizer = tester.widget<SpectrumVisualizer>(find.byType(SpectrumVisualizer));
+      final painter = tester
+          .widget<CustomPaint>(find.descendant(of: find.byType(SpectrumVisualizer), matching: find.byType(CustomPaint)))
+          .painter!;
+      final canvas = TestRecordingCanvas();
+      painter.paint(canvas, Size(200, 103 + visualizer.reflection));
+      final blurred = canvas.invocations
+          .map((record) => record.invocation)
+          .where(
+            (call) => call.positionalArguments.any((argument) => argument is Paint && argument.maskFilter != null),
+          );
+      expect(blurred, hasLength(1));
+      expect(blurred.single.memberName, #drawPath);
+      final path = blurred.single.positionalArguments.first as Path;
+      expect(path.getBounds().width, greaterThan(150));
+      expect(canvas.invocations.any((record) => record.invocation.memberName == #saveLayer), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('spectrum reflection paints below its box with a gap, fading opacity and sixty-percent height', (
+    tester,
+  ) async {
+    final container = await mount(tester, spectrum: _spectrum([128]));
+    final key = GlobalKey();
+    (container.read(playerProvider.notifier).engine as _Engine).playing = true;
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: RepaintBoundary(
+              key: key,
+              child: SizedBox(
+                width: 200,
+                height: 163,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: 100,
+                      child: SpectrumVisualizer(
+                        trackId: 'two',
+                        color: const Color(0xFFFF0000),
+                        theme: const VisualizerTheme(
+                          id: 'test',
+                          style: VisualizerStyle.bars,
+                          colors: [Color(0xFFFF0000)],
+                        ),
+                        gap: 0,
+                        minHeight: 0,
+                        reflection: 60,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getSize(find.byType(SpectrumVisualizer)).height, 100);
+    expect(tester.getSize(find.byType(CustomPaint)).height, 163);
+    final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final image = (await tester.runAsync(() => boundary.toImage()))!;
+    final pixels = (await tester.runAsync(() => image.toByteData(format: ui.ImageByteFormat.rawStraightRgba)))!;
+    int channel(int y, int channel) => pixels.getUint8((y * image.width + 100) * 4 + channel);
+    expect(channel(101, 3), 0);
+    expect(channel(102, 3), 0);
+    expect(channel(104, 0), 255);
+    expect(channel(104, 3), closeTo(0.35 * (1 - 1.5 / 60) * 255, 2));
+    expect(channel(127, 3), greaterThan(0));
+    expect(channel(127, 3), lessThan(channel(104, 3)));
+    expect(channel(135, 3), 0);
+    image.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('only the centered coverflow item has visualizers and responds to peak-dot taps', (tester) async {
     final container = await mount(tester, coverflow: true);
     final visualizers = tester.widgetList<SpectrumVisualizer>(find.byType(SpectrumVisualizer));
-    expect(visualizers, hasLength(2));
+    expect(visualizers, hasLength(1));
     expect(visualizers.every((visualizer) => visualizer.trackId == 'two'), isTrue);
     expect(find.byType(CoverReflection), findsAtLeastNWidgets(2));
     await tester.tapAt(tester.getCenter(find.byType(PageView)));
@@ -302,7 +450,8 @@ void main() {
     final player = container.read(playerProvider.notifier) as _Player;
     final pages = find.byType(PageView);
     final controller = tester.widget<PageView>(pages).controller!;
-    expect(controller.viewportFraction, 0.72);
+    expect(controller.viewportFraction, 0.86);
+    await tester.pumpAndSettle();
     expect(controller.page, 1);
     await tester.drag(pages, const Offset(-400, 0));
     await tester.pumpAndSettle();
@@ -317,6 +466,63 @@ void main() {
     expect(player.jumps, [2]);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('coverflow centers index one and animates external index two without a player jump', (tester) async {
+    final container = await mount(tester, coverflow: true, visualizer: false);
+    final player = container.read(playerProvider.notifier) as _Player;
+    final controller = tester.widget<PageView>(find.byType(PageView)).controller!;
+    await tester.pumpAndSettle();
+    expect(controller.page, 1);
+    expect(player.jumps, isEmpty);
+    player.update(const PlayerView(queue: _tracks, index: 2));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(controller.page, greaterThan(1));
+    expect(controller.page, lessThan(2));
+    await tester.pumpAndSettle();
+    expect(controller.page, 2);
+    expect(player.jumps, isEmpty);
+  });
+
+  testWidgets('coverflow jumps to the current index when queue length or the current track changes', (tester) async {
+    final container = await mount(tester, coverflow: true, visualizer: false);
+    final player = container.read(playerProvider.notifier) as _Player;
+    final controller = tester.widget<PageView>(find.byType(PageView)).controller!;
+    for (final queue in [
+      [_tracks[2], _tracks[0], _tracks[1]],
+      [_tracks[0], _tracks[1]],
+    ]) {
+      controller.jumpToPage(0);
+      player.update(PlayerView(queue: queue, index: 1));
+      await tester.pump();
+      expect(controller.page, 1);
+      await tester.pumpAndSettle();
+      expect(controller.page, 1);
+      expect(player.jumps, isEmpty);
+    }
+  });
+
+  testWidgets('coverflow keeps the visualizer on a rounded page and shows both neighbors', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(450, 1000);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await mount(tester, coverflow: true);
+    final controller = tester.widget<PageView>(find.byType(PageView)).controller!;
+    controller.jumpTo(controller.position.pixels + 0.01);
+    await tester.pump();
+    final visualizer = tester.widget<SpectrumVisualizer>(find.byType(SpectrumVisualizer));
+    expect(visualizer.trackId, 'two');
+    final viewport = tester.getRect(find.byType(PageView));
+    for (final id in ['one', 'three']) {
+      final cover = find.byWidgetPredicate((widget) => widget is CoverImage && widget.albumId == id).last;
+      final rect = tester.getRect(cover);
+      expect(rect.overlaps(viewport), isTrue);
+      expect(rect.width, greaterThan(250));
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('station identity appears above song artwork only and has no reflection', (tester) async {
