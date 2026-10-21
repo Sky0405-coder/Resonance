@@ -1,5 +1,25 @@
 [
   {
+    "version": "1.6.11",
+    "date": "2026-10-21",
+    "de": [
+      "Podcasts: suchen, abonnieren und hören – mit Weiterhören, Geschwindigkeit und ±15/30 Sekunden.",
+      "Wiedergabe auf anderen Geräten: Musik vom Handy an den PC übergeben (oder umgekehrt) und von dort aus steuern.",
+      "Neuigkeiten: In den Einstellungen siehst du jetzt, was jede Version gebracht hat.",
+      "Songtexte werden für die ganze Bibliothek im Hintergrund geladen, dadurch greift der Gesangsschutz von AutoMix bei viel mehr Songs.",
+      "Der Visualizer ist auf dem Cover in der Desktop-App zurück.",
+      "Coverflow sieht am PC wieder richtig aus, und im Querformat am Handy gibt es jetzt die Ansicht mit großem Cover."
+    ],
+    "en": [
+      "Podcasts: search, subscribe and listen – with continue listening, playback speed and ±15/30 seconds.",
+      "Play on other devices: hand the music from your phone to your PC (or back) and control it from there.",
+      "What's new: settings now show what every version brought.",
+      "Lyrics are fetched for the whole library in the background, so AutoMix's vocal guard works for many more songs.",
+      "The visualizer is back on the cover in the desktop app.",
+      "Coverflow looks right on the PC again, and phones in landscape get the large-cover layout."
+    ]
+  },
+  {
     "version": "1.6.10",
     "date": "2026-10-21",
     "de": [
