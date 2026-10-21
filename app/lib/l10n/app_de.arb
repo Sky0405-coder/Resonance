@@ -1560,5 +1560,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "settingsTvMode": "TV-/Controller-Modus",
+  "settingsTvModeHint": "Große Oberfläche für Fernbedienung und Controller",
+  "tvPlay": "Abspielen",
+  "tvPause": "Pause",
+  "tvBack": "Zurück",
+  "tvPopularStations": "Beliebte Sender"
 }

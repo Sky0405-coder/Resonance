@@ -4561,6 +4561,42 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Lösche … {done} von {total}'**
   String adminDuplicatesProgress(int done, int total);
+
+  /// No description provided for @settingsTvMode.
+  ///
+  /// In de, this message translates to:
+  /// **'TV-/Controller-Modus'**
+  String get settingsTvMode;
+
+  /// No description provided for @settingsTvModeHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Große Oberfläche für Fernbedienung und Controller'**
+  String get settingsTvModeHint;
+
+  /// No description provided for @tvPlay.
+  ///
+  /// In de, this message translates to:
+  /// **'Abspielen'**
+  String get tvPlay;
+
+  /// No description provided for @tvPause.
+  ///
+  /// In de, this message translates to:
+  /// **'Pause'**
+  String get tvPause;
+
+  /// No description provided for @tvBack.
+  ///
+  /// In de, this message translates to:
+  /// **'Zurück'**
+  String get tvBack;
+
+  /// No description provided for @tvPopularStations.
+  ///
+  /// In de, this message translates to:
+  /// **'Beliebte Sender'**
+  String get tvPopularStations;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

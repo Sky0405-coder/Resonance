@@ -2567,4 +2567,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String adminDuplicatesProgress(int done, int total) {
     return 'Deleting … $done of $total';
   }
+
+  @override
+  String get settingsTvMode => 'TV/controller mode';
+
+  @override
+  String get settingsTvModeHint => 'Large interface for remote controls and game controllers';
+
+  @override
+  String get tvPlay => 'Play';
+
+  @override
+  String get tvPause => 'Pause';
+
+  @override
+  String get tvBack => 'Back';
+
+  @override
+  String get tvPopularStations => 'Popular stations';
 }

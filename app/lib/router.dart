@@ -6,6 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'ui/widgets/jam_sheet.dart';
 
 import 'core/session.dart';
+import 'core/tv_mode.dart';
+import 'ui/tv/tv_shell.dart';
+import 'ui/tv/tv_page.dart';
+import 'ui/tv/tv_browse_pages.dart';
+import 'ui/tv/tv_detail_page.dart';
+import 'ui/tv/tv_now_playing.dart';
 import 'ui/pages/admin/admin_page.dart';
 import 'ui/pages/admin/duplicates_page.dart';
 import 'ui/pages/audiobook_pages.dart';
@@ -66,7 +72,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/now-playing',
         pageBuilder: (_, _) => CustomTransitionPage(
-          child: const NowPlayingPage(),
+          child: Consumer(
+            builder: (_, ref, _) => ref.watch(tvModeProvider) ? const TvNowPlayingPage() : const NowPlayingPage(),
+          ),
           transitionsBuilder: (_, animation, _, child) => SlideTransition(
             position: Tween(
               begin: const Offset(0, 1),
@@ -80,37 +88,65 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
       GoRoute(path: '/lyrics', builder: (_, _) => const LyricsPage()),
       ShellRoute(
-        builder: (context, state, child) => AppShell(location: state.matchedLocation, child: child),
+        builder: (context, state, child) => Consumer(
+          builder: (_, ref, _) => ref.watch(tvModeProvider)
+              ? TvShell(location: state.matchedLocation, child: child)
+              : AppShell(location: state.matchedLocation, child: child),
+        ),
         routes: [
           GoRoute(
             path: '/',
-            pageBuilder: (_, _) => const NoTransitionPage(child: HomePage()),
+            pageBuilder: (_, _) => const NoTransitionPage(
+              child: TvPage(tvChild: TvHomePage(), child: HomePage()),
+            ),
           ),
           GoRoute(
             path: '/search',
-            pageBuilder: (_, _) => const NoTransitionPage(child: SearchPage()),
+            pageBuilder: (_, _) => const NoTransitionPage(
+              child: TvPage(tvChild: TvSearchPage(), child: SearchPage()),
+            ),
           ),
           GoRoute(
             path: '/library',
-            pageBuilder: (_, _) => const NoTransitionPage(child: LibraryPage()),
+            pageBuilder: (_, _) => const NoTransitionPage(
+              child: TvPage(tvChild: TvLibraryPage(), child: LibraryPage()),
+            ),
           ),
-          GoRoute(path: '/world-radio', builder: (_, _) => const WorldRadioPage()),
+          GoRoute(
+            path: '/world-radio',
+            builder: (_, _) => const TvPage(tvChild: TvWorldRadioPage(), child: WorldRadioPage()),
+          ),
           GoRoute(
             path: '/jam/:code',
             builder: (_, state) => JoinJamPage(code: state.pathParameters['code']!),
           ),
-          GoRoute(path: '/liked', builder: (_, _) => const LikedPage()),
+          GoRoute(
+            path: '/liked',
+            builder: (_, _) => const TvPage(
+              tvChild: TvDetailPage(kind: 'liked', id: ''),
+              child: LikedPage(),
+            ),
+          ),
           GoRoute(
             path: '/album/:id',
-            builder: (_, s) => AlbumPage(id: s.pathParameters['id']!),
+            builder: (_, s) => TvPage(
+              tvChild: TvDetailPage(kind: 'album', id: s.pathParameters['id']!),
+              child: AlbumPage(id: s.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/artist/:id',
-            builder: (_, s) => ArtistPage(id: s.pathParameters['id']!),
+            builder: (_, s) => TvPage(
+              tvChild: TvDetailPage(kind: 'artist', id: s.pathParameters['id']!),
+              child: ArtistPage(id: s.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/playlist/:id',
-            builder: (_, s) => PlaylistPage(id: s.pathParameters['id']!),
+            builder: (_, s) => TvPage(
+              tvChild: TvDetailPage(kind: 'playlist', id: s.pathParameters['id']!),
+              child: PlaylistPage(id: s.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/playlist/:id/spotify',

@@ -2544,4 +2544,22 @@ class AppLocalizationsDe extends AppLocalizations {
   String adminDuplicatesProgress(int done, int total) {
     return 'Lösche … $done von $total';
   }
+
+  @override
+  String get settingsTvMode => 'TV-/Controller-Modus';
+
+  @override
+  String get settingsTvModeHint => 'Große Oberfläche für Fernbedienung und Controller';
+
+  @override
+  String get tvPlay => 'Abspielen';
+
+  @override
+  String get tvPause => 'Pause';
+
+  @override
+  String get tvBack => 'Zurück';
+
+  @override
+  String get tvPopularStations => 'Beliebte Sender';
 }

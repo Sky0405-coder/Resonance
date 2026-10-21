@@ -913,5 +913,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "settingsTvMode": "TV/controller mode",
+  "settingsTvModeHint": "Large interface for remote controls and game controllers",
+  "tvPlay": "Play",
+  "tvPause": "Pause",
+  "tvBack": "Back",
+  "tvPopularStations": "Popular stations"
 }

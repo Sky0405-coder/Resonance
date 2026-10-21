@@ -15,6 +15,7 @@ import '../../core/desktop.dart';
 import '../../core/media_sections.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../core/tv_mode.dart';
 import '../../integrations/discord_presence.dart';
 import '../../player/player.dart';
 import '../../player/spectrum.dart';
@@ -26,6 +27,7 @@ import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import '../widgets/shortcuts.dart';
+import '../tv/tv_settings_controls.dart';
 import '../widgets/update.dart';
 import '../widgets/track_list.dart';
 
@@ -76,9 +78,17 @@ class SettingsPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(context.l10n.navSettings, style: TextStyle(fontWeight: FontWeight.w800)),
       ),
-      body: ListView(
+      body: TvSettingsList(
+        tvMode: ref.watch(tvModeProvider),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomInset),
         children: [
+          if (isDesktop)
+            SwitchListTile(
+              title: Text(context.l10n.settingsTvMode),
+              subtitle: Text(context.l10n.settingsTvModeHint),
+              value: ref.watch(tvModeProvider),
+              onChanged: ref.read(tvModeProvider.notifier).set,
+            ),
           _Section(context.l10n.settingsAccount),
           ListTile(
             leading: CircleAvatar(

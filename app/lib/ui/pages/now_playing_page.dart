@@ -112,7 +112,7 @@ class NowPlayingPage extends ConsumerWidget {
                                             children: [
                                               SizedBox.square(
                                                 dimension: side,
-                                                child: _TrackCover(track: track, allowReflection: false),
+                                                child: TrackCover(track: track, allowReflection: false),
                                               ),
                                               const SizedBox(width: 24),
                                               Expanded(
@@ -130,7 +130,7 @@ class NowPlayingPage extends ConsumerWidget {
                                       padding: const EdgeInsets.symmetric(vertical: 16),
                                       child: ref.watch(coverflowProvider)
                                           ? const _Coverflow()
-                                          : _TrackCover(track: track),
+                                          : TrackCover(track: track),
                                     ),
                                   ),
                                   _TrackControls(track: track),
@@ -222,12 +222,20 @@ class _TrackControls extends ConsumerWidget {
   );
 }
 
-class _TrackCover extends ConsumerWidget {
-  const _TrackCover({required this.track, this.centered = true, this.allowReflection = true, this.dim = 0});
+class TrackCover extends ConsumerWidget {
+  const TrackCover({
+    super.key,
+    required this.track,
+    this.centered = true,
+    this.allowReflection = true,
+    this.dim = 0,
+    this.interactive = true,
+  });
   final Track track;
   final bool centered;
   final bool allowReflection;
   final double dim;
+  final bool interactive;
 
   static double sideFor(BoxConstraints constraints, bool reflect) {
     final height = reflect ? (constraints.maxHeight - 3) / 1.22 : constraints.maxHeight;
@@ -270,7 +278,7 @@ class _TrackCover extends ConsumerWidget {
                   right: 0,
                   height: size,
                   child: GestureDetector(
-                    onTap: centered && theme.peaks
+                    onTap: interactive && centered && theme.peaks
                         ? () {
                             final peaks = !ref.read(visualizerPeaksProvider);
                             ref.read(visualizerPeaksProvider.notifier).set(peaks);
@@ -400,7 +408,7 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
     _index = index;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final side = _TrackCover.sideFor(constraints, reflect);
+        final side = TrackCover.sideFor(constraints, reflect);
         final height = side + (reflect ? 3 + side * 0.22 : 0);
         return GestureDetector(
           key: const ValueKey('coverflow'),
@@ -470,7 +478,7 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
           ..scaleByDouble(scale, scale, scale, 1),
         child: IgnorePointer(
           ignoring: !centered,
-          child: _TrackCover(track: track, centered: centered, dim: 0.35 * math.min(distance, 1.0)),
+          child: TrackCover(track: track, centered: centered, dim: 0.35 * math.min(distance, 1.0)),
         ),
       ),
     );

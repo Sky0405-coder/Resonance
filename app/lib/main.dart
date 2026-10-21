@@ -19,9 +19,11 @@ import 'integrations/discord_presence.dart';
 import 'offline/offline_store.dart';
 import 'player/audio_handler.dart';
 import 'core/theme.dart';
+import 'core/tv_mode.dart';
 import 'router.dart';
 import 'ui/pages/settings_page.dart';
 import 'ui/widgets/shortcuts.dart';
+import 'ui/tv/tv_input.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,12 +36,17 @@ Future<void> main() async {
     JustAudioMediaKit.ensureInitialized(linux: true, windows: true);
   }
   final prefs = await SharedPreferences.getInstance();
+  final androidTv = await detectAndroidTv();
   if (isDesktop) {
     await initDesktopWindow(prefs);
     unawaited(registerAppImage());
   }
   final container = ProviderContainer(
-    overrides: [prefsProvider.overrideWithValue(prefs), audioHandlerProvider.overrideWithValue(null)],
+    overrides: [
+      prefsProvider.overrideWithValue(prefs),
+      androidTvProvider.overrideWithValue(androidTv),
+      audioHandlerProvider.overrideWithValue(null),
+    ],
   );
   if (!kIsWeb) await container.read(offlineProvider.notifier).load();
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
@@ -73,6 +80,7 @@ Future<void> main() async {
     );
     container.updateOverrides([
       prefsProvider.overrideWithValue(prefs),
+      androidTvProvider.overrideWithValue(androidTv),
       audioHandlerProvider.overrideWith((ref) {
         ref.onDispose(handler.dispose);
         return handler;
@@ -118,7 +126,7 @@ class _ResonanceAppState extends ConsumerState<ResonanceApp> {
             if (mounted) ref.read(appLocaleProvider.notifier).setLocale(locale);
           });
         }
-        return PlayerShortcuts(child: child!);
+        return TvInput(child: PlayerShortcuts(child: child!));
       },
       debugShowCheckedModeBanner: false,
       theme: buildTheme(accent),

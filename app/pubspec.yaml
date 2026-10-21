@@ -65,6 +65,7 @@ dependencies:
     path: packages/audio_service_win
   window_manager: ^0.5.2
   background_downloader: ^9.6.4
+  gamepads: ^0.1.12
 
 dev_dependencies:
   flutter_test:

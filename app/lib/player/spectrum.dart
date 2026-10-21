@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/desktop.dart';
 import '../core/session.dart';
+import '../core/tv_mode.dart';
 import 'player.dart';
 import 'visualizer_themes.dart';
 
@@ -77,9 +78,8 @@ final spectrumProvider = FutureProvider.family<Spectrum?, String>((ref, trackId)
 final visualizerEnabledProvider = NotifierProvider<VisualizerEnabled, bool>(VisualizerEnabled.new);
 
 class VisualizerEnabled extends Notifier<bool> {
-  // Phones only: on the desktop the bars were more distracting than useful.
   @override
-  bool build() => !isDesktop && (ref.read(prefsProvider).getBool('visualizer') ?? true);
+  bool build() => (!isDesktop || ref.watch(tvModeProvider)) && (ref.read(prefsProvider).getBool('visualizer') ?? true);
 
   void set(bool enabled) {
     ref.read(prefsProvider).setBool('visualizer', enabled);

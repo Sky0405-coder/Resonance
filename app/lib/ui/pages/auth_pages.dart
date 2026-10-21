@@ -10,6 +10,7 @@ import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../widgets/logo.dart';
+import '../tv/tv_form_navigation.dart';
 
 final authStatusProvider = FutureProvider.autoDispose<AuthStatus>((ref) => ref.watch(apiProvider).status());
 
@@ -20,28 +21,30 @@ class _AuthFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.25), Palette.background],
+    body: TvFormNavigation(
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.25), Palette.background],
+          ),
         ),
-      ),
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Center(child: ResonanceLogo(size: 72)),
-                const SizedBox(height: 16),
-                Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 32),
-                ...children,
-              ],
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Center(child: ResonanceLogo(size: 72)),
+                  const SizedBox(height: 16),
+                  Text(title, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 32),
+                  ...children,
+                ],
+              ),
             ),
           ),
         ),
@@ -161,6 +164,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               autofillHints: const [AutofillHints.username],
               decoration: InputDecoration(labelText: context.l10n.authUsername),
               textInputAction: TextInputAction.next,
+              onEditingComplete: () {},
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -275,6 +280,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           autofocus: true,
           decoration: InputDecoration(labelText: context.l10n.authUsername),
           textInputAction: TextInputAction.next,
+          onEditingComplete: () {},
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -282,6 +289,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           obscureText: true,
           decoration: InputDecoration(labelText: context.l10n.authPasswordMinimum),
           textInputAction: TextInputAction.next,
+          onEditingComplete: () {},
+          onSubmitted: (_) => FocusScope.of(context).nextFocus(),
         ),
         const SizedBox(height: 12),
         TextField(
