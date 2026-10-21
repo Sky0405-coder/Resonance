@@ -64,7 +64,20 @@ if [ -x "$GH" ] && "$GH" auth status >/dev/null 2>&1; then
   else
     echo "WARNING: Samsung TV package not built" >&2
   fi
-  "$GH" release create "v$name" "/tmp/Resonance-v$name-android.apk" $tv_wgt --title "Resonance $name" --generate-notes
+  # Release notes come from the in-app changelog (German and English), not from the commit list.
+  python3 - "$name" "$tv_wgt" > "/tmp/Resonance-v$name-notes.md" <<'PY'
+import json, sys
+name, tv = sys.argv[1], sys.argv[2]
+entry = next(e for e in json.load(open('assets/changelog.json', encoding='utf-8')) if e['version'] == name)
+print('## Neu in dieser Version\n' + '\n'.join('- ' + x for x in entry['de']))
+print("\n## What's new\n" + '\n'.join('- ' + x for x in entry['en']))
+if tv:
+    print('\n### Samsung Smart TV (Tizen)\nThe `.wgt` must be signed with your own Samsung TV certificate, see '
+          '[tv/tizen/README.md](https://github.com/Sky0405-coder/Resonance/blob/main/tv/tizen/README.md). '
+          'Android TV uses the regular APK.')
+PY
+  "$GH" release create "v$name" "/tmp/Resonance-v$name-android.apk" $tv_wgt --title "Resonance $name" \
+    --notes-file "/tmp/Resonance-v$name-notes.md"
   echo "GitHub release v$name created (Linux/Windows builds follow via GitHub Actions)"
 else
   echo "WARNING: gh not logged in – no GitHub release created (run: gh auth login)" >&2
