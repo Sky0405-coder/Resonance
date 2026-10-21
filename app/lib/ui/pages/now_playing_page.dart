@@ -408,8 +408,11 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
     _index = index;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final side = TrackCover.sideFor(constraints, reflect);
+        // The centered cover is a bit smaller than without coverflow so the tilted neighbors fit beside it; they
+        // reach out to the screen edges, past the page padding.
+        final side = TrackCover.sideFor(constraints, reflect) * 0.78;
         final height = side + (reflect ? 3 + side * 0.22 : 0);
+        final spread = math.max(0.0, MediaQuery.sizeOf(context).width / 2 - 4 - side / 2);
         return GestureDetector(
           key: const ValueKey('coverflow'),
           behavior: HitTestBehavior.opaque,
@@ -451,7 +454,7 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
                       top: (constraints.maxHeight - height) / 2,
                       width: side,
                       height: height,
-                      child: _transformedCover(player.queue[i], i - position, i == centered, side, height),
+                      child: _transformedCover(player.queue[i], i - position, i == centered, side, height, spread),
                     ),
                 ],
               );
@@ -462,18 +465,20 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
     );
   }
 
-  Widget _transformedCover(Track track, double delta, bool centered, double side, double height) {
+  Widget _transformedCover(Track track, double delta, bool centered, double side, double height, double spread) {
     final distance = delta.abs();
     final tilt = delta.clamp(-1.0, 1.0);
-    final scale = 1 - 0.10 * math.min(distance, 1.0);
-    final x = distance < 1 ? delta * 0.42 * side : delta.sign * side * (0.42 + 0.16 * (distance - 1));
+    // Neighbors shrink to 60 % so their near edge, which the tilt brings towards the viewer, stays below the
+    // centered cover's height.
+    final scale = 1 - 0.40 * math.min(distance, 1.0);
+    final x = distance < 1 ? delta * spread : delta.sign * (spread + 0.2 * side * (distance - 1));
     return Transform.translate(
       offset: Offset(x, 0),
       child: Transform(
         // Move the pivot continuously from the center to the neighbor's outer edge.
         alignment: Alignment(tilt, height > 0 ? -(height - side) / height : 0),
         transform: Matrix4.identity()
-          ..setEntry(3, 2, 0.0015)
+          ..setEntry(3, 2, 0.001)
           ..rotateY(-tilt * 1.05)
           ..scaleByDouble(scale, scale, scale, 1),
         child: IgnorePointer(

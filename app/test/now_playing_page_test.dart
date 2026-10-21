@@ -569,12 +569,12 @@ void main() {
       final cover = find.byWidgetPredicate((widget) => widget is CoverImage && widget.albumId == id).last;
       final rect = tester.getRect(cover);
       expect(rect.overlaps(viewport), isTrue);
-      expect(tester.getSize(cover).width, greaterThanOrEqualTo(400));
+      expect(tester.getSize(cover).width, greaterThanOrEqualTo(300));
     }
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('coverflow preserves the full cover size and exposes a quarter-side of each neighbor', (tester) async {
+  testWidgets('coverflow keeps most of the cover size and shows neighbors no taller than it', (tester) async {
     final container = await mount(tester, size: const Size(450, 1000));
     final singleSide = tester.getSize(find.byType(SpectrumVisualizer)).width + 24;
     container.read(coverflowProvider.notifier).set(true);
@@ -582,9 +582,14 @@ void main() {
     final center = paintedBounds(tester, flowArtwork(1));
     final previous = paintedBounds(tester, flowArtwork(0));
     final next = paintedBounds(tester, flowArtwork(2));
-    expect(center.width, closeTo(singleSide, 0.001));
-    expect(center.left - previous.left, greaterThanOrEqualTo(0.25 * singleSide));
-    expect(next.right - center.right, greaterThanOrEqualTo(0.25 * singleSide));
+    expect(center.width, closeTo(0.78 * singleSide, 0.001));
+    expect(center.left - previous.left, greaterThanOrEqualTo(0.15 * center.width));
+    expect(next.right - center.right, greaterThanOrEqualTo(0.15 * center.width));
+    for (final neighbor in [previous, next]) {
+      expect(neighbor.height, lessThanOrEqualTo(center.height));
+      expect(neighbor.left, greaterThanOrEqualTo(0));
+      expect(neighbor.right, lessThanOrEqualTo(450));
+    }
     expect(find.byType(CoverReflection), findsNWidgets(3));
     expect(tester.takeException(), isNull);
   });
