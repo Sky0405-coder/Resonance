@@ -16,6 +16,7 @@ class VisualizerTheme {
     this.glow = false,
     this.peaks = false,
     this.rainbow = false,
+    this.reflect = false,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class VisualizerTheme {
   final bool glow;
   final bool peaks;
   final bool rainbow;
+  final bool reflect;
 }
 
 /// Colors run from the bottom to the top. Automatic uses the cover's color instead.
@@ -34,14 +36,16 @@ const visualizerThemes = <VisualizerTheme>[
     style: VisualizerStyle.segments,
     colors: [Color(0xFF3DDC84), Color(0xFFFFD60A), Color(0xFFFF453A)],
     peaks: true,
+    reflect: true,
   ),
   VisualizerTheme(
     id: 'synthwave',
     style: VisualizerStyle.bars,
     colors: [Color(0xFFFF2BD6), Color(0xFF00E5FF)],
     glow: true,
+    reflect: true,
   ),
-  VisualizerTheme(id: 'neon', style: VisualizerStyle.bars, colors: [Color(0xFF39FF14)], glow: true),
+  VisualizerTheme(id: 'neon', style: VisualizerStyle.bars, colors: [Color(0xFF39FF14)], glow: true, reflect: true),
   VisualizerTheme(id: 'ocean', style: VisualizerStyle.area, colors: [Color(0xFF0A3D91), Color(0xFF2EE6D6)]),
   VisualizerTheme(
     id: 'sunset',
@@ -53,16 +57,24 @@ const visualizerThemes = <VisualizerTheme>[
     style: VisualizerStyle.bars,
     colors: [Color(0xFFB00000), Color(0xFFFF4500), Color(0xFFFFD000)],
     glow: true,
+    reflect: true,
   ),
-  VisualizerTheme(id: 'matrix', style: VisualizerStyle.segments, colors: [Color(0xFF00FF41)], peaks: true),
+  VisualizerTheme(
+    id: 'matrix',
+    style: VisualizerStyle.segments,
+    colors: [Color(0xFF00FF41)],
+    peaks: true,
+    reflect: true,
+  ),
   VisualizerTheme(
     id: 'aurora',
     style: VisualizerStyle.area,
     colors: [Color(0xFF00C9A7), Color(0xFF4FFFB0), Color(0xFFA06CFF)],
     glow: true,
+    reflect: true,
   ),
   VisualizerTheme(id: 'mono', style: VisualizerStyle.bars, colors: [Color.from(alpha: 0.9, red: 1, green: 1, blue: 1)]),
-  VisualizerTheme(id: 'rainbow', style: VisualizerStyle.bars, colors: [], rainbow: true),
+  VisualizerTheme(id: 'rainbow', style: VisualizerStyle.bars, colors: [], rainbow: true, reflect: true),
 ];
 
 String visualizerThemeName(AppLocalizations l10n, String id) => switch (id) {
@@ -96,10 +108,54 @@ class VisualizerThemeController extends Notifier<VisualizerTheme> {
   }
 }
 
-/// [heldFor] is the time since this peak was last reached, before the current tick.
-double nextPeak(double peak, double level, double heldFor, double dt) {
-  final fallingFor = math.max(0.0, heldFor + dt - 0.4) - math.max(0.0, heldFor - 0.4);
-  return math.max(level, peak - 0.6 * fallingFor);
+final visualizerPeaksProvider = NotifierProvider<VisualizerPeaksController, bool>(VisualizerPeaksController.new);
+
+class VisualizerPeaksController extends Notifier<bool> {
+  @override
+  bool build() => ref.read(prefsProvider).getBool('visualizer_peaks') ?? true;
+
+  void set(bool enabled) {
+    ref.read(prefsProvider).setBool('visualizer_peaks', enabled);
+    state = enabled;
+  }
+}
+
+final coverflowProvider = NotifierProvider<CoverflowController, bool>(CoverflowController.new);
+
+class CoverflowController extends Notifier<bool> {
+  @override
+  bool build() => ref.read(prefsProvider).getBool('coverflow') ?? false;
+
+  void set(bool enabled) {
+    ref.read(prefsProvider).setBool('coverflow', enabled);
+    state = enabled;
+  }
+}
+
+class PeakBubble {
+  const PeakBubble(this.height, {this.age = 0});
+
+  final double height;
+  final double age;
+
+  double get opacity => (1 - age / 0.8).clamp(0.0, 1.0);
+}
+
+class PeakDots {
+  const PeakDots({this.level = 0, this.bubbles = const []});
+
+  final double level;
+  final List<PeakBubble> bubbles;
+
+  PeakDots advance(double level, double dt) {
+    final elapsed = math.max(0.0, dt);
+    final next = [
+      for (final bubble in bubbles)
+        if (bubble.age + elapsed < 0.8) PeakBubble(bubble.height + 0.5 * elapsed, age: bubble.age + elapsed),
+      if (level < this.level) PeakBubble(this.level),
+    ];
+    return PeakDots(level: level, bubbles: List.unmodifiable(next.skip(math.max(0, next.length - 3))));
+  }
 }
 
 Color rainbowColor(int barIndex, int barCount) => HSVColor.fromAHSV(1, 360 * barIndex / barCount, 0.8, 1).toColor();

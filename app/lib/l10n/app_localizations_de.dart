@@ -1900,6 +1900,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsVisualizerStyle => 'Visualizer-Stil';
 
   @override
+  String get settingsVisualizerPeaks => 'Punkte bei Retro und Matrix';
+
+  @override
+  String get visualizerPeaksOn => 'Punkte an';
+
+  @override
+  String get visualizerPeaksOff => 'Punkte aus';
+
+  @override
+  String get settingsCoverflow => 'Coverflow';
+
+  @override
+  String get settingsCoverflowHint => 'Cover der Warteschlange zum Wischen nebeneinander';
+
+  @override
   String get visualizerThemeAuto => 'Automatisch';
 
   @override

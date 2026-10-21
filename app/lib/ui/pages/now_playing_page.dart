@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
@@ -15,6 +17,7 @@ import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/player_bar.dart';
+import '../widgets/reflection.dart';
 import '../widgets/track_list.dart';
 import '../widgets/jam_sheet.dart';
 import '../../player/jam.dart';
@@ -29,14 +32,31 @@ class NowPlayingPage extends ConsumerWidget {
     final station = ref.watch(playerProvider.select((p) => p.station));
     final stationNow = ref.watch(playerProvider.select((p) => p.stationNow));
     final accent = Theme.of(context).colorScheme.primary;
+    final coverColor = track != null && book == null && station == null && ref.watch(visualizerEnabledProvider)
+        ? ref.watch(coverColorProvider(coverImageProvider(ref, track.album.id, size: 300))).value
+        : null;
+    final hsl = coverColor == null ? null : HSLColor.fromColor(coverColor);
+    final topColor = hsl == null
+        ? accent.withValues(alpha: 0.45)
+        : hsl
+              .withLightness(math.min(hsl.lightness, 0.22))
+              .withSaturation(math.min(hsl.saturation, 0.65))
+              .withAlpha(1)
+              .toColor();
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [accent.withValues(alpha: 0.45), Palette.background],
+      body: TweenAnimationBuilder<Color?>(
+        duration: const Duration(milliseconds: 600),
+        tween: ColorTween(end: topColor),
+        builder: (context, color, child) => DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [color!, Palette.background],
+              stops: coverColor == null ? null : const [0.0, 0.85],
+            ),
           ),
+          child: child,
         ),
         child: SafeArea(
           child: station != null
@@ -77,23 +97,9 @@ class NowPlayingPage extends ConsumerWidget {
                                   ),
                                 ],
                               ),
-                              const Spacer(),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
-                                child: Material(
-                                  elevation: 16,
-                                  borderRadius: BorderRadius.circular(8),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: Stack(
-                                    children: [
-                                      CoverImage(albumId: track.album.id, size: 600, radius: 8),
-                                      if (ref.watch(visualizerEnabledProvider))
-                                        Positioned.fill(child: _CoverVisualizer(track: track)),
-                                    ],
-                                  ),
-                                ),
+                              Expanded(
+                                child: ref.watch(coverflowProvider) ? const _Coverflow() : _TrackCover(track: track),
                               ),
-                              const Spacer(),
                               ConstrainedBox(
                                 constraints: const BoxConstraints(maxWidth: 600),
                                 child: Column(
@@ -175,6 +181,148 @@ class NowPlayingPage extends ConsumerWidget {
   }
 }
 
+class _TrackCover extends ConsumerWidget {
+  const _TrackCover({required this.track, this.centered = true});
+  final Track track;
+  final bool centered;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(visualizerThemeProvider);
+    final enabled = ref.watch(visualizerEnabledProvider) && centered;
+    Widget artwork({required bool visualizer}) => Stack(
+      fit: StackFit.expand,
+      children: [
+        CoverImage(albumId: track.album.id, size: 600, radius: 8),
+        if (visualizer) Positioned.fill(child: _CoverVisualizer(track: track)),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = math.min(480.0, constraints.maxHeight);
+        final size = math.max(0.0, math.min(constraints.maxWidth, (height - 3) / 1.22));
+        return Center(
+          child: SizedBox(
+            width: size,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: centered && theme.peaks
+                      ? () {
+                          final peaks = !ref.read(visualizerPeaksProvider);
+                          ref.read(visualizerPeaksProvider.notifier).set(peaks);
+                          showInfo(context, peaks ? context.l10n.visualizerPeaksOn : context.l10n.visualizerPeaksOff);
+                        }
+                      : null,
+                  child: Material(
+                    elevation: 16,
+                    borderRadius: BorderRadius.circular(8),
+                    clipBehavior: Clip.antiAlias,
+                    child: SizedBox.square(
+                      dimension: size,
+                      child: artwork(visualizer: enabled),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                CoverReflection(child: artwork(visualizer: enabled && theme.reflect)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Coverflow extends ConsumerStatefulWidget {
+  const _Coverflow();
+
+  @override
+  ConsumerState<_Coverflow> createState() => _CoverflowState();
+}
+
+class _CoverflowState extends ConsumerState<_Coverflow> {
+  late final PageController _controller;
+  int? _targetIndex;
+  bool _swiping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(initialPage: ref.read(playerProvider).index ?? 0, viewportFraction: 0.72);
+  }
+
+  void _syncIndex(int index) {
+    _targetIndex = index;
+    _swiping = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !_controller.hasClients || _targetIndex != index) return;
+      await _controller.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      if (mounted && _targetIndex == index) _targetIndex = null;
+    });
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    if (notification is ScrollStartNotification && notification.dragDetails != null) {
+      _targetIndex = null;
+      _swiping = true;
+    }
+    if (notification is ScrollEndNotification && _swiping && _targetIndex == null) {
+      _swiping = false;
+      final index = _controller.page!.round();
+      final player = ref.read(playerProvider);
+      if (index != player.index && index < player.queue.length) {
+        ref.read(playerProvider.notifier).jumpTo(index);
+      }
+    }
+    return false;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final player = ref.watch(playerProvider.select((p) => (queue: p.queue, index: p.index)));
+    ref.listen(playerProvider.select((p) => p.index), (previous, next) {
+      if (next != null && next != previous) _syncIndex(next);
+    });
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: PageView.builder(
+        controller: _controller,
+        itemCount: player.queue.length,
+        itemBuilder: (context, index) => AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final page = _controller.hasClients && _controller.position.hasContentDimensions
+                ? _controller.page ?? _controller.initialPage.toDouble()
+                : _controller.initialPage.toDouble();
+            final delta = (index - page).clamp(-1.0, 1.0);
+            final scale = 1 - 0.18 * delta.abs();
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.0012)
+                ..rotateY(-delta * 0.9),
+              child: Transform.scale(
+                scale: scale,
+                child: _TrackCover(track: player.queue[index], centered: (index - page).abs() < 0.001),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _StationNowPlaying extends StatelessWidget {
   const _StationNowPlaying({required this.station, this.now});
   final Station station;
@@ -193,6 +341,28 @@ class _StationNowPlaying extends StatelessWidget {
           ],
         ),
         const Spacer(),
+        if (now?.coverUrl != null) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: NetworkCover(url: station.favicon, radius: 4, icon: Icons.radio),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  station.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         Flexible(
           flex: 5,
           child: ConstrainedBox(

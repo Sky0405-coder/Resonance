@@ -257,6 +257,17 @@ class SettingsPage extends ConsumerWidget {
                 builder: (_) => FractionallySizedBox(heightFactor: 0.85, child: VisualizerThemeSheet(accent: accent)),
               ),
             ),
+          SwitchListTile(
+            title: Text(context.l10n.settingsVisualizerPeaks),
+            value: ref.watch(visualizerPeaksProvider),
+            onChanged: ref.read(visualizerPeaksProvider.notifier).set,
+          ),
+          SwitchListTile(
+            title: Text(context.l10n.settingsCoverflow),
+            subtitle: Text(context.l10n.settingsCoverflowHint),
+            value: ref.watch(coverflowProvider),
+            onChanged: ref.read(coverflowProvider.notifier).set,
+          ),
           if (supportsEqualizer)
             ListTile(
               leading: const Icon(Icons.equalizer),

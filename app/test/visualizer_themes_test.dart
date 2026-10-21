@@ -72,20 +72,83 @@ void main() {
     expect(visualizerThemes.first.style, VisualizerStyle.bars);
   });
 
-  test('peaks hold for 0.4 seconds, then fall by 0.6 per second', () {
-    expect(nextPeak(0.9, 0.2, 0, 0.1), 0.9);
-    expect(nextPeak(0.9, 0.2, 0.3, 0.1), 0.9);
-    expect(nextPeak(0.9, 0.2, 0.35, 0.1), closeTo(0.87, 1e-9));
-    expect(nextPeak(0.9, 0.2, 0.4, 0.1), closeTo(0.84, 1e-9));
-    expect(nextPeak(0.9, 0.2, 1, 0.5), closeTo(0.6, 1e-9));
+  test('only the specified themes reflect their visualizers', () {
+    expect(visualizerThemes.where((theme) => theme.reflect).map((theme) => theme.id).toSet(), {
+      'synthwave',
+      'neon',
+      'fire',
+      'aurora',
+      'rainbow',
+      'retro',
+      'matrix',
+    });
   });
 
-  test('peaks follow rising levels immediately and never fall below the current level', () {
-    expect(nextPeak(0.5, 0.9, 0.2, 0.1), 0.9);
-    expect(nextPeak(0.5, 0.9, 1, 0.1), 0.9);
-    expect(nextPeak(0.5, 0.49, 1, 0.1), 0.49);
-    expect(nextPeak(0.1, 0, 1, 1), 0);
-    expect(nextPeak(0.8, 0.2, 1, 0), 0.8);
+  test('peak dots follow rising and held bars without releasing bubbles', () {
+    const initial = PeakDots(level: 0.4);
+    final rising = initial.advance(0.9, 0.1);
+    final held = rising.advance(0.9, 0.1);
+    expect(rising.level, 0.9);
+    expect(held.level, 0.9);
+    expect(rising.bubbles, isEmpty);
+    expect(held.bubbles, isEmpty);
+    expect(initial.level, 0.4);
+  });
+
+  test('falling bars release a bubble and immediately create a dot at the current level', () {
+    final dots = const PeakDots(level: 0.9).advance(0.3, 0.1);
+    expect(dots.level, 0.3);
+    expect(dots.bubbles, hasLength(1));
+    expect(dots.bubbles.single.height, 0.9);
+    expect(dots.bubbles.single.opacity, 1);
+    final next = dots.advance(0.3, 0.4);
+    expect(next.bubbles.single.height, closeTo(1.1, 1e-9));
+    expect(next.bubbles.single.opacity, closeTo(0.5, 1e-9));
+    expect(next.advance(0.3, 0.4).bubbles, isEmpty);
+    expect(dots.bubbles.single.age, 0);
+  });
+
+  test('each bar keeps at most three live bubbles and drops the oldest', () {
+    var dots = const PeakDots(level: 1);
+    for (final level in [0.9, 0.8, 0.7, 0.6]) {
+      dots = dots.advance(level, 0.1);
+    }
+    expect(dots.bubbles, hasLength(3));
+    expect(dots.bubbles.map((bubble) => bubble.age), [closeTo(0.2, 1e-9), closeTo(0.1, 1e-9), 0]);
+    expect(dots.bubbles.map((bubble) => bubble.height), [closeTo(1, 1e-9), closeTo(0.85, 1e-9), 0.7]);
+  });
+
+  test('bubble updates handle silence, zero and negative time, and a long elapsed frame', () {
+    const initial = PeakDots(level: 0.6, bubbles: [PeakBubble(0.8, age: 0.2)]);
+    for (final dt in [0.0, -1.0]) {
+      final dots = initial.advance(0.6, dt);
+      expect(dots.bubbles.single.height, 0.8);
+      expect(dots.bubbles.single.age, 0.2);
+    }
+    final silent = initial.advance(0, 1);
+    expect(silent.level, 0);
+    expect(silent.bubbles.single.height, 0.6);
+    expect(silent.advance(0, 0.8).bubbles, isEmpty);
+    expect(const PeakDots().advance(0, 0.1).bubbles, isEmpty);
+  });
+
+  test('peak and coverflow preferences default, persist and restore', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [prefsProvider.overrideWithValue(prefs)]);
+    expect(container.read(visualizerPeaksProvider), isTrue);
+    expect(container.read(coverflowProvider), isFalse);
+    container.read(visualizerPeaksProvider.notifier).set(false);
+    container.read(coverflowProvider.notifier).set(true);
+    expect(container.read(visualizerPeaksProvider), isFalse);
+    expect(container.read(coverflowProvider), isTrue);
+    expect(prefs.getBool('visualizer_peaks'), isFalse);
+    expect(prefs.getBool('coverflow'), isTrue);
+    container.dispose();
+    final restored = ProviderContainer(overrides: [prefsProvider.overrideWithValue(prefs)]);
+    expect(restored.read(visualizerPeaksProvider), isFalse);
+    expect(restored.read(coverflowProvider), isTrue);
+    restored.dispose();
   });
 
   test('rainbow colors evenly span the hue wheel at saturation 0.8 and value 1', () {

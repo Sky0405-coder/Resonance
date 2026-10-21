@@ -1925,6 +1925,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsVisualizerStyle => 'Visualizer style';
 
   @override
+  String get settingsVisualizerPeaks => 'Peak dots for Retro and Matrix';
+
+  @override
+  String get visualizerPeaksOn => 'Peak dots on';
+
+  @override
+  String get visualizerPeaksOff => 'Peak dots off';
+
+  @override
+  String get settingsCoverflow => 'Coverflow';
+
+  @override
+  String get settingsCoverflowHint => 'Swipe through the queue\'s covers side by side';
+
+  @override
   String get visualizerThemeAuto => 'Automatic';
 
   @override

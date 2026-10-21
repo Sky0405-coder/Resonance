@@ -3380,6 +3380,36 @@ abstract class AppLocalizations {
   /// **'Visualizer-Stil'**
   String get settingsVisualizerStyle;
 
+  /// No description provided for @settingsVisualizerPeaks.
+  ///
+  /// In de, this message translates to:
+  /// **'Punkte bei Retro und Matrix'**
+  String get settingsVisualizerPeaks;
+
+  /// No description provided for @visualizerPeaksOn.
+  ///
+  /// In de, this message translates to:
+  /// **'Punkte an'**
+  String get visualizerPeaksOn;
+
+  /// No description provided for @visualizerPeaksOff.
+  ///
+  /// In de, this message translates to:
+  /// **'Punkte aus'**
+  String get visualizerPeaksOff;
+
+  /// No description provided for @settingsCoverflow.
+  ///
+  /// In de, this message translates to:
+  /// **'Coverflow'**
+  String get settingsCoverflow;
+
+  /// No description provided for @settingsCoverflowHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Cover der Warteschlange zum Wischen nebeneinander'**
+  String get settingsCoverflowHint;
+
   /// No description provided for @visualizerThemeAuto.
   ///
   /// In de, this message translates to:

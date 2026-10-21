@@ -121,9 +121,9 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
   Duration _position = Duration.zero;
   final _sincePosition = Stopwatch();
   final _levels = ValueNotifier<List<double>>(const []);
-  final _peaks = <double>[];
-  final _heldFor = <double>[];
-  List<double> _target = const [];
+  final _peaks = <PeakDots>[];
+  bool _peaksEnabled = true;
+  List<double> _target = [];
   Duration _lastTick = Duration.zero;
 
   @override
@@ -146,24 +146,27 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
   void didUpdateWidget(SpectrumVisualizer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trackId != widget.trackId || oldWidget.theme != widget.theme) {
-      _peaks.fillRange(0, _peaks.length, 0);
-      _heldFor.fillRange(0, _heldFor.length, 0);
+      _peaks.fillRange(0, _peaks.length, const PeakDots());
     }
   }
 
   void _tick(Duration elapsed) {
     final spectrum = ref.read(spectrumProvider(widget.trackId)).value;
     final engine = ref.read(playerProvider.notifier).engine;
-    final dt = ((elapsed - _lastTick).inMicroseconds / 1e6).clamp(0.0, 0.1);
+    final elapsedSeconds = math.max(0.0, (elapsed - _lastTick).inMicroseconds / 1e6);
+    final dt = elapsedSeconds.clamp(0.0, 0.1);
     _lastTick = elapsed;
     final bands = spectrum?.bands ?? 0;
+    final peaksEnabled = (widget.theme?.peaks ?? false) && ref.read(visualizerPeaksProvider);
+    if (_peaksEnabled != peaksEnabled) {
+      _peaksEnabled = peaksEnabled;
+      _peaks.fillRange(0, _peaks.length, const PeakDots());
+    }
     if (_target.length != bands) {
       _target = List.filled(bands, 0);
       _peaks.clear();
-      _heldFor.clear();
       for (var i = 0; i < bands; i++) {
-        _peaks.add(0);
-        _heldFor.add(0);
+        _peaks.add(const PeakDots());
       }
     }
     final playing = engine.playing;
@@ -179,6 +182,7 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
     } else {
       _target.fillRange(0, _target.length, 0);
     }
+    final hadBubbles = _peaks.any((dots) => dots.bubbles.isNotEmpty);
     final previous = _levels.value;
     final next = List<double>.generate(bands, (i) {
       final from = i < previous.length ? previous[i] : 0.0;
@@ -186,17 +190,14 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
       // Fast attack, slower release, like a VU meter.
       final rate = to > from ? 30.0 : 6.0;
       final level = from + (to - from) * (1 - math.exp(-rate * dt));
-      if (widget.theme?.peaks ?? false) {
-        final peak = nextPeak(_peaks[i], level, _heldFor[i], dt);
-        _heldFor[i] = level >= peak ? 0 : _heldFor[i] + dt;
-        _peaks[i] = peak;
-      }
+      if (peaksEnabled) _peaks[i] = _peaks[i].advance(level < 0.005 ? 0 : level, elapsedSeconds);
       return level;
     });
     if (!playing &&
         next.every((v) => v < 0.005) &&
         previous.every((v) => v < 0.005) &&
-        (!(widget.theme?.peaks ?? false) || _peaks.every((v) => v < 0.005))) {
+        !hadBubbles &&
+        (!peaksEnabled || _peaks.every((v) => v.bubbles.isEmpty))) {
       return;
     }
     _levels.value = next;
@@ -213,6 +214,7 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
   @override
   Widget build(BuildContext context) {
     ref.watch(spectrumProvider(widget.trackId));
+    final peaksEnabled = ref.watch(visualizerPeaksProvider);
     return RepaintBoundary(
       child: CustomPaint(
         size: Size.infinite,
@@ -220,7 +222,7 @@ class _SpectrumVisualizerState extends ConsumerState<SpectrumVisualizer> with Si
           _levels,
           color: widget.color,
           theme: widget.theme,
-          peaks: _peaks,
+          peaks: peaksEnabled ? _peaks : const [],
           mirrored: widget.mirrored,
           gap: widget.gap,
           minHeight: widget.minHeight,
@@ -266,7 +268,7 @@ class _SpectrumPreviewState extends State<SpectrumPreview> {
               _levels,
               color: widget.color,
               theme: widget.theme.id == 'auto' ? null : widget.theme,
-              peaks: _sample,
+              peaks: [for (final level in _sample) PeakDots(level: level)],
               mirrored: widget.mirrored,
               gap: 0.35,
               minHeight: 0.015,
@@ -320,7 +322,7 @@ class _BarsPainter extends CustomPainter {
   final ValueNotifier<List<double>> levels;
   final Color color;
   final VisualizerTheme? theme;
-  final List<double> peaks;
+  final List<PeakDots> peaks;
   final bool mirrored;
   final double gap;
   final double minHeight;
@@ -427,12 +429,20 @@ class _BarsPainter extends CustomPainter {
         );
       }
       final band = _band(i, values.length);
-      if ((theme?.peaks ?? false) && band < peaks.length && peaks[band] > 0) {
-        final peak = peaks[band];
-        final top = (size.height * (1 - peak)).clamp(0.0, math.max(0.0, size.height - 3.0)).toDouble();
-        canvas.drawRect(Rect.fromLTWH(left, top, width, 3), _litSegments[_segmentColor(peak)]);
+      if ((theme?.peaks ?? false) && band < peaks.length) {
+        final dots = peaks[band];
+        if (dots.level > 0.005) _drawPeak(canvas, size, left, width, math.max(minHeight, dots.level), 1);
+        for (final bubble in dots.bubbles) {
+          _drawPeak(canvas, size, left, width, bubble.height, bubble.opacity);
+        }
       }
     }
+  }
+
+  void _drawPeak(Canvas canvas, Size size, double left, double width, double height, double opacity) {
+    final color = _litSegments[_segmentColor(height)].color;
+    final paint = Paint()..color = color.withValues(alpha: color.a * opacity);
+    canvas.drawRect(Rect.fromLTWH(left, size.height * (1 - height), width, 3), paint);
   }
 
   void _drawArea(Canvas canvas, Size size, List<double> values, int bars, double slot) {
