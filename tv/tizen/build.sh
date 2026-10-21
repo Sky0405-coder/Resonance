@@ -8,6 +8,7 @@ trap 'rm -rf -- "$STAGE"' EXIT
 mkdir "$STAGE/app"
 cp "$APP_DIR/config.xml" "$APP_DIR/index.html" "$APP_DIR/icon.png" "$STAGE/app/"
 cp -R "$APP_DIR/css" "$APP_DIR/js" "$STAGE/app/"
+node "$APP_DIR/tools/bundle.mjs" "$STAGE/app"
 (cd "$STAGE/app" && zip -q -r "$STAGE/unsigned.wgt" .)
 if [[ -n "${TIZEN_PROFILE:-}" ]]; then
   CLI=$(find_tizen_cli) || { echo 'Kein Signierwerkzeug gefunden. Tizen Web CLI installieren oder TIZEN_CLI setzen.' >&2; exit 1; }
