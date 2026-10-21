@@ -186,6 +186,14 @@ class ApiClient {
     );
   }
 
+  Uri devicesSocketUri(String id, String name, String kind) {
+    final base = jamSocketUri();
+    return base.replace(
+      path: base.path.replaceFirst('/api/jam/ws', '/api/devices/ws'),
+      queryParameters: {'token': token ?? '', 'device_id': id, 'name': name, 'kind': kind},
+    );
+  }
+
   // --- auth -----------------------------------------------------------------
 
   Future<AuthStatus> status() async => AuthStatus.fromJson(await _get('/api/auth/status'));
@@ -252,6 +260,8 @@ class ApiClient {
       _post('/api/me/plays', {'track_id': trackId, 'seconds_played': seconds, 'context': context});
 
   // --- library --------------------------------------------------------------
+
+  Future<Track> track(String id) async => Track.fromJson(await _get('/api/tracks/$id'));
 
   Future<Home> home() async => Home.fromJson(await _get('/api/home'));
 

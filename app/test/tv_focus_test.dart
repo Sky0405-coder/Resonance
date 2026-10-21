@@ -14,6 +14,7 @@ import 'package:resonance/core/session.dart';
 import 'package:resonance/core/theme.dart';
 import 'package:resonance/core/tv_mode.dart';
 import 'package:resonance/l10n/l10n.dart';
+import 'package:resonance/player/connect.dart';
 import 'package:resonance/player/engine.dart';
 import 'package:resonance/player/player.dart';
 import 'package:resonance/router.dart';
@@ -23,6 +24,8 @@ import 'package:resonance/ui/tv/tv_input.dart';
 import 'package:resonance/ui/tv/tv_settings_controls.dart';
 import 'package:resonance/ui/tv/tv_shelves.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/idle_connect.dart';
 
 class _Engine implements PlaybackEngine {
   @override
@@ -270,6 +273,7 @@ void main() {
       overrides: [
         prefsProvider.overrideWithValue(prefs),
         sessionProvider.overrideWith(_Session.new),
+        connectProvider.overrideWith(IdleConnect.new),
         playerProvider.overrideWith(() => player),
         positionProvider.overrideWith((ref) => const Stream.empty()),
         durationProvider.overrideWith((ref) => const Stream.empty()),

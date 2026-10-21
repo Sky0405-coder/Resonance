@@ -5,6 +5,8 @@ import '../../l10n/l10n.dart';
 import 'package:flutter/material.dart';
 
 import 'jam_sheet.dart';
+import 'devices_sheet.dart';
+import '../../player/connect.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -378,6 +380,8 @@ class DesktopPlayerBar extends ConsumerWidget {
     final book = ref.watch(playerProvider.select((p) => p.book));
     final station = ref.watch(playerProvider.select((p) => p.station));
     final stationNow = ref.watch(playerProvider.select((p) => p.stationNow));
+    final remote = ref.watch(remoteDeviceProvider);
+    final remoteVolume = ref.watch(connectProvider.select((v) => v.states[remote?.id]?.volume));
     return Container(
       height: 84,
       color: Palette.sidebar,
@@ -450,6 +454,7 @@ class DesktopPlayerBar extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                const DevicesButton(size: 20),
                 if (book == null && station == null) const JamButton(size: 20),
                 if (book == null && station == null)
                   IconButton(
@@ -470,8 +475,12 @@ class DesktopPlayerBar extends ConsumerWidget {
                   width: 120,
                   child: ValueListenableBuilder<double>(
                     valueListenable: ref.read(playerProvider.notifier).userVolume,
-                    builder: (_, volume, _) =>
-                        Slider(value: volume, onChanged: ref.read(playerProvider.notifier).setUserVolume),
+                    builder: (_, volume, _) {
+                      return Slider(
+                        value: remoteVolume ?? volume,
+                        onChanged: ref.read(playerProvider.notifier).setUserVolume,
+                      );
+                    },
                   ),
                 ),
                 IconButton(
@@ -513,6 +522,7 @@ class MiniPlayer extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const ConnectBanner(),
               Padding(
                 padding: const EdgeInsets.all(6),
                 child: Row(
@@ -556,6 +566,7 @@ class MiniPlayer extends ConsumerWidget {
                       ),
                       LikeButton(track: track),
                     ],
+                    const DevicesButton(size: 18),
                     IconButton(icon: Icon(p.playing ? Icons.pause : Icons.play_arrow), onPressed: ctrl.togglePlay),
                   ],
                 ),

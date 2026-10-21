@@ -69,6 +69,12 @@ abstract class JamRouter {
   bool get playing;
 }
 
+/// Routes controls to the user's active Connect device while the local engine stays paused.
+abstract class ConnectRouter {
+  Future<void> command(String name, [Map<String, dynamic> args = const {}]);
+  Future<void> playTracks(List<Track> tracks, int index);
+}
+
 /// Snapshot of what the UI needs to render the engine.
 class PlayerView {
   const PlayerView({
@@ -89,6 +95,7 @@ class PlayerView {
     this.speed = 1,
     this.sleepAt,
     this.jamRemote = false,
+    this.connectRemote = false,
   });
 
   final List<Track> queue;
@@ -112,6 +119,7 @@ class PlayerView {
   final DateTime? sleepAt;
   // In a Jam without listening on this device: the view mirrors the Jam, the engine is idle.
   final bool jamRemote;
+  final bool connectRemote;
 
   bool get inJam => context?.startsWith('jam:') ?? false;
 
@@ -158,6 +166,8 @@ class PlayerController extends Notifier<PlayerView> {
 
   /// Set by the Jam controller while in a Jam: user actions go to the server instead of the engine.
   JamRouter? jam;
+  ConnectRouter? connect;
+  Duration Function()? connectPosition;
   Duration Function()? _jamPosition;
   int? _crossfadeBeforeJam;
   bool? _automixBeforeJam;
@@ -209,6 +219,10 @@ class PlayerController extends Notifier<PlayerView> {
     });
     _subs.addAll([
       engine.playerStateStream.listen((s) {
+        if (state.connectRemote) {
+          if (s.playing) engine.pause().ignore();
+          return;
+        }
         if (_switching || state.jamRemote) return;
         if (s.processingState == ProcessingState.completed && state.book?.episode != null) {
           _syncBook(completed: true).ignore();
@@ -224,7 +238,7 @@ class PlayerController extends Notifier<PlayerView> {
       // just_audio repeats the index (and loop mode) with every playback event – ~16×/s with media_kit. Only real
       // changes may rebuild the UI and close the play report of the previous song.
       engine.currentIndexStream.listen((i) {
-        if (_switching || state.jamRemote || i == state.index) return;
+        if (_switching || state.connectRemote || state.jamRemote || i == state.index) return;
         if (state.book != null) {
           state = _copy(index: i);
           return;
@@ -236,7 +250,7 @@ class PlayerController extends Notifier<PlayerView> {
         _maybeAutoplay();
       }),
       engine.loopModeStream.listen((v) {
-        if (!_switching && v != state.loop) {
+        if (!_switching && !state.connectRemote && v != state.loop) {
           state = _copy(loop: v);
           _maybeAutoplay();
         }
@@ -318,6 +332,7 @@ class PlayerController extends Notifier<PlayerView> {
     speed: speed ?? state.speed,
     sleepAt: sleepAt == null ? state.sleepAt : sleepAt(),
     jamRemote: state.jamRemote,
+    connectRemote: state.connectRemote,
   );
 
   SourceFactory _source(Track t) => () {
@@ -331,6 +346,7 @@ class PlayerController extends Notifier<PlayerView> {
   Future<void> playTracks(List<Track> tracks, {int? index, String? context, bool isRadio = false}) {
     final jam = this.jam;
     if (jam != null) return jam.playTracks(tracks, index ?? 0);
+    if (connect != null) return connect!.playTracks(tracks, index ?? 0);
     return _playTracks(tracks, index: index, context: context, isRadio: isRadio);
   }
 
@@ -405,6 +421,7 @@ class PlayerController extends Notifier<PlayerView> {
     List<SourceFactory> sources, {
     required int index,
     Duration position = Duration.zero,
+    bool play = true,
   }) async {
     await engine.finishFade();
     final previous = state;
@@ -486,19 +503,26 @@ class PlayerController extends Notifier<PlayerView> {
         if (!_switching && engine.playing) _syncBook().ignore();
       });
     }
-    engine.play().catchError((Object error) {
-      if (state.station != null) _stationError(error);
-    });
+    if (play && !state.connectRemote) {
+      engine.play().catchError((Object error) {
+        if (state.station != null) _stationError(error);
+      });
+    }
   }
 
   Future<void> playNext(Track t) async {
     if (jam != null) return jam!.add(t, next: true);
+    if (connect != null) return;
     await engine.finishFade();
     final at = (state.index ?? -1) + 1;
     await _insert(at, t);
   }
 
-  Future<void> addToQueue(Track t) => jam != null ? jam!.add(t, next: false) : _insert(state.queue.length, t);
+  Future<void> addToQueue(Track t) => jam != null
+      ? jam!.add(t, next: false)
+      : connect != null
+      ? Future.value()
+      : _insert(state.queue.length, t);
 
   Future<void> _insert(int at, Track t) async {
     if (state.queue.isEmpty || state.book != null) return playTracks([t]);
@@ -510,18 +534,24 @@ class PlayerController extends Notifier<PlayerView> {
 
   Future<void> removeAt(int i) async {
     if (jam != null) return jam!.removeAt(i);
+    if (connect != null) return;
     await engine.finishFade();
     _unshuffled.remove(state.queue[i]);
     state = _copy(queue: List.unmodifiable([...state.queue]..removeAt(i)));
     await engine.removeAt(i);
   }
 
-  void togglePlay() => (jam != null ? jam!.playing : engine.playing) ? pause() : play();
+  void togglePlay() => (jam?.playing ?? (connect != null ? state.playing : engine.playing)) ? pause() : play();
 
-  Future<void> play() => jam != null ? jam!.play() : engine.play();
+  Future<void> play() => jam != null
+      ? jam!.play()
+      : connect != null
+      ? connect!.command('play')
+      : engine.play();
 
   Future<void> pause() async {
     if (jam != null) return jam!.pause();
+    if (connect != null) return connect!.command('pause');
     _stationGeneration++;
     _stationRetry?.cancel();
     _stationRetry = null;
@@ -542,12 +572,14 @@ class PlayerController extends Notifier<PlayerView> {
 
   Future<void> next() async {
     if (jam != null) return jam!.next();
+    if (connect != null) return connect!.command('next');
     if (state.station == null) await engine.seekToNext();
   }
 
   /// Like Spotify: restart the track unless we're in its first 3 seconds.
   Future<void> previous() async {
     if (jam != null) return jam!.previous();
+    if (connect != null) return connect!.command('previous');
     if (state.station != null) return;
     await engine.finishFade();
     if (engine.position > const Duration(seconds: 3) || !engine.hasPrevious) {
@@ -559,26 +591,32 @@ class PlayerController extends Notifier<PlayerView> {
 
   Future<void> jumpTo(int index) async {
     if (jam != null) return jam!.jumpTo(index);
+    if (connect != null) return connect!.command('jump', {'index': index});
     if (state.station == null) await engine.seek(Duration.zero, index: index);
   }
 
   Future<void> seek(Duration d) async {
     if (jam != null) return jam!.seek(d);
+    if (connect != null) return connect!.command('seek', {'position_ms': d.inMilliseconds});
     if (state.station == null) await engine.seek(d);
   }
 
-  Future<void> toggleShuffle() => _switch(() {
-    final (shuffle, smart) = nextShuffleMode(
-      shuffle: state.shuffle,
-      smartShuffle: state.smartShuffle,
-      allowSmart: supportsSmartShuffle(state.context, isRadio: state.isRadio),
-    );
-    return _setShuffle(shuffle, smart: smart);
-  });
+  Future<void> toggleShuffle() {
+    if (jam == null && connect != null) return connect!.command('shuffle', {'shuffle': !state.shuffle});
+    return _switch(() {
+      final (shuffle, smart) = nextShuffleMode(
+        shuffle: state.shuffle,
+        smartShuffle: state.smartShuffle,
+        allowSmart: supportsSmartShuffle(state.context, isRadio: state.isRadio),
+      );
+      return _setShuffle(shuffle, smart: smart);
+    });
+  }
 
   Future<void> setShuffle(bool enabled) => _switch(() => _setShuffle(enabled));
 
   Future<void> _setShuffle(bool enabled, {bool smart = false}) async {
+    if (jam == null && connect != null) return connect!.command('shuffle', {'shuffle': enabled});
     if (state.station != null || state.book != null || state.inJam || jam != null) return;
     await engine.finishFade();
     if (enabled == state.shuffle && smart == state.smartShuffle) return;
@@ -673,7 +711,7 @@ class PlayerController extends Notifier<PlayerView> {
     playing: state.playing && !state.buffering && engine.processingState == ProcessingState.ready,
     isBook: state.book != null,
     isStation: state.station != null,
-    inJam: state.inJam || jam != null,
+    inJam: state.inJam || jam != null || state.connectRemote,
   );
 
   void _maybeAutoplay() {
@@ -775,10 +813,11 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> setLoop(LoopMode mode) async {
+    if (jam == null && connect != null) return connect!.command('repeat', {'repeat': mode.name});
     if (state.station == null && jam == null) await engine.setLoopMode(mode);
   }
 
-  Future<void> cycleLoop() => setLoop(switch (engine.loopMode) {
+  Future<void> cycleLoop() => setLoop(switch (state.loop) {
     LoopMode.off => LoopMode.all,
     LoopMode.all => LoopMode.one,
     LoopMode.one => LoopMode.off,
@@ -855,6 +894,47 @@ class PlayerController extends Notifier<PlayerView> {
         }
       }).ignore();
     });
+  }
+
+  // --- Connect ---------------------------------------------------------------
+
+  Future<void> loadConnect(
+    List<Track> tracks,
+    int index,
+    Duration position,
+    bool playing,
+    bool shuffle,
+    LoopMode loop,
+  ) => _switch(() async {
+    if (jam != null || tracks.isEmpty) return;
+    await _replacePlayback(
+      PlayerView(queue: List.unmodifiable(tracks), shuffle: shuffle, loop: loop, context: 'connect'),
+      [for (final track in tracks) _source(track)],
+      index: index.clamp(0, tracks.length - 1),
+      position: position,
+      play: playing,
+    );
+    connect = null;
+    connectPosition = null;
+    _unshuffled = [...tracks];
+  });
+
+  void showConnectRemote(PlayerView view, ConnectRouter router, Duration Function() position) {
+    if (!state.connectRemote) {
+      _closeBook(position: bookPosition).ignore();
+      _flushPlayReport();
+    }
+    connect = router;
+    connectPosition = position;
+    _resetRecommendations();
+    state = view;
+    engine.pause().ignore();
+  }
+
+  void clearConnectRemote() {
+    connect = null;
+    connectPosition = null;
+    if (state.connectRemote) state = const PlayerView();
   }
 
   // --- jam -------------------------------------------------------------------
@@ -1195,6 +1275,10 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   void setUserVolume(double v) {
+    if (jam == null && connect != null) {
+      connect!.command('volume', {'value': v.clamp(0, 1)}).ignore();
+      return;
+    }
     userVolume.value = v.clamp(0, 1);
     engine.setVolume(_gainFactor * userVolume.value);
     _saveVolume?.cancel();
@@ -1212,7 +1296,7 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   void _trackListening(Duration pos) {
-    if (_switching || state.station != null) return;
+    if (_switching || state.connectRemote || state.station != null) return;
     final delta = (pos - _lastPos).inMilliseconds / 1000;
     // Ignore seeks (big jumps or backwards); faster playback still counts as real time listened.
     if (delta > 0 && delta < 2 * state.speed && engine.playing) {
@@ -1245,6 +1329,12 @@ bool needsJamSeek(Duration local, Duration expected) => (local - expected).abs()
 
 final positionProvider = StreamProvider<Duration>((ref) {
   final controller = ref.read(playerProvider.notifier);
+  if (ref.watch(playerProvider.select((p) => p.connectRemote))) {
+    return Stream.periodic(
+      const Duration(milliseconds: 250),
+      (_) => controller.connectPosition?.call() ?? Duration.zero,
+    );
+  }
   if (ref.watch(playerProvider.select((p) => p.jamRemote))) {
     return Stream.periodic(const Duration(milliseconds: 500), (_) => controller.jamPosition);
   }
@@ -1252,7 +1342,7 @@ final positionProvider = StreamProvider<Duration>((ref) {
 });
 
 final durationProvider = StreamProvider<Duration?>((ref) {
-  if (ref.watch(playerProvider.select((p) => p.jamRemote))) {
+  if (ref.watch(playerProvider.select((p) => p.jamRemote || p.connectRemote))) {
     final current = ref.watch(playerProvider.select((p) => p.current));
     return Stream.value(current == null ? null : Duration(milliseconds: (current.duration * 1000).round()));
   }

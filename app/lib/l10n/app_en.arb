@@ -960,5 +960,19 @@
   "podcastsLoadMore": "Load more episodes",
   "podcastsOpen": "Open podcast",
   "podcastsSkipBack": "Back 15 seconds",
-  "playerPodcastLoadError": "The podcast episode couldn't be loaded. Please try again."
+  "playerPodcastLoadError": "The podcast episode couldn't be loaded. Please try again.",
+  "connectPlayOn": "Play on…",
+  "connectThisDevice": "This device",
+  "connectDeviceName": "Device name",
+  "connectPlayingOn": "Playing on {device}",
+  "@connectPlayingOn": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "connectJamHint": "Device transfer is unavailable during a Jam.",
+  "connectMusicOnly": "Only music tracks can be transferred. Books, podcasts and radio stay on this device.",
+  "connectUnavailable": "Device unavailable. Check your connection."
 }

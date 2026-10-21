@@ -14,6 +14,7 @@ import 'package:resonance/core/session.dart';
 import 'package:resonance/core/theme.dart';
 import 'package:resonance/l10n/l10n.dart';
 import 'package:resonance/offline/offline_store.dart';
+import 'package:resonance/player/connect.dart';
 import 'package:resonance/player/engine.dart';
 import 'package:resonance/player/player.dart';
 import 'package:resonance/player/spectrum.dart';
@@ -23,6 +24,8 @@ import 'package:resonance/ui/widgets/catalog.dart';
 import 'package:resonance/ui/widgets/common.dart';
 import 'package:resonance/ui/widgets/reflection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/idle_connect.dart';
 
 const _tracks = [
   Track(
@@ -151,6 +154,7 @@ void main() {
       overrides: [
         prefsProvider.overrideWithValue(prefs),
         apiProvider.overrideWithValue(ApiClient('https://resonance.example', 'test')),
+        connectProvider.overrideWith(IdleConnect.new),
         playerProvider.overrideWith(() => _Player(view)),
         offlineProvider.overrideWith(() => _Offline(directory.path)),
         visualizerEnabledProvider.overrideWithBuild((ref, notifier) => visualizer),

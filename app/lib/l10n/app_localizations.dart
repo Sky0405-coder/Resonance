@@ -4747,6 +4747,48 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut.'**
   String get playerPodcastLoadError;
+
+  /// No description provided for @connectPlayOn.
+  ///
+  /// In de, this message translates to:
+  /// **'Wiedergabe auf…'**
+  String get connectPlayOn;
+
+  /// No description provided for @connectThisDevice.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieses Gerät'**
+  String get connectThisDevice;
+
+  /// No description provided for @connectDeviceName.
+  ///
+  /// In de, this message translates to:
+  /// **'Gerätename'**
+  String get connectDeviceName;
+
+  /// No description provided for @connectPlayingOn.
+  ///
+  /// In de, this message translates to:
+  /// **'Wiedergabe auf {device}'**
+  String connectPlayingOn(String device);
+
+  /// No description provided for @connectJamHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Während eines Jams ist kein Gerätewechsel möglich.'**
+  String get connectJamHint;
+
+  /// No description provided for @connectMusicOnly.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur Musik kann übertragen werden. Hörbücher, Podcasts und Radio bleiben auf diesem Gerät.'**
+  String get connectMusicOnly;
+
+  /// No description provided for @connectUnavailable.
+  ///
+  /// In de, this message translates to:
+  /// **'Gerät nicht verfügbar. Prüfe deine Verbindung.'**
+  String get connectUnavailable;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

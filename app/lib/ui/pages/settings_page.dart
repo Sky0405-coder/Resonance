@@ -19,6 +19,7 @@ import '../../core/theme.dart';
 import '../../core/tv_mode.dart';
 import '../../integrations/discord_presence.dart';
 import '../../player/player.dart';
+import '../../player/connect.dart';
 import '../../player/spectrum.dart';
 import '../../player/visualizer_themes.dart';
 import '../../player/equalizer_controller.dart';
@@ -122,6 +123,20 @@ class SettingsPage extends ConsumerWidget {
             title: Text(context.l10n.settingsSubsonicTitle),
             subtitle: Text(context.l10n.settingsSubsonicSubtitle),
             onTap: () => showDialog<void>(context: context, builder: (_) => const _SubsonicDialog()),
+          ),
+          ListTile(
+            leading: const Icon(Icons.devices),
+            title: Text(context.l10n.connectDeviceName),
+            subtitle: Text(ref.watch(connectProvider.select((v) => v.name))),
+            onTap: () async {
+              final name = await promptText(
+                context,
+                context.l10n.connectDeviceName,
+                context.l10n.commonName,
+                initial: ref.read(connectProvider).name,
+              );
+              if (name != null) await ref.read(connectProvider.notifier).rename(name);
+            },
           ),
           _Section(context.l10n.settingsAppearance),
           Padding(

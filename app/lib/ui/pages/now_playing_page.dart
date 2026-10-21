@@ -20,6 +20,7 @@ import '../widgets/player_bar.dart';
 import '../widgets/reflection.dart';
 import '../widgets/track_list.dart';
 import '../widgets/jam_sheet.dart';
+import '../widgets/devices_sheet.dart';
 import '../../player/jam.dart';
 
 class NowPlayingPage extends ConsumerWidget {
@@ -93,6 +94,7 @@ class NowPlayingPage extends ConsumerWidget {
                                         style: const TextStyle(fontWeight: FontWeight.w700),
                                       ),
                                     ),
+                                    const DevicesButton(),
                                     const JamButton(),
                                     IconButton(
                                       icon: const Icon(Icons.more_vert),

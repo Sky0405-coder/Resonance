@@ -1614,5 +1614,19 @@
   "podcastsLoadMore": "Weitere Episoden laden",
   "podcastsOpen": "Podcast öffnen",
   "podcastsSkipBack": "15 Sekunden zurück",
-  "playerPodcastLoadError": "Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut."
+  "playerPodcastLoadError": "Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut.",
+  "connectPlayOn": "Wiedergabe auf…",
+  "connectThisDevice": "Dieses Gerät",
+  "connectDeviceName": "Gerätename",
+  "connectPlayingOn": "Wiedergabe auf {device}",
+  "@connectPlayingOn": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "connectJamHint": "Während eines Jams ist kein Gerätewechsel möglich.",
+  "connectMusicOnly": "Nur Musik kann übertragen werden. Hörbücher, Podcasts und Radio bleiben auf diesem Gerät.",
+  "connectUnavailable": "Gerät nicht verfügbar. Prüfe deine Verbindung."
 }

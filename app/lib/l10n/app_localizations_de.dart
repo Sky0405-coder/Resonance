@@ -2641,4 +2641,28 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get playerPodcastLoadError => 'Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut.';
+
+  @override
+  String get connectPlayOn => 'Wiedergabe auf…';
+
+  @override
+  String get connectThisDevice => 'Dieses Gerät';
+
+  @override
+  String get connectDeviceName => 'Gerätename';
+
+  @override
+  String connectPlayingOn(String device) {
+    return 'Wiedergabe auf $device';
+  }
+
+  @override
+  String get connectJamHint => 'Während eines Jams ist kein Gerätewechsel möglich.';
+
+  @override
+  String get connectMusicOnly =>
+      'Nur Musik kann übertragen werden. Hörbücher, Podcasts und Radio bleiben auf diesem Gerät.';
+
+  @override
+  String get connectUnavailable => 'Gerät nicht verfügbar. Prüfe deine Verbindung.';
 }
