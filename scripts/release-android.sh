@@ -39,7 +39,16 @@ git push -q origin HEAD "v$name"
 
 if [ -x "$GH" ] && "$GH" auth status >/dev/null 2>&1; then
   cp "$apk" "/tmp/Resonance-v$name-android.apk"
-  "$GH" release create "v$name" "/tmp/Resonance-v$name-android.apk" --title "Resonance $name" --generate-notes
+  tv_wgt=""
+  # The Samsung TV package goes out unsigned: Samsung signatures only work on the signer's own TVs.
+  tizen="$(cd .. && pwd)/tv/tizen"
+  if command -v node >/dev/null && command -v zip >/dev/null && (cd "$tizen" && bash build.sh >/dev/null 2>&1); then
+    mv "$tizen/Resonance.wgt" "/tmp/Resonance-v$name-samsung-tizen-unsigned.wgt"
+    tv_wgt="/tmp/Resonance-v$name-samsung-tizen-unsigned.wgt"
+  else
+    echo "WARNING: Samsung TV package not built" >&2
+  fi
+  "$GH" release create "v$name" "/tmp/Resonance-v$name-android.apk" $tv_wgt --title "Resonance $name" --generate-notes
   echo "GitHub release v$name created (Linux/Windows builds follow via GitHub Actions)"
 else
   echo "WARNING: gh not logged in – no GitHub release created (run: gh auth login)" >&2
