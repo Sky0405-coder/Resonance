@@ -3398,12 +3398,6 @@ abstract class AppLocalizations {
   /// **'Visualizer-Stil'**
   String get settingsVisualizerStyle;
 
-  /// No description provided for @settingsVisualizerPeaks.
-  ///
-  /// In de, this message translates to:
-  /// **'Punkte bei Retro und Matrix'**
-  String get settingsVisualizerPeaks;
-
   /// No description provided for @settingsVisualizerReflection.
   ///
   /// In de, this message translates to:

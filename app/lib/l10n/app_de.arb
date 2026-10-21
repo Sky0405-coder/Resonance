@@ -1214,7 +1214,6 @@
   "settingsVisualizer": "Visualizer",
   "settingsVisualizerHint": "Zeigt beim Abspielen animierte Frequenzbalken im Player.",
   "settingsVisualizerStyle": "Visualizer-Stil",
-  "settingsVisualizerPeaks": "Punkte bei Retro und Matrix",
   "settingsVisualizerReflection": "Spiegelung",
   "settingsVisualizerReflectionHint": "Cover und Visualizer spiegeln",
   "visualizerPeaksOn": "Punkte an",

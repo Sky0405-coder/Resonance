@@ -1913,9 +1913,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsVisualizerStyle => 'Visualizer-Stil';
 
   @override
-  String get settingsVisualizerPeaks => 'Punkte bei Retro und Matrix';
-
-  @override
   String get settingsVisualizerReflection => 'Spiegelung';
 
   @override

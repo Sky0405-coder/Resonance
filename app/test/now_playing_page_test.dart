@@ -126,6 +126,7 @@ void main() {
 
   Future<ProviderContainer> mount(
     WidgetTester tester, {
+    Size size = const Size(450, 800),
     bool coverflow = false,
     bool visualizer = true,
     bool reflection = true,
@@ -134,7 +135,12 @@ void main() {
     PlayerView view = const PlayerView(queue: _tracks, index: 1),
     Color? color = Colors.orange,
     Spectrum? spectrum,
+    Lyrics? lyrics,
   }) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = size;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
     SharedPreferences.setMockInitialValues({
       'coverflow': coverflow,
       'visualizer_theme': theme,
@@ -153,7 +159,7 @@ void main() {
         ),
         spectrumProvider.overrideWith((ref, id) async => spectrum),
         lyricsProvider.overrideWith(
-          (ref, id) async => const Lyrics(synced: false, instrumental: false, source: null, lines: []),
+          (ref, id) async => lyrics ?? const Lyrics(synced: false, instrumental: false, source: null, lines: []),
         ),
         positionProvider.overrideWith((ref) => const Stream.empty()),
         durationProvider.overrideWith((ref) => const Stream.empty()),
@@ -180,6 +186,23 @@ void main() {
     return container;
   }
 
+  Finder coverflowArea() => find.byKey(const ValueKey('coverflow'));
+
+  AnimationController coverflowPosition(WidgetTester tester) {
+    final builder = tester.widget<AnimatedBuilder>(
+      find.descendant(of: coverflowArea(), matching: find.byType(AnimatedBuilder)).first,
+    );
+    return builder.animation as AnimationController;
+  }
+
+  Finder flowArtwork(int index) =>
+      find.descendant(of: find.byKey(ValueKey('coverflow-cover-$index')), matching: find.byType(CoverImage)).last;
+
+  Rect paintedBounds(WidgetTester tester, Finder finder) {
+    final box = tester.renderObject<RenderBox>(finder);
+    return MatrixUtils.transformRect(box.getTransformTo(null), Offset.zero & box.size);
+  }
+
   LinearGradient background(WidgetTester tester) {
     final box = tester.widget<DecoratedBox>(
       find.descendant(of: find.byType(TweenAnimationBuilder<Color?>), matching: find.byType(DecoratedBox)).first,
@@ -190,11 +213,7 @@ void main() {
   for (final size in [const Size(360, 640), const Size(1280, 800)]) {
     for (final coverflow in [false, true]) {
       testWidgets('covers and reflections fit $size with coverflow $coverflow', (tester) async {
-        tester.view.devicePixelRatio = 1;
-        tester.view.physicalSize = size;
-        addTearDown(tester.view.resetDevicePixelRatio);
-        addTearDown(tester.view.resetPhysicalSize);
-        await mount(tester, coverflow: coverflow, visualizer: size.width < 900);
+        await mount(tester, size: size, coverflow: coverflow, visualizer: size.width < 900);
         expect(find.byType(CoverReflection), findsWidgets);
         for (final element in find.byType(CoverReflection).evaluate()) {
           final finder = find.byWidget(element.widget);
@@ -209,12 +228,47 @@ void main() {
     }
   }
 
+  for (final size in [const Size(714, 321), const Size(900, 400)]) {
+    for (final flow in [false, true]) {
+      testWidgets('landscape track playback fits $size with coverflow $flow', (tester) async {
+        final container = await mount(
+          tester,
+          size: size,
+          coverflow: flow,
+          lyrics: const Lyrics(
+            synced: false,
+            instrumental: false,
+            source: null,
+            lines: [LyricLine(timeMs: null, text: 'Landscape lyrics')],
+          ),
+        );
+        final cover = tester.getRect(find.byType(CoverImage));
+        final header = tester.getRect(find.ancestor(of: find.text('Second album'), matching: find.byType(Row)).first);
+        final title = tester.getRect(find.text('Second song'));
+        expect(cover.width, cover.height);
+        expect(cover.width, greaterThanOrEqualTo(0.8 * (size.height - header.height)));
+        expect(cover.width, lessThanOrEqualTo(0.45 * (size.width - 48)));
+        expect(cover.top, closeTo(header.bottom + 12, 0.001));
+        expect(cover.bottom, lessThanOrEqualTo(size.height - 16));
+        expect(title.left, greaterThanOrEqualTo(cover.right + 24));
+        expect(find.byType(CoverReflection), findsNothing);
+        expect(coverflowArea(), findsNothing);
+        expect(tester.widget<SpectrumVisualizer>(find.byType(SpectrumVisualizer)).reflection, 0);
+        expect(background(tester).stops, [0.0, 0.85]);
+        await tester.tap(find.byType(CoverImage));
+        await tester.pump();
+        expect(container.read(visualizerPeaksProvider), isFalse);
+        expect(container.read(prefsProvider).getBool('visualizer_peaks'), isFalse);
+        await tester.timedDrag(find.byType(ListView), const Offset(0, -250), const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.text('Landscape lyrics').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('the cover fills a 450 by 1000 phone and has sixteen-pixel vertical margins', (tester) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(450, 1000);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetPhysicalSize);
-    await mount(tester);
+    await mount(tester, size: const Size(450, 1000));
     final cover = find.descendant(of: find.byType(Material), matching: find.byType(CoverImage)).last;
     final rect = tester.getRect(cover);
     final header = tester.getRect(find.byIcon(Icons.keyboard_arrow_down));
@@ -229,11 +283,7 @@ void main() {
 
   for (final coverflow in [false, true]) {
     testWidgets('disabling reflection gives the cover its space back with coverflow $coverflow', (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(360, 640);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      addTearDown(tester.view.resetPhysicalSize);
-      final container = await mount(tester, coverflow: coverflow);
+      final container = await mount(tester, size: const Size(360, 640), coverflow: coverflow);
       double coverSide() => tester.getSize(find.byType(SpectrumVisualizer)).width + 24;
       final reflectedSide = coverSide();
       container.read(visualizerReflectionProvider.notifier).set(false);
@@ -432,12 +482,16 @@ void main() {
   });
 
   testWidgets('only the centered coverflow item has visualizers and responds to peak-dot taps', (tester) async {
-    final container = await mount(tester, coverflow: true);
+    final container = await mount(tester, size: const Size(360, 640), coverflow: true);
     final visualizers = tester.widgetList<SpectrumVisualizer>(find.byType(SpectrumVisualizer));
     expect(visualizers, hasLength(1));
     expect(visualizers.every((visualizer) => visualizer.trackId == 'two'), isTrue);
     expect(find.byType(CoverReflection), findsAtLeastNWidgets(2));
-    await tester.tapAt(tester.getCenter(find.byType(PageView)));
+    final center = paintedBounds(tester, flowArtwork(1));
+    await tester.tapAt(Offset(center.left - 8, center.center.dy));
+    await tester.pump();
+    expect(container.read(visualizerPeaksProvider), isTrue);
+    await tester.tap(flowArtwork(1));
     await tester.pump();
     expect(container.read(visualizerPeaksProvider), isFalse);
     expect(find.text('Peak dots off'), findsOneWidget);
@@ -448,21 +502,20 @@ void main() {
   ) async {
     final container = await mount(tester, coverflow: true, visualizer: false);
     final player = container.read(playerProvider.notifier) as _Player;
-    final pages = find.byType(PageView);
-    final controller = tester.widget<PageView>(pages).controller!;
-    expect(controller.viewportFraction, 0.86);
+    final pages = coverflowArea();
+    final controller = coverflowPosition(tester);
     await tester.pumpAndSettle();
-    expect(controller.page, 1);
+    expect(controller.value, 1);
     await tester.drag(pages, const Offset(-400, 0));
     await tester.pumpAndSettle();
-    expect(controller.page, 2);
+    expect(controller.value, 2);
     expect(player.jumps, [2]);
     player.update(const PlayerView(queue: _tracks, index: 0));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
-    expect(controller.page, greaterThan(0));
+    expect(controller.value, greaterThan(0));
     await tester.pumpAndSettle();
-    expect(controller.page, 0);
+    expect(controller.value, 0);
     expect(player.jumps, [2]);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -471,59 +524,142 @@ void main() {
   testWidgets('coverflow centers index one and animates external index two without a player jump', (tester) async {
     final container = await mount(tester, coverflow: true, visualizer: false);
     final player = container.read(playerProvider.notifier) as _Player;
-    final controller = tester.widget<PageView>(find.byType(PageView)).controller!;
+    final controller = coverflowPosition(tester);
     await tester.pumpAndSettle();
-    expect(controller.page, 1);
+    expect(controller.value, 1);
     expect(player.jumps, isEmpty);
     player.update(const PlayerView(queue: _tracks, index: 2));
     await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
-    expect(controller.page, greaterThan(1));
-    expect(controller.page, lessThan(2));
+    expect(controller.value, greaterThan(1));
+    expect(controller.value, lessThan(2));
     await tester.pumpAndSettle();
-    expect(controller.page, 2);
+    expect(controller.value, 2);
     expect(player.jumps, isEmpty);
   });
 
   testWidgets('coverflow jumps to the current index when queue length or the current track changes', (tester) async {
     final container = await mount(tester, coverflow: true, visualizer: false);
     final player = container.read(playerProvider.notifier) as _Player;
-    final controller = tester.widget<PageView>(find.byType(PageView)).controller!;
+    final controller = coverflowPosition(tester);
     for (final queue in [
       [_tracks[2], _tracks[0], _tracks[1]],
       [_tracks[0], _tracks[1]],
     ]) {
-      controller.jumpToPage(0);
+      controller.value = 0;
       player.update(PlayerView(queue: queue, index: 1));
       await tester.pump();
-      expect(controller.page, 1);
+      expect(controller.value, 1);
       await tester.pumpAndSettle();
-      expect(controller.page, 1);
+      expect(controller.value, 1);
       expect(player.jumps, isEmpty);
     }
   });
 
   testWidgets('coverflow keeps the visualizer on a rounded page and shows both neighbors', (tester) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(450, 1000);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetPhysicalSize);
-    await mount(tester, coverflow: true);
-    final controller = tester.widget<PageView>(find.byType(PageView)).controller!;
-    controller.jumpTo(controller.position.pixels + 0.01);
+    await mount(tester, size: const Size(450, 1000), coverflow: true);
+    final controller = coverflowPosition(tester);
+    controller.value += 0.0001;
     await tester.pump();
     final visualizer = tester.widget<SpectrumVisualizer>(find.byType(SpectrumVisualizer));
     expect(visualizer.trackId, 'two');
-    final viewport = tester.getRect(find.byType(PageView));
+    final viewport = tester.getRect(coverflowArea());
     for (final id in ['one', 'three']) {
       final cover = find.byWidgetPredicate((widget) => widget is CoverImage && widget.albumId == id).last;
       final rect = tester.getRect(cover);
       expect(rect.overlaps(viewport), isTrue);
-      expect(rect.width, greaterThan(250));
+      expect(tester.getSize(cover).width, greaterThanOrEqualTo(400));
     }
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('coverflow preserves the full cover size and exposes a quarter-side of each neighbor', (tester) async {
+    final container = await mount(tester, size: const Size(450, 1000));
+    final singleSide = tester.getSize(find.byType(SpectrumVisualizer)).width + 24;
+    container.read(coverflowProvider.notifier).set(true);
+    await tester.pump();
+    final center = paintedBounds(tester, flowArtwork(1));
+    final previous = paintedBounds(tester, flowArtwork(0));
+    final next = paintedBounds(tester, flowArtwork(2));
+    expect(center.width, closeTo(singleSide, 0.001));
+    expect(center.left - previous.left, greaterThanOrEqualTo(0.25 * singleSide));
+    expect(next.right - center.right, greaterThanOrEqualTo(0.25 * singleSide));
+    expect(find.byType(CoverReflection), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('coverflow tracks a continuous drag and selects only after its 300 ms snap', (tester) async {
+    final container = await mount(tester, coverflow: true);
+    final player = container.read(playerProvider.notifier) as _Player;
+    final controller = coverflowPosition(tester);
+    final side = tester.getSize(flowArtwork(1)).width;
+    final gesture = await tester.startGesture(tester.getCenter(coverflowArea()));
+    await gesture.moveBy(const Offset(-24, 0));
+    await tester.pump();
+    final start = controller.value;
+    await gesture.moveBy(Offset(-0.42 * side * 0.6, 0));
+    await tester.pump();
+    expect(controller.value, closeTo(start + 0.6, 0.001));
+    expect(tester.widget<SpectrumVisualizer>(find.byType(SpectrumVisualizer)).trackId, 'three');
+    expect(player.jumps, isEmpty);
+    await tester.pump(const Duration(milliseconds: 200));
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(controller.value, greaterThan(1.6));
+    expect(controller.value, lessThan(2));
+    expect(player.jumps, isEmpty);
+    await tester.pump(const Duration(milliseconds: 151));
+    expect(controller.value, 2);
+    expect(player.jumps, [2]);
+  });
+
+  testWidgets('neighbor pivots stay continuous at a one-item offset', (tester) async {
+    await mount(tester, coverflow: true, visualizer: false);
+    final controller = coverflowPosition(tester);
+    controller.value = 0.9999;
+    await tester.pump();
+    final before = paintedBounds(tester, flowArtwork(2));
+    controller.value = 1.0001;
+    await tester.pump();
+    final after = paintedBounds(tester, flowArtwork(2));
+    final tolerance = tester.getSize(flowArtwork(1)).width * 0.001;
+    expect(after.left, closeTo(before.left, tolerance));
+    expect(after.right, closeTo(before.right, tolerance));
+    expect(after.top, closeTo(before.top, tolerance));
+    expect(after.bottom, closeTo(before.bottom, tolerance));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an external index change cancels a pending swipe selection', (tester) async {
+    final container = await mount(tester, coverflow: true, visualizer: false);
+    final player = container.read(playerProvider.notifier) as _Player;
+    final controller = coverflowPosition(tester);
+    await tester.fling(coverflowArea(), const Offset(-70, 0), 1000);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(controller.value, greaterThan(1));
+    expect(player.jumps, isEmpty);
+    player.update(const PlayerView(queue: _tracks, index: 0));
+    await tester.pumpAndSettle();
+    expect(controller.value, 0);
+    expect(player.jumps, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final direction in [-1.0, 1.0]) {
+    testWidgets('a short coverflow fling in direction $direction moves one item', (tester) async {
+      final container = await mount(tester, coverflow: true, visualizer: false);
+      final player = container.read(playerProvider.notifier) as _Player;
+      final controller = coverflowPosition(tester);
+      await tester.fling(coverflowArea(), Offset(70 * direction, 0), 1000);
+      await tester.pumpAndSettle();
+      final target = direction < 0 ? 2 : 0;
+      expect(controller.value, target);
+      expect(player.jumps, [target]);
+    });
+  }
 
   testWidgets('station identity appears above song artwork only and has no reflection', (tester) async {
     const station = Station(

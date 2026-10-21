@@ -1938,9 +1938,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsVisualizerStyle => 'Visualizer style';
 
   @override
-  String get settingsVisualizerPeaks => 'Peak dots for Retro and Matrix';
-
-  @override
   String get settingsVisualizerReflection => 'Reflection';
 
   @override

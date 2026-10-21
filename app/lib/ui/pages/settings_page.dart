@@ -258,11 +258,6 @@ class SettingsPage extends ConsumerWidget {
               ),
             ),
           SwitchListTile(
-            title: Text(context.l10n.settingsVisualizerPeaks),
-            value: ref.watch(visualizerPeaksProvider),
-            onChanged: ref.read(visualizerPeaksProvider.notifier).set,
-          ),
-          SwitchListTile(
             title: Text(context.l10n.settingsVisualizerReflection),
             subtitle: Text(context.l10n.settingsVisualizerReflectionHint),
             value: ref.watch(visualizerReflectionProvider),

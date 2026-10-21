@@ -66,117 +66,84 @@ class NowPlayingPage extends ConsumerWidget {
               : track == null
               ? Center(child: Text(context.l10n.playerNothingPlaying))
               : LayoutBuilder(
-                  builder: (context, constraints) => ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      SizedBox(
-                        height: constraints.maxHeight,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-                                    onPressed: () => context.pop(),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      track.album.name,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.w700),
-                                    ),
-                                  ),
-                                  const JamButton(),
-                                  IconButton(
-                                    icon: const Icon(Icons.more_vert),
-                                    onPressed: () => showTrackMenu(context, ref, track),
-                                  ),
-                                ],
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  child: ref.watch(coverflowProvider) ? const _Coverflow() : _TrackCover(track: track),
-                                ),
-                              ),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 600),
-                                child: Column(
+                  builder: (context, constraints) {
+                    final landscape =
+                        (!isWide(context) || MediaQuery.sizeOf(context).width == 900) &&
+                        constraints.maxWidth > constraints.maxHeight;
+                    return ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        SizedBox(
+                          height: constraints.maxHeight,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Column(
+                              children: [
+                                Row(
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Flexible(
-                                                    child: TrackTitle(
-                                                      track: track,
-                                                      smart: ref.watch(
-                                                        playerProvider.select((p) => p.smartIds.contains(track.id)),
-                                                      ),
-                                                      style: Theme.of(context).textTheme.headlineSmall
-                                                          ?.copyWith(fontWeight: FontWeight.w800),
-                                                    ),
-                                                  ),
-                                                  const AutomixChip(),
-                                                ],
-                                              ),
-                                              InkWell(
-                                                onTap: () {
-                                                  context.pop();
-                                                  context.push('/artist/${track.artist.id}');
-                                                },
-                                                child: Text(
-                                                  track.artistCredit,
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: const TextStyle(color: Palette.textMuted, fontSize: 16),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        LikeButton(track: track, size: 28),
-                                      ],
+                                    IconButton(
+                                      icon: const Icon(Icons.keyboard_arrow_down, size: 32),
+                                      onPressed: () => context.pop(),
                                     ),
-                                    const SizedBox(height: 12),
-                                    const SeekBar(),
-                                    const SizedBox(height: 8),
-                                    const TransportControls(big: true),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        const SleepTimerButton(),
-                                        IconButton(
-                                          tooltip: context.l10n.lyricsTitle,
-                                          icon: const Icon(Icons.lyrics_outlined),
-                                          onPressed: () => context.push('/lyrics'),
-                                        ),
-                                        IconButton(
-                                          tooltip: context.l10n.playerQueue,
-                                          icon: const Icon(Icons.queue_music),
-                                          onPressed: () => context.push('/queue'),
-                                        ),
-                                      ],
+                                    Expanded(
+                                      child: Text(
+                                        track.album.name,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                    const JamButton(),
+                                    IconButton(
+                                      icon: const Icon(Icons.more_vert),
+                                      onPressed: () => showTrackMenu(context, ref, track),
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
+                                if (landscape)
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 12, bottom: 16),
+                                      child: LayoutBuilder(
+                                        builder: (context, available) {
+                                          final side = math.min(available.maxHeight, available.maxWidth * 0.45);
+                                          return Row(
+                                            children: [
+                                              SizedBox.square(
+                                                dimension: side,
+                                                child: _TrackCover(track: track, allowReflection: false),
+                                              ),
+                                              const SizedBox(width: 24),
+                                              Expanded(
+                                                child: Center(child: _TrackControls(track: track)),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  )
+                                else ...[
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      child: ref.watch(coverflowProvider)
+                                          ? const _Coverflow()
+                                          : _TrackCover(track: track),
+                                    ),
+                                  ),
+                                  _TrackControls(track: track),
+                                  const SizedBox(height: 16),
+                                ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      _LyricsCard(trackId: track.id),
-                    ],
-                  ),
+                        _LyricsCard(trackId: track.id),
+                      ],
+                    );
+                  },
                 ),
         ),
       ),
@@ -184,20 +151,104 @@ class NowPlayingPage extends ConsumerWidget {
   }
 }
 
+class _TrackControls extends ConsumerWidget {
+  const _TrackControls({required this.track});
+  final Track track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 600),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: TrackTitle(
+                          track: track,
+                          smart: ref.watch(playerProvider.select((p) => p.smartIds.contains(track.id))),
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      const AutomixChip(),
+                    ],
+                  ),
+                  InkWell(
+                    onTap: () {
+                      context.pop();
+                      context.push('/artist/${track.artist.id}');
+                    },
+                    child: Text(
+                      track.artistCredit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Palette.textMuted, fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            LikeButton(track: track, size: 28),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const SeekBar(),
+        const SizedBox(height: 8),
+        const TransportControls(big: true),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            const SleepTimerButton(),
+            IconButton(
+              tooltip: context.l10n.lyricsTitle,
+              icon: const Icon(Icons.lyrics_outlined),
+              onPressed: () => context.push('/lyrics'),
+            ),
+            IconButton(
+              tooltip: context.l10n.playerQueue,
+              icon: const Icon(Icons.queue_music),
+              onPressed: () => context.push('/queue'),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
 class _TrackCover extends ConsumerWidget {
-  const _TrackCover({required this.track, this.centered = true});
+  const _TrackCover({required this.track, this.centered = true, this.allowReflection = true, this.dim = 0});
   final Track track;
   final bool centered;
+  final bool allowReflection;
+  final double dim;
+
+  static double sideFor(BoxConstraints constraints, bool reflect) {
+    final height = reflect ? (constraints.maxHeight - 3) / 1.22 : constraints.maxHeight;
+    return math.max(0.0, math.min(math.min(constraints.maxWidth, 480.0), height));
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(visualizerThemeProvider);
     final enabled = ref.watch(visualizerEnabledProvider) && centered;
-    final reflect = ref.watch(visualizerReflectionProvider);
+    final reflect = ref.watch(visualizerReflectionProvider) && allowReflection;
+    Widget artwork() => Stack(
+      fit: StackFit.expand,
+      children: [
+        CoverImage(albumId: track.album.id, size: 600, radius: 8),
+        if (dim > 0) ColoredBox(color: Colors.black.withValues(alpha: dim)),
+      ],
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableHeight = reflect ? (constraints.maxHeight - 3) / 1.22 : constraints.maxHeight;
-        final size = math.max(0.0, math.min(math.min(constraints.maxWidth, 480.0), availableHeight));
+        final size = sideFor(constraints, reflect);
         final reflection = reflect ? size * 0.22 : 0.0;
         return Center(
           child: SizedBox(
@@ -211,7 +262,7 @@ class _TrackCover extends ConsumerWidget {
                     top: size + 3,
                     left: 0,
                     right: 0,
-                    child: CoverReflection(child: CoverImage(albumId: track.album.id, size: 600, radius: 8)),
+                    child: CoverReflection(child: artwork()),
                   ),
                 Positioned(
                   top: 0,
@@ -237,7 +288,7 @@ class _TrackCover extends ConsumerWidget {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              CoverImage(albumId: track.album.id, size: 600, radius: 8),
+                              artwork(),
                               if (enabled)
                                 Positioned(
                                   top: size * 0.6,
@@ -285,93 +336,141 @@ class _Coverflow extends ConsumerStatefulWidget {
   ConsumerState<_Coverflow> createState() => _CoverflowState();
 }
 
-class _CoverflowState extends ConsumerState<_Coverflow> {
-  late final PageController _controller;
+class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProviderStateMixin {
+  late final AnimationController _position;
   List<String> _queue = const [];
   int? _index;
-  int _syncGeneration = 0;
-  bool _programmatic = false;
-  bool _swiping = false;
+  int _generation = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = PageController(initialPage: ref.read(playerProvider).index ?? 0, viewportFraction: 0.86);
+    _position = AnimationController.unbounded(vsync: this, value: (ref.read(playerProvider).index ?? 0).toDouble());
   }
 
-  void _syncIndex(int index, {bool jump = false}) {
-    final generation = ++_syncGeneration;
-    _programmatic = true;
-    _swiping = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || !_controller.hasClients || generation != _syncGeneration) return;
-      if (jump) {
-        _controller.jumpToPage(index);
-      } else if (_controller.page != index.toDouble()) {
-        await _controller.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-      }
-      if (mounted && generation == _syncGeneration) _programmatic = false;
-    });
+  Future<void> _snapTo(int index, {bool select = false}) async {
+    final generation = ++_generation;
+    try {
+      await _position
+          .animateTo(index.toDouble(), duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic)
+          .orCancel;
+    } on TickerCanceled {
+      return;
+    }
+    if (!mounted || generation != _generation || !select) return;
+    final player = ref.read(playerProvider);
+    if (index != player.index && index >= 0 && index < player.queue.length) {
+      ref.read(playerProvider.notifier).jumpTo(index);
+    }
   }
 
-  bool _onScroll(ScrollNotification notification) {
-    if (notification.depth != 0) return false;
-    if (notification is ScrollStartNotification && notification.dragDetails != null) {
-      _syncGeneration++;
-      _programmatic = false;
-      _swiping = true;
+  void _release(double velocity) {
+    final last = ref.read(playerProvider).queue.length - 1;
+    if (last < 0) return;
+    var target = _position.value.round();
+    if (velocity.abs() > 600) {
+      target = velocity < 0 ? (_position.value + 1).floor() : (_position.value - 1).ceil();
     }
-    if (notification is ScrollEndNotification && _swiping && !_programmatic) {
-      _swiping = false;
-      final index = _controller.page!.round();
-      final player = ref.read(playerProvider);
-      if (index != player.index && index >= 0 && index < player.queue.length) {
-        ref.read(playerProvider.notifier).jumpTo(index);
-      }
-    }
-    return false;
+    _snapTo(target.clamp(0, last), select: true);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _position.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final player = ref.watch(playerProvider.select((p) => (queue: p.queue, index: p.index)));
+    final reflect = ref.watch(visualizerReflectionProvider);
     final index = player.index;
     final validIndex = index != null && index >= 0 && index < player.queue.length;
     final queueChanged =
         _queue.length != player.queue.length || (validIndex && _queue[index] != player.queue[index].id);
-    if (validIndex && (queueChanged || index != _index)) _syncIndex(index, jump: queueChanged);
+    if (validIndex && (queueChanged || index != _index)) {
+      if (queueChanged) {
+        _generation++;
+        _position.value = index.toDouble();
+      } else {
+        _snapTo(index);
+      }
+    }
     _queue = [for (final track in player.queue) track.id];
     _index = index;
-    return NotificationListener<ScrollNotification>(
-      onNotification: _onScroll,
-      child: PageView.builder(
-        controller: _controller,
-        itemCount: player.queue.length,
-        itemBuilder: (context, index) => AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final page = _controller.hasClients && _controller.position.hasContentDimensions
-                ? _controller.page ?? _controller.initialPage.toDouble()
-                : _controller.initialPage.toDouble();
-            final delta = (index - page).clamp(-1.0, 1.0);
-            final scale = 1 - 0.08 * delta.abs();
-            return Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.0012)
-                ..rotateY(-delta * 0.55),
-              child: Transform.scale(
-                scale: scale,
-                child: _TrackCover(track: player.queue[index], centered: index == page.round()),
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = _TrackCover.sideFor(constraints, reflect);
+        final height = side + (reflect ? 3 + side * 0.22 : 0);
+        return GestureDetector(
+          key: const ValueKey('coverflow'),
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: (_) {
+            _generation++;
+            _position.stop();
+          },
+          onHorizontalDragUpdate: (details) {
+            if (side <= 0 || player.queue.isEmpty) return;
+            _position.value = (_position.value - details.delta.dx / (0.42 * side)).clamp(
+              0.0,
+              player.queue.length - 1.0,
             );
           },
+          onHorizontalDragEnd: (details) => _release(details.velocity.pixelsPerSecond.dx),
+          onHorizontalDragCancel: () => _release(0),
+          child: AnimatedBuilder(
+            animation: _position,
+            builder: (context, child) {
+              final position = _position.value;
+              final centered = position.round();
+              final first = math.max(0, (position - 2).ceil());
+              final last = math.min(player.queue.length - 1, (position + 2).floor());
+              final visible = [for (var i = first; i <= last; i++) i]
+                ..sort((a, b) {
+                  final distance = (b - position).abs().compareTo((a - position).abs());
+                  if (distance != 0 || a == b) return distance;
+                  if (a == centered) return 1;
+                  if (b == centered) return -1;
+                  return a.compareTo(b);
+                });
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  for (final i in visible)
+                    Positioned(
+                      key: ValueKey('coverflow-cover-$i'),
+                      left: (constraints.maxWidth - side) / 2,
+                      top: (constraints.maxHeight - height) / 2,
+                      width: side,
+                      height: height,
+                      child: _transformedCover(player.queue[i], i - position, i == centered, side, height),
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _transformedCover(Track track, double delta, bool centered, double side, double height) {
+    final distance = delta.abs();
+    final tilt = delta.clamp(-1.0, 1.0);
+    final scale = 1 - 0.10 * math.min(distance, 1.0);
+    final x = distance < 1 ? delta * 0.42 * side : delta.sign * side * (0.42 + 0.16 * (distance - 1));
+    return Transform.translate(
+      offset: Offset(x, 0),
+      child: Transform(
+        // Move the pivot continuously from the center to the neighbor's outer edge.
+        alignment: Alignment(tilt, height > 0 ? -(height - side) / height : 0),
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.0015)
+          ..rotateY(-tilt * 1.05)
+          ..scaleByDouble(scale, scale, scale, 1),
+        child: IgnorePointer(
+          ignoring: !centered,
+          child: _TrackCover(track: track, centered: centered, dim: 0.35 * math.min(distance, 1.0)),
         ),
       ),
     );
