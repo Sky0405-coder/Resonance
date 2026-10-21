@@ -28,6 +28,31 @@ Installation auf dem Gerät im Device Manager erlauben, falls diese Option angeb
 Profilnamen merken. Ein allgemeines Tizen-Zertifikat ersetzt kein Samsung-TV-Zertifikat.
 Private Schlüssel und Passwörter bleiben im Certificate Manager und gehören nicht ins Repository.
 
+### Alternative ohne Certificate Manager
+
+Wenn der Certificate Manager abbricht (z. B. bei VS Code als Flatpak: `secret-tool … resulted in an error`),
+erzeugt `tools/samsung-cert.cjs` dieselben Zertifikate. Die DUID liefert
+`sdb -s <tv-ip>:26101 shell 0 getduid`.
+
+```sh
+FORGE=~/.var/app/com.visualstudio.code/data/vscode/extensions/tizensdk.tizentv-*/node_modules/node-forge \
+  node tools/samsung-cert.cjs <DUID> ~/.config/resonance/tizen
+```
+
+Es öffnet den Samsung-Login im Browser und legt `author.p12`, `distributor.p12` und eine Passwortdatei im
+Zielordner ab. Danach das Signierprofil für `tz` anlegen (`tz` liegt unter
+`~/.tizen-extension-platform/server/sdktools/data/tools/tizen-core/`):
+
+```sh
+D=~/.config/resonance/tizen; CA=~/.tizen-extension-platform/server/dist/assets/certificate-manager/samsung-tv-ca
+tz security-profiles add -n resonance -x $D/profiles.xml -a $D/author.p12 -p "$(cat $D/password)" \
+  -c $CA/vd_tizen_dev_author_ca.cer -d $D/distributor.p12 -P "$(cat $D/password)" -C $CA/vd_tizen_dev_public2.crt
+TIZEN_CLI=…/tz TIZEN_PROFILE=resonance TIZEN_PROFILES_PATH=$D/profiles.xml ./build.sh
+```
+
+Das fertige, unsignierte `Resonance-Tizen.wgt` aus den GitHub-Releases lässt sich ebenso signieren:
+`tz pack -t wgt -s resonance -p $D/profiles.xml -b Resonance-Tizen.wgt -o Resonance-signiert.wgt`.
+
 ## Paket erzeugen und installieren
 
 Auf diesem Rechner wurden folgende Werkzeuge gefunden:
