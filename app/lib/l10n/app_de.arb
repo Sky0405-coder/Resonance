@@ -129,6 +129,9 @@
   "settingsDisplayName": "Anzeigename",
   "settingsChangePassword": "Passwort ändern",
   "settingsAppearance": "Darstellung",
+  "settingsMediaTabs": "Medien-Tabs",
+  "settingsEbooks": "E-Books",
+  "settingsShowInMenu": "Im Menü anzeigen",
   "settingsAccentColor": "Akzentfarbe",
   "settingsCustomColor": "Eigene Farbe",
   "commonCancel": "Abbrechen",
@@ -1498,8 +1501,6 @@
       }
     }
   },
-  "booksShowTab": "Ebooks anzeigen",
-  "booksShowTabHint": "Ebooks im Bücher-Tab",
   "adminBooksEnable": "Ebooks aktivieren",
   "adminBooksEnableHint": "Bücher-Tab, OPDS-Katalog (/opds) und KOReader-Sync (/kosync). Anmeldung dort mit dem App-Passwort.",
   "adminBooksLanguage": "Standardsprache für Anfragen",

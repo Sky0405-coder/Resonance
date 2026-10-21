@@ -276,6 +276,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsAppearance => 'Darstellung';
 
   @override
+  String get settingsMediaTabs => 'Medien-Tabs';
+
+  @override
+  String get settingsEbooks => 'E-Books';
+
+  @override
+  String get settingsShowInMenu => 'Im Menü anzeigen';
+
+  @override
   String get settingsAccentColor => 'Akzentfarbe';
 
   @override
@@ -2429,12 +2438,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String booksImportFailed(String name, String error) {
     return '$name: $error';
   }
-
-  @override
-  String get booksShowTab => 'Ebooks anzeigen';
-
-  @override
-  String get booksShowTabHint => 'Ebooks im Bücher-Tab';
 
   @override
   String get adminBooksEnable => 'Ebooks aktivieren';

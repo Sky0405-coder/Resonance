@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'media_sections.dart';
 import 'session.dart';
 
 // Ebook library, catalog and requests (/api/books).
-
-const _kHideBooks = 'books.hide_tab';
 
 class BooksStatus {
   const BooksStatus({required this.enabled, required this.requestsEnabled, required this.defaultLanguage});
@@ -175,21 +174,10 @@ final booksStatusProvider = FutureProvider<BooksStatus>(
   (ref) async => BooksStatus.fromJson(Map<String, dynamic>.from(await ref.watch(apiProvider).booksGet('/status'))),
 );
 
-/// Users can hide the books tab; it only shows when the module is enabled anyway.
-final booksTabHiddenProvider = NotifierProvider<BooksTabHidden, bool>(BooksTabHidden.new);
-
-class BooksTabHidden extends Notifier<bool> {
-  @override
-  bool build() => ref.read(prefsProvider).getBool(_kHideBooks) ?? false;
-
-  void set(bool hidden) {
-    ref.read(prefsProvider).setBool(_kHideBooks, hidden);
-    state = hidden;
-  }
-}
-
 final ebooksVisibleProvider = Provider<bool>(
-  (ref) => (ref.watch(booksStatusProvider).value?.enabled ?? false) && !ref.watch(booksTabHiddenProvider),
+  (ref) =>
+      (ref.watch(booksStatusProvider).value?.enabled ?? false) &&
+      !ref.watch(hiddenMediaSectionsProvider).contains(MediaSection.ebooks),
 );
 
 final bookLibraryProvider = FutureProvider.autoDispose.family<List<Book>, LibraryQuery>((ref, query) async {

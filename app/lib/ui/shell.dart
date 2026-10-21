@@ -42,7 +42,7 @@ class AppShell extends ConsumerWidget {
     });
     final offline = !kIsWeb && ref.watch(sessionProvider.select((s) => s.offline));
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
-    final audiobooks = ref.watch(absStatusProvider).value?.enabled ?? false;
+    final audiobooks = ref.watch(audiobooksVisibleProvider);
     final ebooks = ref.watch(ebooksVisibleProvider);
     final pendingApproval = isAdmin ? ref.watch(downloadSummaryProvider).value?.pendingApproval ?? 0 : 0;
     // Refresh library views whenever downloads finish.
@@ -183,7 +183,7 @@ class _Sidebar extends ConsumerWidget {
               ),
               if (ref.watch(ebooksVisibleProvider))
                 nav('/books', Icons.menu_book_outlined, Icons.menu_book, context.l10n.navBooks)
-              else if (ref.watch(absStatusProvider).value?.enabled ?? false)
+              else if (ref.watch(audiobooksVisibleProvider))
                 nav('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
               if (isAdmin)
                 nav(

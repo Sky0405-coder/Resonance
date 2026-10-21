@@ -280,6 +280,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAppearance => 'Appearance';
 
   @override
+  String get settingsMediaTabs => 'Media tabs';
+
+  @override
+  String get settingsEbooks => 'Ebooks';
+
+  @override
+  String get settingsShowInMenu => 'Show in the menu';
+
+  @override
   String get settingsAccentColor => 'Accent color';
 
   @override
@@ -2452,12 +2461,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String booksImportFailed(String name, String error) {
     return '$name: $error';
   }
-
-  @override
-  String get booksShowTab => 'Show ebooks';
-
-  @override
-  String get booksShowTabHint => 'Ebooks in the books tab';
 
   @override
   String get adminBooksEnable => 'Enable ebooks';

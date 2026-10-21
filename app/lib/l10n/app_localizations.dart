@@ -596,6 +596,24 @@ abstract class AppLocalizations {
   /// **'Darstellung'**
   String get settingsAppearance;
 
+  /// No description provided for @settingsMediaTabs.
+  ///
+  /// In de, this message translates to:
+  /// **'Medien-Tabs'**
+  String get settingsMediaTabs;
+
+  /// No description provided for @settingsEbooks.
+  ///
+  /// In de, this message translates to:
+  /// **'E-Books'**
+  String get settingsEbooks;
+
+  /// No description provided for @settingsShowInMenu.
+  ///
+  /// In de, this message translates to:
+  /// **'Im Menü anzeigen'**
+  String get settingsShowInMenu;
+
   /// No description provided for @settingsAccentColor.
   ///
   /// In de, this message translates to:
@@ -4345,18 +4363,6 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'{name}: {error}'**
   String booksImportFailed(String name, String error);
-
-  /// No description provided for @booksShowTab.
-  ///
-  /// In de, this message translates to:
-  /// **'Ebooks anzeigen'**
-  String get booksShowTab;
-
-  /// No description provided for @booksShowTabHint.
-  ///
-  /// In de, this message translates to:
-  /// **'Ebooks im Bücher-Tab'**
-  String get booksShowTabHint;
 
   /// No description provided for @adminBooksEnable.
   ///

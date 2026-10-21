@@ -9,8 +9,10 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/audiobooks.dart';
 import '../../core/books.dart';
 import '../../core/desktop.dart';
+import '../../core/media_sections.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../integrations/discord_presence.dart';
@@ -66,6 +68,8 @@ class SettingsPage extends ConsumerWidget {
     final accent = parseHexColor(user.accentColor);
     final prefs = ref.read(prefsProvider);
     final sessions = ref.watch(_sessionsProvider);
+    final ebooksEnabled = ref.watch(booksStatusProvider).value?.enabled ?? false;
+    final audiobooksEnabled = ref.watch(absStatusProvider).value?.enabled ?? false;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -154,12 +158,20 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
-          if (ref.watch(booksStatusProvider).value?.enabled ?? false)
+          if (ebooksEnabled || audiobooksEnabled) _Section(context.l10n.settingsMediaTabs),
+          if (ebooksEnabled)
             SwitchListTile(
-              title: Text(context.l10n.booksShowTab),
-              subtitle: Text(context.l10n.booksShowTabHint),
-              value: !ref.watch(booksTabHiddenProvider),
-              onChanged: (v) => ref.read(booksTabHiddenProvider.notifier).set(!v),
+              title: Text(context.l10n.settingsEbooks),
+              subtitle: Text(context.l10n.settingsShowInMenu),
+              value: ref.watch(ebooksVisibleProvider),
+              onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.ebooks, !v),
+            ),
+          if (audiobooksEnabled)
+            SwitchListTile(
+              title: Text(context.l10n.navAudiobooks),
+              subtitle: Text(context.l10n.settingsShowInMenu),
+              value: ref.watch(audiobooksVisibleProvider),
+              onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.audiobooks, !v),
             ),
           _Section(context.l10n.settingsPlayback),
           if (isDiscordDesktop)

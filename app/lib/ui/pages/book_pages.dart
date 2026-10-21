@@ -88,7 +88,7 @@ class BooksHubPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ebooks = ref.watch(ebooksVisibleProvider);
-    final audiobooks = ref.watch(absStatusProvider).value?.enabled ?? false;
+    final audiobooks = ref.watch(audiobooksVisibleProvider);
     if (!ebooks) return const AudiobooksPage();
     final title = Text(context.l10n.navBooks, style: const TextStyle(fontWeight: FontWeight.w800));
     if (!audiobooks) {

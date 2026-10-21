@@ -5,6 +5,7 @@ import '../l10n/l10n.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'media_sections.dart';
 import 'session.dart';
 
 // Audiobookshelf data as returned by its API (proxied through /api/abs/api/…).
@@ -116,6 +117,12 @@ class AbsShelf {
 
 final absStatusProvider = FutureProvider<AbsStatus>(
   (ref) async => AbsStatus.fromJson(await ref.watch(apiProvider).absStatus()),
+);
+
+final audiobooksVisibleProvider = Provider<bool>(
+  (ref) =>
+      (ref.watch(absStatusProvider).value?.enabled ?? false) &&
+      !ref.watch(hiddenMediaSectionsProvider).contains(MediaSection.audiobooks),
 );
 
 final absLibrariesProvider = FutureProvider.autoDispose<List<AbsLibrary>>((ref) async {
