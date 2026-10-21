@@ -1953,7 +1953,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsAutomixHint =>
-      'DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade.';
+      'DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade. The crossfade slider sets the minimum length of the transitions.';
 
   @override
   String get equalizerTitle => 'Equalizer';
@@ -2519,4 +2519,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get artistShowLess => 'Show less';
+
+  @override
+  String get adminDuplicatesSelectAll => 'Select all';
+
+  @override
+  String get adminDuplicatesSelectNone => 'Select none';
+
+  @override
+  String adminDuplicatesProgress(int done, int total) {
+    return 'Deleting … $done of $total';
+  }
 }

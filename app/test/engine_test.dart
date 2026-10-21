@@ -202,6 +202,19 @@ void main() {
       expect(automixPlan(points(mixOut: 0, end: 5), points()), isNull);
     });
 
+    test('the crossfade setting lengthens short blends, starting earlier by whole bars', () {
+      // 120 bpm: one bar is 2 s. The outro has 10 s; 15 s need 5 s more, rounded up to 6 s.
+      final plan = automixPlan(points(bpm: 120, mixOut: 200, end: 210), points(bpm: 120), minSeconds: 15)!;
+      expect(plan.start, const Duration(seconds: 194));
+      expect(plan.duration, const Duration(seconds: 15));
+      expect(automixPlan(points(mixOut: 100, end: 130), points(), minSeconds: 30)!.duration,
+          const Duration(seconds: 20));
+      expect(automixPlan(points(mixOut: 200, end: 210), points(), minSeconds: 5)!.duration,
+          const Duration(seconds: 10));
+      // Never before the middle of the song.
+      expect(automixPlan(points(mixOut: 20, end: 30), points(), minSeconds: 20)!.start, const Duration(seconds: 20));
+    });
+
     test('swaps the bass on a beat near the middle of the overlap', () {
       // 9.75 s overlap at 124 BPM: the middle (4.875 s) rounds to beat 10 (4.84 s).
       final plan = automixPlan(points(bpm: 124, mixOut: 200.25), points(bpm: 120, mixIn: 1.5))!;

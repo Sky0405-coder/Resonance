@@ -187,7 +187,7 @@ class PlayerController extends Notifier<PlayerView> {
     final prefs = ref.read(prefsProvider);
     normalize = prefs.getBool('normalize_volume') ?? true;
     userVolume.value = (prefs.getDouble('user_volume') ?? 1).clamp(0, 1);
-    engine.crossfadeSeconds = (prefs.getInt('crossfade_seconds') ?? 0).clamp(0, 12);
+    engine.crossfadeSeconds = (prefs.getInt('crossfade_seconds') ?? 0).clamp(0, 20);
     engine.targetVolumeForIndex = (index) => userVolume.value * _gainForTrack(state.queue[index]);
     engine.automix = prefs.getBool('automix') ?? false;
     engine.setEqualizer(ref.read(equalizerProvider)).ignore();
@@ -1078,7 +1078,7 @@ class PlayerController extends Notifier<PlayerView> {
   int get crossfadeSeconds => engine.crossfadeSeconds;
 
   void setCrossfade(int seconds) {
-    engine.crossfadeSeconds = seconds.clamp(0, 12);
+    engine.crossfadeSeconds = seconds.clamp(0, 20);
     if (engine.crossfadeSeconds == 0) engine.finishFade().ignore();
     ref.read(prefsProvider).setInt('crossfade_seconds', engine.crossfadeSeconds);
   }

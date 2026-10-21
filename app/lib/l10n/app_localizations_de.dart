@@ -1928,7 +1928,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsAutomixHint =>
-      'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet.';
+      'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet. Der Crossfade-Regler legt die Mindestlänge der Übergänge fest.';
 
   @override
   String get equalizerTitle => 'Equalizer';
@@ -2496,4 +2496,15 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get artistShowLess => 'Weniger anzeigen';
+
+  @override
+  String get adminDuplicatesSelectAll => 'Alle auswählen';
+
+  @override
+  String get adminDuplicatesSelectNone => 'Keine auswählen';
+
+  @override
+  String adminDuplicatesProgress(int done, int total) {
+    return 'Lösche … $done von $total';
+  }
 }

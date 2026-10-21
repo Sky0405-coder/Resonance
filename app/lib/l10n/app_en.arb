@@ -524,8 +524,12 @@
   "offlineNotificationRunning": "Resonance: {numFinished} of {numTotal} songs downloaded",
   "@offlineNotificationRunning": {
     "placeholders": {
-      "numFinished": {"type": "String"},
-      "numTotal": {"type": "String"}
+      "numFinished": {
+        "type": "String"
+      },
+      "numTotal": {
+        "type": "String"
+      }
     }
   },
   "offlineNotificationComplete": "Resonance: Downloads complete",
@@ -632,7 +636,7 @@
   "visualizerThemeMono": "Monochrome",
   "visualizerThemeRainbow": "Rainbow",
   "settingsAutomix": "AutoMix",
-  "settingsAutomixHint": "DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade.",
+  "settingsAutomixHint": "DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade. The crossfade slider sets the minimum length of the transitions.",
   "equalizerTitle": "Equalizer",
   "equalizerOff": "Off",
   "equalizerPresetFlat": "Flat",
@@ -868,5 +872,18 @@
   "adminFillGenres": "Fill missing genres (Last.fm)",
   "artistAbout": "About",
   "artistShowMore": "Show more",
-  "artistShowLess": "Show less"
+  "artistShowLess": "Show less",
+  "adminDuplicatesSelectAll": "Select all",
+  "adminDuplicatesSelectNone": "Select none",
+  "adminDuplicatesProgress": "Deleting … {done} of {total}",
+  "@adminDuplicatesProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

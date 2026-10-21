@@ -202,8 +202,8 @@ class SettingsPage extends ConsumerWidget {
                   Slider(
                     value: seconds.toDouble(),
                     min: 0,
-                    max: 12,
-                    divisions: 12,
+                    max: 20,
+                    divisions: 20,
                     label: seconds == 0
                         ? context.l10n.settingsCrossfadeOff
                         : context.l10n.settingsCrossfadeSeconds(seconds),

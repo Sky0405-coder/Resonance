@@ -3437,7 +3437,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAutomixHint.
   ///
   /// In de, this message translates to:
-  /// **'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet.'**
+  /// **'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet. Der Crossfade-Regler legt die Mindestlänge der Übergänge fest.'**
   String get settingsAutomixHint;
 
   /// No description provided for @equalizerTitle.
@@ -4477,6 +4477,24 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Weniger anzeigen'**
   String get artistShowLess;
+
+  /// No description provided for @adminDuplicatesSelectAll.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle auswählen'**
+  String get adminDuplicatesSelectAll;
+
+  /// No description provided for @adminDuplicatesSelectNone.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine auswählen'**
+  String get adminDuplicatesSelectNone;
+
+  /// No description provided for @adminDuplicatesProgress.
+  ///
+  /// In de, this message translates to:
+  /// **'Lösche … {done} von {total}'**
+  String adminDuplicatesProgress(int done, int total);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

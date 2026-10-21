@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +7,7 @@ import '../../../core/models.dart';
 import '../../../core/session.dart';
 import '../../../core/theme.dart';
 import '../../../l10n/l10n.dart';
+import '../../widgets/collection.dart' show kBottomInset;
 import '../../widgets/common.dart';
 import 'admin_page.dart' show formatBytes;
 
@@ -23,6 +26,9 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
   Set<String>? _selected;
   bool _merging = false;
 
+  /// Groups merged so far while deleting; sent in small batches so no request runs into the timeout.
+  int _done = 0;
+
   Future<void> _merge(List<DuplicateGroup> groups) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -36,23 +42,35 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _merging = true);
+    setState(() {
+      _merging = true;
+      _done = 0;
+    });
+    var deleted = 0;
+    var freed = 0;
     try {
-      final result = await ref.read(apiProvider).mergeDuplicates([for (final group in groups) group.tracks.first.id]);
-      if (!mounted) return;
-      showInfo(
-        context,
-        context.l10n.adminDuplicatesMerged(
-          result.deletedTracks,
-          formatBytes(result.freedBytes, locale: context.l10n.localeName),
-        ),
-      );
-      _selected = null;
-      ref.invalidate(_duplicatesProvider);
+      for (var i = 0; i < groups.length; i += 25) {
+        final batch = groups.skip(i).take(25);
+        final result = await ref.read(apiProvider).mergeDuplicates([for (final group in batch) group.tracks.first.id]);
+        deleted += result.deletedTracks;
+        freed += result.freedBytes;
+        if (!mounted) return;
+        setState(() => _done = math.min(i + 25, groups.length));
+      }
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
-      if (mounted) setState(() => _merging = false);
+      if (mounted) {
+        if (deleted > 0) {
+          showInfo(
+            context,
+            context.l10n.adminDuplicatesMerged(deleted, formatBytes(freed, locale: context.l10n.localeName)),
+          );
+        }
+        _selected = null;
+        ref.invalidate(_duplicatesProvider);
+        setState(() => _merging = false);
+      }
     }
   }
 
@@ -67,8 +85,23 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
     ];
     final count = checked.fold(0, (sum, group) => sum + group.tracks.length - 1);
 
+    final allSelected = list.isNotEmpty && checked.length == list.length;
+
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.adminDuplicates)),
+      appBar: AppBar(
+        title: Text(context.l10n.adminDuplicates),
+        actions: [
+          if (list.isNotEmpty)
+            TextButton(
+              onPressed: _merging
+                  ? null
+                  : () => setState(
+                      () => _selected = allSelected ? <String>{} : {for (final group in list) group.tracks.first.id},
+                    ),
+              child: Text(allSelected ? context.l10n.adminDuplicatesSelectNone : context.l10n.adminDuplicatesSelectAll),
+            ),
+        ],
+      ),
       body: AsyncBody(
         value: groups,
         onRetry: () => ref.invalidate(_duplicatesProvider),
@@ -135,11 +168,16 @@ class _DuplicatesPageState extends ConsumerState<DuplicatesPage> {
       bottomNavigationBar: list.isEmpty
           ? null
           : SafeArea(
+              // On phones the mini player floats over the bottom of the page, so the button sits above it.
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.fromLTRB(16, 8, 16, isWide(context) ? 16 : kBottomInset),
                 child: FilledButton(
                   onPressed: count == 0 || _merging ? null : () => _merge(checked),
-                  child: Text(context.l10n.adminDuplicatesDelete(count)),
+                  child: Text(
+                    _merging
+                        ? context.l10n.adminDuplicatesProgress(_done, checked.length)
+                        : context.l10n.adminDuplicatesDelete(count),
+                  ),
                 ),
               ),
             ),

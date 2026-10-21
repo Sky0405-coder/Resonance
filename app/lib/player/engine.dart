@@ -136,8 +136,9 @@ Duration _filterOutDuration(double? bpm) =>
     _seconds((bpm != null && bpm > 0 ? 4 * 60 / bpm : 3.0).clamp(2.5, 5.0).toDouble());
 
 /// Tempos within 16 % (also at double or half time) are matched; otherwise, or when the keys clash, the current song
-/// is filtered out instead of a long blend.
-AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
+/// is filtered out instead of a long blend. [minSeconds] (the crossfade setting) lengthens short blends up to 20
+/// seconds; the blend then starts earlier by whole bars so it stays on the beat.
+AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds = 0}) {
   final overlap = outgoing.end - outgoing.mixOut;
   if (outgoing.mixOut <= 0 || overlap < 2) return null;
   final (keyOut, keyIn) = (outgoing.reliableKey, incoming.reliableKey);
@@ -174,7 +175,20 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
       filterOut: true,
     );
   }
-  final duration = overlap.clamp(3, 14).toDouble();
+  var start = outgoing.mixOut;
+  var duration = overlap.clamp(3, 14).toDouble();
+  final wanted = math.min(minSeconds, 20).toDouble();
+  if (wanted > duration) {
+    var earlier = math.max(0.0, wanted - overlap);
+    if (outgoing.bpm != null && outgoing.bpm! > 0) {
+      final bar = 4 * 60 / outgoing.bpm!;
+      earlier = (earlier / bar).ceil() * bar;
+    }
+    // Never reach back into the first half of the song.
+    if (start - earlier < outgoing.end / 2) earlier = 0;
+    start -= earlier;
+    duration = math.max(duration, math.min(wanted, overlap + earlier));
+  }
   // Swap the bass on the outgoing song's beat closest to the middle.
   var swap = duration / 2;
   final bpm = outgoing.bpm;
@@ -183,7 +197,7 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming) {
     swap = ((swap / beat).round() * beat).clamp(beat, math.max(beat, duration - beat)).toDouble();
   }
   return AutomixPlan(
-    start: _seconds(outgoing.mixOut),
+    start: _seconds(start),
     incomingStart: _seconds(incoming.mixIn),
     duration: _seconds(duration),
     speed: speed,
@@ -579,7 +593,7 @@ class PlaybackEngine {
     final outgoing = points(index);
     final incoming = points(next);
     if (outgoing == null || incoming == null || !playing) return false;
-    final plan = automixPlan(outgoing, incoming);
+    final plan = automixPlan(outgoing, incoming, minSeconds: crossfadeSeconds);
     if (plan == null) return false;
     final ahead = plan.start - const Duration(seconds: 8);
     if (position < ahead) return true;
