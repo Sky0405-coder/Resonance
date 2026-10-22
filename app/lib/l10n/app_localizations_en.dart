@@ -2208,7 +2208,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jamJoin => 'Join a Jam';
 
   @override
-  String get jamCodeHint => '6-character code';
+  String get jamCodeHint => '6-digit code';
 
   @override
   String get jamConnecting => 'Connecting …';

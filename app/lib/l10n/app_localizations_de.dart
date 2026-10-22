@@ -2183,7 +2183,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get jamJoin => 'Jam beitreten';
 
   @override
-  String get jamCodeHint => '6-stelliger Code';
+  String get jamCodeHint => '6-stelliger Zahlencode';
 
   @override
   String get jamConnecting => 'Verbinde …';

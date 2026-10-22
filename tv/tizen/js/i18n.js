@@ -21,7 +21,7 @@ export const strings = {
     colorHint: 'Gelb / Y: Songtext · Blau / N: Jetzt läuft', saved: 'Gespeichert',
     serverHint: 'Ein Serverwechsel erfordert eine neue Anmeldung.', loginRequired: 'Bitte Benutzername und Passwort eingeben.',
     connected: 'Verbunden mit', more: 'Mehr laden', error: 'Fehler', loginKeyboard: 'Tastatur',
-    showVisualizer: 'Visualizer anzeigen', on: 'An', background: 'Hintergrund', dark: 'Dunkel', dynamic: 'Dynamisch (Coverfarbe)',
+    showVisualizer: 'Visualizer anzeigen', autoplay: 'Autoplay', on: 'An', background: 'Hintergrund', dark: 'Dunkel', dynamic: 'Dynamisch (Coverfarbe)',
     like: 'Gefällt mir', unlike: 'Gefällt mir nicht mehr', seek: 'Spulen', lyricsHint: 'Gelb: Songtext',
     shift: 'Shift', capsLock: 'Feststelltaste', symbols: 'Symbole',
     keyboardDone: 'Fertig', showPassword: 'Passwort anzeigen', hidePassword: 'Passwort verbergen'
@@ -48,7 +48,7 @@ export const strings = {
     colorHint: 'Yellow / Y: lyrics · Blue / N: now playing', saved: 'Saved',
     serverHint: 'Changing servers requires signing in again.', loginRequired: 'Enter your username and password.',
     connected: 'Connected to', more: 'Load more', error: 'Error', loginKeyboard: 'Keyboard',
-    showVisualizer: 'Show visualizer', on: 'On', background: 'Background', dark: 'Dark', dynamic: 'Dynamic (cover color)',
+    showVisualizer: 'Show visualizer', autoplay: 'Autoplay', on: 'On', background: 'Background', dark: 'Dark', dynamic: 'Dynamic (cover color)',
     like: 'Like', unlike: 'Unlike', seek: 'Seek', lyricsHint: 'Yellow: Lyrics',
     shift: 'Shift', capsLock: 'Caps lock', symbols: 'Symbols',
     keyboardDone: 'Done', showPassword: 'Show password', hidePassword: 'Hide password'

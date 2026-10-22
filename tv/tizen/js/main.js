@@ -186,8 +186,10 @@ function updateBackground() {
     backgroundLayer.style.backgroundImage = 'linear-gradient(rgba(18,18,18,0.55), rgba(18,18,18,0.9)), radial-gradient(ellipse at 23% 30%, ' + color + ' 0, #121212 75%)';
   });
 }
+player.autoplay = preferences.value.autoplay;
 let backgroundMode = preferences.value.background;
 preferences.subscribe(value => {
+  player.autoplay = value.autoplay;
   if (value.background === backgroundMode) return;
   backgroundMode = value.background; updateBackground();
 });

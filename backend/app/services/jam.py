@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 log = logging.getLogger(__name__)
 
-CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+CODE_ALPHABET = "0123456789"
 MAX_MEMBERS = 20
 MAX_QUEUE = 500
 IDLE_MS = 10 * 60 * 1000

@@ -757,7 +757,7 @@
   "jamIntro": "Listen together: friends join with a code and everyone can add songs.",
   "jamStart": "Start a Jam",
   "jamJoin": "Join a Jam",
-  "jamCodeHint": "6-character code",
+  "jamCodeHint": "6-digit code",
   "jamConnecting": "Connecting …",
   "jamCopyLink": "Copy link",
   "jamLinkCopied": "Link copied",

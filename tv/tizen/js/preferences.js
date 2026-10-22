@@ -1,6 +1,9 @@
 export function normalizePreferences(value) {
   const saved = value || {};
-  return { visualizer: saved.visualizer !== false, background: saved.background === 'dynamic' ? 'dynamic' : 'dark' };
+  return {
+    visualizer: saved.visualizer !== false, background: saved.background === 'dynamic' ? 'dynamic' : 'dark',
+    autoplay: saved.autoplay !== false
+  };
 }
 export class Preferences {
   constructor(storage) {

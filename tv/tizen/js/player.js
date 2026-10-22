@@ -44,6 +44,9 @@ export class Player {
     this.radioTimer = null;
     this.generation = 0;
     this.playIntent = null;
+    this.autoplay = true;
+    this.autoplayTried = new Set();
+    this.autoplayRequest = null;
     [audioA, audioB].forEach(audio => {
       ['play', 'pause', 'waiting', 'playing', 'loadedmetadata', 'durationchange'].forEach(name => audio.addEventListener(name, () => {
         if (audio === this.audio) this.emit('state');
@@ -59,6 +62,7 @@ export class Player {
         if (!audio.paused && delta > 0 && delta < 2 && !this.station) this.listened += delta;
         this.lastPosition = audio.currentTime;
         this.preload();
+        this.maybeAutoplay();
         this.emit('time');
       });
       audio.addEventListener('ended', () => { if (audio === this.audio && !this.station) this.next(false); });
@@ -99,6 +103,7 @@ export class Player {
     this.flush();
     this.clearRadio();
     this.station = null;
+    this.queueGeneration = (this.queueGeneration || 0) + 1; this.autoplayTried.clear(); this.autoplayRequest = null;
     this.queue = tracks.slice();
     this.index = Math.max(0, Math.min(index || 0, tracks.length - 1));
     this.shuffle = !!shuffle;
@@ -147,6 +152,28 @@ export class Player {
       this.spare.load();
     }
   }
+  // Like the app: on the last track of the queue, append recommendations based on the recent queue.
+  maybeAutoplay() {
+    if (!this.autoplay || this.station || !this.track || this.repeat !== 'off' || this.audio.paused) return;
+    if (this.order.indexOf(this.index) !== this.order.length - 1 || this.autoplayRequest) return;
+    const id = this.track.id;
+    if (this.autoplayTried.has(id)) return;
+    this.autoplayTried.add(id);
+    const generation = this.queueGeneration;
+    const request = this.api.request('/api/recommendations', { method: 'POST', body: {
+      track_ids: this.queue.slice(-20).map(track => track.id), exclude_ids: this.queue.map(track => track.id), limit: 20 } });
+    this.autoplayRequest = request;
+    Promise.resolve(request).then(tracks => {
+      if (generation !== this.queueGeneration || !this.track || this.track.id !== id) return;
+      const seen = new Set(this.queue.map(track => track.id));
+      (tracks || []).filter(track => track && !seen.has(track.id) && seen.add(track.id)).forEach(track => {
+        this.order.push(this.queue.length); this.queue.push(track);
+      });
+      this.emit('state');
+    }, () => { /* Offline or an older server: leave the queue as it is. */ }).then(() => {
+      if (this.autoplayRequest === request) this.autoplayRequest = null;
+    });
+  }
   play() {
     if (!this.track && !this.station) return;
     // Tizen only buffers after play() is called, so never wait for canplay before the first attempt.
@@ -182,6 +209,7 @@ export class Player {
     this.playIntent = null;
     this.clearRadio();
     this.station = null;
+    this.queueGeneration = (this.queueGeneration || 0) + 1; this.autoplayRequest = null;
     this.queue = []; this.order = []; this.index = -1; this.preloaded = -1;
     this.release(this.audio); this.release(this.spare);
     this.emit('track');

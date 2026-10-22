@@ -117,3 +117,16 @@ test('preloading starts below 25 seconds remaining and is not restarted on every
   a.currentTime = 20; a.fire('timeupdate'); assert.equal(b.src, '');
   player.stop();
 });
+test('autoplay appends recommendations once on the last playing track and respects the switch', async () => {
+  const { player, a, calls } = setup();
+  player.api.request = async (path, opts) => { calls.push({ path, opts }); return [{ id: 'b', duration: 9 }, { id: 'z', duration: 50 }, { id: 'y', duration: 60 }]; };
+  player.setQueue([tracks[0], tracks[1]], 0); a.paused = false;
+  a.fire('timeupdate'); assert.equal(calls.length, 0);
+  player.next(); const audio = player.audio; audio.paused = false;
+  audio.fire('timeupdate'); audio.fire('timeupdate'); await Promise.resolve(); await Promise.resolve();
+  assert.equal(calls.length, 1); assert.equal(calls[0].path, '/api/recommendations');
+  assert.deepEqual(calls[0].opts.body.exclude_ids, ['a', 'b']);
+  assert.deepEqual(player.queue.map(track => track.id), ['a', 'b', 'z', 'y']); assert.deepEqual(player.order, [0, 1, 2, 3]);
+  player.next(); player.next(); player.audio.paused = false; player.autoplay = false; player.audio.fire('timeupdate');
+  assert.equal(calls.length, 1); player.stop();
+});

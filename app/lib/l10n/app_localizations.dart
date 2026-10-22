@@ -3905,7 +3905,7 @@ abstract class AppLocalizations {
   /// No description provided for @jamCodeHint.
   ///
   /// In de, this message translates to:
-  /// **'6-stelliger Code'**
+  /// **'6-stelliger Zahlencode'**
   String get jamCodeHint;
 
   /// No description provided for @jamConnecting.

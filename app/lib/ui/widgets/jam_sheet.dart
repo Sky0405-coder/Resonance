@@ -70,7 +70,8 @@ Future<void> promptJoinJam(BuildContext context, WidgetRef ref, [String? code]) 
             content: TextField(
               controller: controller,
               autofocus: true,
-              textCapitalization: TextCapitalization.characters,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               maxLength: 6,
               decoration: InputDecoration(hintText: context.l10n.jamCodeHint),
               onSubmitted: (v) => Navigator.pop(dialog, v),
