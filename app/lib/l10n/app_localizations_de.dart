@@ -39,12 +39,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get commonUnknown => 'Unbekannt';
 
   @override
-  String get playerMusicLoadError =>
-      'Die Musik konnte nicht geladen werden. Bitte erneut versuchen.';
+  String get playerMusicLoadError => 'Die Musik konnte nicht geladen werden. Bitte erneut versuchen.';
 
   @override
-  String get playerAudiobookLoadError =>
-      'Das Hörbuch konnte nicht geladen werden. Bitte erneut versuchen.';
+  String get playerAudiobookLoadError => 'Das Hörbuch konnte nicht geladen werden. Bitte erneut versuchen.';
 
   @override
   String playerBookPart(int part, int total) {
@@ -134,8 +132,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get libraryNoAlbums => 'Keine Alben';
 
   @override
-  String get librarySaveAlbumsHint =>
-      'Speichere Alben mit ⊕, um sie hier zu sehen.';
+  String get librarySaveAlbumsHint => 'Speichere Alben mit ⊕, um sie hier zu sehen.';
 
   @override
   String commonDiscNumber(int number) {
@@ -162,11 +159,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String artistLibraryAlbums(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count Alben in deiner Bibliothek',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Alben in deiner Bibliothek');
     return '$_temp0';
   }
 
@@ -195,8 +188,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get commonDelete => 'Löschen';
 
   @override
-  String get libraryEmptyPlaylist =>
-      'Noch keine Songs. Füge welche über das ⋯-Menü eines Songs hinzu.';
+  String get libraryEmptyPlaylist => 'Noch keine Songs. Füge welche über das ⋯-Menü eines Songs hinzu.';
 
   @override
   String get libraryRemoveFromPlaylist => 'Aus dieser Playlist entfernen';
@@ -230,8 +222,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsAutoplay => 'Autoplay';
 
   @override
-  String get settingsAutoplayHint =>
-      'Wenn die Warteschlange endet, ähnliche Songs weiterspielen';
+  String get settingsAutoplayHint => 'Wenn die Warteschlange endet, ähnliche Songs weiterspielen';
 
   @override
   String get playerAutoplaySection => 'Autoplay – ähnliche Songs';
@@ -309,8 +300,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsNormalizeVolume => 'Lautstärke angleichen';
 
   @override
-  String get settingsNormalizeVolumeHint =>
-      'Nutzt ReplayGain, damit alle Songs ähnlich laut sind';
+  String get settingsNormalizeVolumeHint => 'Nutzt ReplayGain, damit alle Songs ähnlich laut sind';
 
   @override
   String get settingsSignedInDevices => 'Angemeldete Geräte';
@@ -345,8 +335,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get catalogDiscoverMore => 'Mehr entdecken';
 
   @override
-  String get catalogDownloadHint =>
-      'Was noch nicht in der Bibliothek ist, kannst du hier herunterladen.';
+  String get catalogDownloadHint => 'Was noch nicht in der Bibliothek ist, kannst du hier herunterladen.';
 
   @override
   String get catalogNoResults => 'Auch im Katalog nichts gefunden.';
@@ -367,11 +356,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String catalogDownloadMissingSongs(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: 'Fehlende $count Songs herunterladen',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: 'Fehlende $count Songs herunterladen');
     return '$_temp0';
   }
 
@@ -407,8 +392,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get downloadsCompleted => 'Abgeschlossen';
 
   @override
-  String get downloadsEmptyActive =>
-      'Keine laufenden Downloads.\nSuche nach Musik und tippe auf ⤓.';
+  String get downloadsEmptyActive => 'Keine laufenden Downloads.\nSuche nach Musik und tippe auf ⤓.';
 
   @override
   String get downloadsEmptyCompleted => 'Noch nichts heruntergeladen.';
@@ -466,8 +450,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get downloadsOwnSourceLabel => 'YouTube- oder SoundCloud-Link';
 
   @override
-  String get downloadsOwnSourceHint =>
-      'Auch normale YouTube-Videos – geladen wird nur die Tonspur.';
+  String get downloadsOwnSourceHint => 'Auch normale YouTube-Videos – geladen wird nur die Tonspur.';
 
   @override
   String get downloadsDeleteEntry => 'Eintrag löschen';
@@ -518,8 +501,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get audiobooksNotConfigured =>
-      'Hörbücher sind auf diesem Server nicht eingerichtet.';
+  String get audiobooksNotConfigured => 'Hörbücher sind auf diesem Server nicht eingerichtet.';
 
   @override
   String get audiobooksLoginTitle => 'Mit Audiobookshelf verbinden';
@@ -622,8 +604,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get authWelcomeAdmin => 'Willkommen! Admin-Konto anlegen';
 
   @override
-  String get authFirstAccountHint =>
-      'Das erste Konto auf diesem Server wird automatisch Administrator.';
+  String get authFirstAccountHint => 'Das erste Konto auf diesem Server wird automatisch Administrator.';
 
   @override
   String get authPasswordMinimum => 'Passwort (min. 8 Zeichen)';
@@ -760,11 +741,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String playerTimerMinutes(int minutes) {
-    String _temp0 = intl.Intl.pluralLogic(
-      minutes,
-      locale: localeName,
-      other: '$minutes Minuten',
-    );
+    String _temp0 = intl.Intl.pluralLogic(minutes, locale: localeName, other: '$minutes Minuten');
     return '$_temp0';
   }
 
@@ -780,8 +757,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get updateAllowInstall =>
-      'Bitte erlaube Resonance in den Android-Einstellungen, Apps zu installieren.';
+  String get updateAllowInstall => 'Bitte erlaube Resonance in den Android-Einstellungen, Apps zu installieren.';
 
   @override
   String updateFailedCode(String code) {
@@ -892,11 +868,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String adminImportFileProgress(int count, int total) {
-    String _temp0 = intl.Intl.pluralLogic(
-      total,
-      locale: localeName,
-      other: '$count von $total Dateien',
-    );
+    String _temp0 = intl.Intl.pluralLogic(total, locale: localeName, other: '$count von $total Dateien');
     return '$_temp0';
   }
 
@@ -916,19 +888,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminImportErrors => 'Fehler';
 
   @override
-  String get adminImportMethodAlbumFingerprint =>
-      'Erkannt per Fingerabdruck (komplettes Album)';
+  String get adminImportMethodAlbumFingerprint => 'Erkannt per Fingerabdruck (komplettes Album)';
 
   @override
-  String get adminImportMethodTrackFingerprint =>
-      'Erkannt per Fingerabdruck (einzelner Song)';
+  String get adminImportMethodTrackFingerprint => 'Erkannt per Fingerabdruck (einzelner Song)';
 
   @override
   String get adminImportMethodTags => 'Erkannt über vorhandene Tags (Katalog)';
 
   @override
-  String get adminImportMethodUnidentified =>
-      'Nicht erkannt – vorhandene Tags übernommen';
+  String get adminImportMethodUnidentified => 'Nicht erkannt – vorhandene Tags übernommen';
 
   @override
   String get adminTabOverview => 'Übersicht';
@@ -961,12 +930,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminLyrics => 'Songtexte';
 
   @override
-  String adminLyricsProgress(
-    String synced,
-    String plainOnly,
-    String none,
-    String pending,
-  ) {
+  String adminLyricsProgress(String synced, String plainOnly, String none, String pending) {
     return '$synced mit synchronisiertem Text, $plainOnly nur Text, $none ohne · $pending noch offen';
   }
 
@@ -1032,8 +996,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get adminDeleteUserHint =>
-      'Playlists und Verlauf werden ebenfalls gelöscht.';
+  String get adminDeleteUserHint => 'Playlists und Verlauf werden ebenfalls gelöscht.';
 
   @override
   String get adminRemoveAdmin => 'Admin-Rechte entziehen';
@@ -1087,8 +1050,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminInviteLink => 'Einladungslink';
 
   @override
-  String get adminInviteLinkHint =>
-      'Der Link kann genau einmal benutzt werden. Er wird nur jetzt angezeigt.';
+  String get adminInviteLinkHint => 'Der Link kann genau einmal benutzt werden. Er wird nur jetzt angezeigt.';
 
   @override
   String get adminLinkCopied => 'Link kopiert';
@@ -1100,8 +1062,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminNewInvite => 'Neuer Link';
 
   @override
-  String get adminNoInvites =>
-      'Noch keine Einladungen.\nErstelle einen Link, um jemanden einzuladen.';
+  String get adminNoInvites => 'Noch keine Einladungen.\nErstelle einen Link, um jemanden einzuladen.';
 
   @override
   String get adminInvitation => 'Einladung';
@@ -1140,15 +1101,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminRegistrationInviteOnly => 'Nur mit Einladungslink';
 
   @override
-  String get adminRegistrationInviteHint =>
-      'Admins erstellen einmalig nutzbare Links (empfohlen)';
+  String get adminRegistrationInviteHint => 'Admins erstellen einmalig nutzbare Links (empfohlen)';
 
   @override
   String get adminRegistrationPublic => 'Öffentliche Registrierung';
 
   @override
-  String get adminRegistrationPublicHint =>
-      'Jeder, der den Server erreicht, kann ein Konto anlegen';
+  String get adminRegistrationPublicHint => 'Jeder, der den Server erreicht, kann ein Konto anlegen';
 
   @override
   String get adminLibraryImport => 'Bibliothek & Import';
@@ -1157,8 +1116,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminAcoustIdKey => 'AcoustID-Schlüssel';
 
   @override
-  String get adminAcoustIdNotSet =>
-      'Nicht gesetzt – kostenlos auf acoustid.org/new-application';
+  String get adminAcoustIdNotSet => 'Nicht gesetzt – kostenlos auf acoustid.org/new-application';
 
   @override
   String get adminConfigured => 'Gesetzt';
@@ -1170,19 +1128,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminMoveImportedFiles => 'Importierte Dateien verschieben';
 
   @override
-  String get adminMoveImportedFilesHint =>
-      'Der Import-Ordner wird danach geleert';
+  String get adminMoveImportedFilesHint => 'Der Import-Ordner wird danach geleert';
 
   @override
   String get adminCopyImportedFiles => 'Importierte Dateien kopieren';
 
   @override
-  String get adminCopyImportedFilesHint =>
-      'Originale bleiben unverändert im Import-Ordner';
+  String get adminCopyImportedFilesHint => 'Originale bleiben unverändert im Import-Ordner';
 
   @override
-  String get adminImportUnidentifiedFiles =>
-      'Nicht erkannte Dateien trotzdem importieren';
+  String get adminImportUnidentifiedFiles => 'Nicht erkannte Dateien trotzdem importieren';
 
   @override
   String get adminImportUnidentifiedFilesHint =>
@@ -1192,15 +1147,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminAutoImport => 'Import-Ordner automatisch importieren';
 
   @override
-  String get adminAutoImportHint =>
-      'Prüft alle 5 Minuten auf neue Dateien (nur im Modus „Verschieben“)';
+  String get adminAutoImportHint => 'Prüft alle 5 Minuten auf neue Dateien (nur im Modus „Verschieben“)';
 
   @override
   String get adminSongRadio => 'Song-Radio';
 
   @override
-  String get adminRadioAutoDownload =>
-      'Fehlende Songs automatisch herunterladen';
+  String get adminRadioAutoDownload => 'Fehlende Songs automatisch herunterladen';
 
   @override
   String get adminRadioAutoDownloadHint =>
@@ -1214,8 +1167,7 @@ class AppLocalizationsDe extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       days,
       locale: localeName,
-      other:
-          'Werden nach $days Tagen gelöscht, außer jemand liked sie oder fügt sie einer Playlist hinzu',
+      other: 'Werden nach $days Tagen gelöscht, außer jemand liked sie oder fügt sie einer Playlist hinzu',
     );
     return '$_temp0';
   }
@@ -1234,8 +1186,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminAudiobookshelfAddress => 'Audiobookshelf-Adresse';
 
   @override
-  String get adminAudiobookshelfAddressHint =>
-      'z. B. https://audio.example.com – auch für externe Apps gedacht';
+  String get adminAudiobookshelfAddressHint => 'z. B. https://audio.example.com – auch für externe Apps gedacht';
 
   @override
   String get adminAlbumTorrents => 'Torrents für Alben';
@@ -1248,8 +1199,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminProwlarrApiKey => 'Prowlarr-API-Schlüssel';
 
   @override
-  String get adminProwlarrApiKeyHint =>
-      'Prowlarr → Settings → General → API Key';
+  String get adminProwlarrApiKeyHint => 'Prowlarr → Settings → General → API Key';
 
   @override
   String get adminQbittorrentUsername => 'qBittorrent-Benutzer';
@@ -1274,15 +1224,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminYouTubeSource => 'YouTube Music als Quelle';
 
   @override
-  String get adminYouTubeSourceHint =>
-      'Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)';
+  String get adminYouTubeSourceHint => 'Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)';
 
   @override
   String get adminSoundCloudSource => 'SoundCloud als Quelle';
 
   @override
-  String get adminSoundCloudSourceHint =>
-      'Wird versucht, wenn YouTube nichts findet';
+  String get adminSoundCloudSourceHint => 'Wird versucht, wenn YouTube nichts findet';
 
   @override
   String get downloadsSearch => 'Suche';
@@ -1307,8 +1255,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminAutoApprove => 'Anfragen automatisch genehmigen';
 
   @override
-  String get adminAutoApproveHint =>
-      'Sonst muss ein Admin Anfragen von Benutzern freigeben';
+  String get adminAutoApproveHint => 'Sonst muss ein Admin Anfragen von Benutzern freigeben';
 
   @override
   String get adminDailyLimit => 'Tageslimit pro Benutzer';
@@ -1361,12 +1308,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get editorSearchTrackHint => 'Künstler und Titel';
 
   @override
-  String get editorChooseTrackHint =>
-      'Tippe auf den richtigen Song – Tags, Cover und Dateiname werden übernommen.';
+  String get editorChooseTrackHint => 'Tippe auf den richtigen Song – Tags, Cover und Dateiname werden übernommen.';
 
   @override
-  String get editorFingerprintSearching =>
-      'Audio-Fingerabdruck wird abgeglichen …';
+  String get editorFingerprintSearching => 'Audio-Fingerabdruck wird abgeglichen …';
 
   @override
   String get editorFingerprintUnknown =>
@@ -1397,8 +1342,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get editorNumbersOnly =>
-      'Bitte nur Zahlen bei Jahr, Nr. und CD eingeben';
+  String get editorNumbersOnly => 'Bitte nur Zahlen bei Jahr, Nr. und CD eingeben';
 
   @override
   String get editorNoChanges => 'Keine Änderungen';
@@ -1427,11 +1371,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String editorMatchedSongs(int count, int total) {
-    String _temp0 = intl.Intl.pluralLogic(
-      total,
-      locale: localeName,
-      other: '$count von $total Songs zugeordnet',
-    );
+    String _temp0 = intl.Intl.pluralLogic(total, locale: localeName, other: '$count von $total Songs zugeordnet');
     return '$_temp0';
   }
 
@@ -1439,8 +1379,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get editorUnmatchedSongs => 'Nicht zugeordnet (unverändert):';
 
   @override
-  String get editorSearchAlbumHint =>
-      'Künstler und Album oder MusicBrainz-Link';
+  String get editorSearchAlbumHint => 'Künstler und Album oder MusicBrainz-Link';
 
   @override
   String editorMatchAlbumHint(int count) {
@@ -1454,8 +1393,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get editorUseMusicBrainzRelease =>
-      'MusicBrainz-Veröffentlichung verwenden';
+  String get editorUseMusicBrainzRelease => 'MusicBrainz-Veröffentlichung verwenden';
 
   @override
   String get editorRetagging => 'Songs werden neu getaggt …';
@@ -1478,11 +1416,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String editorAlbumCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count Alben',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Alben');
     return '$_temp0';
   }
 
@@ -1512,12 +1446,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String commonSongs(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count Songs',
-      one: '1 Song',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Songs', one: '1 Song');
     return '$_temp0';
   }
 
@@ -1541,8 +1470,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Füge Links zu öffentlichen Spotify- oder Apple-Music-Playlists ein, einen pro Zeile. Apple-Music-Playlists werden vollständig übernommen, bei Spotify ohne verbundenes Konto höchstens 100 Songs pro Playlist.';
 
   @override
-  String get spotifyLinkPlaceholder =>
-      'https://open.spotify.com/playlist/… oder https://music.apple.com/…';
+  String get spotifyLinkPlaceholder => 'https://open.spotify.com/playlist/… oder https://music.apple.com/…';
 
   @override
   String get spotifyImport => 'Importieren';
@@ -1559,8 +1487,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get spotifyConnect => 'Mit Spotify verbinden';
 
   @override
-  String get spotifyWaiting =>
-      'Melde dich im geöffneten Fenster bei Spotify an und komm danach hierher zurück.';
+  String get spotifyWaiting => 'Melde dich im geöffneten Fenster bei Spotify an und komm danach hierher zurück.';
 
   @override
   String spotifyConnectedAs(String name) {
@@ -1575,12 +1502,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String spotifyLikedHint(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count Songs',
-      one: '1 Song',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Songs', one: '1 Song');
     return '$_temp0 · werden in Resonance geliked';
   }
 
@@ -1593,12 +1515,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String spotifyPlaylistSubtitle(int count, String owner) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count Songs',
-      one: '1 Song',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Songs', one: '1 Song');
     return '$_temp0 · $owner';
   }
 
@@ -1616,8 +1533,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get spotifyStart => 'Import starten';
 
   @override
-  String get spotifyNothingSelected =>
-      'Wähle die Lieblingssongs oder mindestens eine Playlist aus.';
+  String get spotifyNothingSelected => 'Wähle die Lieblingssongs oder mindestens eine Playlist aus.';
 
   @override
   String get spotifyStarted => 'Import gestartet';
@@ -1638,12 +1554,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get spotifyStatusFailed => 'Fehlgeschlagen';
 
   @override
-  String spotifyImportCounts(
-    int matched,
-    int total,
-    int missing,
-    int requested,
-  ) {
+  String spotifyImportCounts(int matched, int total, int missing, int requested) {
     return '$matched von $total gefunden · $missing fehlen · $requested angefragt';
   }
 
@@ -1672,8 +1583,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get spotifySyncNew => 'Neue Spotify-Playlist anlegen';
 
   @override
-  String get spotifySyncExisting =>
-      'Mit bestehender Spotify-Playlist verknüpfen';
+  String get spotifySyncExisting => 'Mit bestehender Spotify-Playlist verknüpfen';
 
   @override
   String get spotifySyncPick => 'Spotify-Playlist';
@@ -1770,12 +1680,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String audiobooksBookCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count Hörbücher',
-      one: '1 Hörbuch',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Hörbücher', one: '1 Hörbuch');
     return '$_temp0';
   }
 
@@ -1840,8 +1745,7 @@ class AppLocalizationsDe extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other:
-          '$count fehlende Songs werden geladen und dann zum Radio hinzugefügt',
+      other: '$count fehlende Songs werden geladen und dann zum Radio hinzugefügt',
       one: '1 fehlender Song wird geladen und dann zum Radio hinzugefügt',
     );
     return '$_temp0';
@@ -1854,15 +1758,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminRadioMaxDownloads => 'Max. Downloads pro Radio-Start';
 
   @override
-  String get adminRadioPlaylistRetention =>
-      'Radios aufbewahren (Tage seit letzter Nutzung, 0 = immer)';
+  String get adminRadioPlaylistRetention => 'Radios aufbewahren (Tage seit letzter Nutzung, 0 = immer)';
 
   @override
   String get offlineBanner => 'Offline – nur heruntergeladene Musik';
 
   @override
-  String get offlineEmptyHint =>
-      'Lade Alben und Playlists herunter, um sie offline zu hören.';
+  String get offlineEmptyHint => 'Lade Alben und Playlists herunter, um sie offline zu hören.';
 
   @override
   String get offlineDownloaded => 'Heruntergeladen';
@@ -1891,8 +1793,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get offlineQualityHigh => 'Hoch (Opus 256 kbit/s)';
 
   @override
-  String get offlineQualityOriginal =>
-      'Original (verlustfrei, braucht viel Speicher)';
+  String get offlineQualityOriginal => 'Original (verlustfrei, braucht viel Speicher)';
 
   @override
   String get offlineWifiOnly => 'Nur über WLAN herunterladen';
@@ -1985,8 +1886,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Der Song wird erneut gesucht und ersetzt. Die bisher verwendete Quelle wird übersprungen. Likes und Playlists bleiben erhalten.';
 
   @override
-  String get redownloadYoutubeLabel =>
-      'YouTube- oder SoundCloud-Link (optional)';
+  String get redownloadYoutubeLabel => 'YouTube- oder SoundCloud-Link (optional)';
 
   @override
   String get redownloadYoutubeHint => 'Falls du eine bestimmte Version willst';
@@ -1995,8 +1895,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get redownloadStarted => 'Neu-Download gestartet';
 
   @override
-  String get redownloadAwaitingApproval =>
-      'Anfrage gesendet – ein Admin muss sie freigeben';
+  String get redownloadAwaitingApproval => 'Anfrage gesendet – ein Admin muss sie freigeben';
 
   @override
   String get downloadsRedownload => 'Neu-Download';
@@ -2019,8 +1918,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsVisualizer => 'Visualizer';
 
   @override
-  String get settingsVisualizerHint =>
-      'Zeigt beim Abspielen animierte Frequenzbalken im Player.';
+  String get settingsVisualizerHint => 'Zeigt beim Abspielen animierte Frequenzbalken im Player.';
 
   @override
   String get settingsVisualizerStyle => 'Visualizer-Stil';
@@ -2029,8 +1927,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsVisualizerReflection => 'Spiegelung';
 
   @override
-  String get settingsVisualizerReflectionHint =>
-      'Cover und Visualizer spiegeln';
+  String get settingsVisualizerReflectionHint => 'Cover und Visualizer spiegeln';
 
   @override
   String get visualizerPeaksOn => 'Punkte an';
@@ -2042,8 +1939,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsCoverflow => 'Coverflow';
 
   @override
-  String get settingsCoverflowHint =>
-      'Cover der Warteschlange zum Wischen nebeneinander';
+  String get settingsCoverflowHint => 'Cover der Warteschlange zum Wischen nebeneinander';
 
   @override
   String get visualizerThemeAuto => 'Automatisch';
@@ -2149,8 +2045,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsSubsonicTitle => 'Andere Musik-Apps (Subsonic)';
 
   @override
-  String get settingsSubsonicSubtitle =>
-      'Nutze Resonance in Apps wie Symfonium oder Feishin';
+  String get settingsSubsonicSubtitle => 'Nutze Resonance in Apps wie Symfonium oder Feishin';
 
   @override
   String settingsSubsonicConnection(String serverUrl, String username) {
@@ -2193,12 +2088,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsDiscordPresence => 'Discord-Status anzeigen';
 
   @override
-  String get settingsDiscordPresenceHint =>
-      'Zeigt in Discord an, was du gerade hörst';
+  String get settingsDiscordPresenceHint => 'Zeigt in Discord an, was du gerade hörst';
 
   @override
-  String get settingsDiscordNotConfigured =>
-      'Vom Admin noch nicht eingerichtet';
+  String get settingsDiscordNotConfigured => 'Vom Admin noch nicht eingerichtet';
 
   @override
   String discordPresenceArtist(String artist) {
@@ -2221,8 +2114,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminMixes => 'Mixes';
 
   @override
-  String get adminDiscoverWeeklyHint =>
-      'Jeden Montag 30 neue Songs pro Nutzer, fehlende werden heruntergeladen';
+  String get adminDiscoverWeeklyHint => 'Jeden Montag 30 neue Songs pro Nutzer, fehlende werden heruntergeladen';
 
   @override
   String get adminDiscoverDownloads => 'Downloads pro Woche und Nutzer';
@@ -2234,8 +2126,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminChartsEnabled => 'Charts-Playlists';
 
   @override
-  String get adminChartsEnabledHint =>
-      'Top 100 Deutschland und Global, täglich aktualisiert';
+  String get adminChartsEnabledHint => 'Top 100 Deutschland und Global, täglich aktualisiert';
 
   @override
   String get adminChartsDownloads => 'Fehlende Chart-Songs pro Tag laden';
@@ -2260,12 +2151,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String worldRadioStationCount(num count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count Sender',
-      one: '1 Sender',
-    );
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Sender', one: '1 Sender');
     return '$_temp0';
   }
 
@@ -2288,8 +2174,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get jamTitle => 'Jam';
 
   @override
-  String get jamIntro =>
-      'Gemeinsam hören: Freunde treten mit einem Code bei, alle können Songs hinzufügen.';
+  String get jamIntro => 'Gemeinsam hören: Freunde treten mit einem Code bei, alle können Songs hinzufügen.';
 
   @override
   String get jamStart => 'Jam starten';
@@ -2325,8 +2210,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get jamListenHere => 'Auf diesem Gerät mithören';
 
   @override
-  String get jamListenHereHint =>
-      'Aus: nur steuern, die Musik läuft auf einem anderen Gerät';
+  String get jamListenHereHint => 'Aus: nur steuern, die Musik läuft auf einem anderen Gerät';
 
   @override
   String get jamLeave => 'Jam verlassen';
@@ -2360,8 +2244,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminDuplicates => 'Duplikate';
 
   @override
-  String get adminDuplicatesDifferentAlbums =>
-      'Verschiedene Alben · gleiche Aufnahme';
+  String get adminDuplicatesDifferentAlbums => 'Verschiedene Alben · gleiche Aufnahme';
 
   @override
   String get adminDuplicatesPending => 'Wird noch geprüft';
@@ -2380,12 +2263,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String adminDuplicatesFile(
-    String marker,
-    String codec,
-    int bitrate,
-    String size,
-  ) {
+  String adminDuplicatesFile(String marker, String codec, int bitrate, String size) {
     return '$marker $codec · $bitrate kbps · $size';
   }
 
@@ -2398,8 +2276,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminDuplicatesConfirmTitle => 'Duplikate löschen?';
 
   @override
-  String get adminDuplicatesConfirmHint =>
-      'Die schlechteren Dateien werden endgültig gelöscht.';
+  String get adminDuplicatesConfirmHint => 'Die schlechteren Dateien werden endgültig gelöscht.';
 
   @override
   String adminDuplicatesMerged(int deleted, String freed) {
@@ -2407,8 +2284,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get updateRestarting =>
-      'Wird installiert, Resonance startet gleich neu …';
+  String get updateRestarting => 'Wird installiert, Resonance startet gleich neu …';
 
   @override
   String get shortcutsTitle => 'Tastenkürzel';
@@ -2622,16 +2498,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminBooksGoogleKey => 'Google-Books-API-Schlüssel';
 
   @override
-  String get adminBooksGoogleKeyHint =>
-      'Optional – ohne Schlüssel wird nur Audible durchsucht';
+  String get adminBooksGoogleKeyHint => 'Optional – ohne Schlüssel wird nur Audible durchsucht';
 
   @override
-  String get adminBooksDailyLimit =>
-      'Bücher pro Nutzer und Tag (0 = unbegrenzt)';
+  String get adminBooksDailyLimit => 'Bücher pro Nutzer und Tag (0 = unbegrenzt)';
 
   @override
-  String get adminBooksTorrentsHint =>
-      'Automatische Downloads nutzen die Torrent-Einstellungen unter Downloads.';
+  String get adminBooksTorrentsHint => 'Automatische Downloads nutzen die Torrent-Einstellungen unter Downloads.';
 
   @override
   String get editorSourceApple => 'Apple Music';
@@ -2649,8 +2522,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminDiscogsToken => 'Discogs-Token';
 
   @override
-  String get adminDiscogsHint =>
-      'Kostenlos unter discogs.com → Einstellungen → Entwickler';
+  String get adminDiscogsHint => 'Kostenlos unter discogs.com → Einstellungen → Entwickler';
 
   @override
   String get adminLastfmKey => 'Last.fm API-Key';
@@ -2688,8 +2560,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsTvMode => 'TV-/Controller-Modus';
 
   @override
-  String get settingsTvModeHint =>
-      'Große Oberfläche für Fernbedienung und Controller';
+  String get settingsTvModeHint => 'Große Oberfläche für Fernbedienung und Controller';
 
   @override
   String get tvPlay => 'Abspielen';
@@ -2755,8 +2626,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get podcastsRssUrl => 'RSS-Link';
 
   @override
-  String get podcastsEmpty =>
-      'Noch keine Abos. Suche nach einem Podcast oder füge einen RSS-Link hinzu.';
+  String get podcastsEmpty => 'Noch keine Abos. Suche nach einem Podcast oder füge einen RSS-Link hinzu.';
 
   @override
   String get podcastsSubscribe => 'Abonnieren';
@@ -2789,8 +2659,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get podcastsSkipBack => '15 Sekunden zurück';
 
   @override
-  String get playerPodcastLoadError =>
-      'Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut.';
+  String get playerPodcastLoadError => 'Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut.';
 
   @override
   String get connectPlayOn => 'Wiedergabe auf…';
@@ -2807,14 +2676,12 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get connectJamHint =>
-      'Während eines Jams ist kein Gerätewechsel möglich.';
+  String get connectJamHint => 'Während eines Jams ist kein Gerätewechsel möglich.';
 
   @override
   String get connectMusicOnly =>
       'Nur Musik kann übertragen werden. Hörbücher, Podcasts und Radio bleiben auf diesem Gerät.';
 
   @override
-  String get connectUnavailable =>
-      'Gerät nicht verfügbar. Prüfe deine Verbindung.';
+  String get connectUnavailable => 'Gerät nicht verfügbar. Prüfe deine Verbindung.';
 }
