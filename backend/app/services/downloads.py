@@ -354,7 +354,9 @@ class DownloadManager:
                         return
                     progress = info["progress"]
                     now = datetime.now(UTC)
-                    if progress > request.torrent_progress:
+                    # Waiting in qBittorrent's own queue is not a stall: the timeout starts once it may download.
+                    queued = info.get("state") in {"queuedDL", "pausedDL", "stoppedDL"}
+                    if progress > request.torrent_progress or queued:
                         request.torrent_progress_at = now
                     request.torrent_progress = progress
                     await db.execute(

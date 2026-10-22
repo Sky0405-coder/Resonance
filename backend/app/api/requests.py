@@ -196,6 +196,11 @@ async def cancel(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request
 @router.post("/{id}/retry", response_model=DownloadRequestDetail)
 async def retry(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request) -> DownloadRequestDetail:
     request = await _get(db, user, id, lock=True)
+    no_torrent = {"Kein passender Torrent gefunden", "Torrents sind deaktiviert"}
+    if request.kind == "album" and request.torrent_status == "failed" and request.torrent_error not in no_torrent:
+        # The torrent broke (outage, stall), it was not missing: a retry starts with a fresh torrent search.
+        request.torrent_status = None
+        request.torrent_error = None
     for item in request.items:
         if item.status == "failed":
             item.status = "queued"

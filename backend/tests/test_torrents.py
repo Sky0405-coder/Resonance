@@ -86,6 +86,7 @@ class Gateway:
         self.results = [result()]
         self.progress = 0.0
         self.present = True
+        self.state = "downloading"
         self.login_body = "Ok."
         self.status_code = 200
         self.add_code = 200
@@ -147,7 +148,9 @@ class Gateway:
                 return httpx.Response(self.info_code, json=self.all_rows)
             return httpx.Response(
                 self.info_code,
-                json=[{"hash": "hash", "progress": self.progress, "save_path": str(self.root)}] if self.present else [],
+                json=[{"hash": "hash", "progress": self.progress, "save_path": str(self.root), "state": self.state}]
+                if self.present
+                else [],
             )
         if path == "/api/v2/torrents/files":
             assert request.url.params["hash"] == "hash"
@@ -492,6 +495,23 @@ async def test_retry_stays_on_youtube(client: httpx.AsyncClient, env: SimpleName
     assert len([r for r in env.gateway.requests if r.url.path == "/api/v1/search"]) == 1
 
 
+async def test_retry_after_torrent_outage_searches_again(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
+    request = await request_album(client, env)
+    assert await env.manager.process_one()
+    env.gateway.present = False
+    await env.manager._torrent_poll(uuid.UUID(request["id"]))
+    await client.patch("/api/admin/config", json={"downloads": {"youtube_enabled": False}}, headers=env.admin)
+    for _ in range(3):
+        assert await env.manager.process_one()
+    assert (await detail(client, env, request))["status"] == "failed"
+    env.gateway.present = True
+    response = await client.post(f"/api/requests/{request['id']}/retry", headers=env.admin)
+    assert response.status_code == 200 and response.json()["torrent_status"] is None
+    assert await env.manager.process_one()
+    assert (await detail(client, env, request))["torrent_status"] == "downloading"
+    assert len([r for r in env.gateway.requests if r.url.path == "/api/v1/search"]) == 2
+
+
 async def test_monitor_loop(client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
     request = await request_album(client, env)
     assert await env.manager.process_one()
@@ -511,6 +531,23 @@ async def test_monitor_loop(client: httpx.AsyncClient, env: SimpleNamespace, mon
             await env.manager._torrent_monitor()
     row = await detail(client, env, request)
     assert row["torrent_progress"] == 0.25 and all(item["progress"] == 0.25 for item in row["items"])
+
+
+async def test_queued_torrent_is_not_stalled(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
+    request = await request_album(client, env)
+    assert await env.manager.process_one()
+    request_id = uuid.UUID(request["id"])
+    async with SessionLocal() as db:
+        row = await db.get(DownloadRequest, request_id)
+        row.torrent_progress_at = datetime.now(UTC) - timedelta(minutes=61)
+        await db.commit()
+    env.gateway.state = "queuedDL"
+    await env.manager._torrent_poll(request_id)
+    assert (await detail(client, env, request))["torrent_status"] == "downloading"
+    async with SessionLocal() as db:
+        row = await db.get(DownloadRequest, request_id)
+        assert datetime.now(UTC) - row.torrent_progress_at < timedelta(minutes=1)
+    assert not env.gateway.deleted
 
 
 async def test_torrent_cleanup(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
