@@ -226,6 +226,7 @@ class DownloadManager:
                 async with QBittorrent(cfg) as qb:
                     await qb.add(source, str(request.id))
                 request.torrent_status = "downloading"
+                request.torrent_error = None
                 request.torrent_name = chosen["title"]
                 request.torrent_progress = 0
                 request.torrent_progress_at = datetime.now(UTC)

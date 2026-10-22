@@ -1,5 +1,25 @@
 [
   {
+    "version": "1.6.12",
+    "date": "2026-10-22",
+    "de": [
+      "Podcasts haben eine eigene Startseite: neue Folgen deiner Abos, Kategorien, Top-Podcasts und Vorschläge passend zu dem, was du hörst. Die Suche findet über fyyd jetzt auch mehr deutsche Podcasts, RSS-Feeds lassen sich direkt in der Suche hinzufügen.",
+      "Der Wiederholen-Button schaltet jetzt direkt die Dauerschleife für den aktuellen Song ein und aus.",
+      "Jam-Codes bestehen nur noch aus Zahlen.",
+      "Downloads finden mehr Songs: Featuring-Künstler, Akzente und Musikvideos werden besser erkannt. Torrents hängen nicht mehr fest und überstehen kurze Störungen.",
+      "Songtexte werden im Hintergrund deutlich schneller geladen.",
+      "Samsung-TV-App: Autoplay, Warteschlange, Tastatur lässt sich verlassen, Songs starten schneller."
+    ],
+    "en": [
+      "Podcasts have their own home page: new episodes from your subscriptions, categories, top podcasts and suggestions based on what you listen to. Search now also finds more podcasts via fyyd, and RSS feeds can be added right in the search.",
+      "The repeat button now toggles repeating the current song.",
+      "Jam codes are numbers only.",
+      "Downloads find more songs: featured artists, accents and music videos are matched better. Torrents no longer get stuck and survive short outages.",
+      "Lyrics load much faster in the background.",
+      "Samsung TV app: autoplay, queue, the on-screen keyboard can be left with the arrows, songs start faster."
+    ]
+  },
+  {
     "version": "1.6.11",
     "date": "2026-10-21",
     "de": [

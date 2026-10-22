@@ -515,7 +515,8 @@ async def test_retry_after_torrent_outage_searches_again(client: httpx.AsyncClie
     response = await client.post(f"/api/requests/{request['id']}/retry", headers=env.admin)
     assert response.status_code == 200 and response.json()["torrent_status"] is None
     assert await env.manager.process_one()
-    assert (await detail(client, env, request))["torrent_status"] == "downloading"
+    retried = await detail(client, env, request)
+    assert retried["torrent_status"] == "downloading" and retried["torrent_error"] is None
     assert len([r for r in env.gateway.requests if r.url.path == "/api/v1/search"]) == 2
 
 
