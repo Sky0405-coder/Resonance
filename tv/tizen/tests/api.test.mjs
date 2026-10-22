@@ -32,15 +32,15 @@ test('native formats follow the TV capabilities; unknown/unsupported codecs use 
     assert.equal(streamFormat(codec, supported), 'raw');
     assert.equal(streamFormat(codec, {}), 'mp3');
   });
-  [undefined, null, 'alac', 'wav', 'toString', ''].forEach(codec => assert.equal(streamFormat(codec, supported), 'mp3'));
+  [undefined, null, 'alac', 'flac', 'opus', 'wav', 'toString', ''].forEach(codec => assert.equal(streamFormat(codec, supported), 'mp3'));
   const api = new Api(supported); api.server = 'https://example.test';
-  assert.equal(new URL(api.stream({ id: 'x', codec: 'opus' })).searchParams.get('format'), 'raw');
+  assert.equal(new URL(api.stream({ id: 'x', codec: 'aac' })).searchParams.get('format'), 'raw');
   const fallback = new URL(api.stream({ id: 'x', codec: 'alac' }));
   assert.equal(fallback.searchParams.get('format'), 'mp3'); assert.equal(fallback.searchParams.get('bitrate'), '320');
 });
 test('capability detection probes each backend codec once with its explicit MIME', () => {
   const calls = [];
-  const supported = detectCodecs({ canPlayType(mime) { calls.push(mime); return mime === 'audio/flac' ? '' : 'maybe'; } });
+  const supported = detectCodecs({ canPlayType(mime) { calls.push(mime); return mime === 'audio/mpeg' ? '' : 'maybe'; } });
   assert.deepEqual(calls, Object.keys(codecMimes).map(codec => codecMimes[codec]));
-  assert.equal(supported.flac, false); assert.equal(supported.opus, true); assert.equal(supported.wave, true);
+  assert.equal(supported.mp3, false); assert.equal(supported.aac, true);
 });

@@ -1,8 +1,6 @@
 import { language, t } from './i18n.js';
-export const codecMimes = {
-  mp3: 'audio/mpeg', aac: 'audio/mp4; codecs="mp4a.40.2"', flac: 'audio/flac',
-  vorbis: 'audio/ogg; codecs="vorbis"', opus: 'audio/ogg; codecs="opus"', wave: 'audio/wav'
-};
+// Only compressed formats are streamed unchanged: the TV starts FLAC/Ogg over HTTP very slowly, MP3 320 starts at once.
+export const codecMimes = { mp3: 'audio/mpeg', aac: 'audio/mp4; codecs="mp4a.40.2"' };
 export function detectCodecs(audio) {
   const supported = {};
   Object.keys(codecMimes).forEach(codec => {

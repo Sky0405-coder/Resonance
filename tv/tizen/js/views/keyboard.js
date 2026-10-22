@@ -6,7 +6,7 @@ export const keyboardControls = [0, 2, 4, 8, 10];
 function keyboardColumn(column) {
   return keyboardControls.filter(start => start <= column).pop();
 }
-// Coordinates are zero-based. null means leave the keyboard through its top/bottom edge.
+// Coordinates are zero-based. null means leave the keyboard through that edge (e.g. right to the search results).
 export function keyboardMove(position, direction, symbols) {
   let r = position.row;
   let c = r === 4 ? keyboardColumn(position.column) : position.column;
@@ -14,7 +14,9 @@ export function keyboardMove(position, direction, symbols) {
   if (direction === 'left' || direction === 'right') {
     const choices = r === 4 ? keyboardControls : Array.from({ length: count(r) }, (_, i) => i);
     const index = choices.indexOf(c);
-    c = choices[(index + (direction === 'left' ? -1 : 1) + choices.length) % choices.length];
+    const next = index + (direction === 'left' ? -1 : 1);
+    if (next < 0 || next >= choices.length) return null;
+    c = choices[next];
   } else {
     const delta = direction === 'up' ? -1 : 1;
     do { r += delta; } while (r >= 0 && r <= 4 && !count(r));
