@@ -414,6 +414,12 @@ void main() {
     expect(activity.containsKey('timestamps'), false);
   });
 
+  test('repeat button toggles between off and repeating the current song', () {
+    expect(nextLoopMode(LoopMode.off), LoopMode.one);
+    expect(nextLoopMode(LoopMode.one), LoopMode.off);
+    expect(nextLoopMode(LoopMode.all), LoopMode.off);
+  });
+
   test('station playback uses proxy, clears music queue and cannot seek or repeat', () async {
     final player = container.read(playerProvider.notifier);
     await player.playTracks([_track]);

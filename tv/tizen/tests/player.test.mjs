@@ -103,7 +103,7 @@ test('shuffle and repeat never pause, reload or seek the current audio, includin
   const audio = player.audio; audio.currentTime = 7;
   const snapshot = { src: audio.src, loads: audio.loads, pauses: audio.pauses, plays: audio.playCalls };
   const position = player.order.indexOf(player.index);
-  player.toggleShuffle(); player.toggleShuffle(); player.cycleRepeat(); player.cycleRepeat(); player.cycleRepeat();
+  player.toggleShuffle(); player.toggleShuffle(); player.cycleRepeat(); assert.equal(player.repeat, 'one'); player.cycleRepeat(); assert.equal(player.repeat, 'off');
   assert.equal(player.order.indexOf(player.index), position);
   assert.equal(player.playing, true); assert.equal(audio.currentTime, 7);
   assert.deepEqual({ src: audio.src, loads: audio.loads, pauses: audio.pauses, plays: audio.playCalls }, snapshot);

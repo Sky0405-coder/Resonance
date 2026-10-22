@@ -817,11 +817,7 @@ class PlayerController extends Notifier<PlayerView> {
     if (state.station == null && jam == null) await engine.setLoopMode(mode);
   }
 
-  Future<void> cycleLoop() => setLoop(switch (state.loop) {
-    LoopMode.off => LoopMode.all,
-    LoopMode.all => LoopMode.one,
-    LoopMode.one => LoopMode.off,
-  });
+  Future<void> cycleLoop() => setLoop(nextLoopMode(state.loop));
 
   void setLikedLocally(String trackId, bool liked) {
     final replacements = <Track, Track>{for (final t in state.queue) t: t.id == trackId ? t.copyWith(liked: liked) : t};
@@ -1357,3 +1353,6 @@ final bookPositionProvider = Provider<double>((ref) {
 });
 
 final playerErrorsProvider = StreamProvider<Object>((ref) => ref.watch(playerProvider.notifier).errors.stream);
+
+/// The repeat button toggles repeating the current song; repeat-all only comes from media controls.
+LoopMode nextLoopMode(LoopMode mode) => mode == LoopMode.off ? LoopMode.one : LoopMode.off;

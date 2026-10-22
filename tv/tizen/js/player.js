@@ -262,7 +262,7 @@ export class Player {
     this.emit('state');
   }
   cycleRepeat() {
-    this.repeat = { off: 'all', all: 'one', one: 'off' }[this.repeat];
+    this.repeat = this.repeat === 'off' ? 'one' : 'off';
     if (!this.station) this.preload();
     this.emit('state');
   }

@@ -157,7 +157,7 @@ export async function runSmoke() {
   const continuingAudio = [document.getElementById('audio-a'), document.getElementById('audio-b')].find(audio => !audio.paused);
   const continuingSource = continuingAudio.currentSrc;
   click('now-shuffle'); assert(document.querySelector('[data-focus-id="now-shuffle"]').getAttribute('aria-pressed') === 'true', 'Shuffle enabled');
-  click('now-repeat'); assert(document.querySelector('[data-focus-id="now-repeat"]').getAttribute('aria-label').indexOf('Alle') >= 0, 'Repeat-all');
+  click('now-repeat'); assert(document.querySelector('[data-focus-id="now-repeat"]').getAttribute('aria-label').indexOf('Ein Titel') >= 0, 'Repeat-one');
   assert(!continuingAudio.paused && continuingAudio.currentSrc === continuingSource, 'Shuffle/repeat preserve active audio');
   passed.push('SVG controls, likes, held seeking, search debounce, audio, preload handoff, media keys, shuffle, repeat and lyrics');
   click('now-queue'); await wait(() => document.querySelector('.queue-page'), 'queue');
