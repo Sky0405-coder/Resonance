@@ -205,8 +205,14 @@ async def test_score_candidate(meta: TrackMeta) -> None:
     assert score_candidate(meta, meta.title + " (Live)", [meta.artist], 3, False) is None
     assert score_candidate(meta, meta.title, [meta.artist], 23, False) is None
     assert score_candidate(meta, meta.title, [meta.artist], 6, True) < 100
-    assert score_candidate(meta, meta.title, [meta.artist], 9, True) is None
+    assert score_candidate(meta, meta.title, [meta.artist], 9, True) < 100
+    assert score_candidate(meta, meta.title, [meta.artist], 14, True) is None
     assert score_candidate(meta, meta.title + " (Remastered)", [meta.artist], 3, False) == 100
+    # Featured artists and accents: the result may be credited to any of the song's artists.
+    featured = meta.model_copy(update={"artist": "Ćelo feat. Fler"})
+    assert score_candidate(featured, meta.title, ["Fler"], 3, False) == 100
+    assert score_candidate(featured, meta.title, ["Celo"], 3, False) == 100
+    assert score_candidate(featured, meta.title, ["Unrelated Singer"], 3, False) is None
 
 
 async def test_target_relpath(meta: TrackMeta, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

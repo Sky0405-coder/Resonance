@@ -1,5 +1,6 @@
 import asyncio
 import re
+import unicodedata
 from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -53,11 +54,29 @@ def norm(s: str) -> str:
 EXPLICIT_BONUS = 15
 
 
+def _fold(s: str) -> str:
+    """Accents and typographic apostrophes do not matter for matching (Ćelo = Celo, ’69 = '69)."""
+    s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
+    return s.replace("’", "'").replace("‘", "'")
+
+
+_ARTIST_SEPARATORS = r"\s*(?:,|&|/|\+|\bfeat\.?|\bft\.?|\bfeaturing\b|\bwith\b|\bx\b|\bund\b|\band\b)\s*"
+
+
+def _artist_names(artist: str) -> set[str]:
+    """The full credit plus each credited artist: "Sido feat. Fler" matches a result credited to Fler."""
+    folded = _fold(artist.casefold())
+    names = {_fold(norm(artist))} | {" ".join(n.split()) for n in re.split(_ARTIST_SEPARATORS, folded)}
+    return {n for n in names if n}
+
+
 def score_candidate(
     meta: TrackMeta, title: str, artists: list[str], duration: float | None, is_video: bool
 ) -> float | None:
-    title_ratio = fuzz.token_set_ratio(norm(meta.title), norm(title))
-    artist_ratio = max((fuzz.token_set_ratio(norm(meta.artist), norm(a)) for a in artists), default=0)
+    title_ratio = fuzz.token_set_ratio(_fold(norm(meta.title)), _fold(norm(title)))
+    wanted = _artist_names(meta.artist)
+    found = set().union(*(_artist_names(a) for a in artists)) | {_fold(norm(" ".join(artists)))} if artists else set()
+    artist_ratio = max((fuzz.token_set_ratio(w, f) for w in wanted for f in found if f), default=0)
     d = abs(meta.duration - duration) if meta.duration is not None and duration is not None else None
     if title_ratio < 70 or artist_ratio < 60 or (d is not None and d > 15):
         return None
@@ -86,7 +105,8 @@ def score_candidate(
     duration_score = 50 if d is None else 100 if d <= 2 else 0 if d >= 15 else 100 * (15 - d) / 13
     score = 0.5 * title_ratio + 0.3 * artist_ratio + 0.2 * duration_score
     if is_video:
-        if d is not None and d > 5:
+        # Music videos often add a short intro or outro.
+        if d is not None and d > 10:
             return None
         score -= 10
     return score
