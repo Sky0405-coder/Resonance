@@ -213,9 +213,8 @@ class _SearchTabState extends ConsumerState<_SearchTab> with AutomaticKeepAliveC
             autofocus: true,
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => _search(),
-            decoration: InputDecoration(
-              hintText: context.l10n.editorSearchTrackHint,
-              prefixIcon: const Icon(Icons.search),
+            decoration: searchDecoration(
+              context.l10n.editorSearchTrackHint,
               suffixIcon: IconButton(icon: const Icon(Icons.arrow_forward), onPressed: _search),
             ),
           ),
@@ -614,9 +613,8 @@ class _AlbumMatcherState extends ConsumerState<_AlbumMatcher> {
                   autofocus: true,
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _search(),
-                  decoration: InputDecoration(
-                    hintText: context.l10n.editorSearchAlbumHint,
-                    prefixIcon: const Icon(Icons.search),
+                  decoration: searchDecoration(
+                    context.l10n.editorSearchAlbumHint,
                     suffixIcon: IconButton(icon: const Icon(Icons.arrow_forward), onPressed: _search),
                   ),
                 ),

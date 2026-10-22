@@ -219,7 +219,7 @@ class _TvSearchPageState extends ConsumerState<TvSearchPage> {
             focusNode: _field,
             autofocus: true,
             style: const TextStyle(fontSize: 28),
-            decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: context.l10n.searchHint),
+            decoration: searchDecoration(context.l10n.searchHint),
             textInputAction: TextInputAction.search,
             onSubmitted: (_) => FocusScope.of(context).nextFocus(),
             onChanged: (value) {

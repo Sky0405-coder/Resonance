@@ -194,16 +194,12 @@ class PodcastsPage extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 140),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
-              readOnly: true,
-              onTap: () => context.push('/podcasts/search'),
-              decoration: InputDecoration(
-                hintText: context.l10n.podcastsSearchHint,
-                prefixIcon: const Icon(Icons.search),
-              ),
-            ),
+          TextField(
+            readOnly: true,
+            // Only opens the search page; never shows a focus outline when coming back.
+            canRequestFocus: false,
+            onTap: () => context.push('/podcasts/search'),
+            decoration: searchDecoration(context.l10n.podcastsSearchHint),
           ),
           const SizedBox(height: 24),
           AsyncBody(
@@ -315,7 +311,8 @@ class _PodcastSearchPageState extends ConsumerState<PodcastSearchPage> {
             child: TextField(
               controller: _controller,
               autofocus: true,
-              decoration: InputDecoration(labelText: context.l10n.podcastsSearch, prefixIcon: const Icon(Icons.search)),
+              textInputAction: TextInputAction.search,
+              decoration: searchDecoration(context.l10n.podcastsSearchHint),
               onChanged: (value) {
                 _debounce?.cancel();
                 _debounce = Timer(const Duration(milliseconds: 350), () {

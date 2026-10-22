@@ -205,7 +205,7 @@ class _EbooksView extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: TextField(
                 textInputAction: TextInputAction.search,
-                decoration: InputDecoration(hintText: context.l10n.booksSearchHint, prefixIcon: const Icon(Icons.search)),
+                decoration: searchDecoration(context.l10n.booksSearchHint),
                 onSubmitted: (q) {
                   if (q.trim().isNotEmpty) context.push('/books/search?q=${Uri.encodeQueryComponent(q.trim())}');
                 },

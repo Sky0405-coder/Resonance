@@ -18,6 +18,10 @@ import '../../player/player.dart';
 import '../../player/engine.dart' show supportsSmartShuffle;
 import '../../offline/offline_store.dart';
 
+/// One look for every search field (filled, rounded like the theme); only hint and trailing action differ.
+InputDecoration searchDecoration(String hint, {Widget? suffixIcon}) =>
+    InputDecoration(hintText: hint, prefixIcon: const Icon(Icons.search), suffixIcon: suffixIcon);
+
 class ShuffleButton extends ConsumerWidget {
   const ShuffleButton({super.key, this.iconSize = 24});
   final double iconSize;

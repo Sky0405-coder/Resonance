@@ -249,10 +249,7 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                     onChanged: (v) {
                       if (v.isEmpty) setState(() => _query = '');
                     },
-                    decoration: InputDecoration(
-                      hintText: context.l10n.audiobooksSearchHint,
-                      prefixIcon: Icon(Icons.search),
-                    ),
+                    decoration: searchDecoration(context.l10n.audiobooksSearchHint),
                   ),
                 ),
               ),

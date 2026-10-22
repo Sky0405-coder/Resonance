@@ -59,10 +59,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   controller: _controller,
                   autofocus: isWide(context),
                   onChanged: _onChanged,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search),
-                    hintText: context.l10n.searchHint,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+                  decoration: searchDecoration(
+                    context.l10n.searchHint,
                     suffixIcon: _query.isEmpty
                         ? null
                         : IconButton(

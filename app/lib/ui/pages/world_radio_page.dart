@@ -163,10 +163,7 @@ class _WorldRadioPageState extends ConsumerState<WorldRadioPage> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: TextField(
               controller: _search,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: context.l10n.worldRadioSearchHint,
-              ),
+              decoration: searchDecoration(context.l10n.worldRadioSearchHint),
               onChanged: (value) {
                 _debounce?.cancel();
                 _debounce = Timer(const Duration(milliseconds: 400), () {
@@ -302,11 +299,7 @@ class _CountrySheetState extends ConsumerState<_CountrySheet> {
               padding: const EdgeInsets.all(16),
               child: TextField(
                 autofocus: true,
-                decoration: InputDecoration(
-                  labelText: context.l10n.worldRadioCountry,
-                  hintText: context.l10n.worldRadioSearchCountry,
-                  prefixIcon: const Icon(Icons.search),
-                ),
+                decoration: searchDecoration(context.l10n.worldRadioSearchCountry),
                 onChanged: (value) => setState(() => _query = value.toLowerCase()),
               ),
             ),
