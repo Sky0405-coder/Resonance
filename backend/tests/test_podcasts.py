@@ -29,17 +29,23 @@ async def feeds(monkeypatch, client):
 
     def handle(request):
         requests.append(request)
+        if request.url.host == "itunes.apple.com":
+            if request.url.path.endswith("/search"):
+                return httpx.Response(200, json={"results": [{
+                    "collectionId": 123, "collectionName": "Discovery", "artistName": "Author",
+                    "artworkUrl600": "https://pod.example/cover.jpg", "feedUrl": "https://pod.example/feed.xml",
+                }, {"collectionId": 456}]})
+            return httpx.Response(200, json={"results": []})
+        if request.url.host == "api.fyyd.de":
+            return httpx.Response(200, json={"data": []})
         if responses:
             return responses.pop(0)
-        if request.url.host == "itunes.apple.com":
-            return httpx.Response(200, json={"results": [{
-                "collectionId": 123, "collectionName": "Discovery", "artistName": "Author",
-                "artworkUrl600": "https://pod.example/cover.jpg", "feedUrl": "https://pod.example/feed.xml",
-            }, {"collectionId": 456}]})
         return httpx.Response(200, content=FEED, headers={"etag": '"v1"', "last-modified": "Wed, 21 Oct 2026"})
 
     monkeypatch.setattr(podcasts, "_client", lambda: original(transport=httpx.MockTransport(handle)))
     podcasts._cache.clear()
+    podcasts._chart_cache.clear()
+    podcasts._genre_cache.clear()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
@@ -47,6 +53,8 @@ async def feeds(monkeypatch, client):
     await client.patch("/api/admin/config", headers=auth(admin["token"]), json={"registration": {"mode": "public"}})
     yield requests, responses
     podcasts._cache.clear()
+    podcasts._chart_cache.clear()
+    podcasts._genre_cache.clear()
 
 
 def test_parse_feed():
@@ -162,15 +170,17 @@ async def test_search_cache_and_errors(client, feeds, monkeypatch):
         assert response.json() == [{
             "itunes_id": 123, "title": "Discovery", "author": "Author",
             "image_url": "https://pod.example/cover.jpg", "feed_url": "https://pod.example/feed.xml",
+            "source": "apple",
         }]
-    assert len(feeds[0]) == 1
-    assert dict(feeds[0][0].url.params) == {"media": "podcast", "limit": "25", "term": "hello world"}
-    key = "hello world"
-    podcasts._cache[key] = (podcasts._cache[key][0] - 601, [])
-    await podcasts.search(key)
     assert len(feeds[0]) == 2
-    feeds[1].append(httpx.Response(503))
-    assert (await client.get("/api/podcasts/search?q=unavailable", headers=headers)).status_code == 502
+    apple_request = next(request for request in feeds[0] if request.url.host == "itunes.apple.com")
+    assert dict(apple_request.url.params) == {
+        "media": "podcast", "limit": "25", "term": "hello world", "country": "DE",
+    }
+    key = ("DE", "hello world")
+    podcasts._cache[key] = (podcasts._cache[key][0] - 601, [])
+    await podcasts.search("hello world", "DE")
+    assert len(feeds[0]) == 4
     for data in [b"not xml", b"x" * (podcasts.MAX_FEED_BYTES + 1)]:
         feeds[1].append(httpx.Response(200, content=data))
         with pytest.raises(podcasts.PodcastError):
@@ -180,6 +190,185 @@ async def test_search_cache_and_errors(client, feeds, monkeypatch):
     assert response.status_code == 422
     assert (await client.get(f"/api/podcasts/episodes/{uuid.uuid4()}", headers=headers)).status_code == 404
     assert (await client.get(f"/api/podcasts/{uuid.uuid4()}", headers=headers)).status_code == 404
+
+
+async def test_search_merges_dedupes_and_handles_source_failures(client, feeds, monkeypatch):
+    user = await register(client, "podcast_sources")
+    headers = auth(user["token"])
+    requests = []
+
+    def install(apple_status=200, fyyd_status=200):
+        def handle(request):
+            requests.append(request)
+            if request.url.host == "itunes.apple.com":
+                if apple_status != 200:
+                    return httpx.Response(apple_status)
+                return httpx.Response(200, json={"results": [{
+                    "collectionId": 10, "collectionName": "Apple", "artistName": "Author",
+                    "feedUrl": "https://www.Example.com/feed/", "artworkUrl100": "https://pod.example/a.jpg",
+                }]})
+            if fyyd_status != 200:
+                return httpx.Response(fyyd_status)
+            return httpx.Response(200, json={"data": [
+                {"title": "Duplicate", "author": "Other", "xmlURL": "http://example.com/feed"},
+                {"title": "Fyyd", "author": "Fyyd author", "imgURL": "https://pod.example/f.jpg",
+                 "xmlURL": "https://fyyd.example/feed.xml"},
+                {"title": "Bad URL", "xmlURL": "file:///tmp/feed.xml"},
+            ]})
+
+        monkeypatch.setattr(podcasts, "_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(handle)))
+        podcasts._cache.clear()
+
+    install()
+    response = await client.get("/api/podcasts/search?q=coffee", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "itunes_id": 10, "title": "Apple", "author": "Author", "image_url": "https://pod.example/a.jpg",
+            "feed_url": "https://www.Example.com/feed/", "source": "apple",
+        },
+        {
+            "itunes_id": None, "title": "Fyyd", "author": "Fyyd author", "image_url": "https://pod.example/f.jpg",
+            "feed_url": "https://fyyd.example/feed.xml", "source": "fyyd",
+        },
+    ]
+    fyyd_request = next(request for request in requests if request.url.host == "api.fyyd.de")
+    assert dict(fyyd_request.url.params) == {"term": "coffee", "count": "25"}
+
+    requests.clear()
+    install(apple_status=503)
+    response = await client.get("/api/podcasts/search?q=only-fyyd", headers=headers)
+    assert response.status_code == 200 and response.json()[0]["source"] == "fyyd"
+    assert response.json()[0]["itunes_id"] is None
+
+    install(apple_status=503, fyyd_status=503)
+    response = await client.get("/api/podcasts/search?q=unavailable", headers=headers)
+    assert response.status_code == 502
+
+
+async def test_top_podcasts_parses_single_and_list_entries_and_drops_missing_feeds(feeds, monkeypatch):
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        if request.url.path.endswith("/limit=1/genre=1303/json"):
+            return httpx.Response(200, json={"feed": {"entry": {"id": {"attributes": {"im:id": "1"}}}}})
+        if request.url.path.endswith("/limit=2/genre=1489/json"):
+            return httpx.Response(200, json={"feed": {"entry": [
+                {"id": {"attributes": {"im:id": "2"}}}, {"id": {"attributes": {"im:id": "3"}}},
+            ]}})
+        if request.url.path == "/lookup" and request.url.params["id"] == "1":
+            items = [{"collectionId": 1, "collectionName": "Single", "feedUrl": "https://pod.example/1"}]
+        else:
+            items = [
+                {"collectionId": 3, "collectionName": "No feed"},
+                {"collectionId": 2, "collectionName": "Kept", "feedUrl": "https://pod.example/2"},
+            ]
+        return httpx.Response(200, json={"results": items})
+
+    monkeypatch.setattr(podcasts, "_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(handle)))
+    podcasts._chart_cache.clear()
+    single = await podcasts.top_podcasts("DE", 1303, limit=1)
+    assert [item["title"] for item in single] == ["Single"]
+    ordered = await podcasts.top_podcasts("DE", 1489, limit=2)
+    assert [item["title"] for item in ordered] == ["Kept"]
+    assert all(item["source"] == "apple" for item in single + ordered)
+    assert requests[0].url.path == "/de/rss/toppodcasts/limit=1/genre=1303/json"
+    assert requests[1].url.path == "/lookup" and requests[1].url.params["country"] == "DE"
+    assert requests[2].url.path == "/de/rss/toppodcasts/limit=2/genre=1489/json"
+
+
+async def test_discover_sections_and_unknown_genre(client, feeds, monkeypatch):
+    user = await register(client, "podcast_discover")
+    headers = {**auth(user["token"]), "Accept-Language": "en"}
+    async with SessionLocal() as db:
+        listener = await db.scalar(select(User).where(User.username == "podcast_discover"))
+        names = ["Newest", "Prior", "Oldest"]
+        rows = [Podcast(feed_url=f"https://subscribed.example/{i}", title=name) for i, name in enumerate(names)]
+        db.add_all(rows)
+        await db.flush()
+        now = datetime.now(UTC)
+        db.add_all([
+            PodcastSubscription(user_id=listener.id, podcast_id=row.id, created_at=now - timedelta(days=i))
+            for i, row in enumerate(rows)
+        ])
+        await db.commit()
+    genres = {str(row.id): 1303 for row in rows}
+
+    async def podcast_genre(podcast, country):
+        assert country == "US"
+        return genres[str(podcast.id)]
+
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        if request.url.path.endswith("/genre=1303/json"):
+            ids = [1, 2, 3]
+        elif "/rss/toppodcasts/" in request.url.path:
+            ids = [10, 11]
+        else:
+            requested = request.url.params["id"].split(",")
+            if requested == ["1", "2", "3"]:
+                items = [
+                    {"collectionId": 1, "collectionName": "Subscribed", "feedUrl": "http://www.subscribed.example/0/"},
+                    {"collectionId": 2, "collectionName": "Recommended", "feedUrl": "https://pod.example/recommend"},
+                    {"collectionId": 3, "collectionName": "No feed"},
+                ]
+            else:
+                items = [
+                    {"collectionId": 10, "collectionName": "Top subscribed", "feedUrl": "https://subscribed.example/0"},
+                    {"collectionId": 11, "collectionName": "Top other", "feedUrl": "https://pod.example/top"},
+                ]
+            return httpx.Response(200, json={"results": items})
+        return httpx.Response(200, json={"feed": {"entry": [
+            {"id": {"attributes": {"im:id": str(item_id)}}} for item_id in ids
+        ]}})
+
+    monkeypatch.setattr(podcasts, "podcast_genre", podcast_genre)
+    monkeypatch.setattr(podcasts, "_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(handle)))
+    podcasts._chart_cache.clear()
+    response = await client.get("/api/podcasts/discover", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["genres"][0] == {"id": 1303, "name": "Comedy"}
+    assert [section["id"] for section in data["sections"]] == [f"because:{rows[0].id}", "top"]
+    assert data["sections"][0]["title"] == "Because you listen to Newest"
+    assert [item["title"] for item in data["sections"][0]["items"]] == ["Recommended"]
+    assert [item["title"] for item in data["sections"][1]["items"]] == ["Top subscribed", "Top other"]
+    assert sum("genre=1303" in request.url.path for request in requests) == 1
+    assert (await client.get("/api/podcasts/genres/999", headers=headers)).status_code == 404
+
+
+async def test_latest_orders_new_episodes_and_excludes_completed(client, feeds):
+    user = await register(client, "podcast_latest")
+    headers = auth(user["token"])
+    async with SessionLocal() as db:
+        listener = await db.scalar(select(User).where(User.username == "podcast_latest"))
+        podcast = Podcast(feed_url="https://latest.example/feed", title="Latest podcast")
+        db.add(podcast)
+        await db.flush()
+        db.add(PodcastSubscription(user_id=listener.id, podcast_id=podcast.id))
+        now = datetime.now(UTC)
+        episodes = [
+            PodcastEpisode(
+                podcast_id=podcast.id, guid=f"latest-{i}", title=title,
+                audio_url="https://pod.example/e.mp3", published_at=published,
+            )
+            for i, (title, published) in enumerate([
+                ("Older", now - timedelta(days=2)), ("Newer", now - timedelta(days=1)),
+                ("Completed", now), ("Unknown date", None),
+            ])
+        ]
+        db.add_all(episodes)
+        await db.flush()
+        db.add(EpisodeProgress(user_id=listener.id, episode_id=episodes[2].id, completed=True, position_seconds=30))
+        await db.commit()
+    response = await client.get("/api/podcasts/latest", headers=headers)
+    assert response.status_code == 200
+    assert [item["title"] for item in response.json()] == ["Newer", "Older", "Unknown date"]
+    assert all(not item["completed"] for item in response.json())
+    assert (await client.get("/api/podcasts/latest?limit=51", headers=headers)).status_code == 422
 
 
 async def test_continue_limit_order_and_subscription_sorting(client, feeds):

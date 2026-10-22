@@ -1,12 +1,14 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 
+from app import i18n
 from app.deps import DB, CurrentUser
 from app.models import EpisodeProgress, Podcast, PodcastEpisode, PodcastSubscription
 from app.services import podcasts
@@ -21,6 +23,38 @@ class SubscribeIn(BaseModel):
 class ProgressIn(BaseModel):
     position_seconds: float = Field(ge=0, allow_inf_nan=False)
     completed: bool
+
+
+class PodcastSearchResult(BaseModel):
+    itunes_id: int | None
+    title: str
+    author: str | None
+    image_url: str | None
+    feed_url: str
+    source: Literal["apple", "fyyd"]
+
+
+PODCAST_GENRES = (
+    (1303, "Comedy", "Comedy"),
+    (1489, "Nachrichten", "News"),
+    (1488, "True Crime", "True Crime"),
+    (1324, "Gesellschaft & Kultur", "Society & Culture"),
+    (1545, "Sport", "Sports"),
+    (1533, "Wissenschaft", "Science"),
+    (1487, "Geschichte", "History"),
+    (1321, "Wirtschaft", "Business"),
+    (1512, "Gesundheit & Fitness", "Health & Fitness"),
+    (1305, "Kinder & Familie", "Kids & Family"),
+    (1310, "Musik", "Music"),
+    (1318, "Technologie", "Technology"),
+    (1304, "Bildung", "Education"),
+    (1502, "Freizeit", "Leisure"),
+    (1483, "Fiktion", "Fiction"),
+)
+
+
+def store_country(request: Request) -> str:
+    return "DE" if i18n.language(request) == "de" else "US"
 
 
 def _podcast(podcast: Podcast) -> dict:
@@ -56,10 +90,10 @@ async def _get_episode(db: DB, id: uuid.UUID) -> PodcastEpisode:
     return episode
 
 
-@router.get("/search")
-async def search(user: CurrentUser, q: str = Query("", max_length=500)) -> list[dict]:
+@router.get("/search", response_model=list[PodcastSearchResult])
+async def search(request: Request, user: CurrentUser, q: str = Query("", max_length=500)) -> list[dict]:
     try:
-        return await podcasts.search(q)
+        return await podcasts.search(q, store_country(request))
     except podcasts.PodcastError as exc:
         raise HTTPException(502, "Podcast-Suche nicht erreichbar") from exc
 
@@ -128,6 +162,85 @@ async def continue_listening(user: CurrentUser, db: DB) -> list[dict]:
         .join(EpisodeProgress, EpisodeProgress.episode_id == PodcastEpisode.id)
         .where(EpisodeProgress.user_id == user.id, EpisodeProgress.completed.is_(False))
         .order_by(EpisodeProgress.updated_at.desc(), PodcastEpisode.id).limit(10))
+    return [_episode(episode, podcast, progress) for episode, podcast, progress in rows]
+
+
+@router.get("/discover")
+async def discover(request: Request, user: CurrentUser, db: DB) -> dict:
+    country = store_country(request)
+    lang = i18n.language(request)
+    genres = [
+        {"id": genre_id, "name": german if lang == "de" else english}
+        for genre_id, german, english in PODCAST_GENRES
+    ]
+    subscriptions = list(await db.scalars(
+        select(Podcast).join(PodcastSubscription).where(PodcastSubscription.user_id == user.id)
+        .order_by(PodcastSubscription.created_at.desc(), Podcast.title)
+    ))
+    subscribed_feeds = {podcasts.normalize_feed_url(podcast.feed_url) for podcast in subscriptions}
+    sections = []
+    resolved = []
+    for podcast in subscriptions:
+        genre_id = await podcasts.podcast_genre(podcast, country)
+        if genre_id is None:
+            continue
+        resolved.append((podcast, genre_id))
+        if len(resolved) == 2:
+            break
+    seen_genres = set()
+    for podcast, genre_id in resolved:
+        if genre_id in seen_genres:
+            continue
+        seen_genres.add(genre_id)
+        try:
+            items = await podcasts.top_podcasts(country, genre_id, limit=50)
+        except podcasts.PodcastError:
+            continue
+        items = [item for item in items if podcasts.normalize_feed_url(item["feed_url"]) not in subscribed_feeds][:20]
+        if items:
+            title = f"Weil du {podcast.title} hörst" if lang == "de" else f"Because you listen to {podcast.title}"
+            sections.append({"id": f"because:{podcast.id}", "title": title, "items": items})
+    try:
+        items = await podcasts.top_podcasts(country, None, limit=50)
+        sections.append({
+            "id": "top",
+            "title": "Top-Podcasts" if lang == "de" else "Top podcasts",
+            "items": items[:30],
+        })
+    except podcasts.PodcastError:
+        pass
+    return {"genres": genres, "sections": sections}
+
+
+@router.get("/genres/{genre_id}", response_model=list[PodcastSearchResult])
+async def genre_podcasts(genre_id: int, request: Request, user: CurrentUser) -> list[dict]:
+    if genre_id not in {genre[0] for genre in PODCAST_GENRES}:
+        raise HTTPException(404, "Podcast-Kategorie nicht gefunden")
+    try:
+        return await podcasts.top_podcasts(store_country(request), genre_id)
+    except podcasts.PodcastError as exc:
+        raise HTTPException(502, "Podcast-Charts nicht erreichbar") from exc
+
+
+@router.get("/latest")
+async def latest(
+    user: CurrentUser, db: DB, limit: int = Query(20, ge=1, le=50),
+) -> list[dict]:
+    rows = await db.execute(
+        select(PodcastEpisode, Podcast, EpisodeProgress)
+        .join(Podcast, Podcast.id == PodcastEpisode.podcast_id)
+        .join(PodcastSubscription, PodcastSubscription.podcast_id == Podcast.id)
+        .outerjoin(EpisodeProgress, and_(
+            EpisodeProgress.episode_id == PodcastEpisode.id,
+            EpisodeProgress.user_id == user.id,
+        ))
+        .where(
+            PodcastSubscription.user_id == user.id,
+            (EpisodeProgress.episode_id.is_(None) | EpisodeProgress.completed.is_(False)),
+        )
+        .order_by(PodcastEpisode.published_at.desc().nullslast(), PodcastEpisode.id)
+        .limit(limit)
+    )
     return [_episode(episode, podcast, progress) for episode, podcast, progress in rows]
 
 

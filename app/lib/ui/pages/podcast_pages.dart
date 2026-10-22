@@ -15,6 +15,8 @@ import '../widgets/common.dart';
 
 void _changed(WidgetRef ref, String id) {
   ref.invalidate(podcastSubscriptionsProvider);
+  ref.invalidate(podcastDiscoverProvider);
+  ref.invalidate(podcastLatestProvider);
   ref.invalidate(podcastProvider(id));
 }
 
@@ -37,33 +39,132 @@ Future<void> _playEpisode(BuildContext context, WidgetRef ref, PodcastEpisode ep
   }
 }
 
-class PodcastActions extends ConsumerWidget {
-  const PodcastActions({super.key, this.search = true});
-  final bool search;
+Future<void> _addRss(BuildContext context, WidgetRef ref) async {
+  final url = await promptText(context, context.l10n.podcastsAddRss, context.l10n.podcastsRssUrl);
+  if (url == null || url.trim().isEmpty || !context.mounted) return;
+  final podcast = await _subscribe(context, ref, url.trim());
+  if (podcast != null && context.mounted) context.push('/podcasts/${podcast.id}');
+}
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      if (search)
-        IconButton(
-          tooltip: context.l10n.podcastsSearch,
-          icon: const Icon(Icons.search),
-          onPressed: () => context.push('/podcasts/search'),
-        ),
-      IconButton(
-        tooltip: context.l10n.podcastsAddRss,
-        icon: const Icon(Icons.add_link),
-        onPressed: () async {
-          final url = await promptText(context, context.l10n.podcastsAddRss, context.l10n.podcastsRssUrl);
-          if (url == null || url.trim().isEmpty || !context.mounted) return;
-          final podcast = await _subscribe(context, ref, url.trim());
-          if (podcast != null && context.mounted) context.push('/podcasts/${podcast.id}');
+Future<void> _openResult(BuildContext context, WidgetRef ref, PodcastSearchResult result) async {
+  try {
+    final podcast = await ref.read(apiProvider).openPodcast(result.feedUrl);
+    if (context.mounted) context.push('/podcasts/${podcast.id}');
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
+}
+
+bool _isFeedUrl(String value) {
+  final lower = value.toLowerCase();
+  return lower.startsWith('http://') || lower.startsWith('https://');
+}
+
+Widget _episodeShelf(BuildContext context, WidgetRef ref, List<PodcastEpisode> episodes, {required bool progress}) =>
+    SizedBox(
+      height: progress ? 270 : 248,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: episodes.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 16),
+        itemBuilder: (_, i) {
+          final episode = episodes[i];
+          return SizedBox(
+            width: 160,
+            child: InkWell(
+              onTap: () => _playEpisode(context, ref, episode),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  NetworkCover(url: episode.coverUrl, icon: Icons.podcasts),
+                  const SizedBox(height: 8),
+                  Text(episode.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    episode.podcastTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Palette.textMuted),
+                  ),
+                  if (progress) _EpisodeProgress(episode: episode),
+                ],
+              ),
+            ),
+          );
         },
       ),
-    ],
-  );
-}
+    );
+
+Widget _resultShelf(BuildContext context, WidgetRef ref, PodcastSection section) => Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Text(section.title, style: Theme.of(context).textTheme.titleLarge),
+    const SizedBox(height: 12),
+    SizedBox(
+      height: 220,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: section.items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 16),
+        itemBuilder: (_, i) {
+          final result = section.items[i];
+          return SizedBox(
+            width: 140,
+            child: InkWell(
+              onTap: () => _openResult(context, ref, result),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  NetworkCover(url: result.imageUrl, icon: Icons.podcasts),
+                  const SizedBox(height: 8),
+                  Text(result.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    result.author ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Palette.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ),
+    const SizedBox(height: 24),
+  ],
+);
+
+Widget _subscriptionShelf(BuildContext context, List<Podcast> podcasts) => SizedBox(
+  height: 196,
+  child: ListView.separated(
+    scrollDirection: Axis.horizontal,
+    itemCount: podcasts.length,
+    separatorBuilder: (_, _) => const SizedBox(width: 16),
+    itemBuilder: (_, i) {
+      final podcast = podcasts[i];
+      return SizedBox(
+        width: 140,
+        child: Builder(
+          builder: (context) => InkWell(
+            onTap: () => context.push('/podcasts/${podcast.id}'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Badge(
+                  label: Text('${podcast.unplayedCount}'),
+                  isLabelVisible: podcast.unplayedCount > 0,
+                  child: NetworkCover(url: podcast.imageUrl, icon: Icons.podcasts),
+                ),
+                const SizedBox(height: 8),
+                Text(podcast.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  ),
+);
 
 class PodcastsPage extends ConsumerWidget {
   const PodcastsPage({super.key, this.embedded = false});
@@ -73,16 +174,38 @@ class PodcastsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final subscriptions = ref.watch(podcastSubscriptionsProvider);
     final continued = ref.watch(podcastContinueProvider);
+    final latest = ref.watch(podcastLatestProvider).value ?? const <PodcastEpisode>[];
+    final discoverState = ref.watch(podcastDiscoverProvider);
+    final discover = discoverState.isLoading ? null : discoverState.value;
     final body = RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(podcastSubscriptionsProvider);
         ref.invalidate(podcastContinueProvider);
-        await Future.wait([ref.read(podcastSubscriptionsProvider.future), ref.read(podcastContinueProvider.future)]);
+        ref.invalidate(podcastLatestProvider);
+        ref.invalidate(podcastDiscoverProvider);
+        await Future.wait<Object?>([
+          ref.read(podcastSubscriptionsProvider.future),
+          ref.read(podcastContinueProvider.future),
+          ref.read(podcastLatestProvider.future),
+          ref.read(podcastDiscoverProvider.future),
+        ]).catchError((_) => <Object?>[]);
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 140),
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: TextField(
+              readOnly: true,
+              onTap: () => context.push('/podcasts/search'),
+              decoration: InputDecoration(
+                hintText: context.l10n.podcastsSearchHint,
+                prefixIcon: const Icon(Icons.search),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
           AsyncBody(
             value: continued,
             onRetry: () => ref.invalidate(podcastContinueProvider),
@@ -93,87 +216,50 @@ class PodcastsPage extends ConsumerWidget {
                     children: [
                       Text(context.l10n.podcastsContinue, style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 12),
-                      SizedBox(
-                        height: 270,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: episodes.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 16),
-                          itemBuilder: (_, i) {
-                            final episode = episodes[i];
-                            return SizedBox(
-                              width: 160,
-                              child: InkWell(
-                                onTap: () => _playEpisode(context, ref, episode),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    NetworkCover(url: episode.coverUrl, icon: Icons.podcasts),
-                                    const SizedBox(height: 8),
-                                    Text(episode.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                                    Text(
-                                      episode.podcastTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Palette.textMuted),
-                                    ),
-                                    _EpisodeProgress(episode: episode),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                      _episodeShelf(context, ref, episodes, progress: true),
                       const SizedBox(height: 24),
                     ],
                   ),
           ),
-          Text(context.l10n.podcastsSubscriptions, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          AsyncBody(
-            value: subscriptions,
-            onRetry: () => ref.invalidate(podcastSubscriptionsProvider),
-            builder: (podcasts) => podcasts.isEmpty
-                ? Padding(padding: const EdgeInsets.all(24), child: Text(context.l10n.podcastsEmpty))
-                : GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 210,
-                      mainAxisExtent: 280,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
+          if (latest.isNotEmpty) ...[
+            Text(context.l10n.podcastsNewEpisodes, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            _episodeShelf(context, ref, latest, progress: false),
+            const SizedBox(height: 24),
+          ],
+          if ((subscriptions.value ?? const <Podcast>[]).isNotEmpty) ...[
+            Text(context.l10n.podcastsYourPodcasts, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            _subscriptionShelf(context, subscriptions.value!),
+            const SizedBox(height: 24),
+          ],
+          if (discover != null) ...[
+            Text(context.l10n.podcastsCategories, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final genre in discover.genres)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        label: Text(genre.name),
+                        onPressed: () => context.push('/podcasts/genre/${genre.id}', extra: genre.name),
+                      ),
                     ),
-                    itemCount: podcasts.length,
-                    itemBuilder: (_, i) {
-                      final podcast = podcasts[i];
-                      return InkWell(
-                        onTap: () => context.push('/podcasts/${podcast.id}'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Badge(
-                              label: Text('${podcast.unplayedCount}'),
-                              isLabelVisible: podcast.unplayedCount > 0,
-                              child: NetworkCover(url: podcast.imageUrl, icon: Icons.podcasts),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(podcast.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            for (final section in discover.sections)
+              if (section.items.isNotEmpty) _resultShelf(context, ref, section),
+          ],
         ],
       ),
     );
     if (embedded) return body;
-    return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.navPodcasts), actions: const [PodcastActions()]),
-      body: body,
-    );
+    return Scaffold(appBar: AppBar(title: Text(context.l10n.navPodcasts)), body: body);
   }
 }
 
@@ -196,24 +282,32 @@ class _PodcastSearchPageState extends ConsumerState<PodcastSearchPage> {
     super.dispose();
   }
 
-  Future<void> _open(PodcastSearchResult result) async {
-    if (_busy.contains(result.feedUrl)) return;
-    setState(() => _busy.add(result.feedUrl));
-    try {
-      final podcast = await ref.read(apiProvider).openPodcast(result.feedUrl);
-      if (mounted) context.push('/podcasts/${podcast.id}');
-    } catch (e) {
-      if (mounted) showError(context, e);
-    } finally {
-      if (mounted) setState(() => _busy.remove(result.feedUrl));
+  Future<void> _addFeed(String feedUrl) async {
+    if (_busy.contains(feedUrl)) return;
+    setState(() => _busy.add(feedUrl));
+    final podcast = await _subscribe(context, ref, feedUrl);
+    if (mounted) {
+      setState(() => _busy.remove(feedUrl));
+      if (podcast != null) context.push('/podcasts/${podcast.id}');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final subscriptions = ref.watch(podcastSubscriptionsProvider).value ?? const <Podcast>[];
+    final feedQuery = _isFeedUrl(_query);
+    final results = _query.isNotEmpty && !feedQuery ? ref.watch(podcastSearchProvider(_query)) : null;
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.podcastsSearch), actions: const [PodcastActions(search: false)]),
+      appBar: AppBar(
+        title: Text(context.l10n.podcastsSearch),
+        actions: [
+          IconButton(
+            tooltip: context.l10n.podcastsAddRss,
+            icon: const Icon(Icons.add_link),
+            onPressed: () => _addRss(context, ref),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -232,41 +326,58 @@ class _PodcastSearchPageState extends ConsumerState<PodcastSearchPage> {
           ),
           if (_query.isNotEmpty)
             Expanded(
-              child: AsyncBody(
-                value: ref.watch(podcastSearchProvider(_query)),
-                onRetry: () => ref.invalidate(podcastSearchProvider(_query)),
-                builder: (results) => results.isEmpty
-                    ? Center(child: Text(context.l10n.booksNoResults))
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 140),
-                        itemCount: results.length,
-                        itemBuilder: (_, i) {
-                          final result = results[i];
-                          final subscribed = subscriptions.any((p) => p.feedUrl == result.feedUrl);
-                          return ListTile(
-                            leading: SizedBox(
-                              width: 56,
-                              child: NetworkCover(url: result.imageUrl, icon: Icons.podcasts),
-                            ),
-                            title: Text(result.title),
-                            subtitle: Text(result.author ?? ''),
-                            onTap: () => _open(result),
-                            trailing: TextButton(
-                              onPressed: subscribed || _busy.contains(result.feedUrl)
-                                  ? null
-                                  : () async {
-                                      setState(() => _busy.add(result.feedUrl));
-                                      await _subscribe(context, ref, result.feedUrl);
-                                      if (mounted) setState(() => _busy.remove(result.feedUrl));
-                                    },
-                              child: Text(
-                                subscribed ? context.l10n.podcastsSubscribed : context.l10n.podcastsSubscribe,
+              child: feedQuery
+                  ? ListView(
+                      padding: const EdgeInsets.only(bottom: 140),
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.rss_feed),
+                          title: Text(context.l10n.podcastsAddFeedByUrl),
+                          subtitle: Text(_query),
+                          onTap: () => _addFeed(_query),
+                        ),
+                      ],
+                    )
+                  : AsyncBody(
+                      value: results!,
+                      onRetry: () => ref.invalidate(podcastSearchProvider(_query)),
+                      builder: (items) => items.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(context.l10n.podcastsNoResults, textAlign: TextAlign.center),
                               ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.only(bottom: 140),
+                              itemCount: items.length,
+                              itemBuilder: (_, i) {
+                                final result = items[i];
+                                final subscribed = subscriptions.any((p) => p.feedUrl == result.feedUrl);
+                                return ListTile(
+                                  leading: SizedBox(
+                                    width: 56,
+                                    child: NetworkCover(url: result.imageUrl, icon: Icons.podcasts),
+                                  ),
+                                  title: Text(result.title),
+                                  subtitle: Text(result.author ?? ''),
+                                  onTap: () => _openResult(context, ref, result),
+                                  trailing: TextButton(
+                                    onPressed: subscribed || _busy.contains(result.feedUrl)
+                                        ? null
+                                        : () async {
+                                            setState(() => _busy.add(result.feedUrl));
+                                            await _subscribe(context, ref, result.feedUrl);
+                                            if (mounted) setState(() => _busy.remove(result.feedUrl));
+                                          },
+                                    child: Text(
+                                      subscribed ? context.l10n.podcastsSubscribed : context.l10n.podcastsSubscribe,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-              ),
+                    ),
             ),
         ],
       ),
@@ -274,6 +385,51 @@ class _PodcastSearchPageState extends ConsumerState<PodcastSearchPage> {
   }
 }
 
+class PodcastGenrePage extends ConsumerWidget {
+  const PodcastGenrePage({super.key, required this.id, required this.name});
+
+  final int id;
+  final String name;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Scaffold(
+    appBar: AppBar(title: Text(name)),
+    body: AsyncBody(
+      value: ref.watch(podcastGenreProvider(id)),
+      onRetry: () => ref.invalidate(podcastGenreProvider(id)),
+      builder: (items) => GridView.builder(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 140),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 210,
+          mainAxisExtent: 280,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: items.length,
+        itemBuilder: (_, i) {
+          final result = items[i];
+          return InkWell(
+            onTap: () => _openResult(context, ref, result),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                NetworkCover(url: result.imageUrl, icon: Icons.podcasts),
+                const SizedBox(height: 8),
+                Text(result.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(
+                  result.author ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Palette.textMuted),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
 class PodcastPage extends ConsumerStatefulWidget {
   const PodcastPage({super.key, required this.id});
   final String id;

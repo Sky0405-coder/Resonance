@@ -84,41 +84,75 @@ class BookCover extends ConsumerWidget {
 }
 
 /// Bottom tab "Bücher": ebooks and, if set up, audiobooks side by side.
-class BooksHubPage extends ConsumerWidget {
+class BooksHubPage extends ConsumerStatefulWidget {
   const BooksHubPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BooksHubPage> createState() => _BooksHubPageState();
+}
+
+class _BooksHubPageState extends ConsumerState<BooksHubPage> with TickerProviderStateMixin {
+  TabController? _tabController;
+
+  void _tabChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _syncTabController(int? length) {
+    if (_tabController?.length == length) return;
+    _tabController?.removeListener(_tabChanged);
+    _tabController?.dispose();
+    _tabController = length == null ? null : TabController(length: length, vsync: this);
+    _tabController?.addListener(_tabChanged);
+  }
+
+  @override
+  void dispose() {
+    _tabController?.removeListener(_tabChanged);
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     final ebooks = ref.watch(ebooksVisibleProvider);
     final audiobooks = ref.watch(audiobooksVisibleProvider);
     final podcasts =
         !isWide(context) &&
         ref.watch(podcastsVisibleProvider) &&
         ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
-    final tabs = <(String, Widget)>[
-      if (ebooks) (context.l10n.booksEbooks, const _EbooksView()),
-      if (audiobooks) (context.l10n.navAudiobooks, const AudiobooksPage(embedded: true)),
-      if (podcasts) (context.l10n.navPodcasts, const PodcastsPage(embedded: true)),
+    final tabs = <(String, Widget, bool)>[
+      if (ebooks) (context.l10n.booksEbooks, const _EbooksView(), true),
+      if (audiobooks) (context.l10n.navAudiobooks, const AudiobooksPage(embedded: true), false),
+      if (podcasts) (context.l10n.navPodcasts, const PodcastsPage(embedded: true), false),
     ];
-    if (tabs.isEmpty) return const PodcastsPage();
-    if (tabs.length == 1 && audiobooks) return const AudiobooksPage();
-    return DefaultTabController(
-      length: tabs.length,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: Text(context.l10n.navBooks, style: const TextStyle(fontWeight: FontWeight.w800)),
-          actions: [if (ebooks) const _EbookActions(), if (podcasts) const PodcastActions()],
-          bottom: tabs.length > 1
-              ? TabBar(
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  tabs: [for (final tab in tabs) Tab(text: tab.$1)],
-                )
-              : null,
-        ),
-        body: TabBarView(children: [for (final tab in tabs) tab.$2]),
+    if (tabs.isEmpty) {
+      _syncTabController(null);
+      return const PodcastsPage();
+    }
+    if (tabs.length == 1 && audiobooks) {
+      _syncTabController(null);
+      return const AudiobooksPage();
+    }
+    _syncTabController(tabs.length);
+    final controller = _tabController!;
+    final ebookIndex = tabs.indexWhere((tab) => tab.$3);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text(context.l10n.navBooks, style: const TextStyle(fontWeight: FontWeight.w800)),
+        actions: [if (controller.index == ebookIndex && ebookIndex >= 0) const _EbookActions()],
+        bottom: tabs.length > 1
+            ? TabBar(
+                controller: controller,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: [for (final tab in tabs) Tab(text: tab.$1)],
+              )
+            : null,
       ),
+      body: TabBarView(controller: controller, children: [for (final tab in tabs) tab.$2]),
     );
   }
 }

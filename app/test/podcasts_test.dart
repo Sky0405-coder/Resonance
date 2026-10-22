@@ -43,6 +43,13 @@ const _track = Track(
 class _Api extends ApiClient {
   _Api() : super('https://resonance.example', 'secret-token');
   PodcastEpisode episode = _episode;
+  PodcastEpisode latestEpisode = const PodcastEpisode(
+    id: 'latest',
+    podcastId: 'podcast',
+    title: 'Latest episode',
+    podcastTitle: 'Podcast title',
+    durationSeconds: 180,
+  );
   final saves = <(String, double, bool)>[];
   final queries = <String>[];
   final feeds = <String>[];
@@ -67,6 +74,29 @@ class _Api extends ApiClient {
   @override
   Future<List<PodcastEpisode>> podcastContinue() async => [episode];
   @override
+  Future<List<PodcastEpisode>> podcastLatest() async => [latestEpisode];
+  @override
+  Future<PodcastDiscover> podcastDiscover() async => const PodcastDiscover(
+    genres: [PodcastGenre(id: 1303, name: 'Comedy')],
+    sections: [
+      PodcastSection(
+        id: 'top',
+        title: 'Top podcasts',
+        items: [
+          PodcastSearchResult(
+            feedUrl: 'https://top.example/feed',
+            title: 'Discovered podcast',
+            author: 'Author',
+          ),
+        ],
+      ),
+    ],
+  );
+  @override
+  Future<List<PodcastSearchResult>> podcastGenre(int id) async => const [
+    PodcastSearchResult(feedUrl: 'https://top.example/feed', title: 'Discovered podcast', author: 'Author'),
+  ];
+  @override
   Future<List<Podcast>> podcastSubscriptions() async => subscribed ? [await podcast('podcast')] : [];
   @override
   Future<Podcast> podcast(String id, {int offset = 0, int limit = 50}) async {
@@ -90,6 +120,7 @@ class _Api extends ApiClient {
   @override
   Future<List<PodcastSearchResult>> podcastSearch(String query) async {
     queries.add(query);
+    if (query == 'empty') return [];
     return const [PodcastSearchResult(feedUrl: 'https://pod.example/feed', title: 'Search result', author: 'Author')];
   }
 
@@ -284,6 +315,14 @@ void main() {
     expect(episode.completed, true);
     expect(episode.coverUrl, 'https://cover.example/pod');
     expect(episode.publishedAt, DateTime.utc(2026, 10, 21, 10));
+    final searchResult = PodcastSearchResult.fromJson({
+      'itunes_id': null,
+      'source': 'fyyd',
+      'feed_url': 'https://pod.example/feed',
+      'title': 'Fyyd result',
+    });
+    expect(searchResult.itunesId, isNull);
+    expect(searchResult.source, 'fyyd');
     expect(
       api.episodeStreamUrl('episode'),
       'https://resonance.example/api/podcasts/episodes/episode/stream?token=secret-token',
@@ -365,15 +404,53 @@ void main() {
   });
 
   for (final language in ['en', 'de']) {
-    testWidgets('podcasts home renders localized shelves, subscriptions and badge in $language', (tester) async {
+    testWidgets('podcasts home renders localized shelves and discovery in $language', (tester) async {
+      tester.view.physicalSize = const Size(900, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       await page(tester, const PodcastsPage(), language: language);
+      expect(find.byTooltip('Add by RSS link'), findsNothing);
       expect(find.text(language == 'de' ? 'Weiterhören' : 'Continue listening'), findsOneWidget);
-      expect(find.text(language == 'de' ? 'Abos' : 'Subscriptions'), findsOneWidget);
-      expect(find.text('3'), findsOneWidget);
       expect(find.text('Episode title'), findsOneWidget);
+      expect(find.text('Latest episode'), findsOneWidget);
+      expect(find.text(language == 'de' ? 'Deine Podcasts' : 'Your podcasts'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text(language == 'de' ? 'Kategorien' : 'Categories'), findsOneWidget);
+      expect(find.text('Comedy'), findsOneWidget);
+      expect(find.text('Top podcasts'), findsOneWidget);
+      expect(find.text('Discovered podcast'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('podcast home search field opens search', (tester) async {
+    final router = GoRouter(
+      initialLocation: '/podcasts',
+      routes: [
+        GoRoute(path: '/podcasts', builder: (_, _) => const PodcastsPage()),
+        GoRoute(path: '/podcasts/search', builder: (_, _) => const PodcastSearchPage()),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final searchField = tester.widget<TextField>(find.byType(TextField).first);
+    expect(searchField.readOnly, true);
+    expect(searchField.decoration!.hintText, 'Search podcasts');
+    await tester.tap(find.byType(TextField).first);
+    await tester.pumpAndSettle();
+    expect(find.byType(PodcastSearchPage), findsOneWidget);
+  });
 
   testWidgets('detail shows episode progress, completed state, and subscription toggle', (tester) async {
     await page(tester, const PodcastPage(id: 'podcast'));
@@ -442,24 +519,58 @@ void main() {
     await tester.tap(find.text('Subscribe'));
     await tester.pumpAndSettle();
     expect(api.subscribed, true);
+    expect(find.byTooltip('Search podcasts'), findsNothing);
+    expect(find.byTooltip('Add by RSS link'), findsOneWidget);
     await tester.tap(find.byTooltip('Add by RSS link'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'https://other.example/rss');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(api.feeds.last, 'https://other.example/rss');
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'https://new.example/feed.xml');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(api.queries, ['science']);
+    expect(find.text('Add RSS feed'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ListTile), matching: find.text('https://new.example/feed.xml')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Add RSS feed'));
+    await tester.pumpAndSettle();
+    expect(api.feeds.last, 'https://new.example/feed.xml');
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'empty');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    const noResults = 'Nothing found. Spotify-exclusive podcasts have no public feed '
+        '– if you know the RSS address, add it at the top right.';
+    expect(find.text(noResults), findsOneWidget);
   });
 
-  testWidgets('combined books hub exposes Podcasts for the mobile admin overflow case', (tester) async {
+  testWidgets('combined books hub shows ebook actions only on the ebook tab', (tester) async {
     tester.view.physicalSize = const Size(420, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await page(tester, const BooksHubPage());
     expect(find.widgetWithText(Tab, 'Podcasts'), findsOneWidget);
+    expect(find.byTooltip('Requests'), findsOneWidget);
+    expect(find.byTooltip('Import'), findsOneWidget);
+    expect(find.byTooltip('Add by RSS link'), findsNothing);
     await tester.tap(find.widgetWithText(Tab, 'Podcasts'));
     await tester.pumpAndSettle();
-    expect(find.text('Continue listening'), findsOneWidget);
+    expect(find.byTooltip('Requests'), findsNothing);
+    expect(find.byTooltip('Import'), findsNothing);
+    expect(find.byTooltip('Add by RSS link'), findsNothing);
+    expect(find.text('New episodes'), findsOneWidget);
+    await tester.tap(find.widgetWithText(Tab, 'Ebooks'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Requests'), findsOneWidget);
+    expect(find.byTooltip('Import'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

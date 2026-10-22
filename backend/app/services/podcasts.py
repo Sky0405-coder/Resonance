@@ -25,7 +25,9 @@ from app.models.podcasts import Podcast, PodcastEpisode, PodcastSubscription
 log = logging.getLogger(__name__)
 ITUNES = "{http://www.itunes.com/dtds/podcast-1.0.dtd}"
 MAX_FEED_BYTES = 10 * 1024 * 1024
-_cache: dict[str, tuple[float, list[dict]]] = {}
+_cache: dict[tuple[str, str], tuple[float, list[dict]]] = {}
+_chart_cache: dict[tuple[str, int | None], tuple[float, int, list[dict]]] = {}
+_genre_cache: dict[str, tuple[float, int | None]] = {}
 _task: asyncio.Task | None = None
 
 
@@ -79,6 +81,8 @@ def duration_seconds(value: str) -> float | None:
 
 
 def http_url(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
     try:
         url = urlsplit(value or "")
         return value if url.scheme in {"http", "https"} and url.hostname and not url.username else None
@@ -207,36 +211,160 @@ async def refresh(db: AsyncSession, podcast: Podcast) -> None:
     await db.commit()
 
 
-async def search(query: str) -> list[dict]:
+def normalize_feed_url(value: str) -> str:
+    normalized = value.strip().lower()
+    normalized = normalized.removeprefix("http://").removeprefix("https://")
+    normalized = normalized.removeprefix("www.")
+    return normalized.rstrip("/")
+
+
+def _apple_search_item(item: dict) -> dict | None:
+    feed_url = http_url(item.get("feedUrl"))
+    if item.get("collectionId") is None or not feed_url:
+        return None
+    return {
+        "itunes_id": item["collectionId"],
+        "title": item.get("collectionName", ""),
+        "author": item.get("artistName", ""),
+        "image_url": http_url(item.get("artworkUrl600") or item.get("artworkUrl100")),
+        "feed_url": feed_url,
+        "source": "apple",
+    }
+
+
+async def _apple_search(query: str, country: str, limit: int) -> list[dict]:
+    async with _client() as client:
+        response = await client.get(
+            "https://itunes.apple.com/search",
+            params={"media": "podcast", "limit": limit, "term": query, "country": country},
+        )
+        response.raise_for_status()
+        results = response.json()["results"]
+        return [result for item in results if (result := _apple_search_item(item)) is not None]
+
+
+async def _fyyd_search(query: str) -> list[dict]:
+    async with _client() as client:
+        response = await client.get(
+            "https://api.fyyd.de/0.2/search/podcast", params={"term": query, "count": 25}
+        )
+        response.raise_for_status()
+        results = response.json()["data"]
+        return [
+            {
+                "itunes_id": None,
+                "title": item.get("title", ""),
+                "author": item.get("author", ""),
+                "image_url": http_url(item.get("imgURL")),
+                "feed_url": feed_url,
+                "source": "fyyd",
+            }
+            for item in results
+            if (feed_url := http_url(item.get("xmlURL")))
+        ]
+
+
+async def search(query: str, country: str) -> list[dict]:
     query = query.strip()
     if not query:
         return []
-    cached = _cache.get(query.casefold())
+    key = (country, query.casefold())
+    cached = _cache.get(key)
     if cached is not None and time.monotonic() - cached[0] < 600:
         return cached[1]
+    apple_result, fyyd_result = await asyncio.gather(
+        _apple_search(query, country, 25), _fyyd_search(query), return_exceptions=True
+    )
+    if isinstance(apple_result, Exception) and isinstance(fyyd_result, Exception):
+        raise PodcastError("Search unavailable") from apple_result
+    result = []
+    if not isinstance(apple_result, Exception):
+        result.extend(apple_result)
+    seen = {normalize_feed_url(item["feed_url"]) for item in result}
+    if not isinstance(fyyd_result, Exception):
+        for item in fyyd_result:
+            normalized = normalize_feed_url(item["feed_url"])
+            if normalized not in seen:
+                result.append(item)
+                seen.add(normalized)
+    if len(_cache) >= 256:
+        _cache.pop(next(iter(_cache)))
+    _cache[key] = (time.monotonic(), result)
+    return result
+
+
+async def top_podcasts(country: str, genre_id: int | None, limit: int = 50) -> list[dict]:
+    limit = min(max(limit, 1), 200)
+    key = (country, genre_id)
+    cached = _chart_cache.get(key)
+    if cached is not None and time.monotonic() - cached[0] < 6 * 60 * 60 and cached[1] >= limit:
+        return cached[2][:limit]
+    path = f"{country.lower()}/rss/toppodcasts/limit={limit}"
+    if genre_id is not None:
+        path += f"/genre={genre_id}"
+    try:
+        async with _client() as client:
+            response = await client.get(f"https://itunes.apple.com/{path}/json")
+            response.raise_for_status()
+            entries = response.json()["feed"]["entry"]
+            if isinstance(entries, dict):
+                entries = [entries]
+            ids = [
+                str(entry["id"]["attributes"]["im:id"])
+                for entry in entries
+                if entry.get("id", {}).get("attributes", {}).get("im:id") is not None
+            ][:200]
+            if not ids:
+                result = []
+            else:
+                lookup = await client.get(
+                    "https://itunes.apple.com/lookup", params={"id": ",".join(ids), "country": country}
+                )
+                lookup.raise_for_status()
+                items = lookup.json()["results"]
+                by_id = {str(item.get("collectionId")): item for item in items if item.get("collectionId")}
+                result = [
+                    mapped
+                    for item_id in ids
+                    if (item := by_id.get(item_id)) is not None
+                    and (mapped := _apple_search_item(item)) is not None
+                ]
+    except Exception as exc:
+        raise PodcastError("Charts unavailable") from exc
+    if len(_chart_cache) >= 64:
+        _chart_cache.pop(next(iter(_chart_cache)))
+    _chart_cache[key] = (time.monotonic(), limit, result)
+    return result[:limit]
+
+
+async def podcast_genre(podcast: Podcast, country: str) -> int | None:
+    key = str(podcast.id)
+    cached = _genre_cache.get(key)
+    if cached is not None and time.monotonic() - cached[0] < 7 * 24 * 60 * 60:
+        return cached[1]
+    genre_id = None
     try:
         async with _client() as client:
             response = await client.get(
-                "https://itunes.apple.com/search", params={"media": "podcast", "limit": 25, "term": query}
+                "https://itunes.apple.com/search",
+                params={"media": "podcast", "limit": 10, "term": podcast.title, "country": country},
             )
             response.raise_for_status()
-            result = [
-                {
-                    "itunes_id": item["collectionId"],
-                    "title": item.get("collectionName", ""),
-                    "author": item.get("artistName", ""),
-                    "image_url": http_url(item.get("artworkUrl600") or item.get("artworkUrl100")),
-                    "feed_url": item["feedUrl"],
-                }
-                for item in response.json()["results"]
-                if item.get("collectionId") is not None and http_url(item.get("feedUrl"))
-            ]
-    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
-        raise PodcastError("Search unavailable") from exc
-    if len(_cache) >= 256:
-        _cache.pop(next(iter(_cache)))
-    _cache[query.casefold()] = (time.monotonic(), result)
-    return result
+            results = response.json()["results"]
+        match = next(
+            (item for item in results if normalize_feed_url(item.get("feedUrl", ""))
+             == normalize_feed_url(podcast.feed_url)),
+            None,
+        )
+        if match is None:
+            title = podcast.title.casefold()
+            match = next((item for item in results if item.get("collectionName", "").casefold() == title), None)
+        if match is not None:
+            genre_id = next((int(value) for value in match.get("genreIds", []) if str(value) != "26"), None)
+    except Exception:
+        genre_id = None
+    _genre_cache[key] = (time.monotonic(), genre_id)
+    return genre_id
 
 
 async def _refresh_loop() -> None:

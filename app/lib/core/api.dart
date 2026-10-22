@@ -145,6 +145,14 @@ class ApiClient {
   Future<List<PodcastEpisode>> podcastContinue() async => [
     for (final item in await _get('/api/podcasts/continue')) PodcastEpisode.fromJson(item),
   ];
+  Future<List<PodcastEpisode>> podcastLatest() async => [
+    for (final item in await _get('/api/podcasts/latest')) PodcastEpisode.fromJson(item),
+  ];
+  Future<PodcastDiscover> podcastDiscover() async =>
+      PodcastDiscover.fromJson(await _get('/api/podcasts/discover'));
+  Future<List<PodcastSearchResult>> podcastGenre(int id) async => [
+    for (final item in await _get('/api/podcasts/genres/$id')) PodcastSearchResult.fromJson(item),
+  ];
   Future<Podcast> podcast(String id, {int offset = 0, int limit = 50}) async =>
       Podcast.fromJson(await _get('/api/podcasts/$id', {'offset': offset, 'limit': limit}));
   Future<PodcastEpisode> podcastEpisode(String id) async =>

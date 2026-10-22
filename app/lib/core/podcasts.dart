@@ -83,14 +83,66 @@ class PodcastEpisode {
 }
 
 class PodcastSearchResult {
-  const PodcastSearchResult({required this.feedUrl, required this.title, this.author, this.imageUrl});
+  const PodcastSearchResult({
+    required this.feedUrl,
+    required this.title,
+    this.itunesId,
+    this.author,
+    this.imageUrl,
+    this.source,
+  });
+
   final String feedUrl;
   final String title;
+  final int? itunesId;
   final String? author;
   final String? imageUrl;
+  final String? source;
 
   factory PodcastSearchResult.fromJson(Map<String, dynamic> j) =>
-      PodcastSearchResult(feedUrl: j['feed_url'], title: j['title'], author: j['author'], imageUrl: j['image_url']);
+      PodcastSearchResult(
+        feedUrl: j['feed_url'],
+        title: j['title'],
+        itunesId: (j['itunes_id'] as num?)?.toInt(),
+        author: j['author'],
+        imageUrl: j['image_url'],
+        source: j['source'],
+      );
+}
+
+class PodcastGenre {
+  const PodcastGenre({required this.id, required this.name});
+
+  final int id;
+  final String name;
+
+  factory PodcastGenre.fromJson(Map<String, dynamic> j) => PodcastGenre(id: j['id'], name: j['name']);
+}
+
+class PodcastSection {
+  const PodcastSection({required this.id, required this.title, required this.items});
+
+  final String id;
+  final String title;
+  final List<PodcastSearchResult> items;
+
+  factory PodcastSection.fromJson(Map<String, dynamic> j) => PodcastSection(
+    id: j['id'],
+    title: j['title'],
+    items: [for (final item in j['items'] ?? const []) PodcastSearchResult.fromJson(item)],
+  );
+}
+
+class PodcastDiscover {
+  const PodcastDiscover({required this.genres, required this.sections});
+
+  final List<PodcastGenre> genres;
+  final List<PodcastSection> sections;
+
+  factory PodcastDiscover.fromJson(Map<String, dynamic> j) => PodcastDiscover(
+    genres: [for (final genre in j['genres'] ?? const []) PodcastGenre.fromJson(genre)],
+    sections: [for (final section in j['sections'] ?? const []) PodcastSection.fromJson(section)],
+  );
 }
 
 final podcastsVisibleProvider = Provider<bool>(
@@ -101,6 +153,15 @@ final podcastSubscriptionsProvider = FutureProvider.autoDispose<List<Podcast>>(
 );
 final podcastContinueProvider = FutureProvider.autoDispose<List<PodcastEpisode>>(
   (ref) => ref.watch(apiProvider).podcastContinue(),
+);
+final podcastLatestProvider = FutureProvider.autoDispose<List<PodcastEpisode>>(
+  (ref) => ref.watch(apiProvider).podcastLatest(),
+);
+final podcastDiscoverProvider = FutureProvider.autoDispose<PodcastDiscover>(
+  (ref) => ref.watch(apiProvider).podcastDiscover(),
+);
+final podcastGenreProvider = FutureProvider.autoDispose.family<List<PodcastSearchResult>, int>(
+  (ref, id) => ref.watch(apiProvider).podcastGenre(id),
 );
 final podcastProvider = FutureProvider.autoDispose.family<Podcast, String>(
   (ref, id) => ref.watch(apiProvider).podcast(id),

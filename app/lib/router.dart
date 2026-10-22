@@ -8,6 +8,7 @@ import 'ui/widgets/changelog.dart';
 
 import 'core/session.dart';
 import 'core/tv_mode.dart';
+import 'l10n/l10n.dart';
 import 'ui/tv/tv_shell.dart';
 import 'ui/tv/tv_page.dart';
 import 'ui/tv/tv_browse_pages.dart';
@@ -179,6 +180,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, _) => const NoTransitionPage(child: PodcastsPage()),
           ),
           GoRoute(path: '/podcasts/search', builder: (_, _) => const PodcastSearchPage()),
+          GoRoute(
+            path: '/podcasts/genre/:id',
+            builder: (context, s) => PodcastGenrePage(
+              id: int.parse(s.pathParameters['id']!),
+              name: s.extra as String? ?? context.l10n.podcastsCategories,
+            ),
+          ),
           GoRoute(path: '/podcasts/:id', builder: (_, s) => PodcastPage(id: s.pathParameters['id']!)),
           GoRoute(
             path: '/audiobooks',
