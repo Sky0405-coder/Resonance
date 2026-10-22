@@ -321,7 +321,16 @@ class DownloadManager:
             for torrent in await qb.all():
                 tags = {t.strip() for t in str(torrent.get("tags") or "").split(",")}
                 completed = torrent.get("completion_on") or 0
-                if torrent.get("progress", 0) < 1 or completed <= 0 or tags & busy:
+                if tags & busy:
+                    continue
+                added = torrent.get("added_on") or 0
+                if torrent.get("progress", 0) < 1:
+                    # Left behind by a failed/cancelled request: it would block a download slot forever.
+                    if 0 < added <= time.time() - 3600:
+                        await qb.delete(torrent["hash"], True)
+                        deleted += 1
+                    continue
+                if completed <= 0:
                     continue
                 if torrent.get("state") in {"stoppedUP", "pausedUP"} or completed <= cutoff:
                     await qb.delete(torrent["hash"], True)
@@ -365,6 +374,15 @@ class DownloadManager:
                     await qb.delete(info["hash"], True)
                     await self._torrent_fallback(request_id, "Torrent ohne Fortschritt")
         except TorrentError as e:
+            # qBittorrent briefly unreachable (VPN reconnect, redeploy): keep waiting, the stall timeout still applies.
+            async with SessionLocal() as db:
+                request = await db.get(DownloadRequest, request_id)
+                cfg = await load_config(db)
+            since = request.torrent_progress_at if request is not None else None
+            timeout = timedelta(minutes=cfg.downloads.torrent_timeout_minutes)
+            if since is not None and datetime.now(UTC) - since < timeout:
+                log.warning("Torrent poll failed for %s: %s", request_id, e)
+                return
             await self._torrent_fallback(request_id, str(e))
         except Exception as e:
             async with SessionLocal() as db:

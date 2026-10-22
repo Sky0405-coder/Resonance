@@ -93,6 +93,8 @@ async def env(
             await conn.run_sync(Base.metadata.create_all)
 
     await reset()
+    monkeypatch.setattr(lyrics, "_failed", {})
+    monkeypatch.setattr(lyrics, "_RETRY_DELAYS", (0, 0))
     settings = get_settings()
     monkeypatch.setattr(settings, "music_dir", tmp_path / "music")
     settings.music_dir.mkdir()
@@ -306,13 +308,14 @@ async def test_background_batch_limit_and_negative_cache(env: SimpleNamespace, m
 
 
 @pytest.mark.parametrize("message", ["LRCLIB: HTTP 429", "offline"])
-async def test_background_errors_abort_batch_and_back_off(env: SimpleNamespace, monkeypatch, message: str) -> None:
+async def test_background_error_runs_abort_batch_and_back_off(env: SimpleNamespace, monkeypatch, message: str) -> None:
     old = datetime.now(UTC) - timedelta(days=31)
     async with SessionLocal() as db:
         stale = await add_track(db, env, "stale")
         db.add(TrackLyrics(track_id=stale.id, source="none", fetched_at=old))
         await db.commit()
-    lookup = AsyncMock(side_effect=[lyrics.LyricsError(message), {"plainLyrics": "Found"}, None])
+    lookup = AsyncMock(side_effect=[lyrics.LyricsError(message), {"plainLyrics": "Found"}])
+    monkeypatch.setattr(lyrics, "_MAX_CONSECUTIVE_ERRORS", 1)
     delays = []
 
     async def sleep(seconds):
@@ -329,8 +332,25 @@ async def test_background_errors_abort_batch_and_back_off(env: SimpleNamespace, 
     monkeypatch.setattr(lyrics.asyncio, "sleep", sleep)
     with pytest.raises(asyncio.CancelledError):
         await lyrics._loop()
-    assert delays == [60, 3, 600, 3, 3, 60]
-    assert [call.args[1] for call in lookup.await_args_list] == ["Song", "Song", "stale"]
+    assert delays == [60, 3, 600, 3, 60]
+    # The failed song is skipped for a while instead of blocking the queue again.
+    assert [call.args[1] for call in lookup.await_args_list] == ["Song", "stale"]
+
+
+async def test_background_single_error_skips_only_that_track(env: SimpleNamespace, monkeypatch) -> None:
+    async with SessionLocal() as db:
+        await add_track(db, env, "next")
+        await db.commit()
+    lookup = AsyncMock(side_effect=[lyrics.LyricsError("LRCLIB: HTTP 503"), {"plainLyrics": "Found"}])
+    monkeypatch.setattr(lyrics, "lrclib_lookup", lookup)
+    monkeypatch.setattr(lyrics.asyncio, "sleep", AsyncMock())
+    await lyrics.run_once()
+    # The newest track is looked up first and fails; the batch still continues with the older one.
+    assert [call.args[1] for call in lookup.await_args_list] == ["next", "Song"]
+    async with SessionLocal() as db:
+        assert (await db.get(TrackLyrics, env.track.id)).plain == "Found"
+        failed = await db.scalar(select(Track.id).where(Track.title == "next"))
+    assert list(lyrics._failed) == [failed]
 
 
 async def test_background_retry_error_preserves_expired_miss(env: SimpleNamespace, monkeypatch) -> None:
@@ -340,8 +360,7 @@ async def test_background_retry_error_preserves_expired_miss(env: SimpleNamespac
         await db.commit()
     monkeypatch.setattr(lyrics, "lrclib_lookup", AsyncMock(side_effect=lyrics.LyricsError("offline")))
     monkeypatch.setattr(lyrics.asyncio, "sleep", AsyncMock())
-    with pytest.raises(lyrics.LyricsError):
-        await lyrics.run_once()
+    await lyrics.run_once()
     async with SessionLocal() as db:
         row = await db.get(TrackLyrics, env.track.id)
         assert row.source == "none" and row.fetched_at == old
@@ -464,6 +483,17 @@ async def test_lrclib_search(monkeypatch: pytest.MonkeyPatch, difference: float,
     ]
 
 
+async def test_lrclib_retries_transient_503(monkeypatch: pytest.MonkeyPatch) -> None:
+    statuses = iter([503, 503, 200])
+
+    async def get(*args: object, **kwargs: object) -> httpx.Response:
+        return httpx.Response(next(statuses), json={"plainLyrics": "Online"})
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", get)
+    monkeypatch.setattr(lyrics, "_RETRY_DELAYS", (0, 0))
+    assert await lyrics.lrclib_lookup("A", "T", "B", 100) == {"plainLyrics": "Online"}
+
+
 @pytest.mark.parametrize("status", [200, 429, 503, 0])
 async def test_lrclib_transport(monkeypatch: pytest.MonkeyPatch, status: int) -> None:
     async def get(*args: object, **kwargs: object) -> httpx.Response:
@@ -472,6 +502,7 @@ async def test_lrclib_transport(monkeypatch: pytest.MonkeyPatch, status: int) ->
         return httpx.Response(status, json={"plainLyrics": "Online"})
 
     monkeypatch.setattr(httpx.AsyncClient, "get", get)
+    monkeypatch.setattr(lyrics, "_RETRY_DELAYS", (0, 0))
     if status == 200:
         assert await lyrics.lrclib_lookup("A", "T", "B", 100) == {"plainLyrics": "Online"}
     else:

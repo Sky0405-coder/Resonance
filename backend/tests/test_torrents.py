@@ -394,7 +394,10 @@ async def test_torrent_fallback(client: httpx.AsyncClient, env: SimpleNamespace,
             gateway.present = False
         elif reason == "info_error":
             gateway.info_code = 503
-        else:
+            # A brief outage (VPN reconnect, redeploy) keeps the torrent; only the stall timeout gives up.
+            await env.manager._torrent_poll(request_id)
+            assert (await detail(client, env, request))["torrent_status"] == "downloading"
+        if reason in {"stalled", "info_error"}:
             async with SessionLocal() as db:
                 row = await db.get(DownloadRequest, request_id)
                 row.torrent_progress_at = datetime.now(UTC) - timedelta(minutes=61)
@@ -525,15 +528,20 @@ async def test_torrent_cleanup(client: httpx.AsyncClient, env: SimpleNamespace) 
         row("busy", busy["id"], 30),
         row("incomplete", "d", 30, "downloading", 0.5),
         {"hash": "never", "tags": "e", "progress": 1, "completion_on": -1, "state": "uploading"},
+        {"hash": "orphan", "tags": "f", "progress": 0, "completion_on": -1, "added_on": now - 7200, "state": "metaDL"},
+        {"hash": "new", "tags": "g", "progress": 0, "completion_on": -1, "added_on": now - 60, "state": "metaDL"},
+        {"hash": "busy-dl", "tags": busy["id"], "progress": 0, "completion_on": -1, "added_on": now - 3600},
     ]
-    assert await env.manager.torrent_cleanup() == 2
+    assert await env.manager.torrent_cleanup() == 3
     assert env.gateway.deleted == [
         {"hashes": ["old"], "deleteFiles": ["true"]},
         {"hashes": ["stopped"], "deleteFiles": ["true"]},
+        {"hashes": ["orphan"], "deleteFiles": ["true"]},
     ]
     response = await client.patch("/api/admin/config", json={"downloads": {"torrent_seed_days": 0}}, headers=env.admin)
     assert response.status_code == 200
     env.gateway.deleted.clear()
+    env.gateway.all_rows = env.gateway.all_rows[:6]
     assert await env.manager.torrent_cleanup() == 3
     assert [d["hashes"] for d in env.gateway.deleted] == [["old"], ["fresh"], ["stopped"]]
     response = await client.patch("/api/admin/config", json={"downloads": {"torrent_enabled": False}}, headers=env.admin)

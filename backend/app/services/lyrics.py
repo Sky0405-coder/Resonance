@@ -1,13 +1,15 @@
 import asyncio
 import logging
 import re
+import time
+import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
 import mutagen
 from mutagen.id3 import ID3
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +30,11 @@ class LyricsError(Exception):
 
 _client: httpx.AsyncClient | None = None
 _semaphore = asyncio.Semaphore(4)
+_RETRY_DELAYS = (1.0, 3.0)
+# Tracks whose lookup failed recently are skipped so one bad song cannot stall the background queue.
+_failed: dict[uuid.UUID, float] = {}
+_FAILED_TTL = 6 * 3600
+_MAX_CONSECUTIVE_ERRORS = 10
 
 
 # LRC ID tags; other bracketed text such as "[Chorus: Drake]" is part of the lyrics.
@@ -110,20 +117,33 @@ async def lrclib_lookup(artist: str, title: str, album: str, duration: float) ->
         )
     try:
         async with _semaphore:
-            response = await _client.get(
+            response = await _lrclib_get(
                 "get",
-                params={"artist_name": artist, "track_name": title, "album_name": album, "duration": round(duration)},
+                {"artist_name": artist, "track_name": title, "album_name": album, "duration": round(duration)},
             )
             if response.status_code == 200:
                 return response.json()
             if response.status_code != 404:
                 raise LyricsError(f"LRCLIB: HTTP {response.status_code}")
-            response = await _client.get("search", params={"artist_name": artist, "track_name": title})
+            response = await _lrclib_get("search", {"artist_name": artist, "track_name": title})
             if response.status_code != 200:
                 raise LyricsError(f"LRCLIB: HTTP {response.status_code}")
             return next((item for item in response.json() if abs(float(item["duration"]) - duration) <= 3), None)
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
         raise LyricsError(str(exc)) from exc
+
+
+async def _lrclib_get(path: str, params: dict) -> httpx.Response:
+    """LRCLIB answers 503 intermittently under load; retry a few times before giving up."""
+    for delay in _RETRY_DELAYS:
+        try:
+            response = await _client.get(path, params=params)
+            if response.status_code < 500:
+                return response
+        except httpx.TransportError:
+            pass
+        await asyncio.sleep(delay)
+    return await _client.get(path, params=params)
 
 
 def _result(synced: str | None, plain: str | None, instrumental: bool, source: str | None) -> LyricsOut:
@@ -183,6 +203,13 @@ async def fetch_online_lyrics(db: AsyncSession, track: Track) -> TrackLyrics | N
 _loop_task: asyncio.Task | None = None
 
 
+def _recently_failed() -> list[uuid.UUID]:
+    cutoff = time.monotonic() - _FAILED_TTL
+    for id in [id for id, at in _failed.items() if at < cutoff]:
+        del _failed[id]
+    return list(_failed)
+
+
 async def run_once() -> None:
     async with SessionLocal() as db:
         cfg = await load_config(db)
@@ -202,9 +229,11 @@ async def run_once() -> None:
                     TrackLyrics.source == "none", TrackLyrics.fetched_at < datetime.now(UTC) - timedelta(days=30)
                 )),
             )
+            .where(Track.id.not_in(_recently_failed()) if _failed else true())
             .order_by(missing.desc(), played.c.last_played.desc().nulls_last(), Track.created_at.desc(), Track.id)
             .limit(100)
         ))
+    errors = 0
     for id in ids:
         # At most 1200 lookups per hour, including across batch boundaries.
         await asyncio.sleep(3)
@@ -213,8 +242,17 @@ async def run_once() -> None:
             if not cfg.lyrics.background_fetch or not cfg.library.lyrics_online:
                 return
             track = await db.get(Track, id)
-            if track is not None and not track.is_temporary:
+            if track is None or track.is_temporary:
+                continue
+            try:
                 await fetch_online_lyrics(db, track)
+                errors = 0
+            except LyricsError:
+                _failed[id] = time.monotonic()
+                errors += 1
+                # Only a run of failures means LRCLIB is down; the loop then pauses.
+                if errors >= _MAX_CONSECUTIVE_ERRORS:
+                    raise
 
 
 async def _loop() -> None:
