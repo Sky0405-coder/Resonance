@@ -8,6 +8,8 @@ _EXACT: dict[str, str] = {
     "Podcast nicht gefunden": "Podcast not found",
     "Episode nicht gefunden": "Episode not found",
     "Podcast-Suche nicht erreichbar": "Podcast search unavailable",
+    "Podcast-Kategorie nicht gefunden": "Podcast category not found",
+    "Podcast-Charts nicht erreichbar": "Podcast charts unavailable",
     "Podcast-Feed nicht erreichbar oder ungültig": "Podcast feed unavailable or invalid",
     "Bücher sind nicht aktiviert": "Books are not enabled",
     "Automatische Downloads sind deaktiviert": "Automatic downloads are disabled",
