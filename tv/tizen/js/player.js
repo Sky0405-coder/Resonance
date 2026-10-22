@@ -174,6 +174,16 @@ export class Player {
       if (this.autoplayRequest === request) this.autoplayRequest = null;
     });
   }
+  // Queue indexes after the current one, in playback order (respects shuffle).
+  upcoming() {
+    const position = this.order.indexOf(this.index);
+    return position < 0 ? [] : this.order.slice(position + 1);
+  }
+  jumpTo(index) {
+    if (this.station || !this.queue[index] || index === this.index) return;
+    this.flush();
+    this.load(index, true);
+  }
   play() {
     if (!this.track && !this.station) return;
     // Tizen only buffers after play() is called, so never wait for canplay before the first attempt.

@@ -16,6 +16,7 @@ import { detailView } from './views/detail.js';
 import { radioView } from './views/radio.js';
 import { settingsView } from './views/settings.js';
 import { nowPlayingView } from './views/now-playing.js';
+import { queueView } from './views/queue.js';
 
 const root = document.getElementById('app');
 const view = document.getElementById('view');
@@ -56,7 +57,7 @@ const app = {
     releaseImages(view);
     view.textContent = ''; view.scrollTop = 0; view.appendChild(el('p', 'loading', t('loading')));
     const ctx = { api: api, preferences: preferences, nav: nav, player: player, app: this, route: route, active: () => epoch === this.epoch };
-    const loaders = { login: loginView, home: homeView, search: searchView, library: libraryView, detail: detailView, radio: radioView, settings: settingsView, now: nowPlayingView };
+    const loaders = { login: loginView, home: homeView, search: searchView, library: libraryView, detail: detailView, radio: radioView, settings: settingsView, now: nowPlayingView, queue: queueView };
     try {
       const controller = await loaders[route.name](ctx);
       if (epoch !== this.epoch) { if (controller.dispose) controller.dispose(); releaseImages(controller.node); return; }

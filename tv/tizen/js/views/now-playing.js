@@ -93,6 +93,7 @@ export function nowPlayingView(ctx) {
     control('repeat', () => player.cycleRepeat(), 'repeat'); buttons.repeat.classList.add('mode-button');
     control('lyrics', toggleLyrics, 'lyrics');
     control('like', toggleLike, 'favorite_border');
+    if (!player.station) control('queue', () => ctx.app.navigate({ name: 'queue' }), 'queue_music');
     info.appendChild(transport);
     lyricsPane = el('div', 'lyrics-pane'); lyricsPane.setAttribute('aria-label', t('lyrics'));
     lyricsPane.tabIndex = 0; lyricsPane.dataset.focusable = ''; lyricsPane.dataset.focusId = 'lyrics-pane';

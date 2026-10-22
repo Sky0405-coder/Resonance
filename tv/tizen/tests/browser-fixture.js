@@ -135,7 +135,7 @@ export async function runSmoke() {
   assert(focusId() === 'now-play', 'Transport focused');
   key(10252); await sleep(100); assert(document.querySelector('[data-focus-id="mini-toggle"]').getAttribute('aria-label') === 'Abspielen', 'Media pause');
   key(415); await sleep(100); assert(document.querySelector('[data-focus-id="mini-toggle"]').getAttribute('aria-label') === 'Pause', 'Media play');
-  assert(document.querySelectorAll('.transport button svg').length === 7, 'All seven transport icons are SVG');
+  assert(document.querySelectorAll('.transport button svg').length === 8, 'All eight transport icons are SVG');
   assert(!document.querySelector('[data-focus-id="now-rewind"]') && !document.querySelector('[data-focus-id="now-stop"]'), 'Pill controls removed');
   assert(getComputedStyle(document.querySelector('[data-focus-id="now-play"]')).width === '72px', '72px transport buttons');
   assert(getComputedStyle(document.querySelector('[data-focus-id="mini-toggle"]')).width === '56px', '56px mini buttons');
@@ -160,6 +160,9 @@ export async function runSmoke() {
   click('now-repeat'); assert(document.querySelector('[data-focus-id="now-repeat"]').getAttribute('aria-label').indexOf('Alle') >= 0, 'Repeat-all');
   assert(!continuingAudio.paused && continuingAudio.currentSrc === continuingSource, 'Shuffle/repeat preserve active audio');
   passed.push('SVG controls, likes, held seeking, search debounce, audio, preload handoff, media keys, shuffle, repeat and lyrics');
+  click('now-queue'); await wait(() => document.querySelector('.queue-page'), 'queue');
+  assert(document.querySelectorAll('.queue-page .track-row').length >= 1, 'Queue shows the current track');
+  key(10009); await wait(() => document.querySelector('.now-page'), 'back to player from queue');
   click('now-back'); await wait(() => document.querySelector('.search-page'), 'back search');
   assert(document.querySelector('.search-input').value === 'abä', 'Search retained across back');
   click('nav-settings'); await wait(() => document.querySelector('.settings-page'), 'display settings');

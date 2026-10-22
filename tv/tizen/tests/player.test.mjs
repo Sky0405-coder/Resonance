@@ -130,3 +130,10 @@ test('autoplay appends recommendations once on the last playing track and respec
   player.next(); player.next(); player.audio.paused = false; player.autoplay = false; player.audio.fire('timeupdate');
   assert.equal(calls.length, 1); player.stop();
 });
+test('queue lists upcoming tracks in playback order and jumps to a chosen one', () => {
+  const { player } = setup(); player.setQueue(tracks, 0);
+  player.order = [0, 2, 1];
+  assert.deepEqual(player.upcoming(), [2, 1]);
+  player.jumpTo(1); assert.equal(player.track.id, 'b'); assert.deepEqual(player.upcoming(), []);
+  player.jumpTo(1); assert.equal(player.index, 1); player.stop(); assert.deepEqual(player.upcoming(), []);
+});

@@ -5,6 +5,7 @@ const iconPaths = {
   play_arrow: 'M8 5v14l11-7z',
   pause: 'M6 5h4v14H6zm8 0h4v14h-4z',
   skip_next: 'm6 18 8.5-6L6 6zm10-12h2v12h-2z',
+  queue_music: 'M15 6H3v2h12zm0 4H3v2h12zM3 16h8v-2H3zM17 6v8.18A3 3 0 0 0 16 14a3 3 0 1 0 3 3V8h3V6z',
   repeat: 'm7 7 10 0v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z',
   repeat_one: 'm7 7 10 0v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2zM13 15V9h-1l-2 1v1h1.5v4z',
   lyrics: 'M4 3h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H7l-4 3V4a1 1 0 0 1 1-1zm2 4v2h8V7zm0 4v2h8v-2zm0 4v2h5v-2zm12-10v6.2a2 2 0 1 0 1 1.8V7h1V5z',

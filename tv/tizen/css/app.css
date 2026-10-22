@@ -148,3 +148,4 @@ input { width: 100%; display: block; background: #242424; border: 1px solid #555
 
 .liked-cover { display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #6541c8, #199b93); }
 .liked-cover svg { width: 48%; height: 48%; fill: #fff; }
+.queue-section { margin: 26px 0 14px; font-size: 30px; }
