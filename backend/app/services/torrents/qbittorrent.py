@@ -1,4 +1,8 @@
+import base64
+import hashlib
+import re
 from typing import Any, Self
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
@@ -60,7 +64,20 @@ class QBittorrent:
             fields["urls"] = (None, source)
         else:
             fields["torrents"] = ("file.torrent", source)
-        await self._request("POST", "/api/v2/torrents/add", files=fields)
+        try:
+            await self._request("POST", "/api/v2/torrents/add", files=fields)
+        except TorrentError as e:
+            # 409: the torrent is already in qBittorrent (an earlier attempt or another request); adopt it.
+            if not isinstance(e.__cause__, httpx.HTTPStatusError) or e.__cause__.response.status_code != 409:
+                raise
+            hash = info_hash(source)
+            if hash is None:
+                raise
+            response = await self._request("GET", "/api/v2/torrents/info", params={"hashes": hash})
+            if not response.json():
+                raise
+            await self._request("POST", "/api/v2/torrents/setCategory", data={"hashes": hash, "category": category})
+            await self._request("POST", "/api/v2/torrents/addTags", data={"hashes": hash, "tags": tag})
 
     async def info(self, tag: str, category: str = "resonance") -> dict | None:
         response = await self._request("GET", "/api/v2/torrents/info", params={"category": category, "tag": tag})
@@ -108,3 +125,52 @@ class QBittorrent:
 
     async def version(self) -> str:
         return (await self._request("GET", "/api/v2/app/version")).text
+
+
+def info_hash(source: str | bytes) -> str | None:
+    """BitTorrent v1 info hash (lowercase hex) of a magnet link or .torrent file, None if unknown."""
+    if isinstance(source, str):
+        if not source.startswith("magnet:"):
+            return None
+        for value in parse_qs(urlsplit(source).query).get("xt", []):
+            match = re.fullmatch(r"urn:btih:([0-9a-fA-F]{40}|[A-Za-z2-7]{32})", value)
+            if match:
+                digest = match.group(1)
+                return digest.lower() if len(digest) == 40 else base64.b32decode(digest.upper()).hex()
+        return None
+    try:
+        if not source.startswith(b"d"):
+            return None
+        position = 1
+        while source[position : position + 1] != b"e":
+            key, position = _bdecode_string(source, position)
+            start = position
+            position = _bskip(source, position)
+            if key == b"info":
+                return hashlib.sha1(source[start:position]).hexdigest()
+    except (IndexError, ValueError):
+        return None
+    return None
+
+
+def _bdecode_string(data: bytes, position: int) -> tuple[bytes, int]:
+    colon = data.index(b":", position)
+    end = colon + 1 + int(data[position:colon])
+    if end > len(data):
+        raise ValueError("truncated")
+    return data[colon + 1 : end], end
+
+
+def _bskip(data: bytes, position: int) -> int:
+    """Position after the bencoded value starting at position."""
+    kind = data[position : position + 1]
+    if kind == b"i":
+        return data.index(b"e", position) + 1
+    if kind in {b"l", b"d"}:
+        position += 1
+        while data[position : position + 1] != b"e":
+            position = _bskip(data, position)
+        return position + 1
+    if kind.isdigit():
+        return _bdecode_string(data, position)[1]
+    raise ValueError("invalid bencode")

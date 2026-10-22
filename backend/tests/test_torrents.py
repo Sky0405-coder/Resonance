@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import io
 import shutil
 import subprocess
@@ -24,7 +25,7 @@ from app.services.musicbrainz import TrackMeta
 from app.services.server_config import DownloadConfig, ServerConfig
 from app.services.tags import read_tags
 from app.services.torrents import TorrentError, prowlarr
-from app.services.torrents.qbittorrent import QBittorrent
+from app.services.torrents.qbittorrent import QBittorrent, info_hash
 from app.services.torrents.select import choose, clean_album, search_query
 from tests.conftest import MUSIC_DIR, auth, register
 from tests.test_downloads import FakeSource
@@ -101,6 +102,7 @@ class Gateway:
         self.deleted: list[dict] = []
         self.all_rows: list[dict] = []
         self.logins = 0
+        self.tagged: list[dict] = []
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -142,6 +144,11 @@ class Gateway:
             assert b"resonance" in request.content
             self.added.append(request.content)
             return httpx.Response(self.add_code, text="Ok.")
+        if path in {"/api/v2/torrents/setCategory", "/api/v2/torrents/addTags"}:
+            self.tagged.append({"path": path, **parse_qs(request.content.decode())})
+            return httpx.Response(200)
+        if path == "/api/v2/torrents/info" and "hashes" in request.url.params:
+            return httpx.Response(200, json=[{"hash": request.url.params["hashes"]}] if self.add_code == 409 else [])
         if path == "/api/v2/torrents/info":
             assert request.url.params["category"] == "resonance"
             if "tag" not in request.url.params:
@@ -548,6 +555,28 @@ async def test_queued_torrent_is_not_stalled(client: httpx.AsyncClient, env: Sim
         row = await db.get(DownloadRequest, request_id)
         assert datetime.now(UTC) - row.torrent_progress_at < timedelta(minutes=1)
     assert not env.gateway.deleted
+
+
+async def test_existing_torrent_is_adopted(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
+    digest = "ab" * 20
+    env.gateway.results[0]["magnetUrl"] = f"magnet:?xt=urn:btih:{digest}&dn=x"
+    env.gateway.add_code = 409
+    request = await request_album(client, env)
+    assert await env.manager.process_one()
+    assert (await detail(client, env, request))["torrent_status"] == "downloading"
+    assert env.gateway.tagged == [
+        {"path": "/api/v2/torrents/setCategory", "hashes": [digest], "category": ["resonance"]},
+        {"path": "/api/v2/torrents/addTags", "hashes": [digest], "tags": [request["id"]]},
+    ]
+
+
+def test_info_hash() -> None:
+    assert info_hash("magnet:?xt=urn:btih:" + "AB" * 20) == "ab" * 20
+    assert info_hash("magnet:?dn=x&xt=urn:btih:" + "A" * 32) == "00" * 20
+    info = b"d6:lengthi5e4:name1:x12:piece lengthi16384e6:pieces20:" + b"p" * 20 + b"e"
+    torrent = b"d8:announce3:url4:info" + info + b"e"
+    assert info_hash(torrent) == hashlib.sha1(info).hexdigest()
+    assert info_hash(b"not bencode") is None and info_hash("https://x/y.torrent") is None
 
 
 async def test_torrent_cleanup(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
