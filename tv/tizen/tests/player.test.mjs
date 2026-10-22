@@ -66,14 +66,23 @@ test('manual next/previous and ended always start the selected track, even from 
   player.audio.currentTime = 5; player.pause(); player.previous(); assert.equal(player.audio.currentTime, 0); assert.equal(player.playing, true);
   player.stop();
 });
-test('waits for canplay, retries a rejected play once, and cancels stale play intentions', async () => {
+test('plays immediately, retries a rejected play on canplay, and cancels stale play intentions', async () => {
   const { player, a, errors } = setup();
-  a.readyState = 0; player.setQueue(tracks, 0); assert.equal(a.playCalls, 0);
-  a.play = function () { this.playCalls++; this.readyState = 0; return Promise.reject(new Error('Not ready')); };
-  a.readyState = 3; a.fire('canplay'); await Promise.resolve(); assert.equal(a.playCalls, 1); assert.equal(errors.length, 0);
+  a.play = function () { this.playCalls++; return Promise.reject(new Error('Not ready')); };
+  a.readyState = 0; player.setQueue(tracks, 0); assert.equal(a.playCalls, 1);
+  await Promise.resolve(); assert.equal(errors.length, 0);
   a.play = AudioStub.prototype.play; a.readyState = 3; a.fire('canplay'); assert.equal(a.playCalls, 2); assert.equal(player.playing, true);
-  a.readyState = 0; player.next(); player.pause(); a.fire('canplay'); assert.equal(a.playCalls, 2);
-  player.play(); player.stop(); a.fire('canplay'); assert.equal(a.playCalls, 2);
+  a.fire('canplay'); assert.equal(a.playCalls, 2);
+  player.pause(); a.fire('canplay'); assert.equal(a.playCalls, 2);
+});
+test('a decode error on a raw stream falls back to MP3 for that codec', () => {
+  const { player, a, errors } = setup();
+  player.api.supportedCodecs = { flac: true };
+  player.api.stream = track => '/stream/' + track.id + '?format=' + (player.api.supportedCodecs[track.codec] ? 'raw' : 'mp3');
+  player.setQueue([{ id: 'x', codec: 'flac', duration: 100 }], 0); assert.equal(a.src, '/stream/x?format=raw');
+  a.fire('error');
+  assert.equal(player.api.supportedCodecs.flac, false); assert.equal(a.src, '/stream/x?format=mp3'); assert.equal(errors.length, 0);
+  player.stop();
 });
 test('a second play rejection reports one error without an unbounded retry', async () => {
   const { player, a, errors } = setup();

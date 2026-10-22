@@ -63,7 +63,15 @@ export class Player {
       });
       audio.addEventListener('ended', () => { if (audio === this.audio && !this.station) this.next(false); });
       audio.addEventListener('error', () => {
-        if (audio === this.audio && audio.getAttribute('src')) { this.onError(t('playbackError')); this.emit('state'); }
+        if (audio !== this.audio || !audio.getAttribute('src')) return;
+        const track = this.track;
+        // The TV can claim support for a codec it then fails to decode; fall back to MP3 for that codec.
+        if (track && !this.station && audio.getAttribute('src').indexOf('format=raw') >= 0) {
+          this.api.supportedCodecs[track.codec] = false;
+          this.load(this.index, false);
+          return;
+        }
+        this.onError(t('playbackError')); this.emit('state');
       });
     });
     window.addEventListener('pagehide', () => this.flush());
@@ -141,9 +149,10 @@ export class Player {
   }
   play() {
     if (!this.track && !this.station) return;
-    const intent = { audio: this.audio, generation: this.generation, retried: false, waiting: this.audio.readyState < 3 };
+    // Tizen only buffers after play() is called, so never wait for canplay before the first attempt.
+    const intent = { audio: this.audio, generation: this.generation, retried: false, waiting: false };
     this.playIntent = intent;
-    if (!intent.waiting) this.attemptPlay(intent);
+    this.attemptPlay(intent);
   }
   attemptPlay(intent) {
     if (intent !== this.playIntent || intent.generation !== this.generation || intent.audio !== this.audio) return;
