@@ -2752,4 +2752,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connectUnavailable => 'Device unavailable. Check your connection.';
+
+  @override
+  String get tvFavoriteRemove => 'Remove from favourites';
+
+  @override
+  String get tvFavoriteAdd => 'Add to favourites';
+
+  @override
+  String get tvAmbientOn => 'Ambient mode on';
+
+  @override
+  String get tvAmbientOff => 'Ambient mode off';
 }

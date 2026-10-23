@@ -4909,6 +4909,30 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Gerät nicht verfügbar. Prüfe deine Verbindung.'**
   String get connectUnavailable;
+
+  /// No description provided for @tvFavoriteRemove.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus Favoriten entfernen'**
+  String get tvFavoriteRemove;
+
+  /// No description provided for @tvFavoriteAdd.
+  ///
+  /// In de, this message translates to:
+  /// **'Zu Favoriten hinzufügen'**
+  String get tvFavoriteAdd;
+
+  /// No description provided for @tvAmbientOn.
+  ///
+  /// In de, this message translates to:
+  /// **'Ruhemodus an'**
+  String get tvAmbientOn;
+
+  /// No description provided for @tvAmbientOff.
+  ///
+  /// In de, this message translates to:
+  /// **'Ruhemodus aus'**
+  String get tvAmbientOff;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -12,6 +12,7 @@ import 'package:resonance/core/library.dart';
 import 'package:resonance/core/models.dart';
 import 'package:resonance/core/session.dart';
 import 'package:resonance/core/theme.dart';
+import 'package:resonance/core/tv_mode.dart';
 import 'package:resonance/l10n/l10n.dart';
 import 'package:resonance/offline/offline_store.dart';
 import 'package:resonance/player/connect.dart';
@@ -20,6 +21,8 @@ import 'package:resonance/player/player.dart';
 import 'package:resonance/player/spectrum.dart';
 import 'package:resonance/player/visualizer_themes.dart';
 import 'package:resonance/ui/pages/now_playing_page.dart';
+import 'package:resonance/ui/tv/tv_now_playing.dart';
+import 'package:resonance/ui/tv/tv_focusable.dart';
 import 'package:resonance/ui/widgets/catalog.dart';
 import 'package:resonance/ui/widgets/common.dart';
 import 'package:resonance/ui/widgets/reflection.dart';
@@ -105,6 +108,22 @@ class _Player extends PlayerController {
   }
 }
 
+class _RadioApi extends ApiClient {
+  _RadioApi() : super('https://resonance.example', 'test');
+  int added = 0;
+  int removed = 0;
+
+  @override
+  Future<void> addWorldRadioFavorite(String id) async {
+    added++;
+  }
+
+  @override
+  Future<void> removeWorldRadioFavorite(String id) async {
+    removed++;
+  }
+}
+
 class _Offline extends OfflineController {
   _Offline(this.directory);
   final String directory;
@@ -140,6 +159,8 @@ void main() {
     Spectrum? spectrum,
     Lyrics? lyrics,
     Widget? child,
+    List<Station> radioFavorites = const [],
+    ApiClient? api,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -154,7 +175,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         prefsProvider.overrideWithValue(prefs),
-        apiProvider.overrideWithValue(ApiClient('https://resonance.example', 'test')),
+        apiProvider.overrideWithValue(api ?? ApiClient('https://resonance.example', 'test')),
         connectProvider.overrideWith(IdleConnect.new),
         playerProvider.overrideWith(() => _Player(view)),
         offlineProvider.overrideWith(() => _Offline(directory.path)),
@@ -168,6 +189,7 @@ void main() {
         ),
         positionProvider.overrideWith((ref) => const Stream.empty()),
         durationProvider.overrideWith((ref) => const Stream.empty()),
+        worldRadioFavoritesProvider.overrideWith((ref) async => radioFavorites),
       ],
     );
     addTearDown(() async {
@@ -783,6 +805,106 @@ void main() {
     image.dispose();
     await tester.tap(find.byType(CoverReflection), warnIfMissed: false);
     expect(tapped, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV now-playing uses a blurred cross-fading backdrop and decorative queue coverflow', (tester) async {
+    final container = await mount(
+      tester,
+      size: const Size(1920, 1080),
+      visualizer: true,
+      color: Colors.orange,
+      child: const TvNowPlayingPage(),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(ImageFiltered), findsOneWidget);
+    final filter = tester.widget<ImageFiltered>(find.byType(ImageFiltered));
+    expect(filter.imageFilter, isA<ui.ImageFilter>());
+    expect(find.byType(Coverflow), findsOneWidget);
+    final coverflow = tester.widget<Coverflow>(find.byType(Coverflow));
+    expect(coverflow.interactive, isFalse);
+    expect(coverflow.maxSide, 620);
+    expect(tester.getSize(find.byKey(const ValueKey('tv-now-playing-cover'))).width, 900);
+    final gradient = tester.widget<DecoratedBox>(find.byKey(const ValueKey('tv-now-playing-gradient')));
+    final colors = (gradient.decoration as BoxDecoration).gradient! as LinearGradient;
+    final expected = HSLColor.fromColor(Colors.orange)
+        .withLightness(0.25)
+        .withSaturation(0.7)
+        .toColor()
+        .withValues(alpha: 0.6);
+    expect(colors.colors.first, expected);
+    expect(colors.colors.last, Palette.background.withValues(alpha: 0.92));
+    expect(find.byKey(const ValueKey('tv-now-playing-artwork-track:two')), findsOneWidget);
+    (container.read(playerProvider.notifier) as _Player).update(const PlayerView(queue: _tracks, index: 2));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('tv-now-playing-artwork-track:two')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tv-now-playing-artwork-track:three')), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('tv-now-playing-artwork-track:two')), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(find.byKey(const ValueKey('tv-now-playing-artwork-track:two')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV now-playing keeps the single-cover artwork and shows a plain background when empty', (tester) async {
+    await mount(
+      tester,
+      size: const Size(1920, 1080),
+      view: PlayerView(queue: [_tracks[1]], index: 0),
+      child: const TvNowPlayingPage(),
+    );
+    expect(find.byType(Coverflow), findsNothing);
+    expect(find.byType(TrackCover), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await mount(
+      tester,
+      size: const Size(1920, 1080),
+      view: const PlayerView(),
+      child: const TvNowPlayingPage(),
+    );
+    expect(find.byType(ImageFiltered), findsNothing);
+    expect(find.byKey(const ValueKey('tv-now-playing-gradient')), findsNothing);
+    expect(find.byKey(const ValueKey('tv-now-playing-bottom-gradient')), findsNothing);
+    expect(
+      find.byWidgetPredicate((widget) => widget is ColoredBox && widget.color == Palette.background),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV radio favourites and ambient mode buttons use the expected labels and actions', (tester) async {
+    const station = Station(
+      id: 'radio',
+      name: 'Radio One',
+      country: 'Germany',
+      countryCode: 'DE',
+      tags: [],
+      codec: 'MP3',
+    );
+    final api = _RadioApi();
+    final container = await mount(
+      tester,
+      size: const Size(1920, 1080),
+      view: const PlayerView(station: station),
+      child: const TvNowPlayingPage(),
+      radioFavorites: const [station],
+      api: api,
+    );
+    final buttons = tester.widgetList<TvButton>(find.byType(TvButton)).toList();
+    final labels = buttons.map((button) => button.label).toList();
+    expect(labels, ['Back', 'Previous', 'Play', 'Next', 'Remove from favourites', 'Ambient mode on']);
+    final favourite = buttons.singleWhere((button) => button.label == 'Remove from favourites');
+    expect(favourite.icon, Icons.star);
+    favourite.onPressed!();
+    await tester.pump();
+    expect(api.removed, 1);
+    final ambient = buttons.last;
+    expect(ambient.icon, Icons.dark_mode);
+    ambient.onPressed!();
+    await tester.pump();
+    expect(container.read(tvAmbientModeProvider), isFalse);
+    expect(container.read(prefsProvider).getBool('tv.ambient_mode'), isFalse);
     expect(tester.takeException(), isNull);
   });
 }

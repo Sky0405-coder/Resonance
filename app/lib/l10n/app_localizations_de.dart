@@ -2730,4 +2730,16 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get connectUnavailable => 'Gerät nicht verfügbar. Prüfe deine Verbindung.';
+
+  @override
+  String get tvFavoriteRemove => 'Aus Favoriten entfernen';
+
+  @override
+  String get tvFavoriteAdd => 'Zu Favoriten hinzufügen';
+
+  @override
+  String get tvAmbientOn => 'Ruhemodus an';
+
+  @override
+  String get tvAmbientOff => 'Ruhemodus aus';
 }

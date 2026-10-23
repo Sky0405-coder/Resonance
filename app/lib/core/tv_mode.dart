@@ -22,6 +22,17 @@ Future<bool> detectAndroidTv() async {
 }
 
 final tvModeProvider = NotifierProvider<TvMode, bool>(TvMode.new);
+final tvAmbientModeProvider = NotifierProvider<TvAmbientMode, bool>(TvAmbientMode.new);
+
+class TvAmbientMode extends Notifier<bool> {
+  @override
+  bool build() => ref.read(prefsProvider).getBool('tv.ambient_mode') ?? true;
+
+  void set(bool enabled) {
+    ref.read(prefsProvider).setBool('tv.ambient_mode', enabled);
+    state = enabled;
+  }
+}
 
 class TvMode extends Notifier<bool> {
   @override

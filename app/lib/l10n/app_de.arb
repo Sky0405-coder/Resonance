@@ -1662,5 +1662,9 @@
   },
   "connectJamHint": "Während eines Jams ist kein Gerätewechsel möglich.",
   "connectMusicOnly": "Nur Musik kann übertragen werden. Hörbücher, Podcasts und Radio bleiben auf diesem Gerät.",
-  "connectUnavailable": "Gerät nicht verfügbar. Prüfe deine Verbindung."
+  "connectUnavailable": "Gerät nicht verfügbar. Prüfe deine Verbindung.",
+  "tvFavoriteRemove": "Aus Favoriten entfernen",
+  "tvFavoriteAdd": "Zu Favoriten hinzufügen",
+  "tvAmbientOn": "Ruhemodus an",
+  "tvAmbientOff": "Ruhemodus aus"
 }

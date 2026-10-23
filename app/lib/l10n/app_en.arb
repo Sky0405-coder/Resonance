@@ -1008,5 +1008,9 @@
   },
   "connectJamHint": "Device transfer is unavailable during a Jam.",
   "connectMusicOnly": "Only music tracks can be transferred. Books, podcasts and radio stay on this device.",
-  "connectUnavailable": "Device unavailable. Check your connection."
+  "connectUnavailable": "Device unavailable. Check your connection.",
+  "tvFavoriteRemove": "Remove from favourites",
+  "tvFavoriteAdd": "Add to favourites",
+  "tvAmbientOn": "Ambient mode on",
+  "tvAmbientOff": "Ambient mode off"
 }
