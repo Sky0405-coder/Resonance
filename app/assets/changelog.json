@@ -1,5 +1,27 @@
 [
   {
+    "version": "1.6.13",
+    "date": "2026-10-23",
+    "de": [
+      "TV-Modus und Android TV: Mit Stick und Steuerkreuz kommst du überall wieder heraus, die Suche öffnet sofort die Bildschirmtastatur und Songs und Alben lassen sich direkt am Fernseher herunterladen.",
+      "Play und Zufall öffnen am Fernseher gleich den Vollbild-Player, mit Coverflow, unscharfem Cover-Hintergrund und Ruhemodus, der nach 30 Sekunden ohne Eingabe nur noch Cover und Titel zeigt (abschaltbar im Player und in den Einstellungen).",
+      "Hörbücher, Podcasts und E-Books sind ein gemeinsamer Menüpunkt „Mediathek“, am Fernseher mit eigenen Seiten für alle drei.",
+      "Radio am Fernseher mit Suche, Länderwahl, Genres und Favoriten; das Land richtet sich nach deinen Favoriten und wird gemerkt.",
+      "Die Top-100-Charts folgen jetzt den Apple-Music-Charts.",
+      "Podcast-Folgen zeigen das Jahr im Datum, der Coverflow am Desktop ist größer und alle Suchfelder sehen gleich aus.",
+      "Samsung-TV-App: Ruhemodus und Coverflow."
+    ],
+    "en": [
+      "TV mode and Android TV: the stick and D-pad get you out of every screen, search opens the on-screen keyboard right away and songs and albums can be downloaded straight from the TV.",
+      "Play and shuffle on the TV open the full-screen player, with coverflow, a blurred cover background and an ambient mode that shows only the cover and title after 30 seconds without input (can be turned off in the player and in settings).",
+      "Audiobooks, podcasts and e-books share one \"Media\" entry, with their own pages on the TV.",
+      "Radio on the TV with search, country choice, genres and favourites; the country follows your favourites and is remembered.",
+      "The Top 100 charts now follow Apple Music's charts.",
+      "Podcast episodes show the year in their date, the desktop coverflow is bigger and all search fields look the same.",
+      "Samsung TV app: ambient mode and coverflow."
+    ]
+  },
+  {
     "version": "1.6.12",
     "date": "2026-10-22",
     "de": [
