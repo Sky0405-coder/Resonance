@@ -24,6 +24,7 @@ import 'package:resonance/ui/pages/book_pages.dart';
 import 'package:resonance/ui/pages/podcast_pages.dart';
 import 'package:resonance/ui/shell.dart';
 import 'package:resonance/ui/tv/tv_shell.dart';
+import 'package:resonance/ui/tv/tv_media_pages.dart';
 import 'package:resonance/ui/widgets/player_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -34,6 +35,16 @@ const _episode = PodcastEpisode(
   podcastTitle: 'Podcast title',
   durationSeconds: 300,
   positionSeconds: 60,
+);
+const _audiobook = AbsItem(id: 'audio', title: 'Audiobook title', duration: 600, author: 'Author');
+const _ebook = Book(
+  id: 'ebook',
+  title: 'Ebook title',
+  authors: ['Author'],
+  format: 'epub',
+  size: 100,
+  hasCover: false,
+  filename: 'ebook.epub',
 );
 const _track = Track(
   id: 'track',
@@ -286,8 +297,16 @@ void main() {
         booksStatusProvider.overrideWith(
           (ref) async => const BooksStatus(enabled: true, requestsEnabled: false, defaultLanguage: 'en'),
         ),
-        absStatusProvider.overrideWith((ref) async => const AbsStatus(enabled: false, url: '', linked: false)),
-        bookLibraryProvider.overrideWith((ref, query) async => []),
+        absStatusProvider.overrideWith((ref) async => const AbsStatus(enabled: true, url: '', linked: true)),
+        absLibrariesProvider.overrideWith(
+          (ref) async => const [AbsLibrary(id: 'library', name: 'Library', mediaType: 'book')],
+        ),
+        absItemsProvider.overrideWith((ref, id) async => const [_audiobook]),
+        absShelvesProvider.overrideWith((ref, id) async => const []),
+        absProgressProvider.overrideWith(
+          (ref) async => const {'audio': AbsProgress(progress: 0.5, currentTime: 60, isFinished: false)},
+        ),
+        bookLibraryProvider.overrideWith((ref, query) async => [_ebook]),
         bookRequestsProvider.overrideWith((ref, all) async => []),
       ],
     );
@@ -303,6 +322,20 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: child,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> routed(WidgetTester tester, GoRouter router) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
         ),
       ),
     );
@@ -570,6 +603,7 @@ void main() {
     await page(tester, const BooksHubPage());
     expect(find.text('Media'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Ebooks'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Audiobooks'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Podcasts'), findsOneWidget);
     expect(find.byTooltip('Requests'), findsOneWidget);
     expect(find.byTooltip('Import'), findsOneWidget);
@@ -584,6 +618,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('Requests'), findsOneWidget);
     expect(find.byTooltip('Import'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wide media hub keeps audiobook and podcast tabs', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await page(tester, const BooksHubPage());
+    expect(find.widgetWithText(Tab, 'Ebooks'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Audiobooks'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Podcasts'), findsOneWidget);
+    expect(find.text('Media'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -622,6 +669,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await page(tester, const AppShell(location: '/books', child: SizedBox.shrink()));
     container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, true);
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.audiobooks, true);
     await tester.pumpAndSettle();
     expect(find.text('Books'), findsOneWidget);
     expect(find.text('Media'), findsNothing);
@@ -652,6 +700,61 @@ void main() {
     expect(find.text('Podcasts'), findsNothing);
     expect(find.byIcon(Icons.video_library), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV media shelves follow the specified order and hide disabled sections', (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await page(tester, const TvMediaPage());
+    final headings = ['Continue listening', 'Audiobooks', 'Your podcasts', 'New episodes', 'Top podcasts', 'Ebooks'];
+    final positions = [for (final heading in headings) tester.getTopLeft(find.text(heading).first).dy];
+    expect(positions, orderedEquals([...positions]..sort()));
+    expect(find.text('Media'), findsOneWidget);
+
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.ebooks, true);
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, true);
+    await tester.pumpAndSettle();
+    expect(find.text('Your podcasts'), findsNothing);
+    expect(find.text('New episodes'), findsNothing);
+    expect(find.text('Top podcasts'), findsNothing);
+    expect(find.text('Ebooks'), findsNothing);
+    expect(find.text('Audiobooks'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV audiobook activation opens its detail route', (tester) async {
+    final router = GoRouter(
+      initialLocation: '/books',
+      routes: [
+        GoRoute(path: '/books', builder: (_, _) => const TvMediaPage()),
+        GoRoute(path: '/audiobooks/item/:id', builder: (_, state) => Text('audiobook:${state.pathParameters['id']}')),
+      ],
+    );
+    addTearDown(router.dispose);
+    await routed(tester, router);
+    await tester.tap(find.text('Audiobook title').first);
+    await tester.pumpAndSettle();
+    expect(find.text('audiobook:audio'), findsOneWidget);
+  });
+
+  testWidgets('TV episode activation starts playback and opens now playing', (tester) async {
+    final router = GoRouter(
+      initialLocation: '/books',
+      routes: [
+        GoRoute(path: '/books', builder: (_, _) => const TvMediaPage()),
+        GoRoute(path: '/now-playing', builder: (_, _) => const Text('now-playing-route')),
+      ],
+    );
+    addTearDown(router.dispose);
+    await routed(tester, router);
+    await tester.tap(find.text('Episode title').first);
+    await tester.pumpAndSettle();
+    expect(find.text('now-playing-route'), findsOneWidget);
+    expect(container.read(playerProvider).book?.itemId, 'episode');
+    expect(engine.audioSources, isNotEmpty);
+    await container.read(playerProvider.notifier).playTracks([_track]);
   });
 
   testWidgets('episode transport has a fifteen second back button and required speeds', (tester) async {

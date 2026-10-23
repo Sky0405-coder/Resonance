@@ -14,6 +14,8 @@ import 'ui/tv/tv_page.dart';
 import 'ui/tv/tv_browse_pages.dart';
 import 'ui/tv/tv_detail_page.dart';
 import 'ui/tv/tv_now_playing.dart';
+import 'ui/tv/tv_form_navigation.dart';
+import 'ui/tv/tv_media_pages.dart';
 import 'ui/tv/tv_search_page.dart';
 import 'ui/pages/admin/admin_page.dart';
 import 'ui/pages/admin/duplicates_page.dart';
@@ -178,9 +180,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/podcasts',
-            pageBuilder: (_, _) => const NoTransitionPage(child: PodcastsPage()),
+            pageBuilder: (_, _) => const NoTransitionPage(
+              child: TvPage(
+                tvChild: TvMediaPage(section: TvMediaSection.podcasts),
+                child: PodcastsPage(),
+              ),
+            ),
           ),
-          GoRoute(path: '/podcasts/search', builder: (_, _) => const PodcastSearchPage()),
+          GoRoute(
+            path: '/podcasts/search',
+            builder: (_, _) => const TvPage(tvChild: TvPodcastSearchPage(), child: PodcastSearchPage()),
+          ),
           GoRoute(
             path: '/podcasts/genre/:id',
             builder: (context, s) => PodcastGenrePage(
@@ -188,18 +198,34 @@ final routerProvider = Provider<GoRouter>((ref) {
               name: s.extra as String? ?? context.l10n.podcastsCategories,
             ),
           ),
-          GoRoute(path: '/podcasts/:id', builder: (_, s) => PodcastPage(id: s.pathParameters['id']!)),
+          GoRoute(
+            path: '/podcasts/:id',
+            builder: (_, s) => TvPage(
+              tvChild: TvPodcastPage(id: s.pathParameters['id']!),
+              child: PodcastPage(id: s.pathParameters['id']!),
+            ),
+          ),
           GoRoute(
             path: '/audiobooks',
-            pageBuilder: (_, _) => const NoTransitionPage(child: AudiobooksPage()),
+            pageBuilder: (_, _) => const NoTransitionPage(
+              child: TvPage(
+                tvChild: TvMediaPage(section: TvMediaSection.audiobooks),
+                child: AudiobooksPage(),
+              ),
+            ),
           ),
           GoRoute(
             path: '/audiobooks/item/:id',
-            builder: (_, s) => AudiobookPage(id: s.pathParameters['id']!),
+            builder: (_, s) => TvPage(
+              tvChild: TvAudiobookPage(id: s.pathParameters['id']!),
+              child: AudiobookPage(id: s.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/books',
-            pageBuilder: (_, _) => const NoTransitionPage(child: BooksHubPage()),
+            pageBuilder: (_, _) => const NoTransitionPage(
+              child: TvPage(tvChild: TvMediaPage(), child: BooksHubPage()),
+            ),
           ),
           GoRoute(
             path: '/books/search',
@@ -207,7 +233,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/books/item/:id',
-            builder: (_, s) => BookPage(id: s.pathParameters['id']!),
+            builder: (_, s) => TvPage(
+              tvChild: TvFormNavigation(child: BookPage(id: s.pathParameters['id']!)),
+              child: BookPage(id: s.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/books/list',

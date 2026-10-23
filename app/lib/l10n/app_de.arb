@@ -357,6 +357,7 @@
   },
   "audiobooksSearchHint": "Titel, Autor oder Serie suchen",
   "audiobooksContinueListening": "Weiterhören",
+  "audiobooksResume": "Fortsetzen",
   "audiobooksAllBooks": "Alle Hörbücher",
   "commonNothingFound": "Nichts gefunden",
   "audiobooksNarrator": "gelesen von {name}",
@@ -1356,6 +1357,18 @@
   "adminEditorialYears": "Jahres-Hits",
   "worldRadioTitle": "Weltradio",
   "worldRadioSearchHint": "Sender suchen",
+  "worldRadioSearch": "Suchen",
+  "worldRadioPopularInCountry": "Beliebt in {country}",
+  "@worldRadioPopularInCountry": {
+    "placeholders": {
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "worldRadioGenres": "Genres",
+  "worldRadioAllGenres": "Alle Genres",
+  "worldRadioFavoriteHint": "Markiere Sender im Player mit dem Stern als Favorit",
   "worldRadioFavorites": "Favoriten",
   "worldRadioStationCount": "{count, plural, =1{1 Sender} other{{count} Sender}}",
   "worldRadioYourStations": "Deine Radiosender",

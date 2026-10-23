@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import 'media_sections.dart';
 import 'session.dart';
+
+String formatEpisodeDate(DateTime date, String locale) => DateFormat.yMMMEd(locale).format(date);
 
 class Podcast {
   const Podcast({

@@ -172,6 +172,7 @@
   "audiobooksSignOutUser": "Log out ({name})",
   "audiobooksSearchHint": "Search by title, author, or series",
   "audiobooksContinueListening": "Continue listening",
+  "audiobooksResume": "Resume",
   "audiobooksAllBooks": "All audiobooks",
   "commonNothingFound": "Nothing found",
   "audiobooksNarrator": "narrated by {name}",
@@ -761,6 +762,18 @@
   "adminEditorialYears": "Yearly hits",
   "worldRadioTitle": "World radio",
   "worldRadioSearchHint": "Search stations",
+  "worldRadioSearch": "Search",
+  "worldRadioPopularInCountry": "Popular in {country}",
+  "@worldRadioPopularInCountry": {
+    "placeholders": {
+      "country": {
+        "type": "String"
+      }
+    }
+  },
+  "worldRadioGenres": "Genres",
+  "worldRadioAllGenres": "All genres",
+  "worldRadioFavoriteHint": "Star stations in the player to add favourites",
   "worldRadioFavorites": "Favourites",
   "worldRadioStationCount": "{count, plural, =1{1 station} other{{count} stations}}",
   "worldRadioYourStations": "Your radio stations",
