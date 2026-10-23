@@ -272,7 +272,8 @@ class TvNowPlayingPage extends ConsumerWidget {
                                 children: [
                                   if (track != null)
                                     TvButton(
-                                      icon: player.shuffle ? Icons.shuffle_on : Icons.shuffle,
+                                      icon: Icons.shuffle,
+                                      active: player.shuffle,
                                       label: context.l10n.playerShuffle,
                                       onPressed: player.inJam ? null : controller.toggleShuffle,
                                     ),

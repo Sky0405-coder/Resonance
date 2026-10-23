@@ -107,11 +107,21 @@ class _TvFocusableState extends State<TvFocusable> {
 }
 
 class TvButton extends StatelessWidget {
-  const TvButton({super.key, required this.icon, required this.label, required this.onPressed, this.autofocus = false});
+  const TvButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.autofocus = false,
+    this.active = false,
+  });
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
   final bool autofocus;
+
+  /// Toggles that are on (shuffle) tint their icon with the accent colour.
+  final bool active;
 
   @override
   Widget build(BuildContext context) => TvFocusable(
@@ -122,7 +132,11 @@ class TvButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [Icon(icon, size: 32), const SizedBox(width: 10), Text(label)],
+        children: [
+          Icon(icon, size: 32, color: active ? Theme.of(context).colorScheme.primary : null),
+          const SizedBox(width: 10),
+          Text(label),
+        ],
       ),
     ),
   );

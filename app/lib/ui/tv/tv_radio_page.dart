@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
+import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
 import '../pages/world_radio_page.dart';
 import '../widgets/catalog.dart';
@@ -28,17 +29,16 @@ class TvWorldRadioPage extends ConsumerStatefulWidget {
 }
 
 class _TvWorldRadioPageState extends ConsumerState<TvWorldRadioPage> {
-  late String _country;
+  String? _chosen;
   String? _tag;
 
   @override
   void initState() {
     super.initState();
-    _country =
-        ref.read(prefsProvider).getString(worldRadioCountryKey) ??
-        WidgetsBinding.instance.platformDispatcher.locale.countryCode ??
-        'DE';
+    _chosen = ref.read(prefsProvider).getString(worldRadioCountryKey);
   }
+
+  String get _country => _chosen ?? defaultWorldRadioCountry(ref.read(worldRadioFavoritesProvider).value);
 
   Future<void> _chooseCountry() async {
     final selected = await showDialog<String>(
@@ -47,7 +47,7 @@ class _TvWorldRadioPageState extends ConsumerState<TvWorldRadioPage> {
     );
     if (!mounted || selected == null || selected == _country) return;
     await ref.read(prefsProvider).setString(worldRadioCountryKey, selected);
-    if (mounted) setState(() => _country = selected);
+    if (mounted) setState(() => _chosen = selected);
   }
 
   Future<void> _chooseTag() async {
@@ -67,15 +67,7 @@ class _TvWorldRadioPageState extends ConsumerState<TvWorldRadioPage> {
     final favorites = ref.watch(worldRadioFavoritesProvider);
     final stations = ref.watch(tvWorldRadioStationsProvider((_country, null)));
     final tagged = _tag == null ? null : ref.watch(tvWorldRadioStationsProvider((_country, _tag)));
-    final favoriteCards = [
-      for (final station in favorites.value ?? const <Station>[]) _tvStation(context, ref, station),
-      if ((favorites.value ?? const <Station>[]).isEmpty)
-        TvCardData(
-          title: context.l10n.worldRadioFavoriteHint,
-          image: const Center(child: Icon(Icons.star_border, size: 76)),
-          onActivate: () {},
-        ),
-    ];
+    final favoriteStations = favorites.value ?? const <Station>[];
 
     return TvAsync(
       value: stations,
@@ -85,39 +77,56 @@ class _TvWorldRadioPageState extends ConsumerState<TvWorldRadioPage> {
       },
       builder: (popular) => TvShelves(
         title: context.l10n.worldRadioTitle,
-        leading: Wrap(
-          spacing: 12,
-          runSpacing: 12,
+        leading: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: TvButton(
-                icon: Icons.search,
-                label: context.l10n.worldRadioSearch,
-                autofocus: true,
-                onPressed: () => context.push('/world-radio/search'),
-              ),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: TvButton(
+                    icon: Icons.search,
+                    label: context.l10n.worldRadioSearch,
+                    autofocus: true,
+                    onPressed: () => context.push('/world-radio/search'),
+                  ),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: TvButton(
+                    icon: Icons.public,
+                    label: '${context.l10n.worldRadioCountry}: ${countryFlag(_country)} $countryName',
+                    onPressed: _chooseCountry,
+                  ),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: TvButton(
+                    icon: Icons.category_outlined,
+                    label: context.l10n.worldRadioGenres,
+                    onPressed: _chooseTag,
+                  ),
+                ),
+              ],
             ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: TvButton(
-                icon: Icons.public,
-                label: '${context.l10n.worldRadioCountry}: ${countryFlag(_country)} $countryName',
-                onPressed: _chooseCountry,
+            // The hint is text, not a card: there is nothing to activate yet.
+            if (favorites.hasValue && favoriteStations.isEmpty) ...[
+              const SizedBox(height: 32),
+              Text(
+                context.l10n.worldRadioYourStations,
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
               ),
-            ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: TvButton(
-                icon: Icons.category_outlined,
-                label: context.l10n.worldRadioGenres,
-                onPressed: _chooseTag,
-              ),
-            ),
+              const SizedBox(height: 12),
+              Text(context.l10n.worldRadioFavoriteHint, style: const TextStyle(fontSize: 22, color: Palette.textMuted)),
+            ],
           ],
         ),
         shelves: [
-          TvShelfData(context.l10n.worldRadioYourStations, favoriteCards),
+          TvShelfData(context.l10n.worldRadioYourStations, [
+            for (final station in favoriteStations) _tvStation(context, ref, station),
+          ]),
           TvShelfData('${countryFlag(_country)} ${context.l10n.worldRadioPopularInCountry(countryName)}', [
             for (final station in popular) _tvStation(context, ref, station),
           ]),

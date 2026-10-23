@@ -58,10 +58,16 @@ class TvMediaPage extends ConsumerWidget {
     final discover = podcasts ? ref.watch(podcastDiscoverProvider) : null;
     final books = ebooks ? ref.watch(bookLibraryProvider((q: null, author: null, series: null, sort: 'title'))) : null;
 
+    // Audiobookshelf's own continue shelves would repeat the combined "Continue listening" row.
+    const continueShelves = {'continue-listening', 'continue-reading'};
+    final personalized = audiobookShelves?.value ?? const <AbsShelf>[];
+    final absContinue = personalized.where((shelf) => shelf.id == 'continue-listening').firstOrNull;
     final shelves = <TvShelfData>[];
     if (audiobooks || podcasts) {
       final continueCards = <TvCardData>[
-        if (audiobooks && audiobookItems?.value != null)
+        if (audiobooks && absContinue != null)
+          for (final item in absContinue.items) _audiobookCard(context, ref, item, progress[item.id] ?? item.progress)
+        else if (audiobooks && audiobookItems?.value != null)
           for (final item in audiobookItems!.value!)
             if ((progress[item.id] ?? item.progress) case final p? when p.progress > 0 && !p.isFinished)
               _audiobookCard(context, ref, item, p),
@@ -75,9 +81,9 @@ class TvMediaPage extends ConsumerWidget {
     }
 
     if (audiobooks && audiobookItems?.value != null) {
-      final personalized = audiobookShelves?.value ?? const <AbsShelf>[];
-      if (personalized.isNotEmpty) {
-        for (final shelf in personalized.take(4)) {
+      final rows = personalized.where((shelf) => !continueShelves.contains(shelf.id)).toList();
+      if (rows.isNotEmpty) {
+        for (final shelf in rows.take(4)) {
           shelves.add(
             TvShelfData(shelf.label, [
               for (final item in shelf.items) _audiobookCard(context, ref, item, progress[item.id] ?? item.progress),

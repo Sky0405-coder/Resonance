@@ -233,6 +233,12 @@ class _Offline extends OfflineController {
 }
 
 void main() {
+  test('the default radio country follows most favourites, ties go to the first one', () {
+    expect(defaultWorldRadioCountry([_from('nl'), _from('DE'), _from('DE')]), 'DE');
+    expect(defaultWorldRadioCountry([_from('NL'), _from('DE')]), 'NL');
+    expect(defaultWorldRadioCountry([_from('')]), isNot(''));
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
   late ProviderContainer container;
   late _Engine engine;
@@ -654,3 +660,6 @@ void main() {
     expect(container.read(playerProvider).sleepAt, isNull);
   });
 }
+
+Station _from(String code) =>
+    Station(id: code, name: code, country: code, countryCode: code, tags: const [], codec: 'MP3');

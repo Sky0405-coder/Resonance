@@ -15,6 +15,20 @@ import '../widgets/collection.dart';
 
 const worldRadioCountryKey = 'worldradio.country';
 
+/// Without a stored choice: the country most of the favourites come from, else the device's region.
+String defaultWorldRadioCountry(List<Station>? favorites) {
+  final counts = <String, int>{};
+  for (final station in favorites ?? const <Station>[]) {
+    final code = station.countryCode.toUpperCase();
+    if (RegExp(r'^[A-Z]{2}$').hasMatch(code)) counts[code] = (counts[code] ?? 0) + 1;
+  }
+  if (counts.isNotEmpty) {
+    // Ties go to the first favourite's country: map iteration follows insertion order.
+    return counts.entries.reduce((best, entry) => entry.value > best.value ? entry : best).key;
+  }
+  return WidgetsBinding.instance.platformDispatcher.locale.countryCode ?? 'DE';
+}
+
 String countryFlag(String code) {
   final upper = code.toUpperCase();
   if (!RegExp(r'^[A-Z]{2}$').hasMatch(upper)) return '';
@@ -55,14 +69,21 @@ class _WorldRadioPageState extends ConsumerState<WorldRadioPage> {
   @override
   void initState() {
     super.initState();
-    _country =
-        ref.read(prefsProvider).getString(worldRadioCountryKey) ??
-        WidgetsBinding.instance.platformDispatcher.locale.countryCode ??
-        'DE';
+    _country = ref.read(prefsProvider).getString(worldRadioCountryKey) ?? defaultWorldRadioCountry(null);
     _scroll.addListener(() {
       if (_scroll.position.extentAfter < 300) _load();
     });
-    Future.microtask(_reload);
+    Future.microtask(() async {
+      if (ref.read(prefsProvider).getString(worldRadioCountryKey) == null) {
+        try {
+          final country = defaultWorldRadioCountry(await ref.read(worldRadioFavoritesProvider.future));
+          if (mounted) setState(() => _country = country);
+        } catch (_) {
+          // Favourites are optional here; the device's region stays the default.
+        }
+      }
+      if (mounted) _reload();
+    });
   }
 
   @override

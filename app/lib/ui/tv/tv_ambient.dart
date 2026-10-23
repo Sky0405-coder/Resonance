@@ -180,8 +180,10 @@ class _TvAmbientState extends ConsumerState<TvAmbient> {
               child: _mountedOverlay
                   ? AbsorbPointer(
                       absorbing: _visible,
-                      child: ColoredBox(
+                      // Above the router's Navigator there is no Material, so text would get the debug underline.
+                      child: Material(
                         color: Colors.black,
+                        textStyle: Theme.of(context).textTheme.bodyMedium,
                         child: LayoutBuilder(
                           builder: (context, constraints) => Stack(
                             children: [
