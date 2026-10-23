@@ -117,7 +117,6 @@ class NowPlayingPage extends ConsumerWidget {
                                                 child: TrackCover(
                                                   track: track,
                                                   allowReflection: false,
-                                                  maxSide: maxSide,
                                                 ),
                                               ),
                                               const SizedBox(width: 24),

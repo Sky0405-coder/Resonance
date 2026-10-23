@@ -2742,4 +2742,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get tvAmbientOff => 'Ruhemodus aus';
+
+  @override
+  String get settingsTvAmbient => 'Ruhemodus';
+
+  @override
+  String get settingsTvAmbientHint => 'Bei Inaktivität nur Cover und Titel zeigen';
 }

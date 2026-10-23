@@ -4933,6 +4933,18 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Ruhemodus aus'**
   String get tvAmbientOff;
+
+  /// No description provided for @settingsTvAmbient.
+  ///
+  /// In de, this message translates to:
+  /// **'Ruhemodus'**
+  String get settingsTvAmbient;
+
+  /// No description provided for @settingsTvAmbientHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Bei Inaktivität nur Cover und Titel zeigen'**
+  String get settingsTvAmbientHint;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

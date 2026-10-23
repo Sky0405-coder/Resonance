@@ -1012,5 +1012,7 @@
   "tvFavoriteRemove": "Remove from favourites",
   "tvFavoriteAdd": "Add to favourites",
   "tvAmbientOn": "Ambient mode on",
-  "tvAmbientOff": "Ambient mode off"
+  "tvAmbientOff": "Ambient mode off",
+  "settingsTvAmbient": "Ambient mode",
+  "settingsTvAmbientHint": "Show only the cover and title when idle"
 }

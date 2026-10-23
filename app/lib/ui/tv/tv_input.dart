@@ -9,6 +9,7 @@ import '../../core/desktop.dart';
 import '../../core/tv_mode.dart';
 import '../../player/player.dart';
 import '../../router.dart';
+import 'tv_ambient.dart';
 import 'tv_focusable.dart';
 
 final tvGamepadEventsProvider = Provider<Stream<NormalizedGamepadEvent>>((ref) => Gamepads.normalizedEvents);
@@ -117,12 +118,12 @@ class _TvInputState extends ConsumerState<TvInput> with WidgetsBindingObserver {
     _events = null;
     _connections = null;
     _controller.clear();
-    if (!active || !isDesktop) return;
+    if (!active) return;
     try {
       _events = ref
           .read(tvGamepadEventsProvider)
           .listen(
-            _controller.handle,
+            _handleGamepad,
             onError: (Object error) {
               _controller.clear();
               debugPrint('TV controller unavailable: $error');
@@ -137,12 +138,22 @@ class _TvInputState extends ConsumerState<TvInput> with WidgetsBindingObserver {
     }
   }
 
+  void _handleGamepad(NormalizedGamepadEvent event) {
+    TvAmbient.noteInput(controller: true);
+    try {
+      _controller.handle(event);
+    } finally {
+      TvAmbient.consumeNext = false;
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) _controller.clear();
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
+    if (TvAmbient.consumeFocusKeyEvent(event)) return KeyEventResult.handled;
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     if (event.logicalKey == LogicalKeyboardKey.f11 && isDesktop) {
       unawaited(ref.read(tvModeProvider.notifier).toggleFullscreen());
@@ -152,6 +163,11 @@ class _TvInputState extends ConsumerState<TvInput> with WidgetsBindingObserver {
   }
 
   bool _dispatch(LogicalKeyboardKey key, {bool controller = false}) {
+    if (TvAmbient.consumeNext) {
+      TvAmbient.consumeNext = false;
+      _controller.clear();
+      return true;
+    }
     final focus = FocusManager.instance.primaryFocus;
     final context = focus?.context;
     if (controller && _directions.containsKey(key)) {
@@ -215,5 +231,5 @@ class _TvInputState extends ConsumerState<TvInput> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) => TvAmbient(child: widget.child);
 }

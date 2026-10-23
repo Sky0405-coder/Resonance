@@ -31,6 +31,7 @@ import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import '../widgets/shortcuts.dart';
 import '../tv/tv_settings_controls.dart';
+import '../tv/tv_ambient.dart';
 import '../tv/tv_focusable.dart';
 import '../widgets/update.dart';
 import '../widgets/track_list.dart';
@@ -235,6 +236,7 @@ class SettingsPage extends ConsumerWidget {
             onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, !v),
           ),
           _Section(context.l10n.settingsPlayback),
+          const TvAmbientModeSetting(),
           if (isDiscordDesktop)
             SwitchListTile(
               title: Text(context.l10n.settingsDiscordPresence),

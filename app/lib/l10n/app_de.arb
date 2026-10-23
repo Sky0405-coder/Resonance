@@ -1666,5 +1666,7 @@
   "tvFavoriteRemove": "Aus Favoriten entfernen",
   "tvFavoriteAdd": "Zu Favoriten hinzufügen",
   "tvAmbientOn": "Ruhemodus an",
-  "tvAmbientOff": "Ruhemodus aus"
+  "tvAmbientOff": "Ruhemodus aus",
+  "settingsTvAmbient": "Ruhemodus",
+  "settingsTvAmbientHint": "Bei Inaktivität nur Cover und Titel zeigen"
 }

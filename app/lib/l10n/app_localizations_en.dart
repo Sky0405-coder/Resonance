@@ -2764,4 +2764,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tvAmbientOff => 'Ambient mode off';
+
+  @override
+  String get settingsTvAmbient => 'Ambient mode';
+
+  @override
+  String get settingsTvAmbientHint => 'Show only the cover and title when idle';
 }
