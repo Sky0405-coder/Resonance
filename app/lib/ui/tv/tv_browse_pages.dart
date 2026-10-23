@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../l10n/l10n.dart';
-import '../pages/world_radio_page.dart';
+import '../../player/player.dart';
 import '../widgets/catalog.dart';
 import '../widgets/common.dart';
 import 'tv_shelves.dart';
@@ -29,11 +29,21 @@ TvCardData tvPlaylist(BuildContext context, Playlist playlist) => TvCardData(
   onActivate: () => context.push('/playlist/${playlist.id}'),
 );
 
+/// Like music on the TV, a station opens the full-screen player once it plays.
+Future<void> tvPlayStation(BuildContext context, WidgetRef ref, Station station) async {
+  try {
+    await ref.read(playerProvider.notifier).playStation(station);
+    if (context.mounted) context.push('/now-playing');
+  } catch (error) {
+    if (context.mounted) showError(context, error);
+  }
+}
+
 TvCardData tvStation(BuildContext context, WidgetRef ref, Station station) => TvCardData(
   title: station.name,
   subtitle: station.country,
   image: NetworkCover(url: station.favicon, icon: Icons.radio),
-  onActivate: () => playWorldRadio(context, ref, station),
+  onActivate: () => tvPlayStation(context, ref, station),
 );
 
 class TvHomePage extends ConsumerWidget {

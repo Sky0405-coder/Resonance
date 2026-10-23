@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
 import '../pages/world_radio_page.dart';
 import '../widgets/catalog.dart';
+import 'tv_browse_pages.dart';
 import 'tv_focusable.dart';
 import 'tv_keyboard_search.dart';
 import 'tv_shelves.dart';
@@ -142,7 +143,7 @@ TvCardData _tvStation(BuildContext context, WidgetRef ref, Station station) => T
   title: station.name,
   subtitle: station.country,
   image: NetworkCover(url: station.favicon, icon: Icons.radio),
-  onActivate: () => playWorldRadio(context, ref, station),
+  onActivate: () => tvPlayStation(context, ref, station),
 );
 
 class _TvRadioCountryDialog extends ConsumerWidget {
