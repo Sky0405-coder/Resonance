@@ -4,6 +4,7 @@ import { Navigation } from './nav.js';
 import { bindKeys } from './keys.js';
 import { Player } from './player.js';
 import { Preferences } from './preferences.js';
+import { createAmbient } from './ambient.js';
 import { coverColor } from './visualizer.js';
 import { setIcon } from './icons.js';
 import { el, button, row, image, time, artistName, errorBox, releaseImages } from './ui.js';
@@ -136,6 +137,7 @@ const app = {
   }
 };
 const player = new Player(api, document.getElementById('audio-a'), document.getElementById('audio-b'), message => app.toast(message));
+createAmbient({ player: player, preferences: preferences, root: root, api: api });
 api.onUnauthorized = () => {
   api.save(api.server, ''); player.listened = 0; player.stop();
   app.toast(t('expired')); app.stack = []; app.navigate({ name: 'login' }, true);

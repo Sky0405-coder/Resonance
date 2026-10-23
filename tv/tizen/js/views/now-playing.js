@@ -94,6 +94,7 @@ export function nowPlayingView(ctx) {
     control('lyrics', toggleLyrics, 'lyrics');
     control('like', toggleLike, 'favorite_border');
     if (!player.station) control('queue', () => ctx.app.navigate({ name: 'queue' }), 'queue_music');
+    control('ambient', () => ctx.preferences.set('ambient', !ctx.preferences.value.ambient), 'dark_mode');
     info.appendChild(transport);
     lyricsPane = el('div', 'lyrics-pane'); lyricsPane.setAttribute('aria-label', t('lyrics'));
     lyricsPane.tabIndex = 0; lyricsPane.dataset.focusable = ''; lyricsPane.dataset.focusId = 'lyrics-pane';
@@ -154,6 +155,9 @@ export function nowPlayingView(ctx) {
     setIcon(buttons.like, liked ? 'favorite' : 'favorite_border'); buttons.like.classList.toggle('selected', liked);
     buttons.like.setAttribute('aria-pressed', String(liked)); buttons.like.setAttribute('aria-label', t(liked ? 'unlike' : 'like'));
     buttons.like.disabled = !player.track || likedBusy;
+    buttons.ambient.classList.toggle('selected', ctx.preferences.value.ambient);
+    buttons.ambient.setAttribute('aria-pressed', String(ctx.preferences.value.ambient));
+    buttons.ambient.setAttribute('aria-label', t(ctx.preferences.value.ambient ? 'ambientOn' : 'ambientOff'));
   }
   function tick() {
     if (disposed || !progress) return;
@@ -181,7 +185,7 @@ export function nowPlayingView(ctx) {
   const unsubscribe = player.subscribe(kind => {
     if (kind === 'track') render(); else if (kind === 'metadata') updateMetadata(); else if (kind === 'time') tick(); else update();
   });
-  const unwatchPreferences = ctx.preferences.subscribe(syncVisualizer);
+  const unwatchPreferences = ctx.preferences.subscribe(() => { syncVisualizer(); update(); });
   const visibility = () => { if (document.hidden) stopSeek(); };
   document.addEventListener('visibilitychange', visibility);
   return { node: root, initialFocus: 'now-play', mounted: syncVisualizer, toggleLyrics: toggleLyrics, dispose: () => {

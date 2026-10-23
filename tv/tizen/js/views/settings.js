@@ -13,14 +13,20 @@ export function settingsView(ctx) {
   const autoplay = button('', () => {
     ctx.preferences.set('autoplay', !ctx.preferences.value.autoplay); refresh();
   }, 'settings-autoplay');
+  const ambient = button('', () => {
+    ctx.preferences.set('ambient', !ctx.preferences.value.ambient); refresh();
+  }, 'settings-ambient');
+  const ambientDescription = el('p', 'muted settings-ambient-description', t('ambientDescription'));
   function refresh() {
     visualizer.textContent = t('showVisualizer') + ': ' + t(ctx.preferences.value.visualizer ? 'on' : 'off');
     visualizer.setAttribute('aria-pressed', String(ctx.preferences.value.visualizer));
     autoplay.textContent = t('autoplay') + ': ' + t(ctx.preferences.value.autoplay ? 'on' : 'off');
     autoplay.setAttribute('aria-pressed', String(ctx.preferences.value.autoplay));
+    ambient.textContent = t('ambientMode') + ': ' + t(ctx.preferences.value.ambient ? 'on' : 'off');
+    ambient.setAttribute('aria-pressed', String(ctx.preferences.value.ambient));
     background.textContent = t('background') + ': ' + t(ctx.preferences.value.background === 'dark' ? 'dark' : 'dynamic');
   }
-  refresh(); options.appendChild(visualizer); options.appendChild(background); options.appendChild(autoplay); root.appendChild(options);
+  refresh(); options.appendChild(visualizer); options.appendChild(background); options.appendChild(autoplay); options.appendChild(ambient); options.appendChild(ambientDescription); root.appendChild(options);
   const label = el('label', 'field', t('server'));
   const input = el('input'); input.value = ctx.api.server; input.readOnly = typeof tizen !== 'undefined';
   input.dataset.focusable = ''; input.dataset.focusId = 'settings-server';

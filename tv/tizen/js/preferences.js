@@ -2,7 +2,7 @@ export function normalizePreferences(value) {
   const saved = value || {};
   return {
     visualizer: saved.visualizer !== false, background: saved.background === 'dynamic' ? 'dynamic' : 'dark',
-    autoplay: saved.autoplay !== false
+    autoplay: saved.autoplay !== false, ambient: saved.ambient !== false
   };
 }
 export class Preferences {

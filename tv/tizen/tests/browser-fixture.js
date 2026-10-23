@@ -135,7 +135,10 @@ export async function runSmoke() {
   assert(focusId() === 'now-play', 'Transport focused');
   key(10252); await sleep(100); assert(document.querySelector('[data-focus-id="mini-toggle"]').getAttribute('aria-label') === 'Abspielen', 'Media pause');
   key(415); await sleep(100); assert(document.querySelector('[data-focus-id="mini-toggle"]').getAttribute('aria-label') === 'Pause', 'Media play');
-  assert(document.querySelectorAll('.transport button svg').length === 8, 'All eight transport icons are SVG');
+  assert(document.querySelectorAll('.transport button svg').length === 9, 'All nine transport icons are SVG');
+  assert(document.querySelector('[data-focus-id="now-ambient"]').getAttribute('aria-label') === 'Ruhemodus an', 'Ambient mode is enabled by default');
+  click('now-ambient'); assert(document.querySelector('[data-focus-id="now-ambient"]').getAttribute('aria-label') === 'Ruhemodus aus', 'Now-playing ambient toggle updates');
+  click('now-ambient');
   assert(!document.querySelector('[data-focus-id="now-rewind"]') && !document.querySelector('[data-focus-id="now-stop"]'), 'Pill controls removed');
   assert(getComputedStyle(document.querySelector('[data-focus-id="now-play"]')).width === '72px', '72px transport buttons');
   assert(getComputedStyle(document.querySelector('[data-focus-id="mini-toggle"]')).width === '56px', '56px mini buttons');
@@ -170,6 +173,10 @@ export async function runSmoke() {
   assert(document.querySelector('[data-focus-id="settings-background"]').textContent.indexOf('Dunkel') >= 0, 'Dark background default');
   click('settings-background'); await wait(() => document.querySelector('.app-background').style.backgroundImage, 'dynamic background');
   click('settings-background'); assert(!document.querySelector('.app-background').style.backgroundImage, 'Dark applies immediately');
+  assert(document.querySelector('[data-focus-id="settings-ambient"]').textContent.indexOf('An') >= 0, 'Ambient mode setting is enabled');
+  assert(document.querySelector('.settings-ambient-description').textContent === 'Bei Inaktivität nur Cover und Titel zeigen', 'Ambient mode description');
+  click('settings-ambient'); assert(JSON.parse(localStorage.getItem('resonance.preferences')).ambient === false, 'Ambient preference persists');
+  click('settings-ambient');
   click('settings-visualizer');
   const spectraBefore = requests.filter(request => /\/spectrum$/.test(request.path)).length;
   click('mini-open'); await wait(() => document.querySelector('.now-page'), 'player with visualizer disabled');
