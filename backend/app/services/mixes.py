@@ -42,6 +42,8 @@ from app.services.tags import primary_artist
 
 GENRE_NAMES = {"hip hop": "Hip-Hop", "r&b": "R&B", "edm": "EDM"}
 CHARTS = {"chart:de": ("Top 100 Deutschland", "1111143121"), "chart:global": ("Top 100 Global", "3155776842")}
+# Apple Music's charts match what listeners see elsewhere; Deezer's own charts are the fallback.
+APPLE_CHARTS = {"chart:de": "Top 100: Deutschland", "chart:global": "Top 100: Global"}
 _chart_cache: dict[str, tuple[date, list[dict]]] = {}
 _chart_requested: dict[str, date] = {}
 _chart_request_lock = asyncio.Lock()
@@ -100,9 +102,16 @@ def _request_due(key: str) -> bool:
 
 
 async def _source_catalog(db: AsyncSession, key: str) -> list[CatalogTrack] | None:
-    if key in CHARTS:
+    apple = None
+    if key in APPLE_CHARTS:
+        apple = await editorial.playlist_tracks(editorial.Editorial(key, CHARTS[key][0], APPLE_CHARTS[key], "charts"))
+    if key in CHARTS and apple is None:
         source = await chart_tracks(key)
         catalog = [_track(track) for track in source] if source is not None else None
+    elif apple is not None:
+        catalog = catalog_tracks(apple.tracks)
+        for track in catalog:
+            track.id = apple.deezer_ids.get(track.isrc) or ""
     else:
         source = await editorial.playlist_tracks(editorial.BY_KEY[key])
         catalog = catalog_tracks(source.tracks) if source is not None else None
@@ -138,7 +147,7 @@ async def _request_chart_songs(
     async with _chart_request_lock:
         if not _request_due(key):
             return
-        if is_editorial:
+        if is_editorial or (key in APPLE_CHARTS and key in editorial._cache and catalog is not None):
             unmatched.clear()
             for rank, track in enumerate(catalog or [], 1):
                 if track.library_id is not None:
@@ -607,7 +616,7 @@ async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool 
         positions, unmatched = _source_positions(catalog)
         if chart_downloads and _request_due(key):
             if key in CHARTS:
-                await _request_chart_songs(db, user, key, unmatched, now)
+                await _request_chart_songs(db, user, key, unmatched, now, catalog)
             elif cfg.mixes.editorial_downloads > 0 and editorial_count < 4:
                 if requester is None:
                     requester = await db.scalar(

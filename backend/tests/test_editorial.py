@@ -312,3 +312,23 @@ def test_config_bounds_and_fixed_catalog() -> None:
     assert [sum(entry.group == group for entry in editorial.EDITORIAL) for group in (
         "decades", "eras", "years", "charts",
     )] == [6, 13, 18, 1]
+
+
+async def test_charts_follow_apple_music_and_request_missing_songs_by_isrc(
+    charts: SimpleNamespace, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with SessionLocal() as db:
+        tracks = await library(db, "Library", None, 2)
+        cached("chart:de", [song("Missing", "MISSING"), song(tracks[1].title, None), song(tracks[0].title, None)])
+        await update_config(db, {"mixes": {"editorial_enabled": False, "charts_downloads": 5}})
+        lookup = AsyncMock(return_value={"id": "201"})
+        monkeypatch.setattr(deezer, "track_by_isrc", lookup)
+        await mixes.generate_mixes(db, await db.get(User, charts.user_id))
+        playlist = (await generated(db, charts.user_id))["chart:de"]
+        assert [(row.track_id, row.position) for row in await entries(db, playlist)] == [
+            (tracks[1].id, 2), (tracks[0].id, 3),
+        ]
+        assert await chart_pending(db, playlist) == [("201", 1)]
+    assert [download[:2] for download in charts.downloads] == [("201", charts.user_id)]
+    lookup.assert_awaited_once_with("MISSING")
+    assert charts.chart_calls == [("3155776842", 100)]
