@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,7 @@ import 'package:resonance/core/library.dart';
 import 'package:resonance/core/models.dart';
 import 'package:resonance/core/podcasts.dart';
 import 'package:resonance/core/session.dart';
+import 'package:resonance/core/tv_mode.dart';
 import 'package:resonance/l10n/l10n.dart';
 import 'package:resonance/offline/offline_store.dart';
 import 'package:resonance/player/engine.dart';
@@ -26,6 +29,7 @@ import 'package:resonance/ui/pages/podcast_pages.dart';
 import 'package:resonance/ui/shell.dart';
 import 'package:resonance/ui/tv/tv_shell.dart';
 import 'package:resonance/ui/tv/tv_media_pages.dart';
+import 'package:resonance/ui/tv/tv_focusable.dart';
 import 'package:resonance/ui/widgets/player_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -524,6 +528,55 @@ void main() {
     await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
     expect(find.byType(PodcastSearchPage), findsOneWidget);
+  });
+
+  testWidgets('TV podcast search accepts on-screen and physical keyboard input', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(1280, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    container.read(tvModeProvider.notifier).set(true);
+    await page(tester, const Scaffold(body: TvPodcastSearchPage()));
+
+    for (final key in ['s', 'c', 'i', 'e', 'n', 'c', 'e']) {
+      final focusable = tester.widget<TvFocusable>(find.byKey(ValueKey('tv-key-$key')));
+      focusable.focusNode!.requestFocus();
+      await tester.pump();
+      Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ActivateIntent());
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(api.queries, contains('science'));
+    expect(find.text('Search result'), findsOneWidget);
+
+    final submit = tester.widget<TvFocusable>(find.byKey(const ValueKey('tv-key-submit')));
+    submit.focusNode!.requestFocus();
+    await tester.pump();
+    Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ActivateIntent());
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV first search result');
+
+    final clear = tester.widget<TvFocusable>(find.byKey(const ValueKey('tv-key-clear')));
+    clear.focusNode!.requestFocus();
+    await tester.pump();
+    Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ActivateIntent());
+    await tester.pump(const Duration(milliseconds: 300));
+    for (final (key, character) in [
+      (LogicalKeyboardKey.keyR, 'r'),
+      (LogicalKeyboardKey.keyA, 'a'),
+      (LogicalKeyboardKey.keyD, 'd'),
+      (LogicalKeyboardKey.keyI, 'i'),
+      (LogicalKeyboardKey.keyO, 'o'),
+    ]) {
+      await tester.sendKeyEvent(key, character: character);
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(api.queries, contains('radio'));
+    expect(find.text('Search result'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('detail shows episode progress, completed state, and subscription toggle', (tester) async {

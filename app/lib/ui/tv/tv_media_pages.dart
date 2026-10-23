@@ -1,7 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,6 +14,7 @@ import '../pages/book_pages.dart';
 import '../widgets/catalog.dart';
 import '../widgets/common.dart';
 import 'tv_focusable.dart';
+import 'tv_keyboard_search.dart';
 import 'tv_shelves.dart';
 
 enum TvMediaSection { audiobooks, podcasts }
@@ -479,100 +477,48 @@ class _TvEpisodeRow extends ConsumerWidget {
   }
 }
 
-class TvPodcastSearchPage extends ConsumerStatefulWidget {
+class TvPodcastSearchPage extends StatelessWidget {
   const TvPodcastSearchPage({super.key});
 
   @override
-  ConsumerState<TvPodcastSearchPage> createState() => _TvPodcastSearchPageState();
+  Widget build(BuildContext context) => TvKeyboardSearch(
+    hint: context.l10n.podcastsSearchHint,
+    resultsBuilder: (context, query, firstResult) => _TvPodcastSearchResults(query: query, firstResult: firstResult),
+  );
 }
 
-class _TvPodcastSearchPageState extends ConsumerState<TvPodcastSearchPage> {
-  final _text = TextEditingController();
-  final _field = FocusNode();
-  Timer? _debounce;
-  String _query = '';
+class _TvPodcastSearchResults extends ConsumerWidget {
+  const _TvPodcastSearchResults({required this.query, required this.firstResult});
+
+  final String query;
+  final FocusNode firstResult;
 
   @override
-  void initState() {
-    super.initState();
-    FocusManager.instance.addEarlyKeyEventHandler(_handleKey);
-  }
-
-  KeyEventResult _handleKey(KeyEvent event) {
-    if (_field.hasFocus && event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _field.nextFocus();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  @override
-  void dispose() {
-    FocusManager.instance.removeEarlyKeyEventHandler(_handleKey);
-    _debounce?.cancel();
-    _text.dispose();
-    _field.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(32),
-        child: TvFocusable(
-          focusScale: 1.015,
-          skipTraversal: true,
-          descendantsAreFocusable: true,
-          onActivate: () {
-            _field.requestFocus();
-            SystemChannels.textInput.invokeMethod<void>('TextInput.show');
-          },
-          child: TextField(
-            controller: _text,
-            focusNode: _field,
-            autofocus: true,
-            style: const TextStyle(fontSize: 28),
-            decoration: searchDecoration(context.l10n.podcastsSearchHint),
-            textInputAction: TextInputAction.search,
-            onChanged: (value) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 300), () {
-                if (mounted) setState(() => _query = value.trim());
-              });
-            },
-          ),
-        ),
-      ),
-      Expanded(
-        child: _query.isEmpty
-            ? const SizedBox.shrink()
-            : TvAsync(
-                value: ref.watch(podcastSearchProvider(_query)),
-                onRetry: () => ref.invalidate(podcastSearchProvider(_query)),
-                builder: (results) => TvShelves(
-                  title: context.l10n.podcastsSearch,
-                  shelves: [
-                    TvShelfData(context.l10n.navPodcasts, [
-                      for (final result in results)
-                        TvCardData(
-                          title: result.title,
-                          subtitle: result.author,
-                          image: NetworkCover(url: result.imageUrl, icon: Icons.podcasts),
-                          onActivate: () async {
-                            try {
-                              final podcast = await ref.read(apiProvider).openPodcast(result.feedUrl);
-                              if (context.mounted) context.push('/podcasts/${podcast.id}');
-                            } catch (error) {
-                              if (context.mounted) showError(context, error);
-                            }
-                          },
-                        ),
-                    ]),
-                  ],
-                ),
-              ),
-      ),
-    ],
+  Widget build(BuildContext context, WidgetRef ref) => TvAsync(
+    value: ref.watch(podcastSearchProvider(query)),
+    onRetry: () => ref.invalidate(podcastSearchProvider(query)),
+    builder: (results) => TvShelves(
+      title: context.l10n.podcastsSearch,
+      autofocusFirstCard: false,
+      firstCardFocusNode: firstResult,
+      shelves: [
+        TvShelfData(context.l10n.navPodcasts, [
+          for (final result in results)
+            TvCardData(
+              title: result.title,
+              subtitle: result.author,
+              image: NetworkCover(url: result.imageUrl, icon: Icons.podcasts),
+              onActivate: () async {
+                try {
+                  final podcast = await ref.read(apiProvider).openPodcast(result.feedUrl);
+                  if (context.mounted) context.push('/podcasts/${podcast.id}');
+                } catch (error) {
+                  if (context.mounted) showError(context, error);
+                }
+              },
+            ),
+        ]),
+      ],
+    ),
   );
 }

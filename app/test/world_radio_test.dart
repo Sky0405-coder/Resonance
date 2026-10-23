@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
@@ -9,6 +11,7 @@ import 'package:resonance/core/api.dart';
 import 'package:resonance/core/downloads.dart';
 import 'package:resonance/core/models.dart';
 import 'package:resonance/core/session.dart';
+import 'package:resonance/core/tv_mode.dart';
 import 'package:resonance/integrations/discord_presence.dart';
 import 'package:resonance/l10n/l10n.dart';
 import 'package:resonance/offline/offline_store.dart';
@@ -18,6 +21,7 @@ import 'package:resonance/player/equalizer.dart';
 import 'package:resonance/player/equalizer_controller.dart';
 import 'package:resonance/player/player.dart';
 import 'package:resonance/ui/pages/world_radio_page.dart';
+import 'package:resonance/ui/tv/tv_focusable.dart';
 import 'package:resonance/ui/tv/tv_radio_page.dart';
 
 const _station = Station(
@@ -349,15 +353,54 @@ void main() {
   });
 
   testWidgets('TV radio search debounces and searches all countries', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await tester.binding.setSurfaceSize(const Size(1280, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    container.read(tvModeProvider.notifier).set(true);
     await page(tester, const Scaffold(body: TvRadioSearchPage()));
-    await tester.enterText(find.byType(TextField), 'rock');
+
+    for (final key in ['r', 'o', 'c', 'k']) {
+      final focusable = tester.widget<TvFocusable>(find.byKey(ValueKey('tv-key-$key')));
+      focusable.focusNode!.requestFocus();
+      await tester.pump();
+      Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ActivateIntent());
+      await tester.pump();
+    }
     await tester.pump(const Duration(milliseconds: 299));
     expect(api.stationQueries.where((query) => query.q == 'rock'), isEmpty);
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pumpAndSettle();
     expect(api.stationQueries, contains((country: null, tag: null, q: 'rock')));
     expect(find.text('Radio One'), findsOneWidget);
+
+    final submit = tester.widget<TvFocusable>(find.byKey(const ValueKey('tv-key-submit')));
+    submit.focusNode!.requestFocus();
+    await tester.pump();
+    Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ActivateIntent());
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV first search result');
+
+    final clear = tester.widget<TvFocusable>(find.byKey(const ValueKey('tv-key-clear')));
+    clear.focusNode!.requestFocus();
+    await tester.pump();
+    Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ActivateIntent());
+    await tester.pump(const Duration(milliseconds: 300));
+    for (final (key, character) in [
+      (LogicalKeyboardKey.keyJ, 'j'),
+      (LogicalKeyboardKey.keyA, 'a'),
+      (LogicalKeyboardKey.keyZ, 'z'),
+      (LogicalKeyboardKey.keyZ, 'z'),
+      (LogicalKeyboardKey.keyY, 'y'),
+    ]) {
+      await tester.sendKeyEvent(key, character: character);
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(api.stationQueries, contains((country: null, tag: null, q: 'jazzy')));
+    expect(find.text('Radio One'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('TV radio shows the empty favourites hint', (tester) async {

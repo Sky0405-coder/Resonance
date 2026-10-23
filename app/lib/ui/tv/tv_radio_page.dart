@@ -1,7 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,8 +8,8 @@ import '../../core/session.dart';
 import '../../l10n/l10n.dart';
 import '../pages/world_radio_page.dart';
 import '../widgets/catalog.dart';
-import '../widgets/common.dart';
 import 'tv_focusable.dart';
+import 'tv_keyboard_search.dart';
 import 'tv_shelves.dart';
 
 final tvWorldRadioStationsProvider = FutureProvider.autoDispose.family<List<Station>, (String, String?)>((ref, query) {
@@ -220,87 +217,33 @@ class _TvRadioGenreDialog extends ConsumerWidget {
   );
 }
 
-class TvRadioSearchPage extends ConsumerStatefulWidget {
+class TvRadioSearchPage extends StatelessWidget {
   const TvRadioSearchPage({super.key});
 
   @override
-  ConsumerState<TvRadioSearchPage> createState() => _TvRadioSearchPageState();
+  Widget build(BuildContext context) => TvKeyboardSearch(
+    hint: context.l10n.worldRadioSearchHint,
+    resultsBuilder: (context, query, firstResult) => _TvRadioSearchResults(query: query, firstResult: firstResult),
+  );
 }
 
-class _TvRadioSearchPageState extends ConsumerState<TvRadioSearchPage> {
-  final _text = TextEditingController();
-  final _field = FocusNode();
-  Timer? _debounce;
-  String _query = '';
+class _TvRadioSearchResults extends ConsumerWidget {
+  const _TvRadioSearchResults({required this.query, required this.firstResult});
+
+  final String query;
+  final FocusNode firstResult;
 
   @override
-  void initState() {
-    super.initState();
-    FocusManager.instance.addEarlyKeyEventHandler(_handleKey);
-  }
-
-  KeyEventResult _handleKey(KeyEvent event) {
-    if (_field.hasFocus && event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _field.nextFocus();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  @override
-  void dispose() {
-    FocusManager.instance.removeEarlyKeyEventHandler(_handleKey);
-    _debounce?.cancel();
-    _text.dispose();
-    _field.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(32),
-        child: TvFocusable(
-          focusScale: 1.015,
-          skipTraversal: true,
-          descendantsAreFocusable: true,
-          onActivate: () {
-            _field.requestFocus();
-            SystemChannels.textInput.invokeMethod<void>('TextInput.show');
-          },
-          child: TextField(
-            controller: _text,
-            focusNode: _field,
-            autofocus: true,
-            style: const TextStyle(fontSize: 28),
-            decoration: searchDecoration(context.l10n.worldRadioSearchHint),
-            textInputAction: TextInputAction.search,
-            onChanged: (value) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 300), () {
-                if (mounted) setState(() => _query = value.trim());
-              });
-            },
-          ),
-        ),
-      ),
-      Expanded(
-        child: _query.isEmpty
-            ? const SizedBox.shrink()
-            : TvAsync(
-                value: ref.watch(tvWorldRadioSearchProvider(_query)),
-                onRetry: () => ref.invalidate(tvWorldRadioSearchProvider(_query)),
-                builder: (stations) => TvShelves(
-                  title: context.l10n.worldRadioSearch,
-                  shelves: [
-                    TvShelfData(context.l10n.worldRadioTitle, [
-                      for (final station in stations) _tvStation(context, ref, station),
-                    ]),
-                  ],
-                ),
-              ),
-      ),
-    ],
+  Widget build(BuildContext context, WidgetRef ref) => TvAsync(
+    value: ref.watch(tvWorldRadioSearchProvider(query)),
+    onRetry: () => ref.invalidate(tvWorldRadioSearchProvider(query)),
+    builder: (stations) => TvShelves(
+      title: context.l10n.worldRadioSearch,
+      autofocusFirstCard: false,
+      firstCardFocusNode: firstResult,
+      shelves: [
+        TvShelfData(context.l10n.worldRadioTitle, [for (final station in stations) _tvStation(context, ref, station)]),
+      ],
+    ),
   );
 }
