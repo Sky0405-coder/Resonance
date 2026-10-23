@@ -2,14 +2,32 @@ import { t } from '../i18n.js';
 import { el, button, row, image, time, artistName } from '../ui.js';
 import { setIcon } from '../icons.js';
 import { attachVisualizer } from '../visualizer.js';
+
+export function coverflowTracks(player) {
+  if (player.station || player.queue.length <= 1) return null;
+  const position = player.order.indexOf(player.index);
+  if (position < 0) return [];
+  return [-2, -1, 0, 1, 2].map(offset => {
+    const index = player.order[position + offset];
+    return index === undefined ? null : player.queue[index];
+  });
+}
+
+function coverTransform(offset) {
+  if (offset === 0) return 'translateX(0) scale(1)';
+  const side = offset < 0 ? -1 : 1;
+  return 'translateX(' + offset * 297 + 'px) perspective(1000px) rotateY(' + (side < 0 ? 45 : -45) + 'deg) scale(.6)';
+}
+
 export function nowPlayingView(ctx) {
   const player = ctx.player;
   const root = el('div', 'now-page');
   let disposeVisualizer = null; let disposed = false; let version = 0;
   let lyricsData = null; let lyricsOpen = !!ctx.route.lyrics; let activeLine = -1;
-  let title; let artist; let art; let coverWrap; let canvas; let lyricsPane; let progress; let elapsed; let duration; let bubble;
+  let title; let artist; let art; let coverWrap; let coverStage = null; let canvas; let lyricsPane; let progress; let elapsed; let duration; let bubble;
   let seekInterval = null; let seekDirection = 0; let bubbleTimer = null;
-  let progressTimer = null; let lastProgress = -Infinity; let likedBusy = false;
+  let progressTimer = null; let flowTimer = null; let transitionStage = null; let lastTrackIndex = null; let lastOrder = [];
+  let lastProgress = -Infinity; let likedBusy = false;
   const buttons = {};
   let coverUrl = '';
   function stopSeek() {
@@ -23,7 +41,7 @@ export function nowPlayingView(ctx) {
     if (canvas) { canvas.remove(); canvas = null; }
     if (!enabled) return;
     canvas = el('canvas', 'visualizer'); canvas.width = 660; canvas.height = 264;
-    canvas.setAttribute('aria-hidden', 'true'); coverWrap.appendChild(canvas);
+    canvas.setAttribute('aria-hidden', 'true'); (art.parentNode === coverStage ? coverStage : coverWrap).appendChild(canvas);
     disposeVisualizer = attachVisualizer(canvas, player, ctx.api, player.track, coverUrl, () => root.isConnected && ctx.active());
   }
   function updateMetadata() {
@@ -47,15 +65,56 @@ export function nowPlayingView(ctx) {
   function render() {
     const focusId = document.activeElement && document.activeElement.dataset.focusId;
     const mounted = root.isConnected;
+    const previousStage = coverStage; const flowItems = coverflowTracks(player);
+    let flowDirection = 0;
+    if (previousStage && flowItems && player.index !== lastTrackIndex) {
+      const before = lastOrder.indexOf(lastTrackIndex); const after = player.order.indexOf(player.index);
+      flowDirection = after >= before ? 1 : -1;
+    }
+    if (flowTimer) clearTimeout(flowTimer); flowTimer = null;
+    if (transitionStage) transitionStage.remove(); transitionStage = null;
+    if (previousStage) { previousStage.style.transition = 'none'; previousStage.style.transform = 'translateX(0)'; previousStage.style.opacity = '1'; previousStage.style.zIndex = '2'; }
     version++; const current = version;
     stopSeek(); clearTimeout(bubbleTimer); clearTimeout(progressTimer); progressTimer = null; lastProgress = -Infinity;
     if (disposeVisualizer) disposeVisualizer();
+    if (canvas) canvas.remove();
     disposeVisualizer = null; canvas = null; coverUrl = ''; activeLine = -1; lyricsData = null; likedBusy = false;
     root.textContent = '';
     const top = el('div', 'now-top'); top.appendChild(el('span', 'eyebrow', t('nowPlaying')));
     top.appendChild(button('‹ ' + t('back'), () => ctx.app.back(), 'now-back')); root.appendChild(top);
     const layout = el('div', 'now-layout'); coverWrap = el('div', 'now-cover-wrap');
-    art = image('icon.png', 'now-cover'); coverWrap.appendChild(art); layout.appendChild(coverWrap);
+    if (flowItems && flowItems.length) {
+      coverStage = el('div', 'coverflow-stage');
+      flowItems.forEach((track, slot) => {
+        const offset = slot - 2; const card = image(track ? ctx.api.artwork('track', track, 700) : 'icon.png', 'now-cover coverflow-card');
+        card.classList.add(offset === 0 ? 'coverflow-current' : Math.abs(offset) === 1 ? 'coverflow-neighbor' : 'coverflow-outer');
+        card.style.transform = coverTransform(offset);
+        card.style.opacity = !track || Math.abs(offset) === 2 ? '0' : offset === 0 ? '1' : '0.6';
+        card.dataset.offset = String(offset); card.dataset.trackId = track ? track.id : ''; coverStage.appendChild(card);
+        if (offset === 0) art = card;
+      });
+      if (previousStage && flowDirection) {
+        previousStage.style.transition = 'none'; previousStage.style.transform = 'translateX(0)'; previousStage.style.opacity = '1';
+        coverStage.style.transition = 'none'; coverStage.style.transform = 'translateX(' + flowDirection * 297 + 'px)'; coverStage.style.opacity = '0.45';
+        coverWrap.appendChild(previousStage); coverWrap.appendChild(coverStage); void coverWrap.offsetWidth;
+        previousStage.style.transition = 'transform 300ms ease, opacity 300ms ease';
+        coverStage.style.transition = 'transform 300ms ease, opacity 300ms ease';
+        previousStage.style.transform = 'translateX(' + -flowDirection * 297 + 'px)'; previousStage.style.opacity = '0';
+        coverStage.style.transform = 'translateX(0)'; coverStage.style.opacity = '1';
+        transitionStage = previousStage;
+        flowTimer = setTimeout(() => {
+          if (transitionStage) transitionStage.remove();
+          transitionStage = null; flowTimer = null;
+          if (coverStage) { coverStage.style.transition = 'none'; coverStage.style.transform = 'translateX(0)'; coverStage.style.opacity = '1'; }
+        }, 330);
+      } else coverWrap.appendChild(coverStage);
+      coverWrap.classList.add('coverflow-wrap');
+      lastTrackIndex = player.index; lastOrder = player.order.slice();
+    } else {
+      coverStage = null; art = image('icon.png', 'now-cover'); coverWrap.appendChild(art);
+      lastTrackIndex = player.index; lastOrder = player.order.slice();
+    }
+    layout.appendChild(coverWrap);
     const info = el('div', 'now-info');
     title = el('h1', 'now-title'); artist = el('p', 'now-artist muted'); info.appendChild(title); info.appendChild(artist);
     const line = el('div', 'timeline'); elapsed = el('span', '', '0:00'); duration = el('span', '', '0:00');
@@ -189,7 +248,8 @@ export function nowPlayingView(ctx) {
   const visibility = () => { if (document.hidden) stopSeek(); };
   document.addEventListener('visibilitychange', visibility);
   return { node: root, initialFocus: 'now-play', mounted: syncVisualizer, toggleLyrics: toggleLyrics, dispose: () => {
-    disposed = true; version++; unsubscribe(); unwatchPreferences(); stopSeek(); clearTimeout(bubbleTimer); clearTimeout(progressTimer);
+    disposed = true; version++; unsubscribe(); unwatchPreferences(); stopSeek(); clearTimeout(bubbleTimer); clearTimeout(progressTimer); clearTimeout(flowTimer);
+    if (transitionStage) transitionStage.remove();
     document.removeEventListener('visibilitychange', visibility); if (disposeVisualizer) disposeVisualizer();
   } };
 }

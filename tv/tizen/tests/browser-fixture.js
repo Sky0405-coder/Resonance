@@ -133,6 +133,14 @@ export async function runSmoke() {
   click('track-track0'); await wait(() => document.querySelector('.now-page'), 'now playing');
   await wait(() => !document.getElementById('audio-a').paused || !document.getElementById('audio-b').paused, 'HTML audio playing');
   assert(focusId() === 'now-play', 'Transport focused');
+  assert(document.querySelectorAll('.coverflow-stage .coverflow-card').length === 5, 'Coverflow renders five queue covers');
+  assert(document.querySelector('.coverflow-current').dataset.trackId === 'track0', 'Coverflow centers the current cover');
+  assert(document.querySelectorAll('.coverflow-neighbor').length === 2, 'Coverflow shows previous and next slots');
+  const nextCoverTransform = document.querySelector('[data-offset="1"]').style.transform;
+  assert(nextCoverTransform.indexOf('perspective(1000px)') >= 0 && nextCoverTransform.indexOf('rotateY(-45deg)') >= 0 && nextCoverTransform.indexOf('scale(') >= 0, 'Coverflow rotates and scales the next cover');
+  assert(getComputedStyle(document.querySelector('[data-offset="2"]')).opacity === '0', 'Coverflow hides the outer covers');
+  assert(getComputedStyle(document.querySelector('[data-offset="1"]')).opacity === '0.6', 'Coverflow dims neighboring covers');
+  assert(getComputedStyle(document.querySelector('.coverflow-current')).transitionDuration.indexOf('0.3s') >= 0, 'Coverflow uses a 300ms slide');
   key(10252); await sleep(100); assert(document.querySelector('[data-focus-id="mini-toggle"]').getAttribute('aria-label') === 'Abspielen', 'Media pause');
   key(415); await sleep(100); assert(document.querySelector('[data-focus-id="mini-toggle"]').getAttribute('aria-label') === 'Pause', 'Media play');
   assert(document.querySelectorAll('.transport button svg').length === 9, 'All nine transport icons are SVG');
@@ -155,6 +163,9 @@ export async function runSmoke() {
   key(415); key(405); await wait(() => document.querySelector('.lyric-line.active'), 'synced lyrics');
   key(10233); await wait(() => document.querySelector('.now-title').textContent === 'Second Song', 'next');
   await wait(() => !document.getElementById('audio-a').paused || !document.getElementById('audio-b').paused, 'next starts playback');
+  await sleep(350);
+  assert(document.querySelectorAll('.coverflow-stage').length === 1, 'Coverflow slide settles to one stage');
+  assert(document.querySelector('.coverflow-current').dataset.trackId === 'track1', 'Coverflow centers the new track');
   key(10232); await wait(() => document.querySelector('.now-title').textContent === 'First Song', 'previous');
   await wait(() => !document.getElementById('audio-a').paused || !document.getElementById('audio-b').paused, 'previous starts playback');
   const continuingAudio = [document.getElementById('audio-a'), document.getElementById('audio-b')].find(audio => !audio.paused);
@@ -188,6 +199,7 @@ export async function runSmoke() {
   click('settings-visualizer'); passed.push('persistent visualizer and immediate background preferences');
   click('nav-radio'); await wait(() => document.querySelector('.radio-page .station'), 'radio');
   click('station-station'); await wait(() => document.querySelector('[data-focus-id="station-favorite"]:not(:disabled)'), 'radio favorite');
+  assert(!document.querySelector('.coverflow-stage'), 'Radio stations keep a single cover');
   click('station-favorite'); await wait(() => requests.some(request => request.method === 'PUT' && request.path.indexOf('/favorites/station') > 0), 'favorite PUT');
   await wait(() => document.querySelector('.now-title').textContent === 'Live Track', 'radio metadata');
   click('now-back'); await wait(() => document.querySelector('[data-row="radio-favorites"]'), 'radio favorites shelf'); passed.push('radio playback, metadata and favorite persistence');
