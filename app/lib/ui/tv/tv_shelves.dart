@@ -25,10 +25,19 @@ class TvShelfData {
 
 /// All rows stay mounted so D-pad traversal can reach shelves outside the viewport.
 class TvShelves extends StatefulWidget {
-  const TvShelves({super.key, required this.title, required this.shelves, this.leading});
+  const TvShelves({
+    super.key,
+    required this.title,
+    required this.shelves,
+    this.leading,
+    this.autofocusFirstCard = true,
+    this.firstCardFocusNode,
+  });
   final String title;
   final List<TvShelfData> shelves;
   final Widget? leading;
+  final bool autofocusFirstCard;
+  final FocusNode? firstCardFocusNode;
 
   @override
   State<TvShelves> createState() => _TvShelvesState();
@@ -160,8 +169,10 @@ class _TvShelvesState extends State<TvShelves> {
                           child: SizedBox(
                             width: 226,
                             child: TvFocusable(
-                              autofocus: shelf == _shelves.first && index == 0,
-                              focusNode: _nodes[shelf.title]![index],
+                              autofocus: widget.autofocusFirstCard && shelf == _shelves.first && index == 0,
+                              focusNode: shelf == _shelves.first && index == 0 && widget.firstCardFocusNode != null
+                                  ? widget.firstCardFocusNode
+                                  : _nodes[shelf.title]![index],
                               onActivate: card.onActivate,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,

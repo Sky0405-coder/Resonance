@@ -102,6 +102,29 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get tvKeyboardSpace => 'Space';
+
+  @override
+  String get tvKeyboardDelete => 'Delete';
+
+  @override
+  String get tvKeyboardClear => 'Clear';
+
+  @override
+  String get tvKeyboardSearch => 'Search';
+
+  @override
+  String get tvSearchAvailableAlbums => 'Available to download: albums';
+
+  @override
+  String get tvSearchAvailableSongs => 'Available to download: songs';
+
+  @override
+  String tvCatalogRequestBy(String artist) {
+    return 'By $artist';
+  }
+
+  @override
   String get commonSongsTitle => 'Songs';
 
   @override

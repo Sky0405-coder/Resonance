@@ -28,6 +28,20 @@
   "navSettings": "Settings",
   "searchHint": "What do you want to listen to?",
   "searchNoLibraryResults": "No results for “{query}” in your library.",
+  "tvKeyboardSpace": "Space",
+  "tvKeyboardDelete": "Delete",
+  "tvKeyboardClear": "Clear",
+  "tvKeyboardSearch": "Search",
+  "tvSearchAvailableAlbums": "Available to download: albums",
+  "tvSearchAvailableSongs": "Available to download: songs",
+  "tvCatalogRequestBy": "By {artist}",
+  "@tvCatalogRequestBy": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      }
+    }
+  },
   "commonSongsTitle": "Songs",
   "commonArtist": "Artist",
   "commonAlbums": "Albums",

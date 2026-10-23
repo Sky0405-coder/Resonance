@@ -260,6 +260,48 @@ abstract class AppLocalizations {
   /// **'Keine Treffer für „{query}“ in deiner Bibliothek.'**
   String searchNoLibraryResults(String query);
 
+  /// No description provided for @tvKeyboardSpace.
+  ///
+  /// In de, this message translates to:
+  /// **'Leerzeichen'**
+  String get tvKeyboardSpace;
+
+  /// No description provided for @tvKeyboardDelete.
+  ///
+  /// In de, this message translates to:
+  /// **'Löschen'**
+  String get tvKeyboardDelete;
+
+  /// No description provided for @tvKeyboardClear.
+  ///
+  /// In de, this message translates to:
+  /// **'Leeren'**
+  String get tvKeyboardClear;
+
+  /// No description provided for @tvKeyboardSearch.
+  ///
+  /// In de, this message translates to:
+  /// **'Suchen'**
+  String get tvKeyboardSearch;
+
+  /// No description provided for @tvSearchAvailableAlbums.
+  ///
+  /// In de, this message translates to:
+  /// **'Zum Herunterladen: Alben'**
+  String get tvSearchAvailableAlbums;
+
+  /// No description provided for @tvSearchAvailableSongs.
+  ///
+  /// In de, this message translates to:
+  /// **'Zum Herunterladen: Songs'**
+  String get tvSearchAvailableSongs;
+
+  /// No description provided for @tvCatalogRequestBy.
+  ///
+  /// In de, this message translates to:
+  /// **'Von {artist}'**
+  String tvCatalogRequestBy(String artist);
+
   /// No description provided for @commonSongsTitle.
   ///
   /// In de, this message translates to:

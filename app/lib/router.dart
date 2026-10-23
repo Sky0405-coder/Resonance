@@ -14,6 +14,7 @@ import 'ui/tv/tv_page.dart';
 import 'ui/tv/tv_browse_pages.dart';
 import 'ui/tv/tv_detail_page.dart';
 import 'ui/tv/tv_now_playing.dart';
+import 'ui/tv/tv_search_page.dart';
 import 'ui/pages/admin/admin_page.dart';
 import 'ui/pages/admin/duplicates_page.dart';
 import 'ui/pages/audiobook_pages.dart';

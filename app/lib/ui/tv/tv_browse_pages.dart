@@ -1,7 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -40,16 +37,6 @@ TvCardData tvStation(BuildContext context, WidgetRef ref, Station station) => Tv
   image: NetworkCover(url: station.favicon, icon: Icons.radio),
   onActivate: () => playWorldRadio(context, ref, station),
 );
-
-TvShelfData _tracks(BuildContext context, WidgetRef ref, String title, List<Track> tracks) => TvShelfData(title, [
-  for (final (index, track) in tracks.indexed)
-    TvCardData(
-      title: track.title,
-      subtitle: track.artistCredit,
-      image: CoverImage(albumId: track.album.id),
-      onActivate: () => playMusic(context, ref, tracks, index: index, contextId: 'search'),
-    ),
-]);
 
 class TvHomePage extends ConsumerWidget {
   const TvHomePage({super.key});
@@ -163,91 +150,4 @@ class TvWorldRadioPage extends ConsumerWidget {
       ),
     );
   }
-}
-
-class TvSearchPage extends ConsumerStatefulWidget {
-  const TvSearchPage({super.key});
-
-  @override
-  ConsumerState<TvSearchPage> createState() => _TvSearchPageState();
-}
-
-class _TvSearchPageState extends ConsumerState<TvSearchPage> {
-  final _text = TextEditingController();
-  final _field = FocusNode();
-  Timer? _debounce;
-  String _query = '';
-
-  @override
-  void initState() {
-    super.initState();
-    FocusManager.instance.addEarlyKeyEventHandler(_handleKey);
-  }
-
-  KeyEventResult _handleKey(KeyEvent event) {
-    if (_field.hasFocus && event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _field.nextFocus();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  @override
-  void dispose() {
-    FocusManager.instance.removeEarlyKeyEventHandler(_handleKey);
-    _debounce?.cancel();
-    _text.dispose();
-    _field.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(32),
-        child: TvFocusable(
-          focusScale: 1.015,
-          skipTraversal: true,
-          descendantsAreFocusable: true,
-          onActivate: () {
-            _field.requestFocus();
-            SystemChannels.textInput.invokeMethod<void>('TextInput.show');
-          },
-          child: TextField(
-            controller: _text,
-            focusNode: _field,
-            autofocus: true,
-            style: const TextStyle(fontSize: 28),
-            decoration: searchDecoration(context.l10n.searchHint),
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-            onChanged: (value) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 300), () => setState(() => _query = value.trim()));
-            },
-          ),
-        ),
-      ),
-      Expanded(
-        child: _query.isEmpty
-            ? const SizedBox.shrink()
-            : TvAsync(
-                value: ref.watch(searchProvider(_query)),
-                onRetry: () => ref.invalidate(searchProvider(_query)),
-                builder: (result) => TvShelves(
-                  title: result.isEmpty ? context.l10n.searchNoLibraryResults(_query) : context.l10n.navSearch,
-                  shelves: [
-                    TvShelfData(context.l10n.commonArtists, [for (final a in result.artists) tvArtist(context, a)]),
-                    TvShelfData(context.l10n.commonAlbums, [for (final a in result.albums) tvAlbum(context, a)]),
-                    _tracks(context, ref, context.l10n.commonSongsTitle, result.tracks),
-                    TvShelfData(context.l10n.libraryPlaylists, [
-                      for (final p in result.playlists) tvPlaylist(context, p),
-                    ]),
-                  ],
-                ),
-              ),
-      ),
-    ],
-  );
 }

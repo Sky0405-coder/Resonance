@@ -52,6 +52,20 @@
   "navSettings": "Einstellungen",
   "searchHint": "Was möchtest du hören?",
   "searchNoLibraryResults": "Keine Treffer für „{query}“ in deiner Bibliothek.",
+  "tvKeyboardSpace": "Leerzeichen",
+  "tvKeyboardDelete": "Löschen",
+  "tvKeyboardClear": "Leeren",
+  "tvKeyboardSearch": "Suchen",
+  "tvSearchAvailableAlbums": "Zum Herunterladen: Alben",
+  "tvSearchAvailableSongs": "Zum Herunterladen: Songs",
+  "tvCatalogRequestBy": "Von {artist}",
+  "@tvCatalogRequestBy": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      }
+    }
+  },
   "@searchNoLibraryResults": {
     "placeholders": {
       "query": {
