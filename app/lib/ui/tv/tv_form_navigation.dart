@@ -21,16 +21,24 @@ class _TvFormNavigationState extends ConsumerState<TvFormNavigation> {
     FocusManager.instance.addEarlyKeyEventHandler(_handleKey);
   }
 
-  void _move(TraversalDirection direction) {
+  bool _move(TraversalDirection direction) {
     final focus = FocusManager.instance.primaryFocus;
     switch (direction) {
       case TraversalDirection.down:
-        focus?.nextFocus();
+        return focus?.nextFocus() ?? false;
       case TraversalDirection.up:
-        focus?.previousFocus();
+        return focus?.previousFocus() ?? false;
       default:
-        focus?.focusInDirection(direction);
+        return focus?.focusInDirection(direction) ?? false;
     }
+  }
+
+  bool _bubble(TvDirectionIntent intent) {
+    if (Actions.maybeFind<TvDirectionIntent>(context) != null) {
+      Actions.invoke(context, intent);
+      return true;
+    }
+    return FocusManager.instance.primaryFocus?.focusInDirection(intent.direction) ?? false;
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
@@ -43,8 +51,8 @@ class _TvFormNavigationState extends ConsumerState<TvFormNavigation> {
       _ => null,
     };
     if (direction == null) return KeyEventResult.ignored;
-    _move(direction);
-    return KeyEventResult.handled;
+    if (_move(direction)) return KeyEventResult.handled;
+    return _bubble(TvDirectionIntent(direction)) ? KeyEventResult.handled : KeyEventResult.ignored;
   }
 
   @override
@@ -55,7 +63,14 @@ class _TvFormNavigationState extends ConsumerState<TvFormNavigation> {
 
   @override
   Widget build(BuildContext context) => Actions(
-    actions: {TvDirectionIntent: CallbackAction<TvDirectionIntent>(onInvoke: (intent) => _move(intent.direction))},
+    actions: {
+      TvDirectionIntent: CallbackAction<TvDirectionIntent>(
+        onInvoke: (intent) {
+          if (!_move(intent.direction)) _bubble(intent);
+          return null;
+        },
+      ),
+    },
     child: widget.child,
   );
 }

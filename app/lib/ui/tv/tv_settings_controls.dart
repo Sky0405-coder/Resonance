@@ -41,6 +41,14 @@ class _TvSettingsListState extends State<TvSettingsList> {
     return false;
   }
 
+  bool _bubble(TvDirectionIntent intent) {
+    if (Actions.maybeFind<TvDirectionIntent>(context) != null) {
+      Actions.invoke(context, intent);
+      return true;
+    }
+    return FocusManager.instance.primaryFocus?.focusInDirection(intent.direction) ?? false;
+  }
+
   KeyEventResult _handleKey(KeyEvent event) {
     if (!widget.tvMode || event is KeyUpEvent) return KeyEventResult.ignored;
     final focused = FocusManager.instance.primaryFocus?.context;
@@ -52,7 +60,9 @@ class _TvSettingsListState extends State<TvSettingsList> {
       LogicalKeyboardKey.arrowRight => TraversalDirection.right,
       _ => null,
     };
-    return direction != null && _move(direction) ? KeyEventResult.handled : KeyEventResult.ignored;
+    if (direction == null) return KeyEventResult.ignored;
+    if (_move(direction)) return KeyEventResult.handled;
+    return _bubble(TvDirectionIntent(direction)) ? KeyEventResult.handled : KeyEventResult.ignored;
   }
 
   @override
@@ -67,9 +77,7 @@ class _TvSettingsListState extends State<TvSettingsList> {
           actions: {
             TvDirectionIntent: CallbackAction<TvDirectionIntent>(
               onInvoke: (intent) {
-                if (!_move(intent.direction, controller: true)) {
-                  FocusManager.instance.primaryFocus?.focusInDirection(intent.direction);
-                }
+                if (!_move(intent.direction, controller: true)) _bubble(intent);
                 return null;
               },
             ),

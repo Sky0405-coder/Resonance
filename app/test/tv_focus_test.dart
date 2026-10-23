@@ -321,6 +321,30 @@ void main() {
     events.add(_event(button: GamepadButton.a));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/album/album');
+    events.add(_event(button: GamepadButton.dpadDown));
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus!.context!.findAncestorWidgetOfExactType<TvFocusable>(),
+      isNotNull,
+    );
+    events.add(_event(button: GamepadButton.dpadDown, value: 0));
+    events.add(_event(button: GamepadButton.dpadDown));
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV now playing bar');
+    events.add(_event(button: GamepadButton.dpadDown, value: 0));
+    events.add(_event(button: GamepadButton.dpadUp));
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus!.context!.findAncestorWidgetOfExactType<TvFocusable>(),
+      isNotNull,
+    );
+    events.add(_event(button: GamepadButton.dpadUp, value: 0));
+    events.add(_event(button: GamepadButton.dpadLeft));
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV Home');
+    events.add(_event(button: GamepadButton.dpadLeft, value: 0));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(player.played, [_track]);

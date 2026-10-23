@@ -70,7 +70,7 @@ class _TvShelvesState extends State<TvShelves> {
           if (column == 0) return false;
           nodes[column - 1].requestFocus();
         case TraversalDirection.right:
-          if (column == nodes.length - 1) return true;
+          if (column == nodes.length - 1) return false;
           nodes[column + 1].requestFocus();
         case TraversalDirection.up:
           if (row == 0) return false;
@@ -103,7 +103,13 @@ class _TvShelvesState extends State<TvShelves> {
       actions: {
         TvDirectionIntent: CallbackAction<TvDirectionIntent>(
           onInvoke: (intent) {
-            if (!_move(intent.direction)) FocusManager.instance.primaryFocus?.focusInDirection(intent.direction);
+            if (!_move(intent.direction)) {
+              if (Actions.maybeFind<TvDirectionIntent>(context) != null) {
+                Actions.invoke(context, intent);
+              } else {
+                FocusManager.instance.primaryFocus?.focusInDirection(intent.direction);
+              }
+            }
             return null;
           },
         ),
@@ -119,7 +125,13 @@ class _TvShelvesState extends State<TvShelves> {
             LogicalKeyboardKey.arrowRight => TraversalDirection.right,
             _ => null,
           };
-          return direction != null && _move(direction) ? KeyEventResult.handled : KeyEventResult.ignored;
+          if (direction == null) return KeyEventResult.ignored;
+          if (_move(direction)) return KeyEventResult.handled;
+          if (Actions.maybeFind<TvDirectionIntent>(context) != null) {
+            Actions.invoke(context, TvDirectionIntent(direction));
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
         },
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(vertical: 30),

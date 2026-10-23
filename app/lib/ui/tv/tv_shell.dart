@@ -24,8 +24,29 @@ class TvShell extends ConsumerStatefulWidget {
 class _TvShellState extends ConsumerState<TvShell> {
   final _rail = FocusScopeNode(debugLabel: 'TV navigation');
   final _content = FocusScopeNode(debugLabel: 'TV content');
-  final _home = FocusNode(debugLabel: 'TV Home');
+  final _railNodes = <String, FocusNode>{};
   final _bar = FocusNode(debugLabel: 'TV now playing bar');
+
+  void _syncRailNodes(List<(String, IconData, String)> entries) {
+    final paths = entries.map((entry) => entry.$1).toSet();
+    for (final path in _railNodes.keys.toList()) {
+      if (!paths.contains(path)) _railNodes.remove(path)!.dispose();
+    }
+    for (final path in paths) {
+      _railNodes.putIfAbsent(path, () => FocusNode(debugLabel: path == '/' ? 'TV Home' : 'TV $path'));
+    }
+  }
+
+  void _focusCurrentRailEntry() {
+    final path = _railNodes.keys
+        .where(
+          (path) => path == '/'
+              ? widget.location == '/'
+              : widget.location == path || widget.location.startsWith('$path/'),
+        )
+        .fold<String?>('/', (best, path) => path.length > (best?.length ?? 0) ? path : best);
+    _railNodes[path ?? '/']?.requestFocus();
+  }
 
   /// Directions the content cannot move further in leave it: down to the now-playing bar, left to the rail.
   KeyEventResult _leaveContent(KeyEvent event) {
@@ -36,7 +57,7 @@ class _TvShellState extends ConsumerState<TvShell> {
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-      if (focus == null || !focus.focusInDirection(TraversalDirection.left)) _home.requestFocus();
+      if (focus == null || !focus.focusInDirection(TraversalDirection.left)) _focusCurrentRailEntry();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -51,7 +72,7 @@ class _TvShellState extends ConsumerState<TvShell> {
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
         (focus == null || !focus.focusInDirection(TraversalDirection.left))) {
-      _home.requestFocus();
+      _focusCurrentRailEntry();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -76,7 +97,7 @@ class _TvShellState extends ConsumerState<TvShell> {
     } else if (widget.location != '/') {
       router.go('/');
     } else if (!_rail.hasFocus) {
-      _home.requestFocus();
+      _focusCurrentRailEntry();
     } else if (!isDesktop) {
       SystemNavigator.pop();
     }
@@ -86,7 +107,9 @@ class _TvShellState extends ConsumerState<TvShell> {
   void dispose() {
     _rail.dispose();
     _content.dispose();
-    _home.dispose();
+    for (final node in _railNodes.values) {
+      node.dispose();
+    }
     _bar.dispose();
     super.dispose();
   }
@@ -103,6 +126,7 @@ class _TvShellState extends ConsumerState<TvShell> {
       if (ref.watch(ebooksVisibleProvider)) ('/books', Icons.menu_book, l10n.navBooks),
       ('/settings', Icons.settings_outlined, l10n.navSettings),
     ];
+    _syncRailNodes(entries);
     final theme = Theme.of(context);
     return Theme(
       data: theme.copyWith(
@@ -166,7 +190,7 @@ class _TvShellState extends ConsumerState<TvShell> {
                                             padding: const EdgeInsets.only(bottom: 16),
                                             child: TvFocusable(
                                               autofocus: path == '/',
-                                              focusNode: path == '/' ? _home : null,
+                                              focusNode: _railNodes[path],
                                               onActivate: () => context.go(path),
                                               child: Padding(
                                                 padding: const EdgeInsets.all(16),
@@ -196,9 +220,25 @@ class _TvShellState extends ConsumerState<TvShell> {
                             canRequestFocus: false,
                             skipTraversal: true,
                             onKeyEvent: (_, event) => _leaveContent(event),
-                            child: FocusScope(
-                              node: _content,
-                              child: FocusTraversalGroup(child: widget.child),
+                            child: Actions(
+                              actions: {
+                                TvDirectionIntent: CallbackAction<TvDirectionIntent>(
+                                  onInvoke: (intent) {
+                                    final focus = FocusManager.instance.primaryFocus;
+                                    if (focus?.focusInDirection(intent.direction) ?? false) return null;
+                                    if (intent.direction == TraversalDirection.down) {
+                                      _bar.requestFocus();
+                                    } else if (intent.direction == TraversalDirection.left) {
+                                      _focusCurrentRailEntry();
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              },
+                              child: FocusScope(
+                                node: _content,
+                                child: FocusTraversalGroup(child: widget.child),
+                              ),
                             ),
                           ),
                         ),
@@ -209,7 +249,29 @@ class _TvShellState extends ConsumerState<TvShell> {
                     canRequestFocus: false,
                     skipTraversal: true,
                     onKeyEvent: (_, event) => _leaveBar(event),
-                    child: TvNowPlayingBar(focusNode: _bar),
+                    child: Actions(
+                      actions: {
+                        TvDirectionIntent: CallbackAction<TvDirectionIntent>(
+                          onInvoke: (intent) {
+                            final focus = FocusManager.instance.primaryFocus;
+                            switch (intent.direction) {
+                              case TraversalDirection.up:
+                                _enterContent();
+                              case TraversalDirection.left:
+                                if (!(focus?.focusInDirection(TraversalDirection.left) ?? false)) {
+                                  _focusCurrentRailEntry();
+                                }
+                              case TraversalDirection.right:
+                                focus?.focusInDirection(TraversalDirection.right);
+                              case TraversalDirection.down:
+                                break;
+                            }
+                            return null;
+                          },
+                        ),
+                      },
+                      child: TvNowPlayingBar(focusNode: _bar),
+                    ),
                   ),
                 ],
               ),
