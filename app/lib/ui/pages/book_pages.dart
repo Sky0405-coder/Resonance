@@ -118,22 +118,18 @@ class _BooksHubPageState extends ConsumerState<BooksHubPage> with TickerProvider
     final ref = this.ref;
     final ebooks = ref.watch(ebooksVisibleProvider);
     final audiobooks = ref.watch(audiobooksVisibleProvider);
-    final podcasts =
-        !isWide(context) &&
-        ref.watch(podcastsVisibleProvider) &&
-        ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
+    final podcasts = ref.watch(podcastsVisibleProvider);
     final tabs = <(String, Widget, bool)>[
       if (ebooks) (context.l10n.booksEbooks, const _EbooksView(), true),
       if (audiobooks) (context.l10n.navAudiobooks, const AudiobooksPage(embedded: true), false),
       if (podcasts) (context.l10n.navPodcasts, const PodcastsPage(embedded: true), false),
     ];
-    if (tabs.isEmpty) {
+    if (tabs.length <= 1) {
       _syncTabController(null);
+      if (tabs.isEmpty) return const SizedBox.shrink();
+      if (ebooks) return const _EbooksView();
+      if (audiobooks) return const AudiobooksPage();
       return const PodcastsPage();
-    }
-    if (tabs.length == 1 && audiobooks) {
-      _syncTabController(null);
-      return const AudiobooksPage();
     }
     _syncTabController(tabs.length);
     final controller = _tabController!;
@@ -141,7 +137,7 @@ class _BooksHubPageState extends ConsumerState<BooksHubPage> with TickerProvider
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text(context.l10n.navBooks, style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(context.l10n.navMedia, style: const TextStyle(fontWeight: FontWeight.w800)),
         actions: [if (controller.index == ebookIndex && ebookIndex >= 0) const _EbookActions()],
         bottom: tabs.length > 1
             ? TabBar(

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/audiobooks.dart';
 import '../../core/books.dart';
 import '../../core/desktop.dart';
+import '../../core/podcasts.dart';
 import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
 import '../widgets/logo.dart';
@@ -117,13 +118,18 @@ class _TvShellState extends ConsumerState<TvShell> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final ebooks = ref.watch(ebooksVisibleProvider);
+    final audiobooks = ref.watch(audiobooksVisibleProvider);
+    final podcasts = ref.watch(podcastsVisibleProvider);
+    final media = ebooks || audiobooks || podcasts
+        ? _tvMediaEntry(l10n, ebooks: ebooks, audiobooks: audiobooks, podcasts: podcasts)
+        : null;
     final entries = [
       ('/', Icons.home_outlined, l10n.navHome),
       ('/search', Icons.search, l10n.navSearch),
       ('/library', Icons.library_music_outlined, l10n.navLibrary),
       ('/world-radio', Icons.public, l10n.worldRadioTitle),
-      if (ref.watch(audiobooksVisibleProvider)) ('/audiobooks', Icons.headphones, l10n.navAudiobooks),
-      if (ref.watch(ebooksVisibleProvider)) ('/books', Icons.menu_book, l10n.navBooks),
+      ?media,
       ('/settings', Icons.settings_outlined, l10n.navSettings),
     ];
     _syncRailNodes(entries);
@@ -198,7 +204,12 @@ class _TvShellState extends ConsumerState<TvShell> {
                                                   children: [
                                                     Icon(
                                                       icon,
-                                                      color: widget.location == path ? theme.colorScheme.primary : null,
+                                                      color:
+                                                          (path == media?.$1
+                                                              ? _isTvMediaLocation(widget.location)
+                                                              : widget.location.startsWith(path))
+                                                          ? theme.colorScheme.primary
+                                                          : null,
                                                     ),
                                                     const SizedBox(width: 14),
                                                     Expanded(child: Text(label, maxLines: 2)),
@@ -282,3 +293,19 @@ class _TvShellState extends ConsumerState<TvShell> {
     );
   }
 }
+
+(String, IconData, String) _tvMediaEntry(
+  AppLocalizations l10n, {
+  required bool ebooks,
+  required bool audiobooks,
+  required bool podcasts,
+}) {
+  final count = [ebooks, audiobooks, podcasts].where((enabled) => enabled).length;
+  if (count > 1) return ('/books', Icons.video_library, l10n.navMedia);
+  if (ebooks) return ('/books', Icons.menu_book, l10n.navBooks);
+  if (audiobooks) return ('/audiobooks', Icons.headphones, l10n.navAudiobooks);
+  return ('/podcasts', Icons.podcasts, l10n.navPodcasts);
+}
+
+bool _isTvMediaLocation(String location) =>
+    location.startsWith('/books') || location.startsWith('/audiobooks') || location.startsWith('/podcasts');

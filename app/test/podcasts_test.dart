@@ -10,6 +10,7 @@ import 'package:resonance/core/audiobooks.dart';
 import 'package:resonance/core/books.dart';
 import 'package:resonance/core/downloads.dart';
 import 'package:resonance/core/media_sections.dart';
+import 'package:resonance/core/library.dart';
 import 'package:resonance/core/models.dart';
 import 'package:resonance/core/podcasts.dart';
 import 'package:resonance/core/session.dart';
@@ -17,9 +18,12 @@ import 'package:resonance/l10n/l10n.dart';
 import 'package:resonance/offline/offline_store.dart';
 import 'package:resonance/player/engine.dart';
 import 'package:resonance/player/equalizer.dart';
+import 'package:resonance/player/connect.dart';
 import 'package:resonance/player/player.dart';
 import 'package:resonance/ui/pages/book_pages.dart';
 import 'package:resonance/ui/pages/podcast_pages.dart';
+import 'package:resonance/ui/shell.dart';
+import 'package:resonance/ui/tv/tv_shell.dart';
 import 'package:resonance/ui/widgets/player_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -83,11 +87,7 @@ class _Api extends ApiClient {
         id: 'top',
         title: 'Top podcasts',
         items: [
-          PodcastSearchResult(
-            feedUrl: 'https://top.example/feed',
-            title: 'Discovered podcast',
-            author: 'Author',
-          ),
+          PodcastSearchResult(feedUrl: 'https://top.example/feed', title: 'Discovered podcast', author: 'Author'),
         ],
       ),
     ],
@@ -254,6 +254,14 @@ class _Session extends SessionNotifier {
   );
 }
 
+class _Connect extends ConnectController {
+  @override
+  ConnectView build() {
+    ref.onDispose(messages.close);
+    return const ConnectView(deviceId: 'test', name: 'Test', kind: 'test');
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late ProviderContainer container;
@@ -273,6 +281,8 @@ void main() {
         offlineProvider.overrideWith(_Offline.new),
         downloadSummaryProvider.overrideWith((ref) async => const DownloadSummary()),
         sessionProvider.overrideWith(_Session.new),
+        connectProvider.overrideWith(_Connect.new),
+        playlistsProvider.overrideWith((ref) async => []),
         booksStatusProvider.overrideWith(
           (ref) async => const BooksStatus(enabled: true, requestsEnabled: false, defaultLanguage: 'en'),
         ),
@@ -546,17 +556,20 @@ void main() {
     await tester.enterText(find.byType(TextField), 'empty');
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    const noResults = 'Nothing found. Spotify-exclusive podcasts have no public feed '
+    const noResults =
+        'Nothing found. Spotify-exclusive podcasts have no public feed '
         '– if you know the RSS address, add it at the top right.';
     expect(find.text(noResults), findsOneWidget);
   });
 
-  testWidgets('combined books hub shows ebook actions only on the ebook tab', (tester) async {
+  testWidgets('media hub shows every enabled tab and ebook actions only on the ebook tab', (tester) async {
     tester.view.physicalSize = const Size(420, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await page(tester, const BooksHubPage());
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Ebooks'), findsOneWidget);
     expect(find.widgetWithText(Tab, 'Podcasts'), findsOneWidget);
     expect(find.byTooltip('Requests'), findsOneWidget);
     expect(find.byTooltip('Import'), findsOneWidget);
@@ -571,6 +584,73 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('Requests'), findsOneWidget);
     expect(find.byTooltip('Import'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('mobile navigation has one media entry for non-admin users and selects podcast routes', (tester) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    container
+        .read(sessionProvider.notifier)
+        .updateUser(
+          User(
+            id: 'user',
+            username: 'listener',
+            displayName: 'Listener',
+            role: 'user',
+            accentColor: '#1db954',
+            isDisabled: false,
+            createdAt: DateTime.utc(2026),
+          ),
+        );
+    await page(tester, const AppShell(location: '/podcasts/example', child: SizedBox.shrink()));
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('Books'), findsNothing);
+    expect(find.text('Podcasts'), findsNothing);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex, 3);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('media navigation shows a single section by its own name and disappears when all are hidden', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await page(tester, const AppShell(location: '/books', child: SizedBox.shrink()));
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, true);
+    await tester.pumpAndSettle();
+    expect(find.text('Books'), findsOneWidget);
+    expect(find.text('Media'), findsNothing);
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, false);
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.ebooks, true);
+    await tester.pumpAndSettle();
+    expect(find.text('Podcasts'), findsOneWidget);
+    expect(find.text('Media'), findsNothing);
+    container.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, true);
+    await tester.pumpAndSettle();
+    expect(find.text('Podcasts'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('desktop and TV rails show one selected media entry across media routes', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await page(tester, const AppShell(location: '/audiobooks/item/book', child: SizedBox.shrink()));
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('Books'), findsNothing);
+    expect(find.text('Podcasts'), findsNothing);
+    tester.takeException();
+    await page(tester, const TvShell(location: '/podcasts/example', child: SizedBox.shrink()));
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('Books'), findsNothing);
+    expect(find.text('Podcasts'), findsNothing);
+    expect(find.byIcon(Icons.video_library), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

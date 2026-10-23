@@ -24,6 +24,31 @@ import 'widgets/player_bar.dart';
 import 'widgets/update.dart';
 import 'widgets/track_list.dart';
 
+typedef _MediaEntry = (String, IconData, IconData, String);
+
+_MediaEntry? _mediaEntry(
+  BuildContext context, {
+  required bool ebooks,
+  required bool audiobooks,
+  required bool podcasts,
+}) {
+  final count = [ebooks, audiobooks, podcasts].where((enabled) => enabled).length;
+  if (count == 0) return null;
+  if (count > 1) {
+    return ('/books', Icons.video_library_outlined, Icons.video_library, context.l10n.navMedia);
+  }
+  if (ebooks) {
+    return ('/books', Icons.menu_book_outlined, Icons.menu_book, context.l10n.navBooks);
+  }
+  if (audiobooks) {
+    return ('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks);
+  }
+  return ('/podcasts', Icons.podcasts_outlined, Icons.podcasts, context.l10n.navPodcasts);
+}
+
+bool _isMediaLocation(String location) =>
+    location.startsWith('/books') || location.startsWith('/audiobooks') || location.startsWith('/podcasts');
+
 /// App frame: Spotify-style sidebar + player bar on desktop, bottom nav + mini player on mobile.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.child, required this.location});
@@ -52,7 +77,7 @@ class AppShell extends ConsumerWidget {
     final audiobooks = ref.watch(audiobooksVisibleProvider);
     final ebooks = ref.watch(ebooksVisibleProvider);
     final podcasts = ref.watch(podcastsVisibleProvider);
-    final combinedPodcasts = podcasts && (ebooks || audiobooks) && isAdmin;
+    final media = _mediaEntry(context, ebooks: ebooks, audiobooks: audiobooks, podcasts: podcasts);
     final pendingApproval = isAdmin ? ref.watch(downloadSummaryProvider).value?.pendingApproval ?? 0 : 0;
     // Refresh library views whenever downloads finish.
     ref.listen(downloadSummaryProvider, (prev, next) {
@@ -73,7 +98,7 @@ class AppShell extends ConsumerWidget {
                   children: [
                     SizedBox(
                       width: 300,
-                      child: _Sidebar(location: location, isAdmin: isAdmin),
+                      child: _Sidebar(location: location, isAdmin: isAdmin, media: media),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -100,21 +125,12 @@ class AppShell extends ConsumerWidget {
       ('/', Icons.home_outlined, Icons.home, context.l10n.navHome),
       ('/search', Icons.search, Icons.search, context.l10n.navSearch),
       ('/library', Icons.library_music_outlined, Icons.library_music, context.l10n.navLibrary),
-      // Ebooks and audiobooks share one tab; podcasts join it when the bar would exceed five.
-      if (ebooks || combinedPodcasts)
-        ('/books', Icons.menu_book_outlined, Icons.menu_book, context.l10n.navBooks)
-      else if (audiobooks)
-        ('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
-      if (podcasts && !combinedPodcasts)
-        ('/podcasts', Icons.podcasts_outlined, Icons.podcasts, context.l10n.navPodcasts),
+      ?media,
       if (isAdmin) ('/admin', Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, context.l10n.navAdmin),
     ];
-    final tabLocation =
-        (ebooks && location.startsWith('/audiobooks')) ||
-            (combinedPodcasts && (location.startsWith('/podcasts') || location.startsWith('/audiobooks')))
-        ? '/books'
-        : location;
-    var selected = tabs.lastIndexWhere((t) => t.$1 != '/' && tabLocation.startsWith(t.$1));
+    var selected = tabs.lastIndexWhere(
+      (t) => t.$1 != '/' && (t.$1 == media?.$1 ? _isMediaLocation(location) : location.startsWith(t.$1)),
+    );
     if (selected < 0) selected = 0;
 
     return Scaffold(
@@ -154,9 +170,10 @@ class AppShell extends ConsumerWidget {
 }
 
 class _Sidebar extends ConsumerWidget {
-  const _Sidebar({required this.location, required this.isAdmin});
+  const _Sidebar({required this.location, required this.isAdmin, required this.media});
   final String location;
   final bool isAdmin;
+  final _MediaEntry? media;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -165,7 +182,11 @@ class _Sidebar extends ConsumerWidget {
     final summary = ref.watch(downloadSummaryProvider).value ?? const DownloadSummary();
 
     Widget nav(String path, IconData icon, IconData activeIcon, String label, {int badge = 0}) {
-      final active = path == '/' ? location == '/' : location.startsWith(path);
+      final active = path == '/'
+          ? location == '/'
+          : path == media?.$1
+          ? _isMediaLocation(location)
+          : location.startsWith(path);
       return ListTile(
         leading: Badge(
           isLabelVisible: badge > 0,
@@ -196,12 +217,7 @@ class _Sidebar extends ConsumerWidget {
                 context.l10n.navDownloads,
                 badge: summary.running,
               ),
-              if (ref.watch(ebooksVisibleProvider))
-                nav('/books', Icons.menu_book_outlined, Icons.menu_book, context.l10n.navBooks)
-              else if (ref.watch(audiobooksVisibleProvider))
-                nav('/audiobooks', Icons.headphones_outlined, Icons.headphones, context.l10n.navAudiobooks),
-              if (ref.watch(podcastsVisibleProvider))
-                nav('/podcasts', Icons.podcasts_outlined, Icons.podcasts, context.l10n.navPodcasts),
+              if (media != null) nav(media!.$1, media!.$2, media!.$3, media!.$4),
               if (isAdmin)
                 nav(
                   '/admin',
