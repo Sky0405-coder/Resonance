@@ -135,7 +135,7 @@ class NowPlayingPage extends ConsumerWidget {
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(vertical: 16),
                                       child: ref.watch(coverflowProvider)
-                                          ? _Coverflow(maxSide: maxSide)
+                                          ? Coverflow(maxSide: maxSide)
                                           : TrackCover(track: track, maxSide: maxSide),
                                     ),
                                   ),
@@ -345,15 +345,16 @@ class TrackCover extends ConsumerWidget {
   }
 }
 
-class _Coverflow extends ConsumerStatefulWidget {
-  const _Coverflow({this.maxSide = 480});
+class Coverflow extends ConsumerStatefulWidget {
+  const Coverflow({super.key, this.interactive = true, this.maxSide = 480});
+  final bool interactive;
   final double maxSide;
 
   @override
-  ConsumerState<_Coverflow> createState() => _CoverflowState();
+  ConsumerState<Coverflow> createState() => _CoverflowState();
 }
 
-class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProviderStateMixin {
+class _CoverflowState extends ConsumerState<Coverflow> with SingleTickerProviderStateMixin {
   late final AnimationController _position;
   List<String> _queue = const [];
   int? _index;
@@ -427,22 +428,28 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
           0.0,
           math.min(side * (large ? 0.35 : 0.25), MediaQuery.sizeOf(context).width / 2 - 4 - side / 2),
         );
-        return GestureDetector(
+        final flow = GestureDetector(
           key: const ValueKey('coverflow'),
           behavior: HitTestBehavior.opaque,
-          onHorizontalDragStart: (_) {
-            _generation++;
-            _position.stop();
-          },
-          onHorizontalDragUpdate: (details) {
-            if (side <= 0 || player.queue.isEmpty) return;
-            _position.value = (_position.value - details.delta.dx / (0.42 * side)).clamp(
-              0.0,
-              player.queue.length - 1.0,
-            );
-          },
-          onHorizontalDragEnd: (details) => _release(details.velocity.pixelsPerSecond.dx),
-          onHorizontalDragCancel: () => _release(0),
+          onHorizontalDragStart: widget.interactive
+              ? (_) {
+                  _generation++;
+                  _position.stop();
+                }
+              : null,
+          onHorizontalDragUpdate: widget.interactive
+              ? (details) {
+                  if (side <= 0 || player.queue.isEmpty) return;
+                  _position.value = (_position.value - details.delta.dx / (0.42 * side)).clamp(
+                    0.0,
+                    player.queue.length - 1.0,
+                  );
+                }
+              : null,
+          onHorizontalDragEnd: widget.interactive
+              ? (details) => _release(details.velocity.pixelsPerSecond.dx)
+              : null,
+          onHorizontalDragCancel: widget.interactive ? () => _release(0) : null,
           child: AnimatedBuilder(
             animation: _position,
             builder: (context, child) {
@@ -483,6 +490,7 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
             },
           ),
         );
+        return widget.interactive ? flow : IgnorePointer(child: flow);
       },
     );
   }
@@ -518,6 +526,7 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
             centered: centered,
             dim: 0.35 * math.min(distance, 1.0),
             maxSide: maxSide,
+            interactive: widget.interactive,
           ),
         ),
       ),

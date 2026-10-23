@@ -139,6 +139,7 @@ void main() {
     Color? color = Colors.orange,
     Spectrum? spectrum,
     Lyrics? lyrics,
+    Widget? child,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -181,7 +182,7 @@ void main() {
           locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const NowPlayingPage(),
+          home: child ?? const NowPlayingPage(),
         ),
       ),
     );
@@ -608,6 +609,34 @@ void main() {
     expect(center.width, closeTo(0.85 * side, 1));
     expect(center.left, greaterThanOrEqualTo(0));
     expect(center.right, lessThanOrEqualTo(1920));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('non-interactive coverflow ignores pointer input and follows the queue index', (tester) async {
+    final container = await mount(
+      tester,
+      visualizer: true,
+      child: const Center(child: SizedBox(width: 450, height: 640, child: Coverflow(interactive: false))),
+    );
+    final player = container.read(playerProvider.notifier) as _Player;
+    final controller = coverflowPosition(tester);
+    final peaks = container.read(visualizerPeaksProvider);
+    await tester.drag(coverflowArea(), const Offset(-400, 0), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tapAt(tester.getCenter(coverflowArea()));
+    await tester.pump();
+    expect(controller.value, 1);
+    expect(player.jumps, isEmpty);
+    expect(container.read(visualizerPeaksProvider), peaks);
+    expect(find.byType(SpectrumVisualizer), findsOneWidget);
+    player.update(const PlayerView(queue: _tracks, index: 2));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(controller.value, greaterThan(1));
+    expect(controller.value, lessThan(2));
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(controller.value, 2);
+    expect(player.jumps, isEmpty);
     expect(tester.takeException(), isNull);
   });
 
