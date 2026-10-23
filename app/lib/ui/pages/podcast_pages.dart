@@ -255,7 +255,10 @@ class PodcastsPage extends ConsumerWidget {
       ),
     );
     if (embedded) return body;
-    return Scaffold(appBar: AppBar(title: Text(context.l10n.navPodcasts)), body: body);
+    return Scaffold(
+      appBar: AppBar(title: Text(context.l10n.navPodcasts)),
+      body: body,
+    );
   }
 }
 
@@ -427,6 +430,7 @@ class PodcastGenrePage extends ConsumerWidget {
     ),
   );
 }
+
 class PodcastPage extends ConsumerStatefulWidget {
   const PodcastPage({super.key, required this.id});
   final String id;
@@ -537,7 +541,7 @@ class PodcastEpisodeTile extends ConsumerWidget {
         children: [
           Text(
             [
-              if (date != null) MaterialLocalizations.of(context).formatMediumDate(date.toLocal()),
+              if (date != null) formatEpisodeDate(date.toLocal(), Localizations.localeOf(context).toString()),
               if (episode.durationSeconds != null) formatLongDuration(context.l10n, episode.durationSeconds!),
             ].join(' • '),
           ),

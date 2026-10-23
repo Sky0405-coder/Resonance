@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:resonance/core/api.dart';
 import 'package:resonance/core/audiobooks.dart';
 import 'package:resonance/core/books.dart';
@@ -275,6 +276,7 @@ class _Connect extends ConnectController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async => initializeDateFormatting());
   late ProviderContainer container;
   late _Api api;
   late _Engine engine;
@@ -371,6 +373,35 @@ void main() {
       'https://resonance.example/api/podcasts/episodes/episode/stream?token=secret-token',
     );
   });
+
+  test('episode dates use localized month, weekday, and year formats', () {
+    final date = DateTime(2024, 5, 19);
+    expect(formatEpisodeDate(date, 'en'), 'Sun, May 19, 2024');
+    expect(formatEpisodeDate(date, 'de'), 'So., 19. Mai 2024');
+  });
+
+  for (final language in ['en', 'de']) {
+    testWidgets('mobile episode subtitle includes the year in $language', (tester) async {
+      await page(
+        tester,
+        Scaffold(
+          body: PodcastEpisodeTile(
+            episode: PodcastEpisode(
+              id: 'dated',
+              podcastId: 'podcast',
+              title: 'Dated episode',
+              podcastTitle: 'Podcast title',
+              publishedAt: DateTime(2024, 5, 19),
+              durationSeconds: 300,
+            ),
+          ),
+        ),
+        language: language,
+      );
+      expect(find.textContaining('2024'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   test('podcasts default visible without any configured book service and can be hidden', () {
     expect(container.read(podcastsVisibleProvider), true);
