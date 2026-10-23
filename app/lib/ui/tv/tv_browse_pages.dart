@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/library.dart';
 import '../../core/models.dart';
-import '../../core/session.dart';
 import '../../l10n/l10n.dart';
 import '../pages/world_radio_page.dart';
 import '../widgets/catalog.dart';
@@ -114,40 +113,4 @@ class TvLibraryPage extends ConsumerWidget {
       ],
     ),
   );
-}
-
-final worldRadioPopularProvider = FutureProvider.autoDispose<List<Station>>(
-  (ref) => ref.watch(apiProvider).worldRadioStations(),
-);
-
-class TvWorldRadioPage extends ConsumerWidget {
-  const TvWorldRadioPage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final favorites = ref.watch(worldRadioFavoritesProvider);
-    return TvAsync(
-      value: ref.watch(worldRadioPopularProvider),
-      onRetry: () {
-        ref.invalidate(worldRadioPopularProvider);
-        ref.invalidate(worldRadioFavoritesProvider);
-      },
-      builder: (stations) => TvShelves(
-        title: context.l10n.worldRadioTitle,
-        leading: favorites.hasError
-            ? TvButton(
-                icon: Icons.refresh,
-                label: context.l10n.commonRetry,
-                onPressed: () => ref.invalidate(worldRadioFavoritesProvider),
-              )
-            : null,
-        shelves: [
-          TvShelfData(context.l10n.worldRadioYourStations, [
-            for (final s in favorites.value ?? <Station>[]) tvStation(context, ref, s),
-          ]),
-          TvShelfData(context.l10n.tvPopularStations, [for (final s in stations) tvStation(context, ref, s)]),
-        ],
-      ),
-    );
-  }
 }

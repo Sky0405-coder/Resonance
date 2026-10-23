@@ -13,6 +13,8 @@ import '../widgets/catalog.dart';
 import '../widgets/common.dart';
 import '../widgets/collection.dart';
 
+const worldRadioCountryKey = 'worldradio.country';
+
 String countryFlag(String code) {
   final upper = code.toUpperCase();
   if (!RegExp(r'^[A-Z]{2}$').hasMatch(upper)) return '';
@@ -53,7 +55,10 @@ class _WorldRadioPageState extends ConsumerState<WorldRadioPage> {
   @override
   void initState() {
     super.initState();
-    _country = WidgetsBinding.instance.platformDispatcher.locale.countryCode ?? 'DE';
+    _country =
+        ref.read(prefsProvider).getString(worldRadioCountryKey) ??
+        WidgetsBinding.instance.platformDispatcher.locale.countryCode ??
+        'DE';
     _scroll.addListener(() {
       if (_scroll.position.extentAfter < 300) _load();
     });
@@ -137,6 +142,7 @@ class _WorldRadioPageState extends ConsumerState<WorldRadioPage> {
       builder: (_) => _CountrySheet(selected: _country),
     );
     if (!mounted || code == null || code == _country) return;
+    await ref.read(prefsProvider).setString(worldRadioCountryKey, code);
     setState(() => _country = code);
     _reload();
   }

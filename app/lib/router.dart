@@ -16,6 +16,7 @@ import 'ui/tv/tv_detail_page.dart';
 import 'ui/tv/tv_now_playing.dart';
 import 'ui/tv/tv_form_navigation.dart';
 import 'ui/tv/tv_media_pages.dart';
+import 'ui/tv/tv_radio_page.dart';
 import 'ui/tv/tv_search_page.dart';
 import 'ui/pages/admin/admin_page.dart';
 import 'ui/pages/admin/duplicates_page.dart';
@@ -125,6 +126,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/world-radio',
             builder: (_, _) => const TvPage(tvChild: TvWorldRadioPage(), child: WorldRadioPage()),
+          ),
+          GoRoute(
+            path: '/world-radio/search',
+            builder: (_, _) => const TvPage(tvChild: TvRadioSearchPage(), child: WorldRadioPage()),
           ),
           GoRoute(
             path: '/jam/:code',

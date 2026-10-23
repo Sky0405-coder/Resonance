@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
@@ -18,6 +18,7 @@ import 'package:resonance/player/equalizer.dart';
 import 'package:resonance/player/equalizer_controller.dart';
 import 'package:resonance/player/player.dart';
 import 'package:resonance/ui/pages/world_radio_page.dart';
+import 'package:resonance/ui/tv/tv_radio_page.dart';
 
 const _station = Station(
   id: 'one',
@@ -50,6 +51,29 @@ class _Api extends ApiClient {
   final nowRequests = <String>[];
   StationNowPlaying? now;
   Future<StationNowPlaying?> Function()? lookup;
+  final stationQueries = <({String? country, String? tag, String? q})>[];
+  List<Station> stations = [];
+  List<Station> favorites = [];
+
+  @override
+  Future<List<Map<String, dynamic>>> worldRadioCountries() async => [
+    {'code': 'DE', 'name': 'Germany', 'stations': 100},
+    {'code': 'US', 'name': 'United States', 'stations': 200},
+  ];
+
+  @override
+  Future<List<String>> worldRadioTags() async => ['rock', 'jazz'];
+
+  @override
+  Future<List<Station>> worldRadioStations({String? country, String? tag, String? q, int offset = 0}) async {
+    stationQueries.add((country: country, tag: tag, q: q));
+    if (q != null) return [_station];
+    if (tag != null) return [_station];
+    return stations;
+  }
+
+  @override
+  Future<List<Station>> worldRadioFavorites() async => favorites;
 
   @override
   Future<StationNowPlaying?> stationNowPlaying(String id) async {
@@ -227,6 +251,20 @@ void main() {
   });
   tearDown(() => container.dispose());
 
+  Future<void> page(WidgetTester tester, Widget child) async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: child,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('player applies saved equalizer settings at startup and debounces live changes', (tester) async {
     final saved = EqualizerSettings(enabled: true).withPreset('bass');
     container.read(equalizerProvider.notifier).set(saved);
@@ -283,6 +321,69 @@ void main() {
     for (final code in ['', 'D', 'DEU', '12', 'éé']) {
       expect(countryFlag(code), '');
     }
+  });
+
+  testWidgets('TV radio defaults to the device country and persists its selection for mobile', (tester) async {
+    final defaultCountry = WidgetsBinding.instance.platformDispatcher.locale.countryCode ?? 'DE';
+    await page(tester, const TvWorldRadioPage());
+    expect(api.stationQueries, contains((country: defaultCountry, tag: null, q: null)));
+    final defaultName = defaultCountry == 'US'
+        ? 'United States'
+        : defaultCountry == 'DE'
+        ? 'Germany'
+        : defaultCountry;
+    expect(find.text('Country: ${countryFlag(defaultCountry)} $defaultName'), findsOneWidget);
+
+    final selected = defaultCountry == 'DE' ? 'US' : 'DE';
+    final selectedName = selected == 'US' ? 'United States' : 'Germany';
+    await tester.tap(find.text('Country: ${countryFlag(defaultCountry)} $defaultName'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(selectedName));
+    await tester.pumpAndSettle();
+    expect(container.read(prefsProvider).getString(worldRadioCountryKey), selected);
+    expect(api.stationQueries, contains((country: selected, tag: null, q: null)));
+
+    await page(tester, const WorldRadioPage());
+    expect(api.stationQueries, contains((country: selected, tag: null, q: '')));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV radio search debounces and searches all countries', (tester) async {
+    await page(tester, const Scaffold(body: TvRadioSearchPage()));
+    await tester.enterText(find.byType(TextField), 'rock');
+    await tester.pump(const Duration(milliseconds: 299));
+    expect(api.stationQueries.where((query) => query.q == 'rock'), isEmpty);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+    expect(api.stationQueries, contains((country: null, tag: null, q: 'rock')));
+    expect(find.text('Radio One'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV radio shows the empty favourites hint', (tester) async {
+    api.stations = [];
+    api.favorites = [];
+    await page(tester, const TvWorldRadioPage());
+    expect(find.text('Your radio stations'), findsOneWidget);
+    expect(find.text('Star stations in the player to add favourites'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('TV radio genre selection adds and clears a tag shelf', (tester) async {
+    await page(tester, const TvWorldRadioPage());
+    await tester.tap(find.text('Genres'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('rock'));
+    await tester.pumpAndSettle();
+    expect(api.stationQueries.any((query) => query.tag == 'rock'), isTrue);
+    expect(find.text('rock'), findsOneWidget);
+
+    await tester.tap(find.text('Genres'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All genres'));
+    await tester.pumpAndSettle();
+    expect(find.text('rock'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   test('now-playing JSON, equality and subtitles include only known parts', () {
