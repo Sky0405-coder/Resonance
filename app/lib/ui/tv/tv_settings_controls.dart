@@ -24,6 +24,29 @@ class _TvSettingsListState extends State<TvSettingsList> {
     final focus = FocusManager.instance.primaryFocus;
     final focused = focus?.context;
     if (focused == null) return false;
+    final horizontalGroup = focused.findAncestorWidgetOfExactType<TvHorizontalGroup>();
+    if (horizontalGroup != null) {
+      if (direction == TraversalDirection.left || direction == TraversalDirection.right) {
+        final nodes = _sortByPosition(FocusManager.instance.rootScope.descendants.where((node) {
+          final nodeContext = node.context;
+          return nodeContext != null &&
+              identical(nodeContext.findAncestorWidgetOfExactType<TvHorizontalGroup>(), horizontalGroup) &&
+              node.canRequestFocus &&
+              !node.skipTraversal;
+        }).toList(), horizontal: true);
+        final current = nodes.indexOf(focus!);
+        if (current < 0) return true;
+        final target = current + (direction == TraversalDirection.right ? 1 : -1);
+        if (target < 0 || target >= nodes.length) return true;
+        final moved = focus.focusInDirection(direction);
+        final nextContext = FocusManager.instance.primaryFocus?.context;
+        if (!moved || !identical(nextContext?.findAncestorWidgetOfExactType<TvHorizontalGroup>(), horizontalGroup)) {
+          nodes[target].requestFocus();
+        }
+        return true;
+      }
+      return _moveAdjacentTile(focused, direction);
+    }
     if (direction == TraversalDirection.down) return focus!.nextFocus();
     if (direction == TraversalDirection.up) return focus!.previousFocus();
     final right = direction == TraversalDirection.right;
@@ -37,6 +60,55 @@ class _TvSettingsListState extends State<TvSettingsList> {
       final step = (slider!.max - slider.min) / (slider.divisions ?? 20);
       slider.onChanged!((slider.value + (right ? step : -step)).clamp(slider.min, slider.max));
       return true;
+    }
+    return false;
+  }
+
+  List<FocusNode> _sortByPosition(List<FocusNode> nodes, {bool horizontal = false}) {
+    Rect? bounds(FocusNode node) {
+      final renderObject = node.context?.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+      return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    }
+
+    nodes.sort((a, b) {
+      final aRect = bounds(a);
+      final bRect = bounds(b);
+      if (!horizontal) {
+        final vertical = (aRect?.top ?? 0).compareTo(bRect?.top ?? 0);
+        if (vertical != 0) return vertical;
+      }
+      return (aRect?.left ?? 0).compareTo(bRect?.left ?? 0);
+    });
+    return nodes;
+  }
+
+  bool _moveAdjacentTile(BuildContext focused, TraversalDirection direction) {
+    final currentTile = focused.findAncestorWidgetOfExactType<TvSettingsTile>();
+    if (currentTile == null) return false;
+    final tiles = <TvSettingsTile>[];
+    final nodesByTile = <TvSettingsTile, List<FocusNode>>{};
+    for (final node in FocusManager.instance.rootScope.descendants) {
+      if (!node.canRequestFocus || node.skipTraversal || node.context == null) continue;
+      final tile = node.context!.findAncestorWidgetOfExactType<TvSettingsTile>();
+      if (tile == null) continue;
+      if (!nodesByTile.containsKey(tile)) {
+        tiles.add(tile);
+        nodesByTile[tile] = [];
+      }
+      nodesByTile[tile]!.add(node);
+    }
+    final index = tiles.indexOf(currentTile);
+    if (index < 0) return false;
+    final offset = direction == TraversalDirection.down ? 1 : -1;
+    var target = index + offset;
+    while (target >= 0 && target < tiles.length) {
+      final nodes = nodesByTile[tiles[target]]!;
+      if (nodes.isNotEmpty) {
+        _sortByPosition(nodes).first.requestFocus();
+        return true;
+      }
+      target += offset;
     }
     return false;
   }
@@ -111,4 +183,13 @@ class TvSettingsTile extends StatelessWidget {
       child: Material(color: Colors.transparent, child: child),
     ),
   );
+}
+
+/// Marks a subtree whose focusable children handle horizontal movement as one row.
+class TvHorizontalGroup extends StatelessWidget {
+  const TvHorizontalGroup({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
 }

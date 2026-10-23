@@ -260,6 +260,84 @@ void main() {
     expect(tester.getRect(find.text('Setting 11')).overlaps(const Rect.fromLTWH(0, 0, 800, 600)), true);
   });
 
+  testWidgets('settings horizontal groups keep left and right in the row and exit vertically', (tester) async {
+    final before = FocusNode(debugLabel: 'Previous setting');
+    final swatches = List.generate(3, (index) => FocusNode(debugLabel: 'Swatch $index'));
+    final after = FocusNode(debugLabel: 'Next setting');
+    addTearDown(before.dispose);
+    addTearDown(() {
+      for (final node in swatches) {
+        node.dispose();
+      }
+    });
+    addTearDown(after.dispose);
+    await tester.pumpWidget(
+      _app(
+        TvSettingsList(
+          tvMode: true,
+          padding: const EdgeInsets.all(24),
+          children: [
+            TvFocusable(
+              focusNode: before,
+              autofocus: true,
+              onActivate: () {},
+              child: const Text('Previous setting'),
+            ),
+            TvHorizontalGroup(
+              child: FocusTraversalGroup(
+                child: Row(
+                  children: [
+                    for (var index = 0; index < swatches.length; index++)
+                      TvFocusable(
+                        focusNode: swatches[index],
+                        onActivate: () {},
+                        child: SizedBox(width: 48, height: 48, child: Text('$index')),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            TvFocusable(
+              focusNode: after,
+              onActivate: () {},
+              child: const Text('Next setting'),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, swatches.first);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, swatches.last);
+    Actions.invoke(
+      FocusManager.instance.primaryFocus!.context!,
+      const TvDirectionIntent(TraversalDirection.left),
+    );
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, swatches[1]);
+    Actions.invoke(
+      FocusManager.instance.primaryFocus!.context!,
+      const TvDirectionIntent(TraversalDirection.right),
+    );
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, swatches.last);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, swatches.last);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, after);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(swatches, contains(FocusManager.instance.primaryFocus));
+  });
+
   testWidgets('TV router, rail Back, detail activation, controller and global media keys work', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     await tester.binding.setSurfaceSize(const Size(1280, 800));

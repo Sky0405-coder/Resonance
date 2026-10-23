@@ -31,6 +31,7 @@ import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import '../widgets/shortcuts.dart';
 import '../tv/tv_settings_controls.dart';
+import '../tv/tv_focusable.dart';
 import '../widgets/update.dart';
 import '../widgets/track_list.dart';
 
@@ -75,6 +76,7 @@ class SettingsPage extends ConsumerWidget {
     final sessions = ref.watch(_sessionsProvider);
     final ebooksEnabled = ref.watch(booksStatusProvider).value?.enabled ?? false;
     final audiobooksEnabled = ref.watch(absStatusProvider).value?.enabled ?? false;
+    final tvMode = ref.watch(tvModeProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -82,7 +84,7 @@ class SettingsPage extends ConsumerWidget {
         title: Text(context.l10n.navSettings, style: TextStyle(fontWeight: FontWeight.w800)),
       ),
       body: TvSettingsList(
-        tvMode: ref.watch(tvModeProvider),
+        tvMode: tvMode,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, kBottomInset),
         children: [
           if (isDesktop)
@@ -145,44 +147,70 @@ class SettingsPage extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final c in accentPresets)
-                  _Swatch(
-                    color: c,
-                    selected: toHexColor(c) == user.accentColor,
-                    onTap: () => _setAccent(context, ref, c),
-                  ),
-                _Swatch(
-                  color: Colors.transparent,
-                  selected: !accentPresets.any((c) => toHexColor(c) == user.accentColor),
-                  icon: Icons.colorize,
-                  onTap: () async {
-                    var picked = accent;
-                    final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (d) => AlertDialog(
-                        title: Text(context.l10n.settingsCustomColor),
-                        content: SingleChildScrollView(
-                          child: ColorPicker(
-                            pickerColor: accent,
-                            enableAlpha: false,
-                            labelTypes: const [],
-                            onColorChanged: (c) => picked = c,
-                          ),
-                        ),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(d, false), child: Text(context.l10n.commonCancel)),
-                          FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(context.l10n.commonApply)),
-                        ],
+            child: TvHorizontalGroup(
+              child: FocusTraversalGroup(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final c in accentPresets)
+                      _Swatch(
+                        color: c,
+                        selected: toHexColor(c) == user.accentColor,
+                        tvMode: tvMode,
+                        onTap: () => _setAccent(context, ref, c),
                       ),
-                    );
-                    if (ok == true && context.mounted) await _setAccent(context, ref, picked);
-                  },
+                    _Swatch(
+                      color: Colors.transparent,
+                      selected: !accentPresets.any((c) => toHexColor(c) == user.accentColor),
+                      tvMode: tvMode,
+                      icon: Icons.colorize,
+                      onTap: () async {
+                        var picked = accent;
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (d) => AlertDialog(
+                            title: Text(context.l10n.settingsCustomColor),
+                            content: SingleChildScrollView(
+                              child: ColorPicker(
+                                pickerColor: accent,
+                                enableAlpha: false,
+                                labelTypes: const [],
+                                onColorChanged: (c) => picked = c,
+                              ),
+                            ),
+                            actions: tvMode
+                                ? [
+                                    TvButton(
+                                      icon: Icons.close,
+                                      label: context.l10n.commonCancel,
+                                      autofocus: true,
+                                      onPressed: () => Navigator.pop(d, false),
+                                    ),
+                                    TvButton(
+                                      icon: Icons.check,
+                                      label: context.l10n.commonApply,
+                                      onPressed: () => Navigator.pop(d, true),
+                                    ),
+                                  ]
+                                : [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(d, false),
+                                      child: Text(context.l10n.commonCancel),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(d, true),
+                                      child: Text(context.l10n.commonApply),
+                                    ),
+                                  ],
+                          ),
+                        );
+                        if (ok == true && context.mounted) await _setAccent(context, ref, picked);
+                      },
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           _Section(context.l10n.settingsMediaTabs),
@@ -597,32 +625,78 @@ class _Section extends StatelessWidget {
   );
 }
 
-class _Swatch extends StatelessWidget {
-  const _Swatch({required this.color, required this.selected, required this.onTap, this.icon});
+class _Swatch extends StatefulWidget {
+  const _Swatch({required this.color, required this.selected, required this.onTap, required this.tvMode, this.icon});
   final Color color;
   final bool selected;
   final VoidCallback onTap;
+  final bool tvMode;
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    customBorder: const CircleBorder(),
-    onTap: onTap,
+  State<_Swatch> createState() => _SwatchState();
+}
+
+class _SwatchState extends State<_Swatch> {
+  bool _focused = false;
+
+  Widget _swatch({required bool focused}) => AnimatedScale(
+    scale: focused ? 1.15 : 1,
+    duration: const Duration(milliseconds: 150),
     child: Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: color,
+        color: widget.color,
         shape: BoxShape.circle,
-        border: Border.all(color: selected ? Colors.white : Colors.white24, width: selected ? 3 : 1),
+        border: Border.all(
+          color: focused || widget.selected ? Colors.white : Colors.white24,
+          width: focused || widget.selected ? 3 : 1,
+        ),
       ),
-      child: icon != null
-          ? Icon(icon, size: 20)
-          : selected
-          ? Icon(Icons.check, size: 20, color: onColor(color))
+      child: widget.icon != null
+          ? Icon(widget.icon, size: 20)
+          : widget.selected
+          ? Icon(Icons.check, size: 20, color: onColor(widget.color))
           : null,
     ),
   );
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.tvMode) {
+      return InkWell(
+        customBorder: const CircleBorder(),
+        onTap: widget.onTap,
+        child: _swatch(focused: false),
+      );
+    }
+    return Actions(
+      actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => widget.onTap())},
+      child: Focus(
+        onFocusChange: (focused) => setState(() => _focused = focused),
+        onKeyEvent: (_, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if ({
+            LogicalKeyboardKey.enter,
+            LogicalKeyboardKey.numpadEnter,
+            LogicalKeyboardKey.select,
+            LogicalKeyboardKey.gameButtonA,
+            LogicalKeyboardKey.space,
+          }.contains(event.logicalKey)) {
+            widget.onTap();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Semantics(
+          button: true,
+          selected: widget.selected,
+          child: GestureDetector(onTap: widget.onTap, child: _swatch(focused: _focused)),
+        ),
+      ),
+    );
+  }
 }
 
 class _OfflineSettings extends ConsumerWidget {
