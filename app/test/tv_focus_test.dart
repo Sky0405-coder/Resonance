@@ -426,9 +426,10 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(player.played, [_track]);
+    expect(router.state.uri.path, '/now-playing');
     events.add(_event(button: GamepadButton.b));
     await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/');
+    expect(router.state.uri.path, '/album/album');
     await tester.sendKeyEvent(LogicalKeyboardKey.mediaPlayPause, platform: 'android');
     events.add(_event(button: GamepadButton.x));
     await tester.pump();
@@ -446,7 +447,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/');
+    expect(router.state.uri.path, '/album/album');
     router.go('/search');
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.mediaPlayPause, platform: 'android');

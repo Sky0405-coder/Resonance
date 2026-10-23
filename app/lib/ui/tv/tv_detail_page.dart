@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/library.dart';
 import '../../core/models.dart';
@@ -79,95 +82,128 @@ class _DetailBody extends ConsumerWidget {
   final _Collection data;
   final String contextId;
 
-  Future<void> _play(BuildContext context, WidgetRef ref, {int index = 0, bool? shuffle}) async {
+  Future<void> _play(
+    BuildContext context,
+    WidgetRef ref, {
+    int index = 0,
+    bool? shuffle,
+    bool openNowPlaying = false,
+  }) async {
     try {
       final player = ref.read(playerProvider.notifier);
       if (shuffle != null) await player.setShuffle(shuffle);
-      if (context.mounted) await playMusic(context, ref, data.tracks, index: index, contextId: contextId);
+      if (!context.mounted) return;
+      await player.playTracks(data.tracks, index: index, context: contextId);
+      if (context.mounted && openNowPlaying && GoRouter.of(context).state.uri.path != '/now-playing') {
+        unawaited(context.push('/now-playing'));
+      }
     } catch (error) {
       if (context.mounted) showError(context, error);
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => SingleChildScrollView(
-    padding: const EdgeInsets.all(36),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 220, height: 220, child: data.image),
-            const SizedBox(width: 32),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(data.title, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 28),
-                  Wrap(
-                    spacing: 20,
-                    runSpacing: 20,
-                    children: [
-                      TvButton(
-                        icon: Icons.play_arrow,
-                        label: context.l10n.tvPlay,
-                        autofocus: true,
-                        onPressed: data.tracks.isEmpty ? null : () => _play(context, ref, shuffle: false),
-                      ),
-                      TvButton(
-                        icon: Icons.shuffle,
-                        label: context.l10n.playerShuffle,
-                        onPressed: data.tracks.isEmpty ? null : () => _play(context, ref, shuffle: true),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 32),
-        for (final (index, track) in data.tracks.indexed)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: TvFocusable(
-              focusScale: 1.015,
-              onActivate: () => _play(context, ref, index: index),
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Row(
+  Widget build(BuildContext context, WidgetRef ref) => CustomScrollView(
+    // Keep the requested prebuilt range on Flutter versions that still expose cacheExtent.
+    // ignore: deprecated_member_use
+    cacheExtent: 800,
+    slivers: [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(36, 36, 36, 32),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 220, height: 220, child: data.image),
+              const SizedBox(width: 32),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 48,
-                      child: Text('${index + 1}', style: const TextStyle(color: Palette.textMuted)),
+                    Text(data.title, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 28),
+                    Wrap(
+                      spacing: 20,
+                      runSpacing: 20,
+                      children: [
+                        TvButton(
+                          icon: Icons.play_arrow,
+                          label: context.l10n.tvPlay,
+                          autofocus: true,
+                          onPressed: data.tracks.isEmpty
+                              ? null
+                              : () => _play(context, ref, shuffle: false, openNowPlaying: true),
+                        ),
+                        TvButton(
+                          icon: Icons.shuffle,
+                          label: context.l10n.playerShuffle,
+                          onPressed: data.tracks.isEmpty
+                              ? null
+                              : () => _play(context, ref, shuffle: true, openNowPlaying: true),
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 64, height: 64, child: CoverImage(albumId: track.album.id, size: 128)),
-                    const SizedBox(width: 20),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text(track.artistCredit, style: const TextStyle(color: Palette.textMuted, fontSize: 18)),
-                        ],
-                      ),
-                    ),
-                    Text(formatDuration(track.length)),
                   ],
                 ),
               ),
-            ),
-          ),
-        if (data.albums.isNotEmpty)
-          TvShelves(
-            title: context.l10n.commonAlbums,
-            shelves: [
-              TvShelfData(context.l10n.commonAlbums, [for (final a in data.albums) tvAlbum(context, a)]),
             ],
           ),
-      ],
-    ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 36),
+        sliver: SliverList.builder(
+          itemCount: data.tracks.length,
+          itemBuilder: (context, index) {
+            final track = data.tracks[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: TvFocusable(
+                label: track.title,
+                focusScale: 1.015,
+                onActivate: () => _play(context, ref, index: index),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 48,
+                        child: Text('${index + 1}', style: const TextStyle(color: Palette.textMuted)),
+                      ),
+                      SizedBox(width: 64, height: 64, child: CoverImage(albumId: track.album.id, size: 128)),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(track.artistCredit, style: const TextStyle(color: Palette.textMuted, fontSize: 18)),
+                          ],
+                        ),
+                      ),
+                      Text(formatDuration(track.length)),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      if (data.albums.isNotEmpty)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 36),
+            child: TvShelves(
+              title: context.l10n.commonAlbums,
+              shelves: [
+                TvShelfData(context.l10n.commonAlbums, [for (final album in data.albums) tvAlbum(context, album)]),
+              ],
+            ),
+          ),
+        )
+      else
+        const SliverToBoxAdapter(child: SizedBox(height: 36)),
+    ],
   );
 }
