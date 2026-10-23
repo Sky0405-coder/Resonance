@@ -264,6 +264,7 @@ void main() {
     final before = FocusNode(debugLabel: 'Previous setting');
     final swatches = List.generate(3, (index) => FocusNode(debugLabel: 'Swatch $index'));
     final after = FocusNode(debugLabel: 'Next setting');
+    final bubbledDirections = <TraversalDirection>[];
     addTearDown(before.dispose);
     addTearDown(() {
       for (final node in swatches) {
@@ -273,60 +274,64 @@ void main() {
     addTearDown(after.dispose);
     await tester.pumpWidget(
       _app(
-        TvSettingsList(
-          tvMode: true,
-          padding: const EdgeInsets.all(24),
-          children: [
-            TvFocusable(
-              focusNode: before,
-              autofocus: true,
-              onActivate: () {},
-              child: const Text('Previous setting'),
+        Actions(
+          actions: {
+            TvDirectionIntent: CallbackAction<TvDirectionIntent>(
+              onInvoke: (intent) {
+                bubbledDirections.add(intent.direction);
+                return null;
+              },
             ),
-            TvHorizontalGroup(
-              child: FocusTraversalGroup(
-                child: Row(
-                  children: [
-                    for (var index = 0; index < swatches.length; index++)
-                      TvFocusable(
-                        focusNode: swatches[index],
-                        onActivate: () {},
-                        child: SizedBox(width: 48, height: 48, child: Text('$index')),
-                      ),
-                  ],
+          },
+          child: TvSettingsList(
+            tvMode: true,
+            padding: const EdgeInsets.all(24),
+            children: [
+              TvFocusable(focusNode: before, autofocus: true, onActivate: () {}, child: const Text('Previous setting')),
+              TvHorizontalGroup(
+                initialFocusIndex: 2,
+                child: FocusTraversalGroup(
+                  child: Row(
+                    children: [
+                      for (var index = 0; index < swatches.length; index++)
+                        TvFocusable(
+                          focusNode: swatches[index],
+                          onActivate: () {},
+                          child: SizedBox(width: 48, height: 48, child: Text('$index')),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            TvFocusable(
-              focusNode: after,
-              onActivate: () {},
-              child: const Text('Next setting'),
-            ),
-          ],
+              TvFocusable(focusNode: after, onActivate: () {}, child: const Text('Next setting')),
+            ],
+          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, swatches.last);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, swatches[1]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, swatches.first);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(bubbledDirections, [TraversalDirection.left]);
     expect(FocusManager.instance.primaryFocus, swatches.first);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    expect(FocusManager.instance.primaryFocus, swatches[1]);
+    Actions.invoke(FocusManager.instance.primaryFocus!.context!, const TvDirectionIntent(TraversalDirection.left));
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus, swatches.last);
-    Actions.invoke(
-      FocusManager.instance.primaryFocus!.context!,
-      const TvDirectionIntent(TraversalDirection.left),
-    );
+    expect(FocusManager.instance.primaryFocus, swatches.first);
+    Actions.invoke(FocusManager.instance.primaryFocus!.context!, const TvDirectionIntent(TraversalDirection.right));
     await tester.pumpAndSettle();
     expect(FocusManager.instance.primaryFocus, swatches[1]);
-    Actions.invoke(
-      FocusManager.instance.primaryFocus!.context!,
-      const TvDirectionIntent(TraversalDirection.right),
-    );
-    await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus, swatches.last);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(FocusManager.instance.primaryFocus, swatches.last);
@@ -401,10 +406,7 @@ void main() {
     expect(router.state.uri.path, '/album/album');
     events.add(_event(button: GamepadButton.dpadDown));
     await tester.pumpAndSettle();
-    expect(
-      FocusManager.instance.primaryFocus!.context!.findAncestorWidgetOfExactType<TvFocusable>(),
-      isNotNull,
-    );
+    expect(FocusManager.instance.primaryFocus!.context!.findAncestorWidgetOfExactType<TvFocusable>(), isNotNull);
     events.add(_event(button: GamepadButton.dpadDown, value: 0));
     events.add(_event(button: GamepadButton.dpadDown));
     await tester.pumpAndSettle();
@@ -412,10 +414,7 @@ void main() {
     events.add(_event(button: GamepadButton.dpadDown, value: 0));
     events.add(_event(button: GamepadButton.dpadUp));
     await tester.pumpAndSettle();
-    expect(
-      FocusManager.instance.primaryFocus!.context!.findAncestorWidgetOfExactType<TvFocusable>(),
-      isNotNull,
-    );
+    expect(FocusManager.instance.primaryFocus!.context!.findAncestorWidgetOfExactType<TvFocusable>(), isNotNull);
     events.add(_event(button: GamepadButton.dpadUp, value: 0));
     events.add(_event(button: GamepadButton.dpadLeft));
     await tester.pumpAndSettle();

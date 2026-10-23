@@ -73,6 +73,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(sessionProvider).user!;
     final accent = parseHexColor(user.accentColor);
+    final selectedAccentIndex = accentPresets.indexWhere((color) => toHexColor(color) == user.accentColor);
     final prefs = ref.read(prefsProvider);
     final sessions = ref.watch(_sessionsProvider);
     final ebooksEnabled = ref.watch(booksStatusProvider).value?.enabled ?? false;
@@ -149,6 +150,7 @@ class SettingsPage extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TvHorizontalGroup(
+              initialFocusIndex: selectedAccentIndex < 0 ? accentPresets.length : selectedAccentIndex,
               child: FocusTraversalGroup(
                 child: Wrap(
                   spacing: 12,
@@ -667,11 +669,7 @@ class _SwatchState extends State<_Swatch> {
   @override
   Widget build(BuildContext context) {
     if (!widget.tvMode) {
-      return InkWell(
-        customBorder: const CircleBorder(),
-        onTap: widget.onTap,
-        child: _swatch(focused: false),
-      );
+      return InkWell(customBorder: const CircleBorder(), onTap: widget.onTap, child: _swatch(focused: false));
     }
     return Actions(
       actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => widget.onTap())},
@@ -694,7 +692,10 @@ class _SwatchState extends State<_Swatch> {
         child: Semantics(
           button: true,
           selected: widget.selected,
-          child: GestureDetector(onTap: widget.onTap, child: _swatch(focused: _focused)),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: _swatch(focused: _focused),
+          ),
         ),
       ),
     );
