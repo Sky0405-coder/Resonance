@@ -114,7 +114,10 @@ class TvLibraryPage extends ConsumerWidget {
             image: const LikedCover(),
             onActivate: () => context.push('/liked'),
           ),
-          for (final p in data.$1) tvPlaylist(context, p),
+          for (final p in data.$1.where((p) => !p.isRadio && !p.isMix)) tvPlaylist(context, p),
+        ]),
+        TvShelfData(context.l10n.libraryRadios, [
+          for (final p in data.$1.where((p) => p.isRadio)) tvPlaylist(context, p),
         ]),
         TvShelfData(context.l10n.librarySavedAlbums, [for (final a in data.$2) tvAlbum(context, a)]),
         TvShelfData(context.l10n.libraryAllAlbums, [for (final a in data.$3) tvAlbum(context, a)]),
