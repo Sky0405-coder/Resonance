@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/tv_mode.dart';
 import '../widgets/common.dart';
+import 'tv_focusable.dart';
 import 'tv_keyboard.dart';
+import 'tv_shelves.dart';
 
 class TvKeyboardSearch extends ConsumerStatefulWidget {
   const TvKeyboardSearch({super.key, required this.hint, required this.resultsBuilder});
@@ -24,6 +26,7 @@ class _TvKeyboardSearchState extends ConsumerState<TvKeyboardSearch> {
   String _input = '';
   String _query = '';
   bool _pendingSubmit = false;
+  FocusNode? _lastKeyboardFocus;
 
   @override
   void initState() {
@@ -68,6 +71,21 @@ class _TvKeyboardSearchState extends ConsumerState<TvKeyboardSearch> {
     });
   }
 
+  void _handleDirection(TvDirectionIntent intent) {
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (intent.direction == TraversalDirection.left &&
+        focused?.findAncestorWidgetOfExactType<TvShelves>() != null &&
+        _lastKeyboardFocus != null) {
+      _lastKeyboardFocus!.requestFocus();
+      return;
+    }
+    if (Actions.maybeFind<TvDirectionIntent>(context) != null) {
+      Actions.invoke(context, intent);
+    } else {
+      FocusManager.instance.primaryFocus?.focusInDirection(intent.direction);
+    }
+  }
+
   KeyEventResult _handleKey(KeyEvent event) {
     if (!ref.read(tvModeProvider) || event is! KeyDownEvent) return KeyEventResult.ignored;
     final focused = FocusManager.instance.primaryFocus?.context;
@@ -97,20 +115,43 @@ class _TvKeyboardSearchState extends ConsumerState<TvKeyboardSearch> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(32),
-        child: InputDecorator(
-          isEmpty: _input.isEmpty,
-          decoration: searchDecoration(widget.hint),
-          child: Text(_input, style: const TextStyle(fontSize: 28)),
+  Widget build(BuildContext context) => Actions(
+    actions: {TvDirectionIntent: CallbackAction<TvDirectionIntent>(onInvoke: (intent) => _handleDirection(intent))},
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          key: const ValueKey('tv-search-keyboard-column'),
+          width: 780,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(32),
+                child: InputDecorator(
+                  isEmpty: _input.isEmpty,
+                  decoration: searchDecoration(widget.hint),
+                  child: Text(_input, style: const TextStyle(fontSize: 28)),
+                ),
+              ),
+              TvKeyboard(
+                onText: _onText,
+                onBackspace: _onBackspace,
+                onClear: _onClear,
+                onSubmit: _submit,
+                onFocusChanged: (node) => _lastKeyboardFocus = node,
+                onRightAtEnd: () {
+                  if (_firstResult.context != null) _firstResult.requestFocus();
+                },
+              ),
+            ],
+          ),
         ),
-      ),
-      TvKeyboard(onText: _onText, onBackspace: _onBackspace, onClear: _onClear, onSubmit: _submit),
-      Expanded(child: _query.isEmpty ? const SizedBox.shrink() : widget.resultsBuilder(context, _query, _firstResult)),
-    ],
+        Expanded(
+          child: _query.isEmpty ? const SizedBox.shrink() : widget.resultsBuilder(context, _query, _firstResult),
+        ),
+      ],
+    ),
   );
 }
 

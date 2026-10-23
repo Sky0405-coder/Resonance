@@ -147,10 +147,11 @@ class _TvShelvesState extends State<TvShelves> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(32, 0, 32, 24),
-                child: Text(widget.title, style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800)),
-              ),
+              if (widget.title.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(32, 0, 32, 24),
+                  child: Text(widget.title, style: const TextStyle(fontSize: 38, fontWeight: FontWeight.w800)),
+                ),
               if (widget.leading != null) Padding(padding: const EdgeInsets.all(32), child: widget.leading),
               for (final shelf in _shelves) ...[
                 Padding(

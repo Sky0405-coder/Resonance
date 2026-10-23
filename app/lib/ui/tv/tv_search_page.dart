@@ -50,7 +50,7 @@ class _TvSearchResults extends ConsumerWidget {
       value: libraryValue,
       onRetry: () => ref.invalidate(searchProvider(query)),
       builder: (library) => TvShelves(
-        title: library.isEmpty ? context.l10n.searchNoLibraryResults(query) : context.l10n.navSearch,
+        title: library.isEmpty && !_hasCatalogCards(catalog) ? context.l10n.searchNoLibraryResults(query) : '',
         autofocusFirstCard: false,
         firstCardFocusNode: focusNode,
         shelves: [

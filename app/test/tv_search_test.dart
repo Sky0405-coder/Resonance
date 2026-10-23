@@ -30,8 +30,9 @@ class _Session extends SessionNotifier {
 }
 
 class _Api extends ApiClient {
-  _Api() : super('https://resonance.example', 'test');
+  _Api({this.catalogAvailable = true}) : super('https://resonance.example', 'test');
 
+  final bool catalogAvailable;
   final createdRequests = <(String, String)>[];
   static const albumResult = CatalogAlbum(id: 'catalog-album', title: 'Catalog album', artist: 'Catalog artist');
 
@@ -40,7 +41,7 @@ class _Api extends ApiClient {
 
   @override
   Future<CatalogSearch> catalogSearch(String query, {int limit = 10}) async =>
-      const CatalogSearch([], [albumResult], []);
+      catalogAvailable ? const CatalogSearch([], [albumResult], []) : const CatalogSearch([], [], []);
 
   @override
   Future<List<DownloadRequest>> requests({String scope = 'mine', String state = 'all', int limit = 100}) async => [];
@@ -136,6 +137,55 @@ void main() {
     Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ActivateIntent());
     await tester.pumpAndSettle();
     expect(FocusManager.instance.primaryFocus!.debugLabel, 'TV first search result');
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('search results sit beside the keyboard and return focus to the last key', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    await tester.binding.setSurfaceSize(const Size(1280, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = await _container(_Api());
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_app(container));
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(find.byKey(const ValueKey('tv-search-keyboard-column'))).width, 780);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyH, character: 'h');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text('Catalog album'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((widget) => widget is Text && widget.data == 'Search' && widget.style?.fontSize == 38),
+      findsNothing,
+    );
+
+    final lastKey = tester.widget<TvFocusable>(find.byKey(const ValueKey('tv-key-ü'))).focusNode!;
+    lastKey.requestFocus();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'TV first search result');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus, lastKey);
+    expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('empty search results keep the no-results message', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    await tester.binding.setSurfaceSize(const Size(1280, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = await _container(_Api(catalogAvailable: false));
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_app(container));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyH, character: 'h');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text('No results for “h” in your library.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     debugDefaultTargetPlatformOverride = null;
   });
 

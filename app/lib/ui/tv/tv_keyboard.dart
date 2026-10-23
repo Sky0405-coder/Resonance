@@ -13,12 +13,16 @@ class TvKeyboard extends StatefulWidget {
     required this.onBackspace,
     required this.onClear,
     required this.onSubmit,
+    this.onFocusChanged,
+    this.onRightAtEnd,
   });
 
   final ValueChanged<String> onText;
   final VoidCallback onBackspace;
   final VoidCallback onClear;
   final VoidCallback onSubmit;
+  final ValueChanged<FocusNode>? onFocusChanged;
+  final VoidCallback? onRightAtEnd;
 
   @override
   State<TvKeyboard> createState() => _TvKeyboardState();
@@ -36,6 +40,18 @@ class _TvKeyboardState extends State<TvKeyboard> {
     for (final (row, keys) in [..._letters, List.filled(4, '')].indexed)
       [for (var column = 0; column < keys.length; column++) FocusNode(debugLabel: 'TV keyboard $row/$column')],
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    for (final nodes in _nodes) {
+      for (final node in nodes) {
+        node.addListener(() {
+          if (node.hasFocus) widget.onFocusChanged?.call(node);
+        });
+      }
+    }
+  }
 
   void _activate(_KeyboardKey key) {
     switch (key.action) {
@@ -65,7 +81,10 @@ class _TvKeyboardState extends State<TvKeyboard> {
         nodes[column - 1].requestFocus();
         return true;
       case TraversalDirection.right:
-        if (column == nodes.length - 1) return true;
+        if (column == nodes.length - 1) {
+          widget.onRightAtEnd?.call();
+          return true;
+        }
         nodes[column + 1].requestFocus();
         return true;
       case TraversalDirection.up:
@@ -155,7 +174,7 @@ class _TvKeyboardState extends State<TvKeyboard> {
                     for (final (column, key) in row.indexed) ...[
                       if (column > 0) const SizedBox(width: 10),
                       SizedBox(
-                        width: key.action == null ? 64 : 200,
+                        width: key.action == null ? 52 : 150,
                         height: 64,
                         child: TvFocusable(
                           key: ValueKey('tv-key-${key.value ?? key.action!.name}'),
