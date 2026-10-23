@@ -8,7 +8,6 @@ import '../../l10n/l10n.dart';
 import '../pages/world_radio_page.dart';
 import '../widgets/catalog.dart';
 import '../widgets/common.dart';
-import 'tv_focusable.dart';
 import 'tv_shelves.dart';
 
 TvCardData tvAlbum(BuildContext context, Album album) => TvCardData(
