@@ -581,6 +581,7 @@ void main() {
   testWidgets('coverflow keeps most of the cover size and shows neighbors no taller than it', (tester) async {
     final container = await mount(tester, size: const Size(450, 1000));
     final singleSide = tester.getSize(find.byType(SpectrumVisualizer)).width + 24;
+    expect(singleSide, closeTo(402, 0.001));
     container.read(coverflowProvider.notifier).set(true);
     await tester.pump();
     final center = paintedBounds(tester, flowArtwork(1));
@@ -595,6 +596,18 @@ void main() {
       expect(neighbor.right, lessThanOrEqualTo(450));
     }
     expect(find.byType(CoverReflection), findsNWidgets(3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wide now-playing coverflow grows while keeping the phone size unchanged', (tester) async {
+    await mount(tester, size: const Size(1920, 1080), coverflow: true, visualizer: false);
+    final center = paintedBounds(tester, flowArtwork(1));
+    final area = tester.getSize(coverflowArea());
+    final side = TrackCover.sideFor(BoxConstraints(maxWidth: area.width, maxHeight: area.height), true, maxSide: 720);
+    expect(center.width, greaterThan(480 * 0.78));
+    expect(center.width, closeTo(0.85 * side, 1));
+    expect(center.left, greaterThanOrEqualTo(0));
+    expect(center.right, lessThanOrEqualTo(1920));
     expect(tester.takeException(), isNull);
   });
 

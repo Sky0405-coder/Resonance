@@ -70,6 +70,7 @@ class NowPlayingPage extends ConsumerWidget {
                   builder: (context, constraints) {
                     // Phones in landscape count as wide (about 1000 x 450), so the height decides, not isWide.
                     final landscape = constraints.maxWidth > constraints.maxHeight && constraints.maxHeight < 600;
+                    final maxSide = MediaQuery.sizeOf(context).width >= 900 ? 720.0 : 480.0;
                     return ListView(
                       padding: EdgeInsets.zero,
                       children: [
@@ -113,7 +114,11 @@ class NowPlayingPage extends ConsumerWidget {
                                             children: [
                                               SizedBox.square(
                                                 dimension: side,
-                                                child: TrackCover(track: track, allowReflection: false),
+                                                child: TrackCover(
+                                                  track: track,
+                                                  allowReflection: false,
+                                                  maxSide: maxSide,
+                                                ),
                                               ),
                                               const SizedBox(width: 24),
                                               Expanded(
@@ -130,8 +135,8 @@ class NowPlayingPage extends ConsumerWidget {
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(vertical: 16),
                                       child: ref.watch(coverflowProvider)
-                                          ? const _Coverflow()
-                                          : TrackCover(track: track),
+                                          ? _Coverflow(maxSide: maxSide)
+                                          : TrackCover(track: track, maxSide: maxSide),
                                     ),
                                   ),
                                   _TrackControls(track: track),
@@ -231,16 +236,18 @@ class TrackCover extends ConsumerWidget {
     this.allowReflection = true,
     this.dim = 0,
     this.interactive = true,
+    this.maxSide = 480,
   });
   final Track track;
   final bool centered;
   final bool allowReflection;
   final double dim;
   final bool interactive;
+  final double maxSide;
 
-  static double sideFor(BoxConstraints constraints, bool reflect) {
+  static double sideFor(BoxConstraints constraints, bool reflect, {double maxSide = 480}) {
     final height = reflect ? (constraints.maxHeight - 3) / 1.22 : constraints.maxHeight;
-    return math.max(0.0, math.min(math.min(constraints.maxWidth, 480.0), height));
+    return math.max(0.0, math.min(math.min(constraints.maxWidth, maxSide), height));
   }
 
   @override
@@ -257,7 +264,7 @@ class TrackCover extends ConsumerWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = sideFor(constraints, reflect);
+        final size = sideFor(constraints, reflect, maxSide: maxSide);
         final reflection = reflect ? size * 0.22 : 0.0;
         return Center(
           child: SizedBox(
@@ -339,7 +346,8 @@ class TrackCover extends ConsumerWidget {
 }
 
 class _Coverflow extends ConsumerStatefulWidget {
-  const _Coverflow();
+  const _Coverflow({this.maxSide = 480});
+  final double maxSide;
 
   @override
   ConsumerState<_Coverflow> createState() => _CoverflowState();
@@ -411,10 +419,14 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
       builder: (context, constraints) {
         // The centered cover is a bit smaller than without coverflow so the tilted neighbors fit beside it; they
         // reach out to the screen edges, past the page padding.
-        final side = TrackCover.sideFor(constraints, reflect) * 0.78;
+        final large = widget.maxSide > 480;
+        final side = TrackCover.sideFor(constraints, reflect, maxSide: widget.maxSide) * (large ? 0.85 : 0.78);
         final height = side + (reflect ? 3 + side * 0.22 : 0);
-        // A quarter of the cover beside it, but never past the screen edge (phones are narrower than that).
-        final spread = math.max(0.0, math.min(side * 0.25, MediaQuery.sizeOf(context).width / 2 - 4 - side / 2));
+        // Neighbors spread beside the cover, but never past the screen edge.
+        final spread = math.max(
+          0.0,
+          math.min(side * (large ? 0.35 : 0.25), MediaQuery.sizeOf(context).width / 2 - 4 - side / 2),
+        );
         return GestureDetector(
           key: const ValueKey('coverflow'),
           behavior: HitTestBehavior.opaque,
@@ -456,7 +468,15 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
                       top: (constraints.maxHeight - height) / 2,
                       width: side,
                       height: height,
-                      child: _transformedCover(player.queue[i], i - position, i == centered, side, height, spread),
+                      child: _transformedCover(
+                        player.queue[i],
+                        i - position,
+                        i == centered,
+                        side,
+                        height,
+                        spread,
+                        widget.maxSide,
+                      ),
                     ),
                 ],
               );
@@ -467,7 +487,15 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
     );
   }
 
-  Widget _transformedCover(Track track, double delta, bool centered, double side, double height, double spread) {
+  Widget _transformedCover(
+    Track track,
+    double delta,
+    bool centered,
+    double side,
+    double height,
+    double spread,
+    double maxSide,
+  ) {
     final distance = delta.abs();
     final tilt = delta.clamp(-1.0, 1.0);
     // Neighbors shrink to 60 % so their near edge, which the tilt brings towards the viewer, stays below the
@@ -485,7 +513,12 @@ class _CoverflowState extends ConsumerState<_Coverflow> with SingleTickerProvide
           ..scaleByDouble(scale, scale, scale, 1),
         child: IgnorePointer(
           ignoring: !centered,
-          child: TrackCover(track: track, centered: centered, dim: 0.35 * math.min(distance, 1.0)),
+          child: TrackCover(
+            track: track,
+            centered: centered,
+            dim: 0.35 * math.min(distance, 1.0),
+            maxSide: maxSide,
+          ),
         ),
       ),
     );
