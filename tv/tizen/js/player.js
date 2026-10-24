@@ -132,7 +132,13 @@ export class Player {
     this.preloaded = -1;
     this.play();
     this.preload();
+    this.prepareUpcoming();
     this.emit('track');
+  }
+  // The next two songs get transcoded on the server while this one plays.
+  prepareUpcoming() {
+    if (this.station || !this.api.prepare) return;
+    this.upcoming().slice(0, 2).forEach(index => this.api.prepare(this.queue[index]));
   }
   nextIndex(manual) {
     if (this.index < 0) return -1;

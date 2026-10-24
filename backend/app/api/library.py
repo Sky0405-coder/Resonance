@@ -323,6 +323,8 @@ async def stream_track(
     request: Request,
     format: Literal["auto", "raw", "opus", "mp3"] = "auto",
     bitrate: int | None = Query(None, ge=32, le=320),
+    # Only answer with the finished file (with its length): the Samsung TV stops partway through a stream without one.
+    complete: bool = False,
 ) -> Response:
     track = await db.get(Track, track_id)
     if track is None:
@@ -343,11 +345,28 @@ async def stream_track(
     media = transcode.FORMAT_MEDIA_TYPES[format]
     if job is not None:
         range_header = request.headers.get("range", "")
-        if not range_header or range_header.replace(" ", "") in {"bytes=0-", "bytes=0"}:
+        if not complete and (not range_header or range_header.replace(" ", "") in {"bytes=0-", "bytes=0"}):
             # Starts right away; the length is unknown until the transcode is done.
             return StreamingResponse(transcode.follow(target, job), media_type=media, headers={"Accept-Ranges": "bytes"})
         await job  # a resume/seek needs byte positions: answer it from the finished file
     return FileResponse(target, media_type=media)
+
+
+@router.post("/tracks/{track_id}/stream/prepare", status_code=204)
+async def prepare_stream(
+    track_id: uuid.UUID,
+    user: CurrentUser,
+    db: DB,
+    format: Literal["opus", "mp3"] = "mp3",
+    bitrate: int = Query(160, ge=32, le=320),
+) -> None:
+    """Starts a transcode ahead of time (the next song in the queue), so a later complete=true stream needs no wait."""
+    track = await db.get(Track, track_id)
+    if track is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Track not found")
+    path = transcode.resolve_path(track.path)
+    if path.is_file():
+        transcode.start(path, format, bitrate)
 
 
 # --- AutoMix ----------------------------------------------------------------

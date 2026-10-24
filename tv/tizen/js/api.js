@@ -105,9 +105,18 @@ export class Api {
     if (kind === 'station' && /^https?:\/\//i.test(item.favicon || '')) return item.favicon;
     return 'icon.png';
   }
+  // Transcoded songs only as the finished file: without a length the TV stops partway through (1:23, 2:28, ...).
   stream(track) {
     const format = streamFormat(track.codec, this.supportedCodecs);
-    return this.url('/api/tracks/' + encodeURIComponent(track.id) + '/stream', { format: format, bitrate: format === 'mp3' ? 320 : undefined }, true);
+    const transcoded = format === 'mp3';
+    return this.url('/api/tracks/' + encodeURIComponent(track.id) + '/stream',
+      { format: format, bitrate: transcoded ? 320 : undefined, complete: transcoded ? 'true' : undefined }, true);
+  }
+  // Lets the server transcode an upcoming song now, so it starts without waiting.
+  prepare(track) {
+    if (!track || streamFormat(track.codec, this.supportedCodecs) !== 'mp3') return;
+    this.request('/api/tracks/' + encodeURIComponent(track.id) + '/stream/prepare',
+      { method: 'POST', query: { format: 'mp3', bitrate: 320 } }).catch(() => { /* only a head start */ });
   }
   stationStream(id) { return this.url('/api/worldradio/stations/' + encodeURIComponent(id) + '/stream', {}, true); }
 }

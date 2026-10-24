@@ -203,6 +203,13 @@ async def test_stream_supports_range_and_transcode(client):
     r = await client.get(url, headers=auth(state["user"]))
     assert r.headers["content-length"] == str(len(full)) and r.content == full
 
+    # complete=true (Samsung TV) always gets the finished file with its length; prepare starts it ahead of time.
+    small = f"/api/tracks/{track_id}/stream?format=mp3&bitrate=96"
+    r = await client.post(f"/api/tracks/{track_id}/stream/prepare?format=mp3&bitrate=96", headers=auth(state["user"]))
+    assert r.status_code == 204
+    r = await client.get(small + "&complete=true", headers=auth(state["user"]))
+    assert r.status_code == 200 and int(r.headers["content-length"]) == len(r.content) > 0
+
     # A range request for a transcode that has not run yet waits for it.
     mp3 = f"/api/tracks/{track_id}/stream?format=mp3&bitrate=128"
     r = await client.get(mp3, headers={**auth(state["user"]), "Range": "bytes=10-"})

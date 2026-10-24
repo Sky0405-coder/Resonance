@@ -7,6 +7,9 @@ test('media URLs mirror Flutter auth and include cover revision', () => {
   assert.equal(stream.pathname, '/api/tracks/track/stream'); assert.equal(stream.searchParams.get('token'), 'a &/b');
   assert.equal(stream.searchParams.get('format'), 'raw');
   assert.equal(new URL(api.stream({ id: 'track', codec: 'flac' })).searchParams.get('format'), 'mp3');
+  // Transcodes are requested complete (with a length), raw files stream as they are.
+  assert.equal(new URL(api.stream({ id: 'track', codec: 'opus' })).searchParams.get('complete'), 'true');
+  assert.equal(stream.searchParams.get('complete'), null);
   const cover = new URL(api.cover({ id: 'album', cover_key: 'revision' }, 600));
   assert.equal(cover.searchParams.get('v'), 'revision'); assert.equal(cover.searchParams.get('size'), '600');
   assert.equal(new URL(api.stationStream('station')).pathname, '/api/worldradio/stations/station/stream');
