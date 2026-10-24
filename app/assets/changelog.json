@@ -1,5 +1,21 @@
 [
   {
+    "version": "1.6.14",
+    "date": "2026-10-24",
+    "de": [
+      "Explizite Songs: Admins können in den Einstellungen eine YouTube-Anmeldung (cookies.txt) hinterlegen, dann werden auch altersbeschränkte Versionen geladen. Ohne Anmeldung, bei DRM-geschützten SoundCloud-Songs oder Torrents ohne Link wird automatisch die nächste Version versucht.",
+      "Neuer Tab „Fehlgeschlagen“ für Admins mit „Alle erneut versuchen“; ein erneuter Versuch bekommt wieder alle automatischen Versuche. Download-Listen laden weitere Einträge nach.",
+      "TV: Die Bibliothek zeigt nur noch deine eigenen Playlists. Der Ruhemodus greift nur im Player, schon nach 10 Sekunden, und startet sofort, wenn du ihn dort einschaltest.",
+      "Samsung-TV-App: Songs bleiben nicht mehr nach 1:23 stehen, Lieblingssongs stehen bei den Playlists, lange Listen und das Scrollen sind deutlich flüssiger."
+    ],
+    "en": [
+      "Explicit songs: admins can add a YouTube sign-in (cookies.txt) in the settings so age-restricted versions download too. Without it, for DRM-protected SoundCloud songs or torrents without a link, the next version is tried automatically.",
+      "New \"Failed\" tab for admins with \"Retry all\"; a retry gets all automatic attempts again. Download lists load more entries.",
+      "TV: the library shows only your own playlists. The ambient mode only dims the player, after 10 seconds, and starts right away when you switch it on there.",
+      "Samsung TV app: songs no longer stop at 1:23, Liked Songs is listed with the playlists, long lists and scrolling are much smoother."
+    ]
+  },
+  {
     "version": "1.6.13",
     "date": "2026-10-23",
     "de": [
