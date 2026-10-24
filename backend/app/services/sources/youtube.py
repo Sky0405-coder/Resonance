@@ -112,6 +112,19 @@ def score_candidate(
     return score
 
 
+def uploaded_path() -> Path:
+    """cookies.txt of a YouTube account an admin uploaded (age-restricted videos need a signed-in account)."""
+    return get_settings().data_dir / "youtube-cookies.txt"
+
+
+def cookies_file() -> Path | None:
+    """The cookies file yt-dlp should use: RESONANCE_YTDLP_COOKIES_FILE wins over the upload."""
+    if configured := get_settings().ytdlp_cookies_file:
+        return configured
+    path = uploaded_path()
+    return path if path.is_file() else None
+
+
 class YouTubeMusicSource:
     name = "youtube"
 
@@ -166,7 +179,6 @@ class YouTubeMusicSource:
         def run() -> Path:
             if cancelled():
                 raise Cancelled()
-            settings = get_settings()
             options = {
                 "format": "bestaudio[acodec=opus]/bestaudio[ext=m4a]/bestaudio",
                 "outtmpl": str(dest_dir / "source.%(ext)s"),
@@ -175,8 +187,8 @@ class YouTubeMusicSource:
                 "no_warnings": True,
                 "progress_hooks": [hook],
             }
-            if settings.ytdlp_cookies_file:
-                options["cookiefile"] = str(settings.ytdlp_cookies_file)
+            if cookies := cookies_file():
+                options["cookiefile"] = str(cookies)
             with yt_dlp.YoutubeDL(options) as ydl:
                 info = ydl.extract_info(f"https://music.youtube.com/watch?v={candidate.ref}", download=True)
                 src = Path(ydl.prepare_filename(info))

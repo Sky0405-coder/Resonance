@@ -2306,6 +2306,54 @@ abstract class AppLocalizations {
   /// **'Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)'**
   String get adminYouTubeSourceHint;
 
+  /// No description provided for @adminYouTubeCookies.
+  ///
+  /// In de, this message translates to:
+  /// **'YouTube-Anmeldung'**
+  String get adminYouTubeCookies;
+
+  /// No description provided for @adminYouTubeCookiesHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Explizite und andere altersbeschränkte Songs brauchen ein angemeldetes YouTube-Konto. Lade die cookies.txt eines Zweitkontos hoch (im privaten Browserfenster mit einer Erweiterung wie „Get cookies.txt LOCALLY“ exportieren, danach das Fenster schließen).'**
+  String get adminYouTubeCookiesHint;
+
+  /// No description provided for @adminYouTubeCookiesActive.
+  ///
+  /// In de, this message translates to:
+  /// **'Angemeldet seit {date}'**
+  String adminYouTubeCookiesActive(String date);
+
+  /// No description provided for @adminYouTubeCookiesFromEnv.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf dem Server gesetzt (RESONANCE_YTDLP_COOKIES_FILE)'**
+  String get adminYouTubeCookiesFromEnv;
+
+  /// No description provided for @adminYouTubeCookiesNone.
+  ///
+  /// In de, this message translates to:
+  /// **'Nicht angemeldet: altersbeschränkte Videos werden übersprungen'**
+  String get adminYouTubeCookiesNone;
+
+  /// No description provided for @adminYouTubeCookiesUpload.
+  ///
+  /// In de, this message translates to:
+  /// **'cookies.txt hochladen'**
+  String get adminYouTubeCookiesUpload;
+
+  /// No description provided for @adminYouTubeCookiesRemove.
+  ///
+  /// In de, this message translates to:
+  /// **'Entfernen'**
+  String get adminYouTubeCookiesRemove;
+
+  /// No description provided for @adminYouTubeCookiesSaved.
+  ///
+  /// In de, this message translates to:
+  /// **'YouTube-Anmeldung gespeichert'**
+  String get adminYouTubeCookiesSaved;
+
   /// No description provided for @adminSoundCloudSource.
   ///
   /// In de, this message translates to:

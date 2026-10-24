@@ -2,6 +2,7 @@ import '../../../l10n/l10n.dart';
 
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1055,6 +1056,7 @@ class _ServerTab extends ConsumerWidget {
                 'downloads': {'youtube_enabled': v},
               }),
             ),
+            if (dl['youtube_enabled'] ?? true) const _YouTubeCookiesTile(),
             SwitchListTile(
               title: Text(context.l10n.adminSoundCloudSource),
               subtitle: Text(context.l10n.adminSoundCloudSourceHint),
@@ -1260,6 +1262,102 @@ class _AbsCheckTileState extends ConsumerState<_AbsCheckTile> {
             const SizedBox(width: 8),
             Expanded(child: Text('${_result!['message'] ?? ''}')),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _YouTubeCookiesTile extends ConsumerStatefulWidget {
+  const _YouTubeCookiesTile();
+
+  @override
+  ConsumerState<_YouTubeCookiesTile> createState() => _YouTubeCookiesTileState();
+}
+
+class _YouTubeCookiesTileState extends ConsumerState<_YouTubeCookiesTile> {
+  Map<String, dynamic>? _status;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _run(() => ref.read(apiProvider).youtubeCookies());
+  }
+
+  Future<void> _run(Future<Map<String, dynamic>> Function() action, {String? done}) async {
+    setState(() => _busy = true);
+    try {
+      final status = await action();
+      if (!mounted) return;
+      setState(() => _status = status);
+      if (done != null) showInfo(context, done);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _upload() async {
+    final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: const ['txt']);
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    await _run(() => ref.read(apiProvider).uploadYoutubeCookies(bytes), done: context.l10n.adminYouTubeCookiesSaved);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _status;
+    final uploaded = DateTime.tryParse(status?['uploaded_at'] ?? '')?.toLocal();
+    final fromEnv = status?['from_env'] == true;
+    final configured = status?['configured'] == true;
+    final state = fromEnv
+        ? context.l10n.adminYouTubeCookiesFromEnv
+        : uploaded != null
+        ? context.l10n.adminYouTubeCookiesActive(MaterialLocalizations.of(context).formatMediumDate(uploaded))
+        : context.l10n.adminYouTubeCookiesNone;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(context.l10n.adminYouTubeCookies, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(context.l10n.adminYouTubeCookiesHint, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 8),
+          if (status != null)
+            Row(
+              children: [
+                Icon(
+                  configured ? Icons.check_circle : Icons.info_outline,
+                  size: 18,
+                  color: configured ? Theme.of(context).colorScheme.primary : null,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(state)),
+              ],
+            ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _busy || fromEnv ? null : _upload,
+                icon: _busy
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.upload_file),
+                label: Text(context.l10n.adminYouTubeCookiesUpload),
+              ),
+              if (uploaded != null && !fromEnv)
+                TextButton(
+                  onPressed: _busy ? null : () => _run(() => ref.read(apiProvider).deleteYoutubeCookies()),
+                  child: Text(context.l10n.adminYouTubeCookiesRemove),
+                ),
+            ],
+          ),
         ],
       ),
     );

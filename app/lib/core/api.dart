@@ -148,8 +148,7 @@ class ApiClient {
   Future<List<PodcastEpisode>> podcastLatest() async => [
     for (final item in await _get('/api/podcasts/latest')) PodcastEpisode.fromJson(item),
   ];
-  Future<PodcastDiscover> podcastDiscover() async =>
-      PodcastDiscover.fromJson(await _get('/api/podcasts/discover'));
+  Future<PodcastDiscover> podcastDiscover() async => PodcastDiscover.fromJson(await _get('/api/podcasts/discover'));
   Future<List<PodcastSearchResult>> podcastGenre(int id) async => [
     for (final item in await _get('/api/podcasts/genres/$id')) PodcastSearchResult.fromJson(item),
   ];
@@ -465,6 +464,19 @@ class ApiClient {
       Map<String, dynamic>.from(await _get('/api/admin/torrents/status'));
 
   Future<void> runQualityUpgrades() => _post('/api/admin/upgrades/run');
+
+  Future<Map<String, dynamic>> youtubeCookies() async =>
+      Map<String, dynamic>.from(await _get('/api/admin/youtube-cookies'));
+
+  Future<Map<String, dynamic>> uploadYoutubeCookies(List<int> bytes) async => Map<String, dynamic>.from(
+    await _put(
+      '/api/admin/youtube-cookies',
+      FormData.fromMap({'file': MultipartFile.fromBytes(bytes, filename: 'cookies.txt')}),
+    ),
+  );
+
+  Future<Map<String, dynamic>> deleteYoutubeCookies() async =>
+      Map<String, dynamic>.from(await _delete('/api/admin/youtube-cookies'));
 
   // --- Ebooks (/api/books) ------------------------------------------------
 

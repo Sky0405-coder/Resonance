@@ -1256,6 +1256,33 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminYouTubeSourceHint => 'Lädt Songs über yt-dlp von YouTube Music (Opus, ca. 130–160 kbit/s)';
 
   @override
+  String get adminYouTubeCookies => 'YouTube-Anmeldung';
+
+  @override
+  String get adminYouTubeCookiesHint =>
+      'Explizite und andere altersbeschränkte Songs brauchen ein angemeldetes YouTube-Konto. Lade die cookies.txt eines Zweitkontos hoch (im privaten Browserfenster mit einer Erweiterung wie „Get cookies.txt LOCALLY“ exportieren, danach das Fenster schließen).';
+
+  @override
+  String adminYouTubeCookiesActive(String date) {
+    return 'Angemeldet seit $date';
+  }
+
+  @override
+  String get adminYouTubeCookiesFromEnv => 'Auf dem Server gesetzt (RESONANCE_YTDLP_COOKIES_FILE)';
+
+  @override
+  String get adminYouTubeCookiesNone => 'Nicht angemeldet: altersbeschränkte Videos werden übersprungen';
+
+  @override
+  String get adminYouTubeCookiesUpload => 'cookies.txt hochladen';
+
+  @override
+  String get adminYouTubeCookiesRemove => 'Entfernen';
+
+  @override
+  String get adminYouTubeCookiesSaved => 'YouTube-Anmeldung gespeichert';
+
+  @override
   String get adminSoundCloudSource => 'SoundCloud als Quelle';
 
   @override

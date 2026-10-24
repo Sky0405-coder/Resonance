@@ -36,6 +36,7 @@ from app.api import (
     torrents,
     users,
     worldradio,
+    youtube_cookies,
 )
 from app.config import get_settings
 from app.deps import DB, CurrentUser
@@ -124,6 +125,7 @@ app.add_middleware(
 
 for module in (
     app_updates,
+    youtube_cookies,
     auth,
     me,
     library,
