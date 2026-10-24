@@ -26,7 +26,7 @@ test('shuffle order preserves current item and contains every track once', () =>
   assert.deepEqual(playbackOrder(3, 1, false), [0, 1, 2]);
 });
 test('uses second audio for preload handoff; manual next skips repeat-one', () => {
-  const { player, a, b } = setup(); player.setQueue(tracks, 0, 'album:test', false);
+  const { player, a, b } = setup(); player.preloadNext = true; player.setQueue(tracks, 0, 'album:test', false);
   assert.equal(a.src, '/stream/a'); assert.equal(b.src, ''); assert.equal(player.preloaded, -1);
   a.currentTime = 76; a.fire('timeupdate');
   assert.equal(b.src, '/stream/b'); assert.equal(player.preloaded, 1);
@@ -111,7 +111,7 @@ test('shuffle and repeat never pause, reload or seek the current audio, includin
   player.stop();
 });
 test('preloading starts below 25 seconds remaining and is not restarted on every update', () => {
-  const { player, a, b } = setup(); player.setQueue(tracks, 0);
+  const { player, a, b } = setup(); player.preloadNext = true; player.setQueue(tracks, 0);
   a.currentTime = 75; a.fire('timeupdate'); assert.equal(player.preloaded, -1);
   a.currentTime = 76; a.fire('timeupdate'); assert.equal(player.preloaded, 1);
   const loads = b.loads; a.currentTime = 77; a.fire('timeupdate'); assert.equal(b.loads, loads);
@@ -156,4 +156,11 @@ test('the drop counter resets once playback runs again for a while', () => {
     a.currentTime += 40; a.fire('timeupdate');
   }
   assert.deepEqual(errors, []); player.stop();
+});
+
+test('the TV never loads a second song while one plays', () => {
+  const { player, a, b } = setup(); player.setQueue(tracks, 0, 'album:test', false);
+  a.currentTime = 90; a.fire('timeupdate');
+  assert.equal(b.src, ''); assert.equal(player.preloaded, -1);
+  a.fire('ended'); assert.equal(player.track.id, 'b'); assert.equal(player.audio.src, '/stream/b'); player.stop();
 });

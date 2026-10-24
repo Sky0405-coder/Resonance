@@ -246,15 +246,20 @@ void main() {
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 1);
   });
 
-  testWidgets('pausing playback immediately starts leaving ambient mode', (tester) async {
+  testWidgets('a song change does not wake ambient mode, only input does', (tester) async {
     final (container, _, _, _) = await mount(tester);
     await tester.pump(const Duration(seconds: 10));
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 1);
-    (container.read(playerProvider.notifier) as _Player).update(const PlayerView(station: _station, playing: false));
+    final player = container.read(playerProvider.notifier) as _Player;
+    player.update(const PlayerView(station: _station, playing: false));
+    await tester.pump();
+    player.update(const PlayerView(station: _station, playing: true));
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 1);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyB);
     await tester.pump();
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 0);
-    await tester.pump(const Duration(milliseconds: 250));
-    expect(find.byKey(const ValueKey('tv-ambient-artwork')), findsNothing);
   });
 
   testWidgets('pointer input wakes the ambient overlay without activating content behind it', (tester) async {

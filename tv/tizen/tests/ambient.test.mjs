@@ -114,3 +114,16 @@ test('only dims on the player and can be shown right away', () => {
   onPlayer = true; env.ambientView.refresh(); env.ambientView.showNow();
   assert.ok(env.root.children[0].classList.contains('visible'));
 });
+
+test('a song change does not wake it, only the remote does', () => {
+  const env = setup();
+  env.advance(30000);
+  assert.ok(env.ambientView.node.classList.contains('visible'));
+  env.player.playing = false; env.player.emit('state');
+  env.player.track = { title: 'Next song', artist_credit: 'Next artist', album: null }; env.player.emit('track');
+  env.player.playing = true; env.player.emit('state');
+  assert.ok(env.ambientView.node.classList.contains('visible'));
+  assert.equal(env.root.children[0].children[0].children[1].children[0].textContent, 'Next song');
+  env.keydown();
+  assert.ok(!env.ambientView.node.classList.contains('visible'));
+});

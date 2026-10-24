@@ -75,12 +75,10 @@ class _TvAmbientState extends ConsumerState<TvAmbient> {
   void _syncEligibility() {
     final player = ref.read(playerProvider);
     final loaded = player.current != null || player.book != null || player.station != null;
-    final eligible =
-        ref.read(tvModeProvider) &&
-        ref.read(tvAmbientModeProvider) &&
-        TvAmbient._players.value > 0 &&
-        player.playing &&
-        loaded;
+    final allowed = ref.read(tvModeProvider) && ref.read(tvAmbientModeProvider) && TvAmbient._players.value > 0;
+    // Once dimmed it stays until the remote is used: a song change briefly is not "playing" and must not wake it.
+    if (_visible && allowed && loaded) return;
+    final eligible = allowed && player.playing && loaded;
     if (_eligible == eligible) return;
     _eligible = eligible;
     _idleTimer?.cancel();
@@ -107,9 +105,15 @@ class _TvAmbientState extends ConsumerState<TvAmbient> {
   }
 
   void _onInput() {
+    if (_visible) {
+      _setVisible(false);
+      // It may have stayed dimmed through a pause: decide afresh whether to dim again later.
+      _eligible = false;
+      _syncEligibility();
+      return;
+    }
     if (!_eligible) return;
     _scheduleIdle();
-    if (_visible) _setVisible(false);
   }
 
   void _setVisible(bool visible) {

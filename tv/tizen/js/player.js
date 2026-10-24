@@ -48,6 +48,7 @@ export class Player {
     this.autoplayTried = new Set();
     this.autoplayRequest = null;
     this.diagnostics = [];
+    this.preloadNext = false;
     [audioA, audioB].forEach(audio => {
       // Diagnostics: the TV gives no logs, so the player's own view of a stop is sent to the server.
       ['error', 'stalled', 'suspend', 'waiting', 'ended', 'pause', 'playing', 'abort', 'emptied'].forEach(name =>
@@ -195,7 +196,9 @@ export class Player {
   }
   preload() {
     const remaining = this.duration - this.audio.currentTime;
-    const index = !this.station && this.track && this.duration > 0 && remaining < 25 ? this.nextIndex(false) : -1;
+    // Off on the TV: it has one audio decoder, loading the second element paused the playing song 25 s before its
+    // end (diagnostics, 2026-10-24). The server prepares the next songs instead, so they still start quickly.
+    const index = this.preloadNext && !this.station && this.track && this.duration > 0 && remaining < 25 ? this.nextIndex(false) : -1;
     if (index === this.preloaded) return;
     this.release(this.spare);
     this.preloaded = index;

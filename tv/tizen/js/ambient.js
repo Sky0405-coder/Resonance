@@ -53,6 +53,9 @@ export function createAmbient({ player, preferences, root, api, timeoutMs = 1000
   }
   function refresh(kind) {
     if (kind === 'track' || kind === 'metadata' || kind === undefined) updateContent();
+    // Once dimmed it stays until the remote is used (or it is switched off / the player is left): a song change
+    // briefly is not "playing" and must not wake it.
+    if (visible && preferences.value.ambient && active()) { updateContent(); return; }
     if (!eligible()) { wasEligible = false; clearTimeoutId(); hide(); return; }
     if (!wasEligible) { wasEligible = true; lastActivity = now(); }
     if (visible) updateContent();
