@@ -434,6 +434,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadsEmptyCompleted => 'Nothing downloaded yet.';
 
   @override
+  String get downloadsFailed => 'Failed';
+
+  @override
+  String get downloadsEmptyFailed => 'No failed downloads.';
+
+  @override
   String get commonSong => 'Song';
 
   @override

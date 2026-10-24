@@ -214,6 +214,8 @@
   "downloadsCompleted": "Abgeschlossen",
   "downloadsEmptyActive": "Keine laufenden Downloads.\nSuche nach Musik und tippe auf ⤓.",
   "downloadsEmptyCompleted": "Noch nichts heruntergeladen.",
+  "downloadsFailed": "Fehlgeschlagen",
+  "downloadsEmptyFailed": "Keine fehlgeschlagenen Downloads.",
   "commonSong": "Song",
   "downloadsRequestedBySuffix": "von {name}",
   "@downloadsRequestedBySuffix": {

@@ -860,6 +860,18 @@ abstract class AppLocalizations {
   /// **'Noch nichts heruntergeladen.'**
   String get downloadsEmptyCompleted;
 
+  /// No description provided for @downloadsFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehlgeschlagen'**
+  String get downloadsFailed;
+
+  /// No description provided for @downloadsEmptyFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine fehlgeschlagenen Downloads.'**
+  String get downloadsEmptyFailed;
+
   /// No description provided for @commonSong.
   ///
   /// In de, this message translates to:

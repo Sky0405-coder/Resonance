@@ -461,6 +461,24 @@ async def test_age_restricted_pinned_link_falls_back_to_search(
         assert (await db.get(DownloadItem, item_id)).source_ref == "fake-video-2"
 
 
+async def test_failed_state_lists_requests_with_failed_songs(
+    client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.services.downloads.MAX_ATTEMPTS", 1)
+    failed = await post_request(client, env.user, "track", env.track)
+    env.fake.fail_once = True
+    assert await manager.process_one()
+    url = "/api/requests?state=failed"
+    assert [r["id"] for r in (await client.get(url, headers=env.user)).json()["items"]] == [failed["id"]]
+    assert [r["id"] for r in (await client.get(url + "&scope=all", headers=env.admin)).json()["items"]] == [
+        failed["id"]
+    ]
+    assert (await client.get(url, headers=env.admin)).json()["total"] == 0
+    await client.post(f"/api/requests/{failed['id']}/retry", headers=env.user)
+    assert await manager.process_one()
+    assert (await client.get(url, headers=env.user)).json()["total"] == 0
+
+
 async def test_cancel_and_retry(
     client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:

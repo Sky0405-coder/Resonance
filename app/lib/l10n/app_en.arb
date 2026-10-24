@@ -135,6 +135,8 @@
   "downloadsCompleted": "Completed",
   "downloadsEmptyActive": "No active downloads.\nSearch for music and tap ⤓.",
   "downloadsEmptyCompleted": "Nothing downloaded yet.",
+  "downloadsFailed": "Failed",
+  "downloadsEmptyFailed": "No failed downloads.",
   "commonSong": "Song",
   "downloadsRequestedBySuffix": "by {name}",
   "downloadsReject": "Reject",

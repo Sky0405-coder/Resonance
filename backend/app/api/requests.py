@@ -98,7 +98,7 @@ async def list_requests(
     db: DB,
     http_request: Request,
     scope: Literal["mine", "all"] = "mine",
-    state: Literal["open", "finished", "all"] = "all",
+    state: Literal["open", "finished", "failed", "all"] = "all",
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
 ) -> Page[DownloadRequestOut]:
@@ -107,7 +107,13 @@ async def list_requests(
     conditions = []
     if scope == "mine":
         conditions.append(DownloadRequest.user_id == user.id)
-    if state != "all":
+    if state == "failed":
+        # Requests with a song that needs attention (a new link, a retry), rejected ones are settled.
+        failed_item = select(DownloadItem.id).where(
+            DownloadItem.request_id == DownloadRequest.id, DownloadItem.status == "failed"
+        )
+        conditions += [failed_item.exists(), DownloadRequest.status != "rejected"]
+    elif state != "all":
         open_state = DownloadRequest.status.in_(["pending_approval", "active"])
         conditions.append(open_state if state == "open" else ~open_state)
     total = await db.scalar(select(func.count()).select_from(DownloadRequest).where(*conditions)) or 0

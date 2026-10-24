@@ -279,7 +279,8 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
     final scope = isAdmin ? _scope : 'mine';
     return DefaultTabController(
-      length: 2,
+      // The failed tab is for admins, who fix songs with a new link or a retry.
+      length: isAdmin ? 3 : 2,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -305,6 +306,7 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
             tabs: [
               Tab(text: context.l10n.downloadsOpen),
               Tab(text: context.l10n.downloadsCompleted),
+              if (isAdmin) Tab(text: context.l10n.downloadsFailed),
             ],
           ),
         ),
@@ -312,6 +314,7 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
           children: [
             _RequestList(scope: scope, state: 'open', empty: context.l10n.downloadsEmptyActive),
             _RequestList(scope: scope, state: 'finished', empty: context.l10n.downloadsEmptyCompleted),
+            if (isAdmin) _RequestList(scope: scope, state: 'failed', empty: context.l10n.downloadsEmptyFailed),
           ],
         ),
       ),

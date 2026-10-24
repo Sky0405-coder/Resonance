@@ -34,7 +34,7 @@ final catalogArtistProvider = FutureProvider.autoDispose.family<CatalogArtistDet
   (ref, id) => ref.watch(apiProvider).catalogArtist(id),
 );
 
-/// Request lists, keyed by (scope, state) – scope `mine` or `all` (admins), state `open`/`finished`/`all`.
+/// Request lists, keyed by (scope, state) – scope `mine` or `all` (admins), state `open`/`finished`/`failed`/`all`.
 final requestsProvider = FutureProvider.autoDispose.family<List<DownloadRequest>, (String, String)>((ref, key) async {
   final list = await ref.watch(apiProvider).requests(scope: key.$1, state: key.$2);
   _pollWhile(ref, list.any((r) => r.status == 'active'), const Duration(seconds: 2));
