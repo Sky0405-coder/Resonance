@@ -452,6 +452,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String downloadsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count requests', one: '1 request');
+    return '$_temp0';
+  }
+
+  @override
+  String downloadsLoadMore(int shown, int total) {
+    return 'Load more ($shown of $total)';
+  }
+
+  @override
   String get commonSong => 'Song';
 
   @override
@@ -1311,6 +1322,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adminYouTubeCookiesNone => 'Not signed in: age-restricted videos are skipped';
+
+  @override
+  String get adminYouTubeCookiesExpired =>
+      'Sign-in expired: YouTube rotated the cookies. Export them again and upload them.';
 
   @override
   String get adminYouTubeCookiesUpload => 'Upload cookies.txt';

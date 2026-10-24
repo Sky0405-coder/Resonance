@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.deps import AdminUser
-from app.services.sources.youtube import uploaded_path
+from app.services.sources.youtube import cookies_expired_marker, uploaded_path
 
 router = APIRouter(tags=["admin"])
 
@@ -21,13 +21,21 @@ class YouTubeCookies(BaseModel):
     # Set from the environment (RESONANCE_YTDLP_COOKIES_FILE): the upload is not used then.
     from_env: bool
     uploaded_at: datetime | None
+    # YouTube rotated the cookies (they were used in the browser again): a new export is needed.
+    expired: bool
 
 
 def _status() -> YouTubeCookies:
     path = uploaded_path()
     uploaded = datetime.fromtimestamp(path.stat().st_mtime, UTC) if path.is_file() else None
     from_env = bool(get_settings().ytdlp_cookies_file)
-    return YouTubeCookies(configured=from_env or uploaded is not None, from_env=from_env, uploaded_at=uploaded)
+    configured = from_env or uploaded is not None
+    return YouTubeCookies(
+        configured=configured,
+        from_env=from_env,
+        uploaded_at=uploaded,
+        expired=configured and cookies_expired_marker().is_file(),
+    )
 
 
 def _valid(text: str) -> bool:
@@ -65,6 +73,7 @@ async def upload_youtube_cookies(admin: AdminUser, file: UploadFile) -> YouTubeC
     temp.write_text(text, encoding="utf-8")
     temp.chmod(0o600)
     os.replace(temp, path)
+    cookies_expired_marker().unlink(missing_ok=True)
     return _status()
 
 

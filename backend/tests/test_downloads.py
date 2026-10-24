@@ -441,6 +441,18 @@ async def test_age_restricted_video_tries_another_version(client: httpx.AsyncCli
         assert stored.status == "done" and stored.source_ref == "fake-video-2"
 
 
+async def test_drm_protected_song_tries_another_version(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
+    request = await post_request(client, env.user, "track", env.track)
+    env.fake.fail_once = True
+    env.fake.error = "ERROR: [soundcloud] 259071491: This video is DRM protected"
+    assert await manager.process_one()
+    item = (await client.get(f"/api/requests/{request['id']}", headers=env.user)).json()["items"][0]
+    assert item["status"] == "queued" and item["error"] == "Song DRM-geschützt – versuche eine andere Version"
+    assert await manager.process_one()
+    item = (await client.get(f"/api/requests/{request['id']}", headers=env.user)).json()["items"][0]
+    assert item["status"] == "done" and item["error"] is None
+
+
 async def test_age_restricted_pinned_link_falls_back_to_search(
     client: httpx.AsyncClient, env: SimpleNamespace
 ) -> None:
@@ -516,6 +528,8 @@ async def test_cancel_and_retry(
         assert item.attempts == 1
     retried = (await client.post(f"/api/requests/{request['id']}/retry", headers=env.user)).json()
     assert retried["status"] == "active" and retried["items"][0]["error"] is None and retried["progress"] == 0
+    async with SessionLocal() as db:
+        assert (await db.get(DownloadItem, item.id)).attempts == 0
     assert await manager.process_one()
     assert (await client.get(f"/api/requests/{request['id']}", headers=env.user)).json()["status"] == "done"
 

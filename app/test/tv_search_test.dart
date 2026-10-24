@@ -44,7 +44,11 @@ class _Api extends ApiClient {
       catalogAvailable ? const CatalogSearch([], [albumResult], []) : const CatalogSearch([], [], []);
 
   @override
-  Future<List<DownloadRequest>> requests({String scope = 'mine', String state = 'all', int limit = 100}) async => [];
+  Future<({List<DownloadRequest> items, int total})> requests({
+    String scope = 'mine',
+    String state = 'all',
+    int limit = 100,
+  }) async => (items: <DownloadRequest>[], total: 0);
 
   @override
   Future<DownloadRequest> createRequest(String kind, String catalogId) async {

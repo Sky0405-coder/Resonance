@@ -469,6 +469,16 @@ async def test_startup_recovery(client: httpx.AsyncClient, env: SimpleNamespace,
     assert not env.gateway.requests
 
 
+async def test_torrent_without_link_tries_the_next_one(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
+    broken = result(title="Test Artist Test Album FLAC", seeders=50, magnetUrl=None, downloadUrl=None, guid="x")
+    env.gateway.results = [broken, result(title="Test Artist Test Album 320")]
+    request = await request_album(client, env)
+    assert await env.manager.process_one()
+    started = await detail(client, env, request)
+    assert started["torrent_status"] == "downloading"
+    assert started["torrent_name"] == "Test Artist Test Album 320"
+
+
 async def test_track_never_uses_torrents(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
     request = await request_album(client, env, "track")
     assert await env.manager.process_one()

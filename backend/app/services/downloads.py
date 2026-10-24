@@ -38,7 +38,7 @@ from app.services.tagger import fetch_cover, write_tags
 from app.services.tags import TrackTags, embedded_cover, read_tags
 from app.services.torrents import TorrentError, obtain_source, prowlarr
 from app.services.torrents.qbittorrent import QBittorrent
-from app.services.torrents.select import choose, search_query
+from app.services.torrents.select import ranked, search_query
 
 log = logging.getLogger(__name__)
 
@@ -48,8 +48,15 @@ MAX_ATTEMPTS = 3
 BOT_CHECK = "confirm you’re not a bot"
 BOT_PAUSE_SECONDS = 1800
 BOT_PAUSED = "YouTube blockiert gerade – neuer Versuch in 30 Minuten"
-# Age-restricted videos need a signed-in, age-verified account; skip the video and try the next version or source.
-AGE_CHECKS = ("confirm your age", "verify your age")
+# Versions that can never download: age-restricted videos (without a signed-in, age-verified account) and
+# DRM-protected SoundCloud songs. They are skipped and the next version or source is tried.
+SKIP_ERRORS = {
+    "confirm your age": "Video altersbeschränkt – versuche eine andere Version",
+    "verify your age": "Video altersbeschränkt – versuche eine andere Version",
+    "drm protected": "Song DRM-geschützt – versuche eine andere Version",
+}
+# Matching torrents tried per album when a result has no working download link.
+TORRENT_TRIES = 3
 
 
 def request_status(item_statuses: Iterable[str], current: str) -> str:
@@ -208,17 +215,27 @@ class DownloadManager:
                 metas = [TrackMeta.model_validate(item.meta) for item in request.items]
             meta = metas[0]
             results = await prowlarr.search(cfg, search_query(meta.album_artist, meta.album))
-            chosen = choose(
+            candidates = ranked(
                 results,
                 meta.album_artist,
                 meta.album,
                 sum(m.duration or 0 for m in metas),
                 cfg.downloads.torrent_min_seeders,
             )
-            if chosen is None:
+            if not candidates:
                 await self._torrent_fallback(request_id, "Kein passender Torrent gefunden")
                 return
-            source = await obtain_source(chosen)
+            # Some indexers list results without a working download link: the next best torrent is still fine.
+            error: TorrentError | None = None
+            for chosen in candidates[:TORRENT_TRIES]:
+                try:
+                    source = await obtain_source(chosen)
+                    break
+                except TorrentError as e:
+                    log.warning("Torrent %r unusable: %s", chosen.get("title"), e)
+                    error = e
+            else:
+                raise error or TorrentError("Torrent-Downloadadresse fehlt")
             async with SessionLocal() as db:
                 request = await db.scalar(
                     select(DownloadRequest).where(DownloadRequest.id == request_id).with_for_update()
@@ -638,7 +655,9 @@ class DownloadManager:
                 )
                 return
             source, candidate = chosen
-            await self._change(item.id, status="downloading", source=candidate.source, source_ref=candidate.ref)
+            await self._change(
+                item.id, status="downloading", source=candidate.source, source_ref=candidate.ref, error=None
+            )
             if work.exists():
                 await asyncio.to_thread(shutil.rmtree, work)
             work.mkdir(parents=True)
@@ -705,9 +724,10 @@ class DownloadManager:
                 return
             async with SessionLocal() as db:
                 current = await db.get(DownloadItem, item.id)
-            if any(check in str(e).lower() for check in AGE_CHECKS) and current is not None and current.source_ref:
+            skip = next((message for check, message in SKIP_ERRORS.items() if check in str(e).lower()), None)
+            if skip is not None and current is not None and current.source_ref:
                 # Also a link the user picked: it can never download, so the search takes over.
-                log.warning("Age-restricted video %s for %s, trying another version", current.source_ref, item.id)
+                log.warning("Unusable version %s for %s (%s), trying another one", current.source_ref, item.id, skip)
                 await self._change(
                     item.id,
                     status="queued",
@@ -715,7 +735,7 @@ class DownloadManager:
                     source=None,
                     source_ref=None,
                     source_pinned=False,
-                    error="Video altersbeschränkt – versuche eine andere Version",
+                    error=skip,
                 )
                 return
             log.exception("Download failed for %s", item.id)

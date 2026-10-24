@@ -386,9 +386,23 @@ class ApiClient {
   Future<DownloadRequest> redownload(String trackId, {String? youtubeUrl}) async =>
       DownloadRequest.fromJson(await _post('/api/tracks/$trackId/redownload', {'youtube_url': youtubeUrl}));
 
-  Future<List<DownloadRequest>> requests({String scope = 'mine', String state = 'all', int limit = 100}) async {
-    final j = await _get('/api/requests', {'scope': scope, 'state': state, 'limit': limit});
-    return [for (final r in j['items']) DownloadRequest.fromJson(r)];
+  /// The newest [limit] requests (fetched in pages of up to 200) and how many there are in total.
+  Future<({List<DownloadRequest> items, int total})> requests({
+    String scope = 'mine',
+    String state = 'all',
+    int limit = 100,
+  }) async {
+    final items = <DownloadRequest>[];
+    var total = 0;
+    do {
+      final page = (limit - items.length).clamp(1, 200);
+      final j = await _get('/api/requests', {'scope': scope, 'state': state, 'limit': page, 'offset': items.length});
+      total = j['total'] as int;
+      final batch = [for (final r in j['items']) DownloadRequest.fromJson(r)];
+      items.addAll(batch);
+      if (batch.length < page) break;
+    } while (items.length < limit && items.length < total);
+    return (items: items, total: total);
   }
 
   Future<DownloadRequest> request(String id) async => DownloadRequest.fromJson(await _get('/api/requests/$id'));

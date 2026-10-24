@@ -1312,8 +1312,11 @@ class _YouTubeCookiesTileState extends ConsumerState<_YouTubeCookiesTile> {
     final status = _status;
     final uploaded = DateTime.tryParse(status?['uploaded_at'] ?? '')?.toLocal();
     final fromEnv = status?['from_env'] == true;
-    final configured = status?['configured'] == true;
-    final state = fromEnv
+    final expired = status?['expired'] == true;
+    final configured = status?['configured'] == true && !expired;
+    final state = expired
+        ? context.l10n.adminYouTubeCookiesExpired
+        : fromEnv
         ? context.l10n.adminYouTubeCookiesFromEnv
         : uploaded != null
         ? context.l10n.adminYouTubeCookiesActive(MaterialLocalizations.of(context).formatMediumDate(uploaded))
@@ -1331,9 +1334,17 @@ class _YouTubeCookiesTileState extends ConsumerState<_YouTubeCookiesTile> {
             Row(
               children: [
                 Icon(
-                  configured ? Icons.check_circle : Icons.info_outline,
+                  expired
+                      ? Icons.error_outline
+                      : configured
+                      ? Icons.check_circle
+                      : Icons.info_outline,
                   size: 18,
-                  color: configured ? Theme.of(context).colorScheme.primary : null,
+                  color: expired
+                      ? Theme.of(context).colorScheme.error
+                      : configured
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
                 ),
                 const SizedBox(width: 8),
                 Expanded(child: Text(state)),

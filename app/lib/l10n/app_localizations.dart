@@ -890,6 +890,18 @@ abstract class AppLocalizations {
   /// **'{songs} Songs aus {requests} Anfragen werden erneut versucht'**
   String downloadsRetryAllDone(int songs, int requests);
 
+  /// No description provided for @downloadsCount.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Anfrage} other{{count} Anfragen}}'**
+  String downloadsCount(int count);
+
+  /// No description provided for @downloadsLoadMore.
+  ///
+  /// In de, this message translates to:
+  /// **'Mehr laden ({shown} von {total})'**
+  String downloadsLoadMore(int shown, int total);
+
   /// No description provided for @commonSong.
   ///
   /// In de, this message translates to:
@@ -2365,6 +2377,12 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Nicht angemeldet: altersbeschränkte Videos werden übersprungen'**
   String get adminYouTubeCookiesNone;
+
+  /// No description provided for @adminYouTubeCookiesExpired.
+  ///
+  /// In de, this message translates to:
+  /// **'Anmeldung abgelaufen: YouTube hat die Cookies erneuert. Exportiere sie neu und lade sie hoch.'**
+  String get adminYouTubeCookiesExpired;
 
   /// No description provided for @adminYouTubeCookiesUpload.
   ///

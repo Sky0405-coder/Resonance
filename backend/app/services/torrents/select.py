@@ -22,6 +22,12 @@ def search_query(artist: str, album: str) -> str:
 
 
 def choose(results: list[dict], artist: str, album: str, total_duration: float, min_seeders: int) -> dict | None:
+    candidates = ranked(results, artist, album, total_duration, min_seeders)
+    return candidates[0] if candidates else None
+
+
+def ranked(results: list[dict], artist: str, album: str, total_duration: float, min_seeders: int) -> list[dict]:
+    """Matching torrents, best first (format, then seeders, then the smaller one)."""
     candidates = []
     album = clean_album(album)
     for result in results:
@@ -47,4 +53,4 @@ def choose(results: list[dict], artist: str, album: str, total_duration: float, 
         candidates.append(
             ((rank, min(seeders, 50), -size), result if title == result.get("title") else {**result, "title": title})
         )
-    return max(candidates, key=lambda c: c[0])[1] if candidates else None
+    return [result for _, result in sorted(candidates, key=lambda c: c[0], reverse=True)]

@@ -322,47 +322,74 @@ class _DownloadsPageState extends ConsumerState<DownloadsPage> {
   }
 }
 
-class _RequestList extends ConsumerWidget {
+class _RequestList extends ConsumerStatefulWidget {
   const _RequestList({required this.scope, required this.state, required this.empty});
   final String scope;
   final String state;
   final String empty;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final value = ref.watch(requestsProvider((scope, state)));
+  ConsumerState<_RequestList> createState() => _RequestListState();
+}
+
+class _RequestListState extends ConsumerState<_RequestList> {
+  static const _pageSize = 100;
+  int _count = _pageSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = widget.scope;
+    final key = (scope, widget.state, _count);
+    final failedTab = widget.state == 'failed';
     return AsyncBody(
-      value: value,
-      onRetry: () => ref.invalidate(requestsProvider((scope, state))),
-      builder: (list) => list.isEmpty
-          ? Center(
-              child: Text(
-                empty,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Palette.textMuted),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
-              itemCount: list.length + (state == 'failed' ? 1 : 0),
-              itemBuilder: (_, i) {
-                if (state != 'failed') return _RequestTile(request: list[i], showUser: scope == 'all');
-                if (i == 0) {
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                      child: FilledButton.icon(
-                        onPressed: () => _retryAll(context, ref),
-                        icon: const Icon(Icons.refresh),
-                        label: Text(context.l10n.downloadsRetryAll),
-                      ),
-                    ),
-                  );
-                }
-                return _RequestTile(request: list[i - 1], showUser: scope == 'all');
-              },
+      value: ref.watch(requestsProvider(key)),
+      onRetry: () => ref.invalidate(requestsProvider(key)),
+      builder: (page) {
+        final list = page.items;
+        if (list.isEmpty) {
+          return Center(
+            child: Text(
+              widget.empty,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Palette.textMuted),
             ),
+          );
+        }
+        final more = list.length < page.total;
+        final header = failedTab ? 1 : 0;
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
+          itemCount: header + list.length + (more ? 1 : 0),
+          itemBuilder: (context, i) {
+            if (i < header) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _retryAll(context, ref),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(context.l10n.downloadsRetryAll),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(context.l10n.downloadsCount(page.total), style: const TextStyle(color: Palette.textMuted)),
+                  ],
+                ),
+              );
+            }
+            if (i - header < list.length) return _RequestTile(request: list[i - header], showUser: scope == 'all');
+            return Padding(
+              padding: const EdgeInsets.all(8),
+              child: Center(
+                child: OutlinedButton(
+                  onPressed: () => setState(() => _count += _pageSize),
+                  child: Text(context.l10n.downloadsLoadMore(list.length, page.total)),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -380,7 +407,7 @@ class _RequestList extends ConsumerWidget {
     );
     if (ok != true || !context.mounted) return;
     try {
-      final result = await ref.read(downloadActionsProvider).retryAllFailed(scope);
+      final result = await ref.read(downloadActionsProvider).retryAllFailed(widget.scope);
       if (context.mounted) showInfo(context, context.l10n.downloadsRetryAllDone(result.songs, result.requests));
     } catch (e) {
       if (context.mounted) showError(context, e);

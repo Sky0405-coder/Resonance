@@ -4,7 +4,11 @@ import pytest
 
 from app.config import get_settings
 from app.db import Base, engine
-from app.services.sources.youtube import cookies_file
+from app.services.sources.youtube import (
+    _CookieWatch,
+    cookies_expired_marker,
+    cookies_file,
+)
 from tests.conftest import auth, register
 
 COOKIES = (
@@ -40,7 +44,7 @@ async def upload(env, text: str, headers=None):
 
 async def test_upload_status_and_delete(env) -> None:
     status = (await env.client.get("/api/admin/youtube-cookies", headers=env.admin)).json()
-    assert status == {"configured": False, "from_env": False, "uploaded_at": None}
+    assert status == {"configured": False, "from_env": False, "uploaded_at": None, "expired": False}
     assert cookies_file() is None
     response = await upload(env, COOKIES)
     assert response.status_code == 200 and response.json()["configured"] and response.json()["uploaded_at"]
@@ -64,3 +68,18 @@ async def test_environment_file_wins(env, tmp_path, monkeypatch) -> None:
     await upload(env, COOKIES)
     assert cookies_file() == configured
     assert (await env.client.get("/api/admin/youtube-cookies", headers=env.admin)).json()["from_env"] is True
+
+
+async def test_expired_cookies_are_reported_until_a_new_upload(env) -> None:
+    await upload(env, COOKIES)
+    cookies_expired_marker().touch()
+    assert (await env.client.get("/api/admin/youtube-cookies", headers=env.admin)).json()["expired"] is True
+    assert (await upload(env, COOKIES)).json()["expired"] is False
+
+
+def test_cookie_watch_notices_rotated_cookies() -> None:
+    watch = _CookieWatch()
+    watch.warning("[youtube] Some other warning")
+    assert not watch.expired
+    watch.warning("[youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated")
+    assert watch.expired

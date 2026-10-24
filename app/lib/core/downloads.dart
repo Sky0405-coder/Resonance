@@ -34,12 +34,14 @@ final catalogArtistProvider = FutureProvider.autoDispose.family<CatalogArtistDet
   (ref, id) => ref.watch(apiProvider).catalogArtist(id),
 );
 
-/// Request lists, keyed by (scope, state) – scope `mine` or `all` (admins), state `open`/`finished`/`failed`/`all`.
-final requestsProvider = FutureProvider.autoDispose.family<List<DownloadRequest>, (String, String)>((ref, key) async {
-  final list = await ref.watch(apiProvider).requests(scope: key.$1, state: key.$2);
-  _pollWhile(ref, list.any((r) => r.status == 'active'), const Duration(seconds: 2));
-  return list;
-});
+/// Request lists, keyed by (scope, state, count) – scope `mine` or `all` (admins), state
+/// `open`/`finished`/`failed`/`all`, count how many of the newest to load.
+final requestsProvider = FutureProvider.autoDispose
+    .family<({List<DownloadRequest> items, int total}), (String, String, int)>((ref, key) async {
+      final page = await ref.watch(apiProvider).requests(scope: key.$1, state: key.$2, limit: key.$3);
+      _pollWhile(ref, page.items.any((r) => r.status == 'active'), const Duration(seconds: 2));
+      return page;
+    });
 
 final requestDetailProvider = FutureProvider.autoDispose.family<DownloadRequest, String>((ref, id) async {
   final r = await ref.watch(apiProvider).request(id);
@@ -57,7 +59,7 @@ final downloadSummaryProvider = FutureProvider.autoDispose<DownloadSummary>((ref
 
 /// Catalog IDs the current user has open requests for, so request buttons can show "requested".
 final openRequestIdsProvider = Provider.autoDispose<Set<String>>((ref) {
-  final list = ref.watch(requestsProvider(('mine', 'open'))).value ?? const [];
+  final list = ref.watch(requestsProvider(('mine', 'open', 100))).value?.items ?? const [];
   return {for (final r in list) ?r.catalogId};
 });
 

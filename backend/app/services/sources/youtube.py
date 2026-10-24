@@ -117,6 +117,31 @@ def uploaded_path() -> Path:
     return get_settings().data_dir / "youtube-cookies.txt"
 
 
+def cookies_expired_marker() -> Path:
+    """Exists while yt-dlp reports the cookies as rotated/invalid (shown in the admin settings)."""
+    return get_settings().data_dir / "youtube-cookies.expired"
+
+
+class _CookieWatch:
+    """yt-dlp logger: stays quiet like before, but notices when YouTube no longer accepts the cookies."""
+
+    def __init__(self) -> None:
+        self.expired = False
+
+    def debug(self, message: str) -> None:
+        pass
+
+    def info(self, message: str) -> None:
+        pass
+
+    def warning(self, message: str) -> None:
+        if "cookies are no longer valid" in message:
+            self.expired = True
+
+    def error(self, message: str) -> None:
+        pass
+
+
 def cookies_file() -> Path | None:
     """The cookies file yt-dlp should use: RESONANCE_YTDLP_COOKIES_FILE wins over the upload."""
     if configured := get_settings().ytdlp_cookies_file:
@@ -187,11 +212,22 @@ class YouTubeMusicSource:
                 "no_warnings": True,
                 "progress_hooks": [hook],
             }
+            watch = None
             if cookies := cookies_file():
-                options["cookiefile"] = str(cookies)
-            with yt_dlp.YoutubeDL(options) as ydl:
-                info = ydl.extract_info(f"https://music.youtube.com/watch?v={candidate.ref}", download=True)
-                src = Path(ydl.prepare_filename(info))
+                watch = _CookieWatch()
+                options |= {"cookiefile": str(cookies), "logger": watch, "no_warnings": False}
+            try:
+                with yt_dlp.YoutubeDL(options) as ydl:
+                    info = ydl.extract_info(f"https://music.youtube.com/watch?v={candidate.ref}", download=True)
+                    src = Path(ydl.prepare_filename(info))
+            finally:
+                if watch is not None:
+                    marker = cookies_expired_marker()
+                    if watch.expired:
+                        marker.parent.mkdir(parents=True, exist_ok=True)
+                        marker.touch()
+                    else:
+                        marker.unlink(missing_ok=True)
             if cancelled():
                 raise Cancelled()
             codec = info.get("acodec", "")

@@ -212,6 +212,8 @@ async def _retry(db: AsyncSession, request: DownloadRequest) -> int:
             item.status = "queued"
             item.error = None
             item.progress = 0
+            # A retry gets the full number of automatic attempts again, not just the one left over.
+            item.attempts = 0
             retried += 1
     await recompute_request(db, request)
     return retried
