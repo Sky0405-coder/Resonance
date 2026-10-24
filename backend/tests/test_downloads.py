@@ -451,7 +451,7 @@ async def test_age_restricted_pinned_link_falls_back_to_search(
         stored.source, stored.source_ref, stored.source_pinned = "youtube", "fake-video", True
         await db.commit()
     env.fake.fail_once = True
-    env.fake.error = "ERROR: [youtube] fake-video: Sign in to confirm your age."
+    env.fake.error = "ERROR: [youtube] fake-video: Verify your age. Complete a brief check to show you're old enough"
     assert await manager.process_one()
     async with SessionLocal() as db:
         stored = await db.get(DownloadItem, item_id)

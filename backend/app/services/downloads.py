@@ -48,8 +48,8 @@ MAX_ATTEMPTS = 3
 BOT_CHECK = "confirm you’re not a bot"
 BOT_PAUSE_SECONDS = 1800
 BOT_PAUSED = "YouTube blockiert gerade – neuer Versuch in 30 Minuten"
-# Age-restricted videos need a signed-in account; skip the video and try the next version or source instead.
-AGE_CHECK = "confirm your age"
+# Age-restricted videos need a signed-in, age-verified account; skip the video and try the next version or source.
+AGE_CHECKS = ("confirm your age", "verify your age")
 
 
 def request_status(item_statuses: Iterable[str], current: str) -> str:
@@ -705,7 +705,7 @@ class DownloadManager:
                 return
             async with SessionLocal() as db:
                 current = await db.get(DownloadItem, item.id)
-            if AGE_CHECK in str(e) and current is not None and current.source_ref:
+            if any(check in str(e).lower() for check in AGE_CHECKS) and current is not None and current.source_ref:
                 # Also a link the user picked: it can never download, so the search takes over.
                 log.warning("Age-restricted video %s for %s, trying another version", current.source_ref, item.id)
                 await self._change(
