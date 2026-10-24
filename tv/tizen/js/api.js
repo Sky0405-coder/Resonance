@@ -105,12 +105,11 @@ export class Api {
     if (kind === 'station' && /^https?:\/\//i.test(item.favicon || '')) return item.favicon;
     return 'icon.png';
   }
-  // Transcoded songs only as the finished file: without a length the TV stops partway through (1:23, 2:28, ...).
+  // Measured on the TV: a new transcode starts in ~0.5 s as a stream, ~6.5 s when waiting for the whole file
+  // (complete=true); a prepared one comes from the server's cache in ~0.8 s either way.
   stream(track) {
     const format = streamFormat(track.codec, this.supportedCodecs);
-    const transcoded = format === 'mp3';
-    return this.url('/api/tracks/' + encodeURIComponent(track.id) + '/stream',
-      { format: format, bitrate: transcoded ? 320 : undefined, complete: transcoded ? 'true' : undefined }, true);
+    return this.url('/api/tracks/' + encodeURIComponent(track.id) + '/stream', { format: format, bitrate: format === 'mp3' ? 320 : undefined }, true);
   }
   // Lets the server transcode an upcoming song now, so it starts without waiting.
   prepare(track) {

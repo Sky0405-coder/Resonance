@@ -51,7 +51,7 @@ export class Player {
     this.preloadNext = false;
     [audioA, audioB].forEach(audio => {
       // Diagnostics: the TV gives no logs, so the player's own view of a stop is sent to the server.
-      ['error', 'stalled', 'suspend', 'waiting', 'ended', 'pause', 'playing', 'abort', 'emptied'].forEach(name =>
+      ['error', 'stalled', 'waiting', 'ended', 'pause', 'playing', 'abort', 'emptied'].forEach(name =>
         audio.addEventListener(name, () => this.diagnose(name, audio)));
       ['play', 'pause', 'waiting', 'playing', 'loadedmetadata', 'durationchange'].forEach(name => audio.addEventListener(name, () => {
         if (audio === this.audio) this.emit('state');
