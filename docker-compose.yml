@@ -122,9 +122,11 @@ services:
       - type: bind
         source: ${DOWNLOADS_PATH}
         target: /data/downloads
+    # Started, not healthy: when ProtonVPN is slow to connect the deploy must not fail and leave qBittorrent stopped.
+    # Until the tunnel is up gluetun's firewall blocks all traffic, so qBittorrent still never leaks.
     depends_on:
       gluetun:
-        condition: service_healthy
+        condition: service_started
 
 networks:
   prowlarr:
