@@ -320,6 +320,7 @@ async def stream_track(
     track_id: uuid.UUID,
     user: CurrentUser,
     db: DB,
+    request: Request,
     format: Literal["auto", "raw", "opus", "mp3"] = "auto",
     bitrate: int | None = Query(None, ge=32, le=320),
 ) -> Response:
@@ -338,10 +339,15 @@ async def stream_track(
     if format == "raw":
         # FileResponse handles HTTP Range requests, which players need for seeking.
         return FileResponse(path, media_type=transcode.media_type(path))
-    return StreamingResponse(
-        transcode.stream(path, format, bitrate or 160),
-        media_type=transcode.FORMAT_MEDIA_TYPES[format],
-    )
+    target, job = transcode.start(path, format, bitrate or 160)
+    media = transcode.FORMAT_MEDIA_TYPES[format]
+    if job is not None:
+        range_header = request.headers.get("range", "")
+        if not range_header or range_header.replace(" ", "") in {"bytes=0-", "bytes=0"}:
+            # Starts right away; the length is unknown until the transcode is done.
+            return StreamingResponse(transcode.follow(target, job), media_type=media, headers={"Accept-Ranges": "bytes"})
+        await job  # a resume/seek needs byte positions: answer it from the finished file
+    return FileResponse(target, media_type=media)
 
 
 # --- AutoMix ----------------------------------------------------------------

@@ -486,6 +486,13 @@ async def test_failed_state_lists_requests_with_failed_songs(
         failed["id"]
     ]
     assert (await client.get(url, headers=env.admin)).json()["total"] == 0
+    async with SessionLocal() as db:
+        (await db.get(DownloadRequest, uuid.UUID(failed["id"]))).kind = "upgrade"
+        await db.commit()
+    assert (await client.get(url, headers=env.user)).json()["total"] == 0
+    async with SessionLocal() as db:
+        (await db.get(DownloadRequest, uuid.UUID(failed["id"]))).kind = "track"
+        await db.commit()
     await client.post(f"/api/requests/{failed['id']}/retry", headers=env.user)
     assert await manager.process_one()
     assert (await client.get(url, headers=env.user)).json()["total"] == 0
@@ -837,7 +844,9 @@ async def test_youtube_download(
 
     monkeypatch.setattr(youtube, "YTMusic", lambda: object())
     monkeypatch.setattr(youtube.yt_dlp, "YoutubeDL", Downloader)
-    cookies = tmp_path / "cookies.txt"
+    cookies = tmp_path / "config" / "cookies.txt"
+    cookies.parent.mkdir()
+    cookies.write_text("# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tx\n")
     monkeypatch.setattr(get_settings(), "ytdlp_cookies_file", cookies)
     seen_progress = []
     source = YouTubeMusicSource()
@@ -847,7 +856,9 @@ async def test_youtube_download(
     assert read_tags(path).codec == ("aac" if expected == ".m4a" else "opus")
     assert seen_progress == [0.5]
     assert options_seen["format"] == "bestaudio[acodec=opus]/bestaudio[ext=m4a]/bestaudio"
-    assert options_seen["cookiefile"] == str(cookies)
+    # Each download works on its own copy of the cookies, removed afterwards.
+    assert options_seen["cookiefile"] == str(tmp_path / "cookies.txt")
+    assert not (tmp_path / "cookies.txt").exists() and cookies.is_file()
     with pytest.raises(Cancelled):
         await source.download(candidate, tmp_path, seen_progress.append, lambda: True)
 

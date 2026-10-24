@@ -140,9 +140,9 @@ void main() {
     return (container, events, delivered, activations);
   }
 
-  testWidgets('ambient mode appears after 30 seconds and swallows the key that wakes it', (tester) async {
+  testWidgets('ambient mode appears after 10 seconds and swallows the key that wakes it', (tester) async {
     final (container, events, delivered, activations) = await mount(tester);
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(seconds: 10));
     expect(find.byKey(const ValueKey('tv-ambient-overlay')), findsOneWidget);
     final visible = tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay')));
     expect(visible.opacity, 1);
@@ -200,7 +200,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.byKey(const ValueKey('tv-ambient-artwork')), findsNothing);
 
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(seconds: 10));
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 1);
     events.add(_button(GamepadButton.a));
     await tester.pump();
@@ -216,7 +216,7 @@ void main() {
   ]) {
     testWidgets('ambient mode stays hidden for $name', (tester) async {
       await mount(tester, tvMode: tvMode, ambientMode: ambientMode, playing: playing, loaded: loaded);
-      await tester.pump(const Duration(seconds: 31));
+      await tester.pump(const Duration(seconds: 11));
       expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 0);
       expect(find.byKey(const ValueKey('tv-ambient-artwork')), findsNothing);
     });
@@ -224,7 +224,7 @@ void main() {
 
   testWidgets('ambient mode stays hidden away from the full-screen player', (tester) async {
     await mount(tester, onPlayer: false);
-    await tester.pump(const Duration(seconds: 31));
+    await tester.pump(const Duration(seconds: 11));
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 0);
   });
 
@@ -235,20 +235,20 @@ void main() {
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 1);
   });
 
-  testWidgets('keyboard input resets the 30-second idle timer', (tester) async {
+  testWidgets('keyboard input resets the 10-second idle timer', (tester) async {
     final (_, _, _, _) = await mount(tester);
-    await tester.pump(const Duration(seconds: 20));
+    await tester.pump(const Duration(seconds: 7));
     await tester.sendKeyDownEvent(LogicalKeyboardKey.keyB);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.keyB);
-    await tester.pump(const Duration(seconds: 20));
+    await tester.pump(const Duration(seconds: 7));
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 0);
-    await tester.pump(const Duration(seconds: 10));
+    await tester.pump(const Duration(seconds: 3));
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 1);
   });
 
   testWidgets('pausing playback immediately starts leaving ambient mode', (tester) async {
     final (container, _, _, _) = await mount(tester);
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(seconds: 10));
     expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 1);
     (container.read(playerProvider.notifier) as _Player).update(const PlayerView(station: _station, playing: false));
     await tester.pump();
@@ -259,7 +259,7 @@ void main() {
 
   testWidgets('pointer input wakes the ambient overlay without activating content behind it', (tester) async {
     final (_, _, _, activations) = await mount(tester);
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(seconds: 10));
     await tester.tapAt(const Offset(20, 20));
     await tester.pump();
     expect(activations, isEmpty);

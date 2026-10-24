@@ -6,6 +6,8 @@ from app.config import get_settings
 from app.db import Base, engine
 from app.services.sources.youtube import (
     _CookieWatch,
+    _private_cookies,
+    _save_cookies,
     cookies_expired_marker,
     cookies_file,
 )
@@ -83,3 +85,23 @@ def test_cookie_watch_notices_rotated_cookies() -> None:
     assert not watch.expired
     watch.warning("[youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated")
     assert watch.expired
+
+
+async def test_upload_time_survives_rotated_cookies(env, tmp_path) -> None:
+    uploaded = (await upload(env, COOKIES)).json()["uploaded_at"]
+    work = tmp_path / "work"
+    work.mkdir()
+    shared, private = _private_cookies(work)
+    private.write_text(COOKIES.replace("abc", "rotated"))
+    _save_cookies(shared, private)
+    assert "rotated" in cookies_file().read_text()
+    assert (await env.client.get("/api/admin/youtube-cookies", headers=env.admin)).json()["uploaded_at"] == uploaded
+
+
+def test_broken_rotation_keeps_the_old_cookies(tmp_path) -> None:
+    shared = tmp_path / "shared.txt"
+    shared.write_text(COOKIES)
+    private = tmp_path / "private.txt"
+    private.write_text("")
+    _save_cookies(shared, private)
+    assert shared.read_text() == COOKIES

@@ -18,6 +18,8 @@ class TvAmbient extends ConsumerStatefulWidget {
   static final _focusKeyDowns = <LogicalKeyboardKey>{};
   static final _focusKeyUps = <LogicalKeyboardKey>{};
   static final _focusHeldKeys = <LogicalKeyboardKey>{};
+  // How long the full-screen player waits without input before it dims.
+  static const idleDelay = Duration(seconds: 10);
   static bool consumeNext = false;
   static bool _showing = false;
   // How many full-screen players are open: the ambient mode only dims the player, not the rest of the app.
@@ -99,7 +101,7 @@ class _TvAmbientState extends ConsumerState<TvAmbient> {
   void _scheduleIdle() {
     _idleTimer?.cancel();
     if (!_eligible) return;
-    _idleTimer = Timer(const Duration(seconds: 30), () {
+    _idleTimer = Timer(TvAmbient.idleDelay, () {
       if (mounted && _eligible) _setVisible(true);
     });
   }

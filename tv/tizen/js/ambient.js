@@ -1,7 +1,7 @@
 import { artistName } from './ui.js';
 
 // active(): only on the full-screen player; the rest of the app never dims.
-export function createAmbient({ player, preferences, root, api, timeoutMs = 30000, now = Date.now, timers = window, active = () => true }) {
+export function createAmbient({ player, preferences, root, api, timeoutMs = 10000, now = Date.now, timers = window, active = () => true }) {
   const documentRef = root.ownerDocument || document;
   function element(tag, className) { const node = documentRef.createElement(tag); if (className) node.className = className; return node; }
   const overlay = element('div', 'ambient');

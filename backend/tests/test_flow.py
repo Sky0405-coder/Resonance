@@ -193,6 +193,20 @@ async def test_stream_supports_range_and_transcode(client):
     r = await client.get(f"/api/tracks/{track_id}/stream?format=opus&bitrate=96", headers=auth(state["user"]))
     assert r.status_code == 200
     assert r.content[:4] == b"OggS"
+    full = r.content
+
+    # TVs resume a transcode by byte range: answered from the cached file, with length.
+    url = f"/api/tracks/{track_id}/stream?format=opus&bitrate=96"
+    r = await client.get(url, headers={**auth(state["user"]), "Range": "bytes=100-199"})
+    assert r.status_code == 206 and r.content == full[100:200]
+    assert r.headers["content-range"] == f"bytes 100-199/{len(full)}"
+    r = await client.get(url, headers=auth(state["user"]))
+    assert r.headers["content-length"] == str(len(full)) and r.content == full
+
+    # A range request for a transcode that has not run yet waits for it.
+    mp3 = f"/api/tracks/{track_id}/stream?format=mp3&bitrate=128"
+    r = await client.get(mp3, headers={**auth(state["user"]), "Range": "bytes=10-"})
+    assert r.status_code == 206 and r.headers["content-type"] == "audio/mpeg"
 
     assert (await client.get(f"/api/tracks/{track_id}/stream")).status_code == 401
 

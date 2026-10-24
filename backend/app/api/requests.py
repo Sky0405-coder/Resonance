@@ -113,7 +113,8 @@ async def list_requests(
         failed_item = select(DownloadItem.id).where(
             DownloadItem.request_id == DownloadRequest.id, DownloadItem.status == "failed"
         )
-        conditions += [failed_item.exists(), DownloadRequest.status != "rejected"]
+        # Quality upgrades are not listed: "no better torrent" is not a failure anyone has to fix.
+        conditions += [failed_item.exists(), DownloadRequest.status != "rejected", DownloadRequest.kind != "upgrade"]
     elif state != "all":
         open_state = DownloadRequest.status.in_(["pending_approval", "active"])
         conditions.append(open_state if state == "open" else ~open_state)
@@ -230,7 +231,7 @@ async def retry_all(admin: AdminUser, db: DB, scope: Literal["mine", "all"] = "m
     failed_item = select(DownloadItem.id).where(
         DownloadItem.request_id == DownloadRequest.id, DownloadItem.status == "failed"
     )
-    conditions = [failed_item.exists(), DownloadRequest.status != "rejected"]
+    conditions = [failed_item.exists(), DownloadRequest.status != "rejected", DownloadRequest.kind != "upgrade"]
     if scope == "mine":
         conditions.append(DownloadRequest.user_id == admin.id)
     rows = (

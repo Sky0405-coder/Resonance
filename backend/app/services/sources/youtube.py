@@ -1,5 +1,8 @@
 import asyncio
+import os
 import re
+import shutil
+import threading
 import unicodedata
 from collections.abc import Callable
 from pathlib import Path
@@ -117,6 +120,40 @@ def uploaded_path() -> Path:
     return get_settings().data_dir / "youtube-cookies.txt"
 
 
+# yt-dlp writes the (rotated) cookies back when a download ends; parallel downloads must not read a half-written file.
+_cookie_lock = threading.Lock()
+
+
+def cookies_uploaded_stamp() -> Path:
+    """Upload time of the cookies; the file's own mtime changes whenever yt-dlp saves rotated cookies."""
+    return get_settings().data_dir / "youtube-cookies.uploaded"
+
+
+def _private_cookies(dest_dir: Path) -> tuple[Path, Path] | None:
+    """A copy of the cookies for one download: (shared file, private copy)."""
+    if not (shared := cookies_file()):
+        return None
+    private = dest_dir / "cookies.txt"
+    with _cookie_lock:
+        shutil.copyfile(shared, private)
+    return shared, private
+
+
+def _save_cookies(shared: Path, private: Path) -> None:
+    """Keeps the rotated cookies yt-dlp got from YouTube, replacing the shared file in one step."""
+    try:
+        text = private.read_text(encoding="utf-8")
+        if "youtube.com" not in text:
+            return
+        with _cookie_lock:
+            temp = shared.with_name(shared.name + ".part")
+            temp.write_text(text, encoding="utf-8")
+            temp.chmod(0o600)
+            os.replace(temp, shared)
+    except OSError:
+        pass  # e.g. a read-only RESONANCE_YTDLP_COOKIES_FILE: the next download simply uses the old cookies
+
+
 def cookies_expired_marker() -> Path:
     """Exists while yt-dlp reports the cookies as rotated/invalid (shown in the admin settings)."""
     return get_settings().data_dir / "youtube-cookies.expired"
@@ -213,21 +250,23 @@ class YouTubeMusicSource:
                 "progress_hooks": [hook],
             }
             watch = None
-            if cookies := cookies_file():
+            if cookies := _private_cookies(dest_dir):
                 watch = _CookieWatch()
-                options |= {"cookiefile": str(cookies), "logger": watch, "no_warnings": False}
+                options |= {"cookiefile": str(cookies[1]), "logger": watch, "no_warnings": False}
             try:
                 with yt_dlp.YoutubeDL(options) as ydl:
                     info = ydl.extract_info(f"https://music.youtube.com/watch?v={candidate.ref}", download=True)
                     src = Path(ydl.prepare_filename(info))
             finally:
-                if watch is not None:
+                if cookies is not None and watch is not None:
                     marker = cookies_expired_marker()
                     if watch.expired:
                         marker.parent.mkdir(parents=True, exist_ok=True)
                         marker.touch()
                     else:
                         marker.unlink(missing_ok=True)
+                        _save_cookies(*cookies)
+                    cookies[1].unlink(missing_ok=True)
             if cancelled():
                 raise Cancelled()
             codec = info.get("acodec", "")

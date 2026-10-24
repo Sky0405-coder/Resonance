@@ -108,6 +108,12 @@ _EXACT: dict[str, str] = {
     "Nicht im Torrent enthalten": "Not included in the torrent",
     "Torrents sind deaktiviert": "Torrents are disabled",
     "Torrent-Downloadadresse fehlt": "Torrent download address is missing",
+    "Keine gültige cookies.txt-Datei": "Not a valid cookies.txt file",
+    "Keine YouTube-Cookies im Netscape-Format (cookies.txt) gefunden": (
+        "No YouTube cookies in Netscape format (cookies.txt) found"
+    ),
+    "Video altersbeschränkt – versuche eine andere Version": "Age-restricted video – trying another version",
+    "Song DRM-geschützt – versuche eine andere Version": "Song is DRM-protected – trying another version",
     "Zu viele Torrent-Weiterleitungen": "Too many torrent redirects",
     "Die Discord-Anwendungs-ID darf nur aus bis zu 24 Ziffern bestehen": "The Discord application ID may only consist of up to 24 digits",
     "Keine Download-Quelle aktiviert": "No download source enabled",

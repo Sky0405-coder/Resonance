@@ -9,7 +9,11 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.deps import AdminUser
-from app.services.sources.youtube import cookies_expired_marker, uploaded_path
+from app.services.sources.youtube import (
+    cookies_expired_marker,
+    cookies_uploaded_stamp,
+    uploaded_path,
+)
 
 router = APIRouter(tags=["admin"])
 
@@ -27,7 +31,13 @@ class YouTubeCookies(BaseModel):
 
 def _status() -> YouTubeCookies:
     path = uploaded_path()
-    uploaded = datetime.fromtimestamp(path.stat().st_mtime, UTC) if path.is_file() else None
+    uploaded = None
+    if path.is_file():
+        stamp = cookies_uploaded_stamp()
+        try:
+            uploaded = datetime.fromisoformat(stamp.read_text().strip())
+        except (OSError, ValueError):
+            uploaded = datetime.fromtimestamp(path.stat().st_mtime, UTC)
     from_env = bool(get_settings().ytdlp_cookies_file)
     configured = from_env or uploaded is not None
     return YouTubeCookies(
@@ -73,6 +83,7 @@ async def upload_youtube_cookies(admin: AdminUser, file: UploadFile) -> YouTubeC
     temp.write_text(text, encoding="utf-8")
     temp.chmod(0o600)
     os.replace(temp, path)
+    cookies_uploaded_stamp().write_text(datetime.now(UTC).isoformat())
     cookies_expired_marker().unlink(missing_ok=True)
     return _status()
 
@@ -80,4 +91,5 @@ async def upload_youtube_cookies(admin: AdminUser, file: UploadFile) -> YouTubeC
 @router.delete("/api/admin/youtube-cookies", response_model=YouTubeCookies)
 async def delete_youtube_cookies(admin: AdminUser) -> YouTubeCookies:
     uploaded_path().unlink(missing_ok=True)
+    cookies_uploaded_stamp().unlink(missing_ok=True)
     return _status()
