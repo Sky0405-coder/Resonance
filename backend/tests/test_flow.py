@@ -179,6 +179,14 @@ async def test_browse(client):
     assert res["tracks"][0]["artist_credit"] == "Daft Punk feat. Pharrell Williams"
     assert res["tracks"][0]["artist"]["name"] == "Daft Punk"
 
+    # Punctuation and spaces do not matter: "feat Pharrell" finds "feat. Pharrell", "daftpunk" finds "Daft Punk".
+    res = (await client.get("/api/search?q=feat Pharrell", headers=h)).json()
+    assert [t["title"] for t in res["tracks"]] == ["Get Lucky"]
+    res = (await client.get("/api/search?q=daftpunk", headers=h)).json()
+    assert [a["name"] for a in res["artists"]] == ["Daft Punk"]
+    res = (await client.get("/api/search?q=get-lucky!", headers=h)).json()
+    assert [t["title"] for t in res["tracks"]] == ["Get Lucky"]
+
     artist = (await client.get(f"/api/artists/{res['tracks'][0]['artist']['id']}", headers=h)).json()
     assert artist["album_count"] == 2
 

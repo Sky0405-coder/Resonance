@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, Response, StreamingResponse
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import ColumnElement, Select, func, or_, select
 
 from app.api.catalog import _track as catalog_track
 from app.api.requests import _out as request_out
@@ -434,14 +434,28 @@ async def get_spectrum(id: uuid.UUID, user: CurrentUser, db: DB) -> Response:
 # --- search -----------------------------------------------------------------
 
 
-def search_queries(q: str) -> tuple[Select[tuple[Artist]], Select[tuple[Album]], Select[tuple[Track]]]:
+def _compact(text: str) -> str:
+    """Letters and digits only: "Don't Stop" and "dont stop" both become "dontstop", "AC/DC" becomes "acdc"."""
+    # lower(), not casefold(): it has to match Postgres' lower() ("ß" stays "ß").
+    return "".join(c for c in text.lower() if c.isalnum())
+
+
+def _search_match(column: ColumnElement[str], q: str) -> ColumnElement[bool]:
     pattern = f"%{q.strip()}%"
+    compact = _compact(q)
+    if not compact:  # only punctuation, e.g. the band "!!!"
+        return column.ilike(pattern)
+    stripped = func.regexp_replace(func.lower(column), r"[^[:alnum:]]+", "", "g")
+    return or_(column.ilike(pattern), stripped.contains(compact))
+
+
+def search_queries(q: str) -> tuple[Select[tuple[Artist]], Select[tuple[Album]], Select[tuple[Track]]]:
     return (
-        select(Artist).where(Artist.name.ilike(pattern)).order_by(Artist.name),
-        select(Album).options(*album_options()).where(Album.title.ilike(pattern)).order_by(Album.title),
+        select(Artist).where(_search_match(Artist.name, q)).order_by(Artist.name),
+        select(Album).options(*album_options()).where(_search_match(Album.title, q)).order_by(Album.title),
         select(Track)
         .options(*track_options())
-        .where(or_(Track.title.ilike(pattern), Track.artist_credit.ilike(pattern)))
+        .where(or_(_search_match(Track.title, q), _search_match(Track.artist_credit, q)))
         .order_by(Track.title),
     )
 
@@ -461,6 +475,7 @@ async def search(
     # Own playlists and mixes (also by their translated name or e.g. "80s"), plus other users' public playlists.
     lang = language(request)
     needle = q.strip().casefold()
+    compact = _compact(q)
     candidates = await db.scalars(
         select(Playlist)
         .where(or_(Playlist.owner_id == user.id, (Playlist.is_public) & (Playlist.kind == "user")))
@@ -470,7 +485,7 @@ async def search(
         playlist
         for playlist in candidates
         if any(
-            needle in text.casefold()
+            needle in text.casefold() or (compact and compact in _compact(text))
             for text in (playlist.name, translate(playlist.name, lang), *mix_search_terms(playlist.mix_key))
         )
     ][:limit]

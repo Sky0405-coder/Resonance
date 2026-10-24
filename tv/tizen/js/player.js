@@ -61,6 +61,7 @@ export class Player {
         const delta = audio.currentTime - this.lastPosition;
         if (!audio.paused && delta > 0 && delta < 2 && !this.station) this.listened += delta;
         this.lastPosition = audio.currentTime;
+        if (this.recoveries && audio.currentTime - this.recoveredAt > 30) this.recoveries = 0;
         this.preload();
         this.maybeAutoplay();
         this.emit('time');
@@ -69,6 +70,9 @@ export class Player {
       audio.addEventListener('error', () => {
         if (audio !== this.audio || !audio.getAttribute('src')) return;
         const track = this.track;
+        // The TV's player gives up when the connection drops mid-song (seen at 1:23, 2:28, 3:04) instead of asking
+        // again: reload the song and continue where it stopped.
+        if (track && !this.station && this.lastPosition > 1 && this.recover(this.lastPosition)) return;
         // The TV can claim support for a codec it then fails to decode; fall back to MP3 for that codec.
         if (track && !this.station && audio.getAttribute('src').indexOf('format=raw') >= 0) {
           this.api.supportedCodecs[track.codec] = false;
@@ -112,8 +116,24 @@ export class Player {
     this.preloaded = -1;
     this.load(this.index, false);
   }
+  recover(position) {
+    if (this.recoveries >= 5) return false;
+    this.recoveries++; this.recoveredAt = position;
+    const audio = this.audio; const generation = this.generation;
+    const seek = () => {
+      audio.removeEventListener('loadedmetadata', seek);
+      if (generation !== this.generation || audio !== this.audio) return;
+      try { audio.currentTime = position; } catch (_) { /* the element seeks once it can */ }
+    };
+    audio.addEventListener('loadedmetadata', seek);
+    audio.src = this.api.stream(this.track);
+    audio.load();
+    this.play();
+    return true;
+  }
   load(index, usePreload) {
     this.generation++;
+    this.recoveries = 0;
     this.playIntent = null;
     this.index = index;
     this.listened = 0;

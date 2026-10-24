@@ -260,7 +260,7 @@ async def _annotation(db: DB, user: User, params: ss.Params, star: bool) -> dict
     return {}
 
 
-async def _media(db: DB, user: User, params: ss.Params, endpoint: str) -> Response:
+async def _media(db: DB, user: User, params: ss.Params, endpoint: str, request: Request) -> Response:
     value = params.require("id")
     if endpoint == "getCoverArt":
         object_id = ss.parse_id(value)
@@ -299,7 +299,9 @@ async def _media(db: DB, user: User, params: ss.Params, endpoint: str) -> Respon
     elif fmt not in transcode.FORMAT_MEDIA_TYPES:
         # Only formats supported by the existing transcode service can be requested.
         raise ss.SubsonicError(0, "Audioformat nicht unterstützt")
-    return await library.stream_track(track.id, user, db, fmt, max(32, min(bitrate, 320)) if bitrate else None)
+    return await library.stream_track(
+        track.id, user, db, request, format=fmt, bitrate=max(32, min(bitrate, 320)) if bitrate else None
+    )
 
 
 async def _dispatch(
@@ -520,7 +522,7 @@ async def _dispatch(
                 )
         return {}
     if endpoint in {"stream", "download", "getCoverArt"}:
-        return await _media(db, user, params, endpoint)
+        return await _media(db, user, params, endpoint, request)
     if endpoint == "getLyricsBySongId":
         track = await _track(db, params.require("id"))
         lyrics = await get_lyrics(db, track)

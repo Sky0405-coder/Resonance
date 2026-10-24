@@ -4,6 +4,7 @@ import { Player, playbackOrder, reorderUpcoming } from '../js/player.js';
 class AudioStub {
   constructor() { this.listeners = {}; this.readyState = 4; this.volume = 1; this.playCalls = 0; this.loads = 0; this.pauses = 0; this.currentTime = 0; this.paused = true; this.ended = false; this.src = ''; this.seekable = { length: 1, start: () => 0, end: () => 120 }; }
   addEventListener(name, fn) { this.listeners[name] = fn; }
+  removeEventListener(name, fn) { if (this.listeners[name] === fn) delete this.listeners[name]; }
   play() { this.playCalls++; this.paused = false; return Promise.resolve(); }
   pause() { this.pauses++; this.paused = true; }
   load() { this.loads++; this.currentTime = 0; }
@@ -136,4 +137,23 @@ test('queue lists upcoming tracks in playback order and jumps to a chosen one', 
   assert.deepEqual(player.upcoming(), [2, 1]);
   player.jumpTo(1); assert.equal(player.track.id, 'b'); assert.deepEqual(player.upcoming(), []);
   player.jumpTo(1); assert.equal(player.index, 1); player.stop(); assert.deepEqual(player.upcoming(), []);
+});
+
+test('a connection drop mid-song reloads and continues at the same position', () => {
+  const { player, a, errors } = setup(); player.setQueue(tracks, 0, 'album:test', false);
+  a.currentTime = 83; a.fire('timeupdate');
+  const loads = a.loads; a.fire('error');
+  assert.equal(a.loads, loads + 1); assert.deepEqual(errors, []);
+  a.fire('loadedmetadata'); assert.equal(a.currentTime, 83); assert.equal(a.paused, false);
+  // Gives up after a few drops in a row instead of looping.
+  for (let i = 0; i < 5; i++) { a.currentTime = 90; a.fire('timeupdate'); a.fire('error'); }
+  assert.equal(errors.length, 1); player.stop();
+});
+test('the drop counter resets once playback runs again for a while', () => {
+  const { player, a, errors } = setup(); player.setQueue([{ id: 'long', duration: 900 }], 0, 'album:test', false);
+  for (let i = 0; i < 8; i++) {
+    a.currentTime = 100 + i * 60; a.fire('timeupdate'); a.fire('error'); a.fire('loadedmetadata');
+    a.currentTime += 40; a.fire('timeupdate');
+  }
+  assert.deepEqual(errors, []); player.stop();
 });
