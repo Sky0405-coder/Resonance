@@ -344,10 +344,47 @@ class _RequestList extends ConsumerWidget {
             )
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, kBottomInset),
-              itemCount: list.length,
-              itemBuilder: (_, i) => _RequestTile(request: list[i], showUser: scope == 'all'),
+              itemCount: list.length + (state == 'failed' ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (state != 'failed') return _RequestTile(request: list[i], showUser: scope == 'all');
+                if (i == 0) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                      child: FilledButton.icon(
+                        onPressed: () => _retryAll(context, ref),
+                        icon: const Icon(Icons.refresh),
+                        label: Text(context.l10n.downloadsRetryAll),
+                      ),
+                    ),
+                  );
+                }
+                return _RequestTile(request: list[i - 1], showUser: scope == 'all');
+              },
             ),
     );
+  }
+
+  Future<void> _retryAll(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: Text(context.l10n.downloadsRetryAll),
+        content: Text(context.l10n.downloadsRetryAllConfirm),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d, false), child: Text(context.l10n.commonCancel)),
+          FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(context.l10n.downloadsRetryAll)),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      final result = await ref.read(downloadActionsProvider).retryAllFailed(scope);
+      if (context.mounted) showInfo(context, context.l10n.downloadsRetryAllDone(result.songs, result.requests));
+    } catch (e) {
+      if (context.mounted) showError(context, e);
+    }
   }
 }
 

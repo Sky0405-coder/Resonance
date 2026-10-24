@@ -85,6 +85,12 @@ class DownloadActions {
     _refresh();
   }
 
+  Future<({int requests, int songs})> retryAllFailed(String scope) async {
+    final result = await ref.read(apiProvider).retryAllFailed(scope);
+    _refresh();
+    return result;
+  }
+
   Future<void> reject(String id, {String? note}) async {
     await ref.read(apiProvider).rejectRequest(id, note: note);
     _refresh();

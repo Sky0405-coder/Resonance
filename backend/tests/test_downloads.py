@@ -479,6 +479,23 @@ async def test_failed_state_lists_requests_with_failed_songs(
     assert (await client.get(url, headers=env.user)).json()["total"] == 0
 
 
+async def test_retry_all_failed(
+    client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.services.downloads.MAX_ATTEMPTS", 1)
+    failed = await post_request(client, env.user, "track", env.track)
+    env.fake.fail_once = True
+    assert await manager.process_one()
+    assert (await client.post("/api/requests/retry-failed", headers=env.user)).status_code == 403
+    mine = (await client.post("/api/requests/retry-failed", headers=env.admin)).json()
+    assert mine == {"requests": 0, "songs": 0}
+    everyone = (await client.post("/api/requests/retry-failed?scope=all", headers=env.admin)).json()
+    assert everyone == {"requests": 1, "songs": 1}
+    assert (await client.get(f"/api/requests/{failed['id']}", headers=env.user)).json()["status"] == "active"
+    assert await manager.process_one()
+    assert (await client.get(f"/api/requests/{failed['id']}", headers=env.user)).json()["status"] == "done"
+
+
 async def test_cancel_and_retry(
     client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:

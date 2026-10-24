@@ -872,6 +872,24 @@ abstract class AppLocalizations {
   /// **'Keine fehlgeschlagenen Downloads.'**
   String get downloadsEmptyFailed;
 
+  /// No description provided for @downloadsRetryAll.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle erneut versuchen'**
+  String get downloadsRetryAll;
+
+  /// No description provided for @downloadsRetryAllConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle fehlgeschlagenen Songs in dieser Liste werden noch einmal gesucht und heruntergeladen. Bei sehr vielen Songs kann YouTube zwischendurch pausieren.'**
+  String get downloadsRetryAllConfirm;
+
+  /// No description provided for @downloadsRetryAllDone.
+  ///
+  /// In de, this message translates to:
+  /// **'{songs} Songs aus {requests} Anfragen werden erneut versucht'**
+  String downloadsRetryAllDone(int songs, int requests);
+
   /// No description provided for @commonSong.
   ///
   /// In de, this message translates to:

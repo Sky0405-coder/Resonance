@@ -395,6 +395,12 @@ class ApiClient {
 
   Future<DownloadSummary> downloadSummary() async => DownloadSummary.fromJson(await _get('/api/requests/summary'));
 
+  /// Retries every failed song of the admin (scope `mine`) or of everyone (`all`).
+  Future<({int requests, int songs})> retryAllFailed(String scope) async {
+    final j = await _post('/api/requests/retry-failed?scope=$scope');
+    return (requests: j['requests'] as int, songs: j['songs'] as int);
+  }
+
   /// [action] is one of approve, cancel, retry.
   Future<void> requestAction(String id, String action) => _post('/api/requests/$id/$action');
 

@@ -216,6 +216,10 @@
   "downloadsEmptyCompleted": "Noch nichts heruntergeladen.",
   "downloadsFailed": "Fehlgeschlagen",
   "downloadsEmptyFailed": "Keine fehlgeschlagenen Downloads.",
+  "downloadsRetryAll": "Alle erneut versuchen",
+  "downloadsRetryAllConfirm": "Alle fehlgeschlagenen Songs in dieser Liste werden noch einmal gesucht und heruntergeladen. Bei sehr vielen Songs kann YouTube zwischendurch pausieren.",
+  "downloadsRetryAllDone": "{songs} Songs aus {requests} Anfragen werden erneut versucht",
+  "@downloadsRetryAllDone": {"placeholders": {"songs": {"type": "int"}, "requests": {"type": "int"}}},
   "commonSong": "Song",
   "downloadsRequestedBySuffix": "von {name}",
   "@downloadsRequestedBySuffix": {

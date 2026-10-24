@@ -2,6 +2,7 @@ import uuid
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
@@ -199,20 +200,57 @@ async def cancel(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request
     return _out(request, language(http_request))
 
 
-@router.post("/{id}/retry", response_model=DownloadRequestDetail)
-async def retry(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request) -> DownloadRequestDetail:
-    request = await _get(db, user, id, lock=True)
+async def _retry(db: AsyncSession, request: DownloadRequest) -> int:
     no_torrent = {"Kein passender Torrent gefunden", "Torrents sind deaktiviert"}
     if request.kind == "album" and request.torrent_status == "failed" and request.torrent_error not in no_torrent:
         # The torrent broke (outage, stall), it was not missing: a retry starts with a fresh torrent search.
         request.torrent_status = None
         request.torrent_error = None
+    retried = 0
     for item in request.items:
         if item.status == "failed":
             item.status = "queued"
             item.error = None
             item.progress = 0
+            retried += 1
     await recompute_request(db, request)
+    return retried
+
+
+class RetryAllOut(BaseModel):
+    requests: int
+    songs: int
+
+
+@router.post("/retry-failed", response_model=RetryAllOut)
+async def retry_all(admin: AdminUser, db: DB, scope: Literal["mine", "all"] = "mine") -> RetryAllOut:
+    """Retries every failed song (the admin's failed tab), rejected requests stay as they are."""
+    failed_item = select(DownloadItem.id).where(
+        DownloadItem.request_id == DownloadRequest.id, DownloadItem.status == "failed"
+    )
+    conditions = [failed_item.exists(), DownloadRequest.status != "rejected"]
+    if scope == "mine":
+        conditions.append(DownloadRequest.user_id == admin.id)
+    rows = (
+        await db.scalars(
+            select(DownloadRequest)
+            .options(selectinload(DownloadRequest.items))
+            .where(*conditions)
+            .with_for_update(of=DownloadRequest)
+        )
+    ).all()
+    songs = 0
+    for request in rows:
+        songs += await _retry(db, request)
+    await db.commit()
+    manager.wake()
+    return RetryAllOut(requests=len(rows), songs=songs)
+
+
+@router.post("/{id}/retry", response_model=DownloadRequestDetail)
+async def retry(id: uuid.UUID, user: CurrentUser, db: DB, http_request: Request) -> DownloadRequestDetail:
+    request = await _get(db, user, id, lock=True)
+    await _retry(db, request)
     await db.commit()
     manager.wake()
     return _out(request, language(http_request))

@@ -430,6 +430,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get downloadsEmptyFailed => 'Keine fehlgeschlagenen Downloads.';
 
   @override
+  String get downloadsRetryAll => 'Alle erneut versuchen';
+
+  @override
+  String get downloadsRetryAllConfirm =>
+      'Alle fehlgeschlagenen Songs in dieser Liste werden noch einmal gesucht und heruntergeladen. Bei sehr vielen Songs kann YouTube zwischendurch pausieren.';
+
+  @override
+  String downloadsRetryAllDone(int songs, int requests) {
+    return '$songs Songs aus $requests Anfragen werden erneut versucht';
+  }
+
+  @override
   String get commonSong => 'Song';
 
   @override
