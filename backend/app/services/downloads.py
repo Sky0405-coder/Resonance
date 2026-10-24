@@ -705,7 +705,8 @@ class DownloadManager:
                 return
             async with SessionLocal() as db:
                 current = await db.get(DownloadItem, item.id)
-            if AGE_CHECK in str(e) and current is not None and current.source_ref and not current.source_pinned:
+            if AGE_CHECK in str(e) and current is not None and current.source_ref:
+                # Also a link the user picked: it can never download, so the search takes over.
                 log.warning("Age-restricted video %s for %s, trying another version", current.source_ref, item.id)
                 await self._change(
                     item.id,
@@ -713,6 +714,7 @@ class DownloadManager:
                     exclude_refs=[*current.exclude_refs, current.source_ref],
                     source=None,
                     source_ref=None,
+                    source_pinned=False,
                     error="Video altersbeschränkt – versuche eine andere Version",
                 )
                 return

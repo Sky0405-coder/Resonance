@@ -88,6 +88,9 @@ class FakeSource:
         self.no_match = False
         self.on_find: Callable[[], None] | None = None
 
+    def candidate(self, ref: str) -> Candidate:
+        return Candidate(self.name, ref, "", "", None, 100.0)
+
     async def find(self, meta: TrackMeta, exclude: frozenset[str] = frozenset()) -> Candidate | None:
         if self.on_find:
             self.on_find()
@@ -436,6 +439,26 @@ async def test_age_restricted_video_tries_another_version(client: httpx.AsyncCli
     async with SessionLocal() as db:
         stored = await db.get(DownloadItem, uuid.UUID(item["id"]))
         assert stored.status == "done" and stored.source_ref == "fake-video-2"
+
+
+async def test_age_restricted_pinned_link_falls_back_to_search(
+    client: httpx.AsyncClient, env: SimpleNamespace
+) -> None:
+    request = await post_request(client, env.user, "track", env.track)
+    item_id = uuid.UUID(request["items"][0]["id"])
+    async with SessionLocal() as db:
+        stored = await db.get(DownloadItem, item_id)
+        stored.source, stored.source_ref, stored.source_pinned = "youtube", "fake-video", True
+        await db.commit()
+    env.fake.fail_once = True
+    env.fake.error = "ERROR: [youtube] fake-video: Sign in to confirm your age."
+    assert await manager.process_one()
+    async with SessionLocal() as db:
+        stored = await db.get(DownloadItem, item_id)
+        assert stored.status == "queued" and not stored.source_pinned and stored.exclude_refs == ["fake-video"]
+    assert await manager.process_one()
+    async with SessionLocal() as db:
+        assert (await db.get(DownloadItem, item_id)).source_ref == "fake-video-2"
 
 
 async def test_cancel_and_retry(
