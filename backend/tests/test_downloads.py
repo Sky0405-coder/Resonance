@@ -88,12 +88,13 @@ class FakeSource:
         self.no_match = False
         self.on_find: Callable[[], None] | None = None
 
-    async def find(self, meta: TrackMeta) -> Candidate | None:
+    async def find(self, meta: TrackMeta, exclude: frozenset[str] = frozenset()) -> Candidate | None:
         if self.on_find:
             self.on_find()
         if self.no_match:
             return None
-        return Candidate(self.name, "fake-video", meta.title, meta.artist, meta.duration, 100)
+        ref = next(r for r in ("fake-video", "fake-video-2", "fake-video-3") if r not in exclude)
+        return Candidate(self.name, ref, meta.title, meta.artist, meta.duration, 100)
 
     async def download(
         self, candidate: Candidate, dest_dir: Path, progress: Callable[[float], None], cancelled: Callable[[], bool]
@@ -421,6 +422,22 @@ async def test_bot_check_pauses(
     assert (await client.get(f"/api/requests/{request['id']}", headers=env.user)).json()["status"] == "done"
 
 
+async def test_age_restricted_video_tries_another_version(client: httpx.AsyncClient, env: SimpleNamespace) -> None:
+    request = await post_request(client, env.user, "track", env.track)
+    env.fake.fail_once = True
+    env.fake.error = "ERROR: [youtube] fake-video: Sign in to confirm your age. This video may be inappropriate"
+    assert await manager.process_one()
+    item = (await client.get(f"/api/requests/{request['id']}", headers=env.user)).json()["items"][0]
+    assert item["status"] == "queued"
+    async with SessionLocal() as db:
+        stored = await db.get(DownloadItem, uuid.UUID(item["id"]))
+        assert stored.exclude_refs == ["fake-video"] and stored.attempts == 0
+    assert await manager.process_one()
+    async with SessionLocal() as db:
+        stored = await db.get(DownloadItem, uuid.UUID(item["id"]))
+        assert stored.status == "done" and stored.source_ref == "fake-video-2"
+
+
 async def test_cancel_and_retry(
     client: httpx.AsyncClient, env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -534,7 +551,7 @@ async def test_cancel_searching(
     searching = asyncio.Event()
     release_search = asyncio.Event()
 
-    async def find(meta: TrackMeta) -> Candidate:
+    async def find(meta: TrackMeta, exclude: frozenset[str] = frozenset()) -> Candidate:
         searching.set()
         await release_search.wait()
         return Candidate("youtube", "test", meta.title, meta.artist, meta.duration, 100)

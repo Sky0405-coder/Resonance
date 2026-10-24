@@ -48,6 +48,8 @@ MAX_ATTEMPTS = 3
 BOT_CHECK = "confirm you’re not a bot"
 BOT_PAUSE_SECONDS = 1800
 BOT_PAUSED = "YouTube blockiert gerade – neuer Versuch in 30 Minuten"
+# Age-restricted videos need a signed-in account; skip the video and try the next version or source instead.
+AGE_CHECK = "confirm your age"
 
 
 def request_status(item_statuses: Iterable[str], current: str) -> str:
@@ -621,10 +623,8 @@ class DownloadManager:
             for source in enabled:
                 if forced:
                     candidate = source.candidate(item.source_ref)
-                elif redownload:
-                    candidate = await source.find(meta, frozenset(item.exclude_refs))
                 else:
-                    candidate = await source.find(meta)
+                    candidate = await source.find(meta, frozenset(item.exclude_refs))
                 if item.id in self._cancelled:
                     raise Cancelled()
                 if candidate is not None:
@@ -702,6 +702,19 @@ class DownloadManager:
                 log.warning("YouTube bot check, pausing downloads for %s s", BOT_PAUSE_SECONDS)
                 self._paused_until = time.monotonic() + BOT_PAUSE_SECONDS
                 await self._change(item.id, status="queued", error=BOT_PAUSED)
+                return
+            async with SessionLocal() as db:
+                current = await db.get(DownloadItem, item.id)
+            if AGE_CHECK in str(e) and current is not None and current.source_ref and not current.source_pinned:
+                log.warning("Age-restricted video %s for %s, trying another version", current.source_ref, item.id)
+                await self._change(
+                    item.id,
+                    status="queued",
+                    exclude_refs=[*current.exclude_refs, current.source_ref],
+                    source=None,
+                    source_ref=None,
+                    error="Video altersbeschränkt – versuche eine andere Version",
+                )
                 return
             log.exception("Download failed for %s", item.id)
             attempts = item.attempts + 1

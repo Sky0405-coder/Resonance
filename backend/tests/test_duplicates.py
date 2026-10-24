@@ -757,7 +757,7 @@ async def test_downloader_prevents_other_format(
     class Source:
         name = "youtube"
 
-        async def find(self, meta: TrackMeta) -> Candidate:
+        async def find(self, meta: TrackMeta, exclude: frozenset[str] = frozenset()) -> Candidate:
             return Candidate("youtube", "test", meta.title, meta.artist, meta.duration, 100)
 
         async def download(
