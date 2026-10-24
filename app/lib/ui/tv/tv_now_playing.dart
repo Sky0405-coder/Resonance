@@ -17,6 +17,7 @@ import '../../player/spectrum.dart';
 import '../pages/now_playing_page.dart';
 import '../widgets/catalog.dart';
 import '../widgets/common.dart';
+import 'tv_ambient.dart';
 import 'tv_focusable.dart';
 
 String tvPlaybackTitle(BuildContext context, PlayerView player) =>
@@ -337,7 +338,10 @@ class TvNowPlayingPage extends ConsumerWidget {
                                   TvButton(
                                     icon: ambientMode ? Icons.dark_mode : Icons.dark_mode_outlined,
                                     label: ambientMode ? context.l10n.tvAmbientOn : context.l10n.tvAmbientOff,
-                                    onPressed: () => ref.read(tvAmbientModeProvider.notifier).set(!ambientMode),
+                                    onPressed: () {
+                                      ref.read(tvAmbientModeProvider.notifier).set(!ambientMode);
+                                      if (!ambientMode) TvAmbient.showNow();
+                                    },
                                   ),
                                 ],
                               ),

@@ -80,7 +80,8 @@ export function trackList(ctx, tracks, context) {
     const node = button('', () => { ctx.player.setQueue(tracks, index, context, false); ctx.app.navigate({ name: 'now' }); }, 'track-' + track.id + '-' + index, 'track-row');
     node.dataset.row = 'track-row-' + index;
     node.appendChild(el('span', 'track-number', index + 1));
-    node.appendChild(image(ctx.api.artwork('track', track, 96), 'track-cover'));
+    // Lazy: long lists (liked songs) would otherwise request every cover at once.
+    node.appendChild(image(ctx.api.artwork('track', track, 96), 'track-cover', '', true));
     const info = el('span', 'track-info');
     info.appendChild(el('strong', '', track.title)); info.appendChild(el('span', 'muted', artistName(track)));
     node.appendChild(info); node.appendChild(el('span', 'track-album muted', track.album && track.album.title));

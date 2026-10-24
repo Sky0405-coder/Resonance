@@ -122,7 +122,9 @@ export async function runSmoke() {
   click('artist-artist'); await wait(() => document.querySelector('.detail-page'), 'artist detail');
   assert(document.querySelectorAll('.track-row').length === 3, 'Artist top tracks decoded');
   key(10009); await wait(() => document.querySelector('.library-grid'), 'back artists');
-  click('library-tab-liked'); await wait(() => document.querySelector('.detail-page'), 'liked detail');
+  click('library-tab-playlists'); await wait(() => document.querySelector('.library-grid .liked'), 'liked card first');
+  assert(document.querySelector('.library-grid .card').classList.contains('liked'), 'Liked Songs is the first playlist');
+  click('liked-liked'); await wait(() => document.querySelector('.detail-page'), 'liked detail');
   assert(document.querySelectorAll('.track-row').length === 3, 'Liked array decoded'); passed.push('library, playlist, artist and liked songs');
   click('nav-search'); await wait(() => document.querySelector('.search-page'), 'search');
   const before = requests.filter(request => request.path === '/api/search').length;

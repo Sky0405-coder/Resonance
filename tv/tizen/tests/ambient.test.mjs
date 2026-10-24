@@ -18,7 +18,7 @@ class FakeElement {
   get ownerDocument() { return this.documentRef || null; }
 }
 
-function setup({ playing = true, ambient = true } = {}) {
+function setup({ playing = true, ambient = true, active } = {}) {
   let time = 0; let serial = 0; const tasks = new Map(); const listeners = new Map();
   const documentRef = {
     createElement(tag) { const node = new FakeElement(tag); node.documentRef = documentRef; return node; },
@@ -50,7 +50,7 @@ function setup({ playing = true, ambient = true } = {}) {
   const preferenceListeners = new Set();
   const preferences = { value: { ambient }, subscribe(listener) { preferenceListeners.add(listener); return () => preferenceListeners.delete(listener); },
     set(value) { this.value.ambient = value; preferenceListeners.forEach(listener => listener(this.value)); } };
-  const ambientView = createAmbient({ player, preferences, root, timeoutMs: 30000, now: () => time, timers });
+  const ambientView = createAmbient({ player, preferences, root, timeoutMs: 30000, now: () => time, timers, active });
   function keydown() {
     const event = { prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() { this.stopped = true; } };
     listeners.get('keydown').listener(event); return event;
@@ -97,4 +97,20 @@ test('paused playback and a disabled preference never show ambient mode', () => 
   assert.equal(disabled.ambientView.node.classList.contains('visible'), true);
   disabled.preferences.set(false); assert.equal(disabled.ambientView.node.classList.contains('visible'), false);
   assert.equal(disabled.tasks.size, 0); disabled.ambientView.dispose();
+});
+
+test('only dims on the player and can be shown right away', () => {
+  let onPlayer = false;
+  const env = setup({ active: () => onPlayer });
+  env.advance(31000);
+  assert.ok(!env.root.children[0].classList.contains('visible'));
+  onPlayer = true; env.ambientView.refresh();
+  env.advance(31000);
+  assert.ok(env.root.children[0].classList.contains('visible'));
+  env.keydown();
+  onPlayer = false; env.ambientView.refresh();
+  env.advance(31000);
+  assert.ok(!env.root.children[0].classList.contains('visible'));
+  onPlayer = true; env.ambientView.refresh(); env.ambientView.showNow();
+  assert.ok(env.root.children[0].classList.contains('visible'));
 });

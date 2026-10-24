@@ -1,6 +1,7 @@
 import { artistName } from './ui.js';
 
-export function createAmbient({ player, preferences, root, api, timeoutMs = 30000, now = Date.now, timers = window }) {
+// active(): only on the full-screen player; the rest of the app never dims.
+export function createAmbient({ player, preferences, root, api, timeoutMs = 30000, now = Date.now, timers = window, active = () => true }) {
   const documentRef = root.ownerDocument || document;
   function element(tag, className) { const node = documentRef.createElement(tag); if (className) node.className = className; return node; }
   const overlay = element('div', 'ambient');
@@ -15,7 +16,7 @@ export function createAmbient({ player, preferences, root, api, timeoutMs = 3000
   let timeout = null; let movement = null; let visible = false; let wasEligible = false; let lastActivity = now(); let disposed = false;
   function clearTimeoutId() { if (timeout !== null) timers.clearTimeout(timeout); timeout = null; }
   function clearMovement() { if (movement !== null) timers.clearInterval(movement); movement = null; }
-  function eligible() { return preferences.value.ambient && player.playing && !!(player.track || player.station); }
+  function eligible() { return preferences.value.ambient && active() && player.playing && !!(player.track || player.station); }
   function updateContent() {
     const track = player.track; const station = player.station; const metadata = player.now;
     title.textContent = station ? (metadata && (metadata.title || metadata.raw)) || station.name : track ? track.title : '';
@@ -70,7 +71,9 @@ export function createAmbient({ player, preferences, root, api, timeoutMs = 3000
   const unsubscribePreferences = preferences.subscribe(() => refresh());
   refresh();
 
-  return { node: overlay, dispose: () => {
+  // Shown right away, e.g. when it is switched on in the player, so it is clear what it does.
+  function showNow() { clearTimeoutId(); lastActivity = now() - timeoutMs; wasEligible = eligible(); show(); }
+  return { node: overlay, refresh: () => refresh(), showNow: showNow, dispose: () => {
     if (disposed) return;
     disposed = true; clearTimeoutId(); clearMovement(); hide();
     unsubscribePlayer(); unsubscribePreferences(); documentRef.removeEventListener('keydown', keydown, true);

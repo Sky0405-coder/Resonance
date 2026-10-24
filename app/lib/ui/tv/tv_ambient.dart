@@ -20,6 +20,12 @@ class TvAmbient extends ConsumerStatefulWidget {
   static final _focusHeldKeys = <LogicalKeyboardKey>{};
   static bool consumeNext = false;
   static bool _showing = false;
+  // How many full-screen players are open: the ambient mode only dims the player, not the rest of the app.
+  static final _players = ValueNotifier(0);
+  static final _showNowRequests = ValueNotifier(0);
+
+  /// Dims right away (when it is switched on in the player), so it is clear what the mode does.
+  static void showNow() => _showNowRequests.value++;
 
   static void noteInput({bool controller = false}) {
     if (controller && _showing) consumeNext = true;
@@ -56,6 +62,8 @@ class _TvAmbientState extends ConsumerState<TvAmbient> {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     TvAmbient._inputChanges.addListener(_onInput);
+    TvAmbient._players.addListener(_syncEligibility);
+    TvAmbient._showNowRequests.addListener(_showNow);
     _mode = ref.listenManual(tvModeProvider, (_, _) => _syncEligibility());
     _setting = ref.listenManual(tvAmbientModeProvider, (_, _) => _syncEligibility());
     _player = ref.listenManual(playerProvider, (_, _) => _syncEligibility());
@@ -65,7 +73,12 @@ class _TvAmbientState extends ConsumerState<TvAmbient> {
   void _syncEligibility() {
     final player = ref.read(playerProvider);
     final loaded = player.current != null || player.book != null || player.station != null;
-    final eligible = ref.read(tvModeProvider) && ref.read(tvAmbientModeProvider) && player.playing && loaded;
+    final eligible =
+        ref.read(tvModeProvider) &&
+        ref.read(tvAmbientModeProvider) &&
+        TvAmbient._players.value > 0 &&
+        player.playing &&
+        loaded;
     if (_eligible == eligible) return;
     _eligible = eligible;
     _idleTimer?.cancel();
@@ -74,6 +87,13 @@ class _TvAmbientState extends ConsumerState<TvAmbient> {
     } else {
       _setVisible(false);
     }
+  }
+
+  void _showNow() {
+    _syncEligibility();
+    if (!_eligible) return;
+    _idleTimer?.cancel();
+    _setVisible(true);
   }
 
   void _scheduleIdle() {
@@ -149,6 +169,8 @@ class _TvAmbientState extends ConsumerState<TvAmbient> {
     _fadeTimer?.cancel();
     _driftTimer?.cancel();
     TvAmbient._inputChanges.removeListener(_onInput);
+    TvAmbient._players.removeListener(_syncEligibility);
+    TvAmbient._showNowRequests.removeListener(_showNow);
     HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     TvAmbient._showing = false;
     TvAmbient.consumeNext = false;
@@ -269,4 +291,31 @@ class TvAmbientModeSetting extends ConsumerWidget {
       onChanged: ref.read(tvAmbientModeProvider.notifier).set,
     );
   }
+}
+
+/// Marks its subtree as the full-screen player, the only place the ambient mode dims.
+class TvAmbientZone extends StatefulWidget {
+  const TvAmbientZone({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<TvAmbientZone> createState() => _TvAmbientZoneState();
+}
+
+class _TvAmbientZoneState extends State<TvAmbientZone> {
+  @override
+  void initState() {
+    super.initState();
+    TvAmbient._players.value++;
+  }
+
+  @override
+  void dispose() {
+    // Deferred: the ambient overlay may be torn down at the same time and must not react mid-teardown.
+    scheduleMicrotask(() => TvAmbient._players.value--);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

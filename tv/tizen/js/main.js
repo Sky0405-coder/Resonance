@@ -54,6 +54,7 @@ const app = {
     if (this.controller && this.controller.dispose) this.controller.dispose();
     this.controller = null;
     root.classList.toggle('login-mode', route.name === 'login'); root.classList.toggle('now-mode', route.name === 'now');
+    if (this.ambient) this.ambient.refresh();
     Array.from(rail.querySelectorAll('[data-route]')).forEach(node => node.classList.toggle('selected', node.dataset.route === route.name));
     releaseImages(view);
     view.textContent = ''; view.scrollTop = 0; view.appendChild(el('p', 'loading', t('loading')));
@@ -137,7 +138,7 @@ const app = {
   }
 };
 const player = new Player(api, document.getElementById('audio-a'), document.getElementById('audio-b'), message => app.toast(message));
-createAmbient({ player: player, preferences: preferences, root: root, api: api });
+app.ambient = createAmbient({ player: player, preferences: preferences, root: root, api: api, active: () => !!app.current && app.current.name === 'now' });
 api.onUnauthorized = () => {
   api.save(api.server, ''); player.listened = 0; player.stop();
   app.toast(t('expired')); app.stack = []; app.navigate({ name: 'login' }, true);

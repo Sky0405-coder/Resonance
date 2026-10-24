@@ -39,7 +39,8 @@ export class Navigation {
   focus(el) {
     if (!el) return;
     el.focus({ preventScroll: true });
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    // Instant: smooth scrolling on every key press (and key repeat) makes the TV browser lag behind the remote.
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     this.remember(el);
   }
   first(scope) { this.focus(this.elements(scope)[0]); }

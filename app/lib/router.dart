@@ -13,6 +13,7 @@ import 'ui/tv/tv_shell.dart';
 import 'ui/tv/tv_page.dart';
 import 'ui/tv/tv_browse_pages.dart';
 import 'ui/tv/tv_detail_page.dart';
+import 'ui/tv/tv_ambient.dart';
 import 'ui/tv/tv_now_playing.dart';
 import 'ui/tv/tv_form_navigation.dart';
 import 'ui/tv/tv_media_pages.dart';
@@ -81,7 +82,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/now-playing',
         pageBuilder: (_, _) => CustomTransitionPage(
           child: Consumer(
-            builder: (_, ref, _) => ref.watch(tvModeProvider) ? const TvNowPlayingPage() : const NowPlayingPage(),
+            builder: (_, ref, _) =>
+                ref.watch(tvModeProvider) ? const TvAmbientZone(child: TvNowPlayingPage()) : const NowPlayingPage(),
           ),
           transitionsBuilder: (_, animation, _, child) => SlideTransition(
             position: Tween(

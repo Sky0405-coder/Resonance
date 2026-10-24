@@ -34,8 +34,9 @@ p { line-height: 1.5; }
 .eyebrow { font-size: 18px; font-weight: bold; letter-spacing: 4px; color: #9ddaaf; text-transform: uppercase; }
 .page-heading { margin-bottom: 42px; }
 .page-heading p { margin: 0; font-size: 26px; }
-[data-focusable] { outline: 3px solid transparent; outline-offset: 5px; transition: transform .12s ease; scroll-margin: 22px; }
-[data-focusable]:focus { outline: 3px solid #fff; transform: scale(1.06); position: relative; z-index: 3; }
+/* Positioned all the time: switching position on focus would relayout the page on every key press. */
+[data-focusable] { position: relative; outline: 3px solid transparent; outline-offset: 5px; transition: transform .12s ease; scroll-margin: 22px; }
+[data-focusable]:focus { outline: 3px solid #fff; transform: scale(1.06); z-index: 3; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
 .button { background: #2a2a2a; border-radius: 34px; padding: 16px 28px; min-height: 60px; margin-right: 18px; margin-bottom: 12px; font-size: 24px; font-weight: bold; }
 .button.primary { background: var(--accent); color: #06190d; }
@@ -110,7 +111,7 @@ input { width: 100%; display: block; background: #242424; border: 1px solid #555
 .now-cover-wrap.coverflow-wrap { left: 75px; margin-right: 240px; }
 .now-cover { width: 660px; height: 660px; object-fit: cover; }
 .coverflow-stage { width: 660px; height: 660px; position: absolute; left: 0; top: 0; overflow: visible; z-index: 2; }
-.coverflow-card { position: absolute; left: 0; top: 0; z-index: 2; border-radius: 16px; box-shadow: 0 20px 65px #0009; transform-origin: center center; transition: transform 300ms ease, opacity 300ms ease; }
+.coverflow-card { will-change: transform; position: absolute; left: 0; top: 0; z-index: 2; border-radius: 16px; box-shadow: 0 20px 65px #0009; transform-origin: center center; transition: transform 300ms ease, opacity 300ms ease; }
 .coverflow-card.coverflow-current { z-index: 4; }
 .coverflow-card.coverflow-outer { z-index: 1; }
 .visualizer { width: 660px; height: 264px; position: absolute; left: 0; bottom: 0; z-index: 5; background: transparent; }

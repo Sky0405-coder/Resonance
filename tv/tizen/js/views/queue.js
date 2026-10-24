@@ -4,7 +4,7 @@ function trackRow(ctx, track, index, label, action) {
   const node = button('', action, 'queue-' + index, 'track-row');
   node.dataset.row = 'queue-row-' + index;
   node.appendChild(el('span', 'track-number', label));
-  node.appendChild(image(ctx.api.artwork('track', track, 96), 'track-cover'));
+  node.appendChild(image(ctx.api.artwork('track', track, 96), 'track-cover', '', true));
   const info = el('span', 'track-info');
   info.appendChild(el('strong', '', track.title)); info.appendChild(el('span', 'muted', artistName(track)));
   node.appendChild(info); node.appendChild(el('span', 'track-album muted', track.album && track.album.title));

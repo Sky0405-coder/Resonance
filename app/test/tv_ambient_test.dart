@@ -86,6 +86,7 @@ void main() {
     bool ambientMode = true,
     bool playing = true,
     bool loaded = true,
+    bool onPlayer = true,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1280, 800);
@@ -128,7 +129,7 @@ void main() {
               child: TvFocusable(
                 autofocus: true,
                 onActivate: () => activations.add(activations.length + 1),
-                child: const Text('Focusable target'),
+                child: onPlayer ? const TvAmbientZone(child: Text('Focusable target')) : const Text('Focusable target'),
               ),
             ),
           ),
@@ -220,6 +221,19 @@ void main() {
       expect(find.byKey(const ValueKey('tv-ambient-artwork')), findsNothing);
     });
   }
+
+  testWidgets('ambient mode stays hidden away from the full-screen player', (tester) async {
+    await mount(tester, onPlayer: false);
+    await tester.pump(const Duration(seconds: 31));
+    expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 0);
+  });
+
+  testWidgets('switching it on in the player dims right away', (tester) async {
+    await mount(tester);
+    TvAmbient.showNow();
+    await tester.pump();
+    expect(tester.widget<AnimatedOpacity>(find.byKey(const ValueKey('tv-ambient-overlay'))).opacity, 1);
+  });
 
   testWidgets('keyboard input resets the 30-second idle timer', (tester) async {
     final (_, _, _, _) = await mount(tester);

@@ -153,7 +153,11 @@ export function nowPlayingView(ctx) {
     control('lyrics', toggleLyrics, 'lyrics');
     control('like', toggleLike, 'favorite_border');
     if (!player.station) control('queue', () => ctx.app.navigate({ name: 'queue' }), 'queue_music');
-    control('ambient', () => ctx.preferences.set('ambient', !ctx.preferences.value.ambient), 'dark_mode');
+    control('ambient', () => {
+      const on = !ctx.preferences.value.ambient;
+      ctx.preferences.set('ambient', on);
+      if (on && ctx.app.ambient) ctx.app.ambient.showNow();
+    }, 'dark_mode');
     info.appendChild(transport);
     lyricsPane = el('div', 'lyrics-pane'); lyricsPane.setAttribute('aria-label', t('lyrics'));
     lyricsPane.tabIndex = 0; lyricsPane.dataset.focusable = ''; lyricsPane.dataset.focusId = 'lyrics-pane';
