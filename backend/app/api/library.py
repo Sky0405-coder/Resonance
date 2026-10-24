@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy import ColumnElement, Select, func, or_, select
 
+from app.api import diagnostics
 from app.api.catalog import _track as catalog_track
 from app.api.requests import _out as request_out
 from app.deps import DB, AdminUser, CurrentUser
@@ -339,8 +340,16 @@ async def stream_track(
         else:
             format, bitrate = "opus", bitrate or 256
     if format == "raw":
+        if request.headers.get("range"):
+            diagnostics.note(user.username, "stream", track=str(track_id), format="raw", range=request.headers["range"])
         # FileResponse handles HTTP Range requests, which players need for seeking.
         return FileResponse(path, media_type=transcode.media_type(path))
+    if request.headers.get("range") or complete:
+        diagnostics.note(
+            user.username, "stream", track=str(track_id), format=format, complete=complete,
+            range=request.headers.get("range"), cached=transcode.cache_path(path, format, bitrate or 160).is_file(),
+            agent=request.headers.get("user-agent", "")[:80],
+        )  # fmt: skip
     target, job = transcode.start(path, format, bitrate or 160)
     media = transcode.FORMAT_MEDIA_TYPES[format]
     if job is not None:

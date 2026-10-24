@@ -17,6 +17,7 @@ from app.api import (
     books,
     catalog,
     devices,
+    diagnostics,
     editor,
     imports,
     jam,
@@ -151,6 +152,7 @@ for module in (
     worldradio,
     jam,
     devices,
+    diagnostics,
 ):
     app.include_router(module.router)
 app.include_router(books.admin_router)

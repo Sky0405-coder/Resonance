@@ -47,7 +47,11 @@ export class Player {
     this.autoplay = true;
     this.autoplayTried = new Set();
     this.autoplayRequest = null;
+    this.diagnostics = [];
     [audioA, audioB].forEach(audio => {
+      // Diagnostics: the TV gives no logs, so the player's own view of a stop is sent to the server.
+      ['error', 'stalled', 'suspend', 'waiting', 'ended', 'pause', 'playing', 'abort', 'emptied'].forEach(name =>
+        audio.addEventListener(name, () => this.diagnose(name, audio)));
       ['play', 'pause', 'waiting', 'playing', 'loadedmetadata', 'durationchange'].forEach(name => audio.addEventListener(name, () => {
         if (audio === this.audio) this.emit('state');
       }));
@@ -85,6 +89,27 @@ export class Player {
     window.addEventListener('pagehide', () => this.flush());
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.flush(); });
   }
+  diagnose(name, audio, extra) {
+    if (!this.api.request || !audio) return;
+    let buffered = null;
+    try { if (audio.buffered && audio.buffered.length) buffered = audio.buffered.end(audio.buffered.length - 1); } catch (_) { /* ignore */ }
+    const track = this.track;
+    this.diagnostics.push(Object.assign({
+      e: name, ms: Date.now(), current: audio === this.audio, pos: audio.currentTime, dur: audio.duration, buffered: buffered,
+      ns: audio.networkState, rs: audio.readyState, err: audio.error ? audio.error.code : null, paused: audio.paused,
+      track: track ? track.id : null, src: String(audio.getAttribute('src') || '').split('?')[1] || ''
+    }, extra || {}));
+    if (this.diagnostics.length > 150) this.diagnostics.shift();
+    if (name === 'error' || name === 'ended' || name === 'emptied' || name === 'recover') this.sendDiagnostics();
+    else if (!this.diagnosticsTimer) this.diagnosticsTimer = setTimeout(() => this.sendDiagnostics(), 15000);
+  }
+  sendDiagnostics() {
+    clearTimeout(this.diagnosticsTimer); this.diagnosticsTimer = null;
+    if (!this.diagnostics.length) return;
+    if (!this.api.token) { this.diagnostics = []; return; }
+    const events = this.diagnostics.splice(0).map(event => Object.assign({}, event, { src: event.src.replace(/token=[^&]*/, '') }));
+    Promise.resolve(this.api.request('/api/diagnostics/events', { method: 'POST', body: { events: events } })).catch(() => {});
+  }
   get track() { return this.queue[this.index] || null; }
   get playing() { return !this.audio.paused && !this.audio.ended; }
   get duration() { return this.track ? this.track.duration : 0; }
@@ -119,6 +144,7 @@ export class Player {
   recover(position) {
     if (this.recoveries >= 5) return false;
     this.recoveries++; this.recoveredAt = position;
+    this.diagnose('recover', this.audio, { at: position, attempt: this.recoveries });
     const audio = this.audio; const generation = this.generation;
     const seek = () => {
       audio.removeEventListener('loadedmetadata', seek);
