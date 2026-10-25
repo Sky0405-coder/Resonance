@@ -120,6 +120,12 @@ export async function runSmoke() {
   click('nav-library'); await wait(() => document.querySelector('.library-grid .card'), 'playlists');
   click('playlist-playlist'); await wait(() => document.querySelector('.detail-page'), 'playlist detail');
   assert(document.querySelectorAll('.track-row').length === 3, 'Playlist entries decoded');
+  const view = document.getElementById('view'); view.style.paddingBottom = '2000px'; document.querySelector('.track-row').focus(); view.scrollTop = 400;
+  key(38, 'ArrowUp'); assert(focusId() === 'detail-play' && view.scrollTop === 0, 'Moving up to the buttons shows the playlist title again');
+  view.style.paddingBottom = '';
+  key(13, 'Enter'); await wait(() => document.querySelector('.now-source strong'), 'player source');
+  assert(document.querySelector('.now-source strong').textContent === 'Playlist · Test Playlist', 'Player shows the playlist it plays from');
+  key(10009); await wait(() => document.querySelector('.detail-page'), 'playlist detail after player');
   key(10009); await wait(() => document.querySelector('.library-grid'), 'back library');
   click('library-tab-artists'); await wait(() => document.querySelector('.library-grid .artist'), 'artists');
   click('artist-artist'); await wait(() => document.querySelector('.detail-page'), 'artist detail');

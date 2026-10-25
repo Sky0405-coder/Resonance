@@ -6,6 +6,7 @@ export async function detailView(ctx) {
   const data = await ctx.api.request(path);
   const tracks = kind === 'liked' ? data : kind === 'playlist' ? data.entries.map(entry => entry.track) : kind === 'artist' ? data.top_tracks : data.tracks;
   const item = kind === 'liked' ? { id: 'liked', title: t('liked') } : data;
+  const source = kind === 'liked' ? t('liked') : t(kind) + ' · ' + (item.title || item.name);
   const root = el('div', 'detail-page'); const header = el('header', 'detail-header');
   header.appendChild(kind === 'liked' ? likedArtwork('detail-cover') : image(ctx.api.artwork(kind, item, 300), 'detail-cover'));
   const info = el('div', 'detail-info');
@@ -16,14 +17,14 @@ export async function detailView(ctx) {
   const actions = row('detail-actions');
   function play(shuffle) {
     const index = shuffle ? Math.floor(Math.random() * tracks.length) : 0;
-    ctx.player.setQueue(tracks, index, kind === 'liked' ? 'liked' : kind + ':' + id, shuffle);
+    ctx.player.setQueue(tracks, index, kind === 'liked' ? 'liked' : kind + ':' + id, shuffle, source);
     ctx.app.navigate({ name: 'now' });
   }
   const playButton = button('▶ ' + t('play'), () => play(false), 'detail-play', 'button primary'); playButton.disabled = !tracks.length;
   const shuffle = button('⤨ ' + t('shuffle'), () => play(true), 'detail-shuffle'); shuffle.disabled = !tracks.length;
   actions.appendChild(playButton); actions.appendChild(shuffle); info.appendChild(actions);
   header.appendChild(info); root.appendChild(header);
-  root.appendChild(trackList(ctx, tracks, kind === 'liked' ? 'liked' : kind + ':' + id));
+  root.appendChild(trackList(ctx, tracks, kind === 'liked' ? 'liked' : kind + ':' + id, source));
   if (kind === 'artist' && data.albums.length) root.appendChild(shelf(ctx, t('albums'), 'album', data.albums, 'artist-albums'));
   return { node: root, initialFocus: 'detail-play' };
 }

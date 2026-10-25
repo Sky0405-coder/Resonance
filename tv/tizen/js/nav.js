@@ -41,6 +41,12 @@ export class Navigation {
     el.focus({ preventScroll: true });
     // Instant: smooth scrolling on every key press (and key repeat) makes the TV browser lag behind the remote.
     el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // The first row of a page (detail buttons, first shelf) scrolls the page to its top so the title above shows again;
+    // a shelf shows its heading too.
+    const view = el.closest('[data-scroll-root]');
+    const first = view && view.querySelector('[data-focusable]');
+    if (first && first.closest('[data-row]') === el.closest('[data-row]')) view.scrollTop = 0;
+    else if (el.closest('.shelf')) el.closest('.shelf').scrollIntoView({ block: 'nearest' });
     this.remember(el);
   }
   first(scope) { this.focus(this.elements(scope)[0]); }

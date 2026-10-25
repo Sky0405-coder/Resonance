@@ -74,10 +74,10 @@ export function shelf(ctx, title, kind, items, id) {
   section.appendChild(itemsRow);
   return section;
 }
-export function trackList(ctx, tracks, context) {
+export function trackList(ctx, tracks, context, title) {
   const list = el('div', 'track-list');
   tracks.forEach((track, index) => {
-    const node = button('', () => { ctx.player.setQueue(tracks, index, context, false); ctx.app.navigate({ name: 'now' }); }, 'track-' + track.id + '-' + index, 'track-row');
+    const node = button('', () => { ctx.player.setQueue(tracks, index, context, false, title); ctx.app.navigate({ name: 'now' }); }, 'track-' + track.id + '-' + index, 'track-row');
     node.dataset.row = 'track-row-' + index;
     node.appendChild(el('span', 'track-number', index + 1));
     // Lazy: long lists (liked songs) would otherwise request every cover at once.

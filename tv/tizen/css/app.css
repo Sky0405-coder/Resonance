@@ -105,6 +105,8 @@ input { width: 100%; display: block; background: #242424; border: 1px solid #555
 .now-mode #view { left: 0; width: 1920px; padding: 40px 90px; background: transparent; }
 .now-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; }
 .now-top .button { margin: 0; }
+.now-source { min-width: 0; }
+.now-source strong { display: block; margin-top: 6px; font-size: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 1200px; }
 .now-layout { display: flex; align-items: center; }
 .now-cover-wrap { width: 660px; height: 660px; position: relative; flex-shrink: 0; margin-right: 90px; border-radius: 16px; overflow: visible; }
 .now-cover-wrap > .now-cover { border-radius: 16px; box-shadow: 0 20px 65px #0009; }

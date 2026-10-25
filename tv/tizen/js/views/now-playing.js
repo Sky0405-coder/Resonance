@@ -80,7 +80,10 @@ export function nowPlayingView(ctx) {
     if (canvas) canvas.remove();
     disposeVisualizer = null; canvas = null; coverUrl = ''; activeLine = -1; lyricsData = null; likedBusy = false;
     root.textContent = '';
-    const top = el('div', 'now-top'); top.appendChild(el('span', 'eyebrow', t('nowPlaying')));
+    const top = el('div', 'now-top'); const heading = el('div', 'now-source');
+    heading.appendChild(el('span', 'eyebrow', ctx.player.contextTitle && !ctx.player.station ? t('playingFrom') : t('nowPlaying')));
+    if (ctx.player.contextTitle && !ctx.player.station) heading.appendChild(el('strong', '', ctx.player.contextTitle));
+    top.appendChild(heading);
     top.appendChild(button('‹ ' + t('back'), () => ctx.app.back(), 'now-back')); root.appendChild(top);
     const layout = el('div', 'now-layout'); coverWrap = el('div', 'now-cover-wrap');
     if (flowItems && flowItems.length) {

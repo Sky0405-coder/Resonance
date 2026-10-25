@@ -128,7 +128,8 @@ export class Player {
   }
   release(audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
   clearRadio() { clearInterval(this.radioTimer); this.radioTimer = null; this.now = null; }
-  setQueue(tracks, index, context, shuffle) {
+  // title: shown in the player as what is playing (playlist, album, artist or Liked Songs name).
+  setQueue(tracks, index, context, shuffle, title) {
     if (!tracks.length) return;
     this.flush();
     this.clearRadio();
@@ -139,6 +140,7 @@ export class Player {
     this.shuffle = !!shuffle;
     this.order = playbackOrder(tracks.length, this.index, this.shuffle);
     this.context = context || null;
+    this.contextTitle = title || null;
     this.preloaded = -1;
     this.load(this.index, false);
   }
