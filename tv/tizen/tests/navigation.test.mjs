@@ -17,15 +17,24 @@ test('prioritizes aligned shelves over diagonals and rejects wrong directions', 
 test('geometry allows offscreen cards to be focused and scrolled into view', () => {
   assert.equal(nearestInDirection(rect(1700, 100), [candidate('next', 2010, 100)], 'right').id, 'next');
 });
-test('vertical navigation restores the remembered index of a target row', () => {
-  const currentRow = { dataset: { row: 'first' } };
-  const targetRow = { dataset: { row: 'second' } };
-  const current = { getBoundingClientRect: () => rect(100, 100), closest: () => currentRow };
-  const a = { getBoundingClientRect: () => rect(100, 250), closest: () => targetRow };
-  const b = { getBoundingClientRect: () => rect(230, 250), closest: () => targetRow };
-  const nav = new Navigation({ addEventListener() {} }); nav.rows.set('second', 1);
-  nav.elements = scope => scope === targetRow ? [a, b] : [current, a, b];
-  let focused; nav.focus = node => { focused = node; };
+const node = (x, y, row, extra) => Object.assign({ getBoundingClientRect: () => rect(x, y), closest: selector => selector === '[data-row]' ? row : null }, extra);
+function moveFrom(current, others, direction) {
+  const nav = new Navigation({ addEventListener() {} });
+  nav.elements = () => [current].concat(others);
+  let focused; nav.focus = el => { focused = el; };
   globalThis.document = { activeElement: current };
-  nav.move('down'); assert.equal(focused, b); delete globalThis.document;
+  nav.move(direction); delete globalThis.document;
+  return focused;
+}
+test('vertical navigation goes straight down to the card below in the next row', () => {
+  const first = { dataset: { row: 'first' } }; const second = { dataset: { row: 'second' } };
+  const current = node(500, 100, first);
+  const left = node(330, 250, second); const below = node(510, 250, second); const right = node(690, 250, second);
+  assert.equal(moveFrom(current, [left, right, below], 'down'), below);
+});
+test('the next shelf in the page wins over the nearer mini player below it', () => {
+  const page = { contains: el => el !== mini }; const shelf = { dataset: { row: 'shelf' } }; const bar = { dataset: { row: 'mini' } };
+  const current = node(500, 700, { dataset: { row: 'first' } }, { closest: selector => selector === '[data-scroll-root]' ? page : { dataset: { row: 'first' } } });
+  const mini = node(500, 950, bar); const next = node(500, 1100, shelf);
+  assert.equal(moveFrom(current, [mini, next], 'down'), next);
 });

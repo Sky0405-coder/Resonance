@@ -24,17 +24,10 @@ export class Navigation {
   constructor(root) {
     this.root = root;
     this.scope = root;
-    this.rows = new Map();
-    root.addEventListener('focusin', event => this.remember(event.target));
   }
   elements(scope) {
     return Array.from((scope || this.scope).querySelectorAll('[data-focusable]')).filter(el =>
       !el.disabled && !el.closest('[hidden]') && el.getClientRects().length > 0);
-  }
-  remember(el) {
-    if (!el.matches('[data-focusable]')) return;
-    const row = el.closest('[data-row]');
-    if (row) this.rows.set(row.dataset.row, this.elements(row).indexOf(el));
   }
   focus(el) {
     if (!el) return;
@@ -47,22 +40,37 @@ export class Navigation {
     const first = view && view.querySelector('[data-focusable]');
     if (first && first.closest('[data-row]') === el.closest('[data-row]')) view.scrollTop = 0;
     else if (el.closest('.shelf')) el.closest('.shelf').scrollIntoView({ block: 'nearest' });
-    this.remember(el);
   }
   first(scope) { this.focus(this.elements(scope)[0]); }
   move(direction, excludedRoot) {
     const elements = this.elements();
     const current = document.activeElement;
     if (elements.indexOf(current) < 0) { this.focus(elements[0]); return; }
-    const found = nearestInDirection(current.getBoundingClientRect(), elements.filter(el => el !== current && (!excludedRoot || !excludedRoot.contains(el)))
-      .map(el => ({ el: el, rect: el.getBoundingClientRect() })), direction);
+    const candidates = elements.filter(el => el !== current && (!excludedRoot || !excludedRoot.contains(el)))
+      .map(el => ({ el: el, rect: el.getBoundingClientRect() }));
+    const origin = current.getBoundingClientRect();
+    // Stay in the scrolling page while it has more below/above: the mini player at the bottom edge is
+    // nearer than the next shelf outside the screen, and focusing it first made every second step land there.
+    const scroll = current.closest('[data-scroll-root]');
+    const found = (scroll && nearestInDirection(origin, candidates.filter(c => scroll.contains(c.el)), direction)) ||
+      nearestInDirection(origin, candidates, direction);
     if (!found) return;
     let target = found.el;
     const row = target.closest('[data-row]');
     if ((direction === 'up' || direction === 'down') && row && row !== current.closest('[data-row]')) {
-      const remembered = this.rows.get(row.dataset.row);
-      const choices = this.elements(row);
-      if (remembered !== undefined && choices[remembered]) target = choices[remembered];
+      // Straight up/down: the card of the target row most in line with the current one (the most covered,
+      // then the nearest column); from a wide row such as a track that is the row's first button.
+      const center = (origin.left + origin.right) / 2;
+      let best = null;
+      candidates.forEach(c => {
+        if (c.el.closest('[data-row]') !== row) return;
+        const covered = Math.max(0, Math.min(origin.right, c.rect.right) - Math.max(origin.left, c.rect.left)) / (c.rect.right - c.rect.left || 1);
+        const distance = Math.abs((c.rect.left + c.rect.right) / 2 - center);
+        if (!best || covered > best.covered + 0.01 || (Math.abs(covered - best.covered) <= 0.01 && covered < 0.99 && distance < best.distance) ||
+          (Math.abs(covered - best.covered) <= 0.01 && covered >= 0.99 && c.rect.left < best.left)) {
+          best = { covered: covered, distance: distance, left: c.rect.left }; target = c.el;
+        }
+      });
     }
     this.focus(target);
   }
