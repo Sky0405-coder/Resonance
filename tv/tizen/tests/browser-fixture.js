@@ -30,6 +30,7 @@ export function installMocks() {
     if (path === '/api/auth/login') data = { token: 'fixture-token', user: { username: 'test' } };
     else if (path === '/api/auth/logout') return new Response(null, { status: 204 });
     else if (path === '/api/home') data = { recently_played: [album], recently_added: [album], playlists: [playlist], most_played: tracks };
+    else if (path === '/api/mixes') data = { made_for_you: [{ id: 'daily', name: 'Daily Mix 1', kind: 'mix' }], genres: [], discover: { id: 'discover', name: 'Discover Weekly', kind: 'mix' }, decades: [], charts: [{ id: 'chart', name: 'Top 100', kind: 'mix' }] };
     else if (path === '/api/albums') data = { items: [album], total: 1 };
     else if (path === '/api/artists') data = { items: [artist], total: 1 };
     else if (path === '/api/playlists') data = [playlist, { id: 'mix', name: 'Generated mix', kind: 'mix' }, { id: 'radio', name: 'Generated radio', kind: 'radio' }];
@@ -99,7 +100,9 @@ export async function runSmoke() {
   assert(document.querySelector('[name="username"]').value === 'A', 'Remote keyboard edit');
   document.querySelector('[name="username"]').value = 'test'; document.querySelector('[name="password"]').value = 'fixture';
   click('login-submit'); await wait(() => document.querySelector('.home-page .card'), 'home shelves');
-  assert(localStorage.getItem('resonance.token') === 'fixture-token', 'Persist login token'); passed.push('login, keyboard and home shelves');
+  assert(localStorage.getItem('resonance.token') === 'fixture-token', 'Persist login token');
+  await wait(() => document.querySelector('[data-row="mixes-made_for_you"] [data-focus-id="playlist-discover"]'), 'made for you shelf');
+  assert(document.querySelector('[data-row="mixes-charts"]') && !document.querySelector('[data-row="mixes-genres"]'), 'Show only filled mix shelves'); passed.push('login, keyboard and home shelves');
   if (window.__screenshotScene === 'home') return { passed: passed };
   key(10009); assert(!document.getElementById('modal').hidden, 'Home Back opens exit confirmation');
   key(10009); assert(document.getElementById('modal').hidden, 'Back dismisses exit confirmation');
