@@ -418,6 +418,31 @@ async def test_background_moves_past_a_full_batch_of_broken_files(env, monkeypat
         assert (await db.get(TrackMixPoints, missing_id)).failed
 
 
+async def test_background_reanalyzes_a_changed_file(env, monkeypatch: pytest.MonkeyPatch) -> None:
+    _, _, track_id, _ = env
+    paths = []
+
+    def analyze(path):
+        paths.append(path)
+        return mixpoints.MixPoints(120, 0, 30, 40)
+
+    async def sleep(seconds):
+        assert seconds == 5
+
+    monkeypatch.setattr(mixpoints, "analyze", analyze)
+    monkeypatch.setattr(mixpoints.asyncio, "sleep", sleep)
+    await mixpoints.run_once()
+    assert len(paths) == 2
+    async with SessionLocal() as db:
+        # A re-download replaces the file but keeps the track.
+        (await db.get(Track, track_id)).mtime += 1
+        await db.commit()
+    await mixpoints.run_once()
+    assert len(paths) == 3 and paths[-1] == MUSIC_DIR / "Beats/beat.wav"
+    await mixpoints.run_once()
+    assert len(paths) == 3
+
+
 async def test_background_skips_busy_ticks_and_only_runs_one_analysis(env, monkeypatch: pytest.MonkeyPatch) -> None:
     _, _, track_id, missing_id = env
     ticks = 0

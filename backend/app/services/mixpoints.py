@@ -302,7 +302,10 @@ _loop_task: asyncio.Task | None = None
 
 async def run_once() -> None:
     async with SessionLocal() as db:
-        current = select(TrackMixPoints.track_id).where(TrackMixPoints.version == VERSION)
+        # Also tracks whose file changed since their analysis (a re-download or upgrade keeps the track id).
+        current = select(TrackMixPoints.track_id).where(
+            TrackMixPoints.version == VERSION, TrackMixPoints.mtime == Track.mtime
+        )
         ids = list(await db.scalars(
             select(Track.id)
             .where(Track.is_temporary.is_(False), ~Track.id.in_(current))
