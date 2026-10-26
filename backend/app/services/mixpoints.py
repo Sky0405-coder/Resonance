@@ -303,12 +303,13 @@ _loop_task: asyncio.Task | None = None
 async def run_once() -> None:
     async with SessionLocal() as db:
         # Also tracks whose file changed since their analysis (a re-download or upgrade keeps the track id).
+        # NOT EXISTS, not NOT IN: correlated NOT IN rescanned all analyses for every track (45 s per run).
         current = select(TrackMixPoints.track_id).where(
-            TrackMixPoints.version == VERSION, TrackMixPoints.mtime == Track.mtime
-        )
+            TrackMixPoints.track_id == Track.id, TrackMixPoints.version == VERSION, TrackMixPoints.mtime == Track.mtime
+        ).exists()
         ids = list(await db.scalars(
             select(Track.id)
-            .where(Track.is_temporary.is_(False), ~Track.id.in_(current))
+            .where(Track.is_temporary.is_(False), ~current)
             .order_by(Track.created_at, Track.id)
             .limit(120)
         ))
