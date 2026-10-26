@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- In-app updates: the APK is downloaded from the Resonance server and handed to the system installer. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- Song ringtones: setting the default ringtone/notification/alarm sound (granted by the user in settings). -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions"/>
     <application
         android:label="Resonance"
         android:banner="@drawable/tv_banner"

@@ -101,6 +101,16 @@ class ApiClient {
   String streamUrl(String trackId, {String format = 'auto', int? bitrate}) =>
       '$baseUrl/api/tracks/$trackId/stream?format=$format${bitrate == null ? '' : '&bitrate=$bitrate'}&token=$token';
 
+  /// A ringtone cut (MP3 with fades); also the preview's source.
+  String ringtoneUrl(String trackId, double start, int length) =>
+      '$baseUrl/api/tracks/$trackId/ringtone?start=${start.toStringAsFixed(1)}&length=$length&token=$token';
+
+  /// Where a ringtone should start (the song's fullest part) and the song's length, in seconds.
+  Future<({double start, double duration})> ringtoneSuggestion(String trackId, int length) async {
+    final data = await _get('/api/tracks/$trackId/ringtone/suggestion', {'length': length});
+    return (start: (data['start'] as num).toDouble(), duration: (data['duration'] as num).toDouble());
+  }
+
   String artistImageUrl(String id, {int size = 300}) => '$baseUrl/api/artists/$id/image?size=$size&token=$token';
 
   String coverUrl(String albumId, {int size = 300}) => '$baseUrl/api/albums/$albumId/cover?size=$size&token=$token';

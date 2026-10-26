@@ -20,6 +20,7 @@ class MainActivity : AudioServiceActivity() {
                     result.notImplemented()
                 }
             }
+        RingtoneChannel.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

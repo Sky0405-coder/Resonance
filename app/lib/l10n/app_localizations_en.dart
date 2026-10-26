@@ -2841,4 +2841,72 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTvAmbientHint => 'Show only the cover and title when idle';
+
+  @override
+  String get ringtoneMenu => 'Use as ringtone';
+
+  @override
+  String get ringtoneLength => 'Length';
+
+  @override
+  String ringtoneSeconds(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String ringtoneRange(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String get ringtoneSuggested => 'Suggested: the song\'s fullest part, usually the chorus';
+
+  @override
+  String get ringtonePreview => 'Preview';
+
+  @override
+  String get ringtoneStopPreview => 'Stop preview';
+
+  @override
+  String get ringtoneTypeRingtone => 'Ringtone';
+
+  @override
+  String get ringtoneTypeNotification => 'Notification';
+
+  @override
+  String get ringtoneTypeAlarm => 'Alarm';
+
+  @override
+  String get ringtoneApply => 'Set';
+
+  @override
+  String ringtoneDone(String title, String type) {
+    String _temp0 = intl.Intl.selectLogic(type, {
+      'notification': 'notification sound',
+      'alarm': 'alarm sound',
+      'other': 'ringtone',
+    });
+    return '“$title” is now your $_temp0';
+  }
+
+  @override
+  String ringtoneSaved(String title) {
+    return 'Saved – pick “$title” in the sound settings';
+  }
+
+  @override
+  String get ringtonePermissionTitle => 'Permission needed';
+
+  @override
+  String get ringtonePermissionText =>
+      'To set the sound directly, allow Resonance to “modify system settings”. The song is already saved – without the permission you pick it yourself in the sound settings.';
+
+  @override
+  String get ringtonePermissionAllow => 'Allow';
+
+  @override
+  String get ringtonePermissionManual => 'Pick it myself';
+
+  @override
+  String get ringtoneUnsupported => 'Ringtones from songs need Android 10 or newer';
 }

@@ -76,6 +76,8 @@ _EXACT: dict[str, str] = {
     "Nicht im Katalog gefunden": "Not found in the catalog",
     "Katalog nicht erreichbar": "Catalog is unavailable",
     "Song nicht gefunden": "Song not found",
+    "Start liegt hinter dem Songende": "Start is past the end of the song",
+    "Klingelton konnte nicht erstellt werden": "Could not create the ringtone",
     "Titel nicht gefunden": "Track not found",
     "Album nicht gefunden": "Album not found",
     "Anfrage nicht gefunden": "Request not found",

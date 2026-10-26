@@ -15,6 +15,7 @@ import '../../player/player.dart';
 import '../../offline/offline_store.dart';
 import '../pages/admin/metadata_editor.dart';
 import 'common.dart';
+import 'ringtone_sheet.dart';
 import 'action_sheet.dart';
 
 /// One row in a track list. [number] shows a track number instead of the cover, or before it (chart places) when
@@ -85,10 +86,8 @@ class _TrackRowState extends ConsumerState<TrackRow> {
             child: Text(
               '${widget.number}',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: current ? accent : Palette.textMuted,
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: current ? accent : Palette.textMuted, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(width: 8),
@@ -221,6 +220,12 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
         label: context.l10n.playerGoToArtist,
         onSelected: () => context.push('/artist/${t.artist.id}'),
       ),
+      if (ringtonesAvailable(ref))
+        SheetAction(
+          icon: Icons.ring_volume,
+          label: context.l10n.ringtoneMenu,
+          onSelected: () => showRingtoneSheet(context, ref, t),
+        ),
       if (!ref.read(sessionProvider).offline)
         SheetAction(
           icon: Icons.restart_alt,

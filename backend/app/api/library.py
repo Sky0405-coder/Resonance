@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -36,7 +37,7 @@ from app.schemas import (
     SearchResult,
     TrackOut,
 )
-from app.services import covers, mixpoints, spectrum, transcode
+from app.services import covers, mixpoints, ringtone, spectrum, transcode
 from app.services.deezer import DeezerError, deezer
 from app.services.downloads import create_redownload
 from app.services.lyrics import get_lyrics
@@ -376,6 +377,45 @@ async def prepare_stream(
     path = transcode.resolve_path(track.path)
     if path.is_file():
         transcode.start(path, format, bitrate)
+
+
+async def _track_file(db: DB, track_id: uuid.UUID) -> tuple[Track, Path]:
+    track = await db.get(Track, track_id)
+    if track is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Track not found")
+    path = transcode.resolve_path(track.path)
+    if not path.is_file():
+        raise HTTPException(status.HTTP_410_GONE, "File missing on disk")
+    return track, path
+
+
+@router.get("/tracks/{track_id}/ringtone/suggestion")
+async def ringtone_suggestion(
+    track_id: uuid.UUID, user: CurrentUser, db: DB, length: float = Query(30, ge=5, le=60)
+) -> dict[str, float]:
+    """Where a ringtone of `length` seconds should start: the song's loudest stretch, usually its chorus."""
+    track, path = await _track_file(db, track_id)
+    start = min(await ringtone.suggest_start(path, length), max(0.0, track.duration - length))
+    return {"start": start, "duration": track.duration}
+
+
+@router.get("/tracks/{track_id}/ringtone")
+async def ringtone_file(
+    track_id: uuid.UUID,
+    user: CurrentUser,
+    db: DB,
+    start: float = Query(0, ge=0),
+    length: float = Query(30, ge=5, le=60),
+) -> Response:
+    """The cut as MP3 with fades, for saving as ringtone, notification or alarm sound (and for the preview)."""
+    track, path = await _track_file(db, track_id)
+    if start >= track.duration:
+        raise HTTPException(422, "Start liegt hinter dem Songende")
+    try:
+        data = await ringtone.cut(path, start, min(length, track.duration - start))
+    except RuntimeError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Klingelton konnte nicht erstellt werden") from e
+    return Response(data, media_type="audio/mpeg", headers={"Cache-Control": "private, max-age=3600"})
 
 
 # --- AutoMix ----------------------------------------------------------------

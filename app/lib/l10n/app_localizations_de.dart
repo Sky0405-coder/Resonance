@@ -2819,4 +2819,72 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsTvAmbientHint => 'Bei Inaktivität nur Cover und Titel zeigen';
+
+  @override
+  String get ringtoneMenu => 'Als Klingelton verwenden';
+
+  @override
+  String get ringtoneLength => 'Länge';
+
+  @override
+  String ringtoneSeconds(int seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String ringtoneRange(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String get ringtoneSuggested => 'Vorschlag: die vollste Stelle des Songs, meist der Refrain';
+
+  @override
+  String get ringtonePreview => 'Probehören';
+
+  @override
+  String get ringtoneStopPreview => 'Probe stoppen';
+
+  @override
+  String get ringtoneTypeRingtone => 'Klingelton';
+
+  @override
+  String get ringtoneTypeNotification => 'Benachrichtigung';
+
+  @override
+  String get ringtoneTypeAlarm => 'Wecker';
+
+  @override
+  String get ringtoneApply => 'Festlegen';
+
+  @override
+  String ringtoneDone(String title, String type) {
+    String _temp0 = intl.Intl.selectLogic(type, {
+      'notification': 'Benachrichtigungston',
+      'alarm': 'Weckton',
+      'other': 'Klingelton',
+    });
+    return '„$title“ ist jetzt dein $_temp0';
+  }
+
+  @override
+  String ringtoneSaved(String title) {
+    return 'Gespeichert – wähle „$title“ in den Toneinstellungen aus';
+  }
+
+  @override
+  String get ringtonePermissionTitle => 'Berechtigung nötig';
+
+  @override
+  String get ringtonePermissionText =>
+      'Damit Resonance den Ton direkt festlegen kann, erlaube „Systemeinstellungen ändern“. Der Song ist schon gespeichert – ohne die Berechtigung wählst du ihn selbst in den Toneinstellungen aus.';
+
+  @override
+  String get ringtonePermissionAllow => 'Erlauben';
+
+  @override
+  String get ringtonePermissionManual => 'Selbst auswählen';
+
+  @override
+  String get ringtoneUnsupported => 'Klingeltöne aus Songs brauchen Android 10 oder neuer';
 }

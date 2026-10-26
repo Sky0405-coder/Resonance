@@ -5059,6 +5059,114 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Bei Inaktivität nur Cover und Titel zeigen'**
   String get settingsTvAmbientHint;
+
+  /// No description provided for @ringtoneMenu.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Klingelton verwenden'**
+  String get ringtoneMenu;
+
+  /// No description provided for @ringtoneLength.
+  ///
+  /// In de, this message translates to:
+  /// **'Länge'**
+  String get ringtoneLength;
+
+  /// No description provided for @ringtoneSeconds.
+  ///
+  /// In de, this message translates to:
+  /// **'{seconds} s'**
+  String ringtoneSeconds(int seconds);
+
+  /// No description provided for @ringtoneRange.
+  ///
+  /// In de, this message translates to:
+  /// **'{start} – {end}'**
+  String ringtoneRange(String start, String end);
+
+  /// No description provided for @ringtoneSuggested.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschlag: die vollste Stelle des Songs, meist der Refrain'**
+  String get ringtoneSuggested;
+
+  /// No description provided for @ringtonePreview.
+  ///
+  /// In de, this message translates to:
+  /// **'Probehören'**
+  String get ringtonePreview;
+
+  /// No description provided for @ringtoneStopPreview.
+  ///
+  /// In de, this message translates to:
+  /// **'Probe stoppen'**
+  String get ringtoneStopPreview;
+
+  /// No description provided for @ringtoneTypeRingtone.
+  ///
+  /// In de, this message translates to:
+  /// **'Klingelton'**
+  String get ringtoneTypeRingtone;
+
+  /// No description provided for @ringtoneTypeNotification.
+  ///
+  /// In de, this message translates to:
+  /// **'Benachrichtigung'**
+  String get ringtoneTypeNotification;
+
+  /// No description provided for @ringtoneTypeAlarm.
+  ///
+  /// In de, this message translates to:
+  /// **'Wecker'**
+  String get ringtoneTypeAlarm;
+
+  /// No description provided for @ringtoneApply.
+  ///
+  /// In de, this message translates to:
+  /// **'Festlegen'**
+  String get ringtoneApply;
+
+  /// No description provided for @ringtoneDone.
+  ///
+  /// In de, this message translates to:
+  /// **'„{title}“ ist jetzt dein {type, select, notification{Benachrichtigungston} alarm{Weckton} other{Klingelton}}'**
+  String ringtoneDone(String title, String type);
+
+  /// No description provided for @ringtoneSaved.
+  ///
+  /// In de, this message translates to:
+  /// **'Gespeichert – wähle „{title}“ in den Toneinstellungen aus'**
+  String ringtoneSaved(String title);
+
+  /// No description provided for @ringtonePermissionTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Berechtigung nötig'**
+  String get ringtonePermissionTitle;
+
+  /// No description provided for @ringtonePermissionText.
+  ///
+  /// In de, this message translates to:
+  /// **'Damit Resonance den Ton direkt festlegen kann, erlaube „Systemeinstellungen ändern“. Der Song ist schon gespeichert – ohne die Berechtigung wählst du ihn selbst in den Toneinstellungen aus.'**
+  String get ringtonePermissionText;
+
+  /// No description provided for @ringtonePermissionAllow.
+  ///
+  /// In de, this message translates to:
+  /// **'Erlauben'**
+  String get ringtonePermissionAllow;
+
+  /// No description provided for @ringtonePermissionManual.
+  ///
+  /// In de, this message translates to:
+  /// **'Selbst auswählen'**
+  String get ringtonePermissionManual;
+
+  /// No description provided for @ringtoneUnsupported.
+  ///
+  /// In de, this message translates to:
+  /// **'Klingeltöne aus Songs brauchen Android 10 oder neuer'**
+  String get ringtoneUnsupported;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
