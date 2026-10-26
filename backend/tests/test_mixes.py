@@ -187,6 +187,26 @@ def test_genre_keys(raw: str | None, expected: list[str]) -> None:
     assert mixes.genre_keys(raw) == expected
 
 
+def test_genre_mix_leaves_out_compilation_songs_of_artists_from_other_genres() -> None:
+    lounge, house, bee_gees, newcomer = (uuid.uuid4() for _ in range(4))
+    sampler = uuid.uuid4()
+
+    def song(artist_id: uuid.UUID, album_artist_id: uuid.UUID = sampler) -> SimpleNamespace:
+        return SimpleNamespace(artist_id=artist_id, album=SimpleNamespace(artist_id=album_artist_id))
+
+    own_genres = {lounge: {"downtempo", "acid jazz"}, house: {"electronic", "house"}, bee_gees: {"pop"}}
+    deep_house = [song(lounge), song(house), song(newcomer), *[song(house, house) for _ in range(30)]]
+    fitting = mixes.fitting_genre_tracks("deep house", deep_house, own_genres)
+    # The lounge artist is out; house and umbrella-only artists stay, as do artists without own releases.
+    assert deep_house[0] not in fitting and deep_house[1] in fitting and deep_house[2] in fitting
+    assert len(fitting) == 32
+    # Few fitting songs: the genre keeps its whole pool rather than shrinking below a mix.
+    assert mixes.fitting_genre_tracks("deep house", deep_house[:3], own_genres) == deep_house[:3]
+    disco = [song(bee_gees), *[song(house, house) for _ in range(30)]]
+    assert disco[0] in mixes.fitting_genre_tracks("disco", disco, own_genres)
+    assert mixes.genres_related("house", "deep house") and not mixes.genres_related("deep house", "tech house")
+
+
 async def test_daily_groups_related_library_limits_and_priority(env: SimpleNamespace) -> None:
     async with SessionLocal() as db:
         groups = []

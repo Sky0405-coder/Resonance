@@ -89,6 +89,28 @@ def test_analyze_short_or_silent_file(tmp_path: Path) -> None:
     assert points.bpm is None and points.key is None and points.key_confidence is None
 
 
+def test_analyze_one_second_of_audio(tmp_path: Path) -> None:
+    # A damaged file that decodes to only its first second (the rest of it is zeros).
+    path = tmp_path / "damaged.wav"
+    t = np.arange(RATE) / RATE
+    with wave.open(str(path), "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(RATE)
+        out.writeframes((np.sin(2 * np.pi * 220 * t) * 12000).astype("<i2").tobytes())
+    points = mixpoints.analyze(path)
+    assert points.end <= 1.1 and points.mix_out <= points.end
+
+
+async def test_crashing_analysis_is_stored_as_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    def analyze(path):
+        raise IndexError("index 42 is out of bounds")
+
+    monkeypatch.setattr(mixpoints, "analyze", analyze)
+    assert await mixpoints.analyze_async(Path("broken.mp3")) is None
+    assert mixpoints._analysis_requests == 0
+
+
 @pytest.mark.parametrize("notes, key", [([60, 64, 67], "8B"), ([57, 60, 64], "8A"), ([55, 59, 62], "9B")])
 def test_analyze_finds_key(tmp_path: Path, notes: list[int], key: str) -> None:
     t = np.arange(RATE * 20) / RATE

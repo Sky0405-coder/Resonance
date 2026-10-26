@@ -107,7 +107,8 @@ def _key(samples: np.ndarray) -> tuple[str | None, float | None]:
 
 
 def _smooth(values: np.ndarray, seconds: float) -> np.ndarray:
-    width = max(1, int(seconds * _RATE / _HOP))
+    # Not wider than the signal: "same" would otherwise return the kernel's length (one-second files).
+    width = max(1, min(len(values), int(seconds * _RATE / _HOP)))
     return np.convolve(values, np.ones(width) / width, mode="same")
 
 
@@ -246,6 +247,10 @@ async def analyze_async(path: Path) -> MixPoints | None:
                 return await asyncio.to_thread(analyze, path)
             except (OSError, subprocess.SubprocessError, ValueError) as e:
                 log.info("Mix point analysis failed for %s: %s", path, e)
+                return None
+            except Exception:
+                # Stored as failed: otherwise the background analysis retries the song every minute forever.
+                log.exception("Mix point analysis crashed for %s", path)
                 return None
     finally:
         _analysis_requests -= 1

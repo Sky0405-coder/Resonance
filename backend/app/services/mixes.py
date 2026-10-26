@@ -252,6 +252,39 @@ def genre_keys(raw: str | None) -> list[str]:
     return keys
 
 
+# Umbrella tags that say too little to contradict a more specific genre.
+_UMBRELLA_GENRES = frozenset({"electronic", "electronica", "electro", "dance", "club", "edm", "other"})
+# Genres an artist's own releases may carry while their songs still fit the other one (e.g. Bee Gees: pop and disco).
+_RELATED_GENRES = {
+    "disco": {"soul", "funk", "pop", "r&b", "dance pop", "boogie"},
+    "funk": {"soul", "disco", "r&b"},
+    "soul": {"funk", "r&b", "disco"},
+    "r&b": {"soul", "funk", "hip hop", "contemporary r&b", "new jack swing"},
+    "hip hop": {"r&b", "rap", "boom bap", "g funk", "crunk", "trap", "pop rap"},
+}
+
+
+def genres_related(a: str, b: str) -> bool:
+    """Same genre, one names the other (house / deep house), or a known neighbour."""
+    words_a, words_b = set(a.split()), set(b.split())
+    if words_a <= words_b or words_b <= words_a:
+        return True
+    return b in _RELATED_GENRES.get(a, ()) or a in _RELATED_GENRES.get(b, ())
+
+
+def fitting_genre_tracks(genre: str, pool: list[Track], own_genres: dict[uuid.UUID, set[str]]) -> list[Track]:
+    """Drops songs that are only in the genre through a compilation's tag (a lounge "Deep House" sampler) when the
+    artist's own releases are tagged with other, unrelated genres. Small pools stay complete."""
+    def fits(track: Track) -> bool:
+        if track.album.artist_id == track.artist_id:
+            return True
+        own = own_genres.get(track.artist_id, set()) - _UMBRELLA_GENRES
+        return not own or any(genres_related(genre, key) for key in own)
+
+    fitting = [track for track in pool if fits(track)]
+    return fitting if len(fitting) >= 30 else pool
+
+
 def decade_label(decade: int) -> str:
     """1980 → "80er", 2010 → "2010er" (as the decades are usually called)."""
     return f"{decade % 100:02d}er" if decade < 2000 else f"{decade}er"
@@ -579,6 +612,11 @@ async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool 
     for track in tracks:
         for key in genre_keys(track.genre) or genre_keys(track.album.genre):
             by_genre[key].append(track)
+    own_genres: dict[uuid.UUID, set[str]] = defaultdict(set)
+    for track in tracks:
+        if track.album.artist_id == track.artist_id:
+            own_genres[track.artist_id].update(genre_keys(track.genre) or genre_keys(track.album.genre))
+    by_genre = {key: fitting_genre_tracks(key, pool, own_genres) for key, pool in by_genre.items()}
     dominant: dict[uuid.UUID, str] = {}
     for artist_id, artist_tracks in by_artist.items():
         counts = Counter(
