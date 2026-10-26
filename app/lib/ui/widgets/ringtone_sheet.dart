@@ -208,14 +208,17 @@ class _RingtoneSheetState extends ConsumerState<RingtoneSheet> {
             ),
             const SizedBox(height: 16),
             SegmentedButton<String>(
+              // Text only, shrunk if needed: with icons "Benachrichtigung" broke over two lines on phones.
               segments: [
-                ButtonSegment(value: 'ringtone', icon: const Icon(Icons.phone), label: Text(l10n.ringtoneTypeRingtone)),
-                ButtonSegment(
-                  value: 'notification',
-                  icon: const Icon(Icons.notifications),
-                  label: Text(l10n.ringtoneTypeNotification),
-                ),
-                ButtonSegment(value: 'alarm', icon: const Icon(Icons.alarm), label: Text(l10n.ringtoneTypeAlarm)),
+                for (final (value, label) in [
+                  ('ringtone', l10n.ringtoneTypeRingtone),
+                  ('notification', l10n.ringtoneTypeNotification),
+                  ('alarm', l10n.ringtoneTypeAlarm),
+                ])
+                  ButtonSegment(
+                    value: value,
+                    label: FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1)),
+                  ),
               ],
               showSelectedIcon: false,
               selected: {_type},
