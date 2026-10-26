@@ -333,6 +333,13 @@ class SettingsPage extends ConsumerWidget {
             value: ref.watch(coverflowProvider),
             onChanged: ref.read(coverflowProvider.notifier).set,
           ),
+          if (ref.watch(coverflowProvider))
+            SwitchListTile(
+              title: Text(context.l10n.settingsCoverflowFlip),
+              subtitle: Text(context.l10n.settingsCoverflowFlipHint),
+              value: ref.watch(coverflowFlipProvider),
+              onChanged: ref.read(coverflowFlipProvider.notifier).set,
+            ),
           if (supportsEqualizer)
             ListTile(
               leading: const Icon(Icons.equalizer),

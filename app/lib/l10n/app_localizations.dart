@@ -3608,6 +3608,18 @@ abstract class AppLocalizations {
   /// **'Cover der Warteschlange zum Wischen nebeneinander'**
   String get settingsCoverflowHint;
 
+  /// No description provided for @settingsCoverflowFlip.
+  ///
+  /// In de, this message translates to:
+  /// **'Cover umdrehen'**
+  String get settingsCoverflowFlip;
+
+  /// No description provided for @settingsCoverflowFlipHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Tippen auf das Cover zeigt die Songs des Albums'**
+  String get settingsCoverflowFlipHint;
+
   /// No description provided for @visualizerThemeAuto.
   ///
   /// In de, this message translates to:

@@ -134,6 +134,19 @@ class CoverflowController extends Notifier<bool> {
   }
 }
 
+final coverflowFlipProvider = NotifierProvider<CoverflowFlipController, bool>(CoverflowFlipController.new);
+
+/// Tapping the centered coverflow cover turns it over to the album's songs.
+class CoverflowFlipController extends Notifier<bool> {
+  @override
+  bool build() => ref.read(prefsProvider).getBool('coverflow_flip') ?? false;
+
+  void set(bool enabled) {
+    ref.read(prefsProvider).setBool('coverflow_flip', enabled);
+    state = enabled;
+  }
+}
+
 class PeakBubble {
   const PeakBubble(this.height, {this.age = 0});
 

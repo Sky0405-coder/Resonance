@@ -2036,6 +2036,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsCoverflowHint => 'Cover der Warteschlange zum Wischen nebeneinander';
 
   @override
+  String get settingsCoverflowFlip => 'Cover umdrehen';
+
+  @override
+  String get settingsCoverflowFlipHint => 'Tippen auf das Cover zeigt die Songs des Albums';
+
+  @override
   String get visualizerThemeAuto => 'Automatisch';
 
   @override

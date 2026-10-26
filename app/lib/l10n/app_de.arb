@@ -1283,6 +1283,8 @@
   "visualizerPeaksOff": "Punkte aus",
   "settingsCoverflow": "Coverflow",
   "settingsCoverflowHint": "Cover der Warteschlange zum Wischen nebeneinander",
+  "settingsCoverflowFlip": "Cover umdrehen",
+  "settingsCoverflowFlipHint": "Tippen auf das Cover zeigt die Songs des Albums",
   "visualizerThemeAuto": "Automatisch",
   "visualizerThemeRetro": "Retro-Stereo",
   "visualizerThemeSynthwave": "Synthwave",

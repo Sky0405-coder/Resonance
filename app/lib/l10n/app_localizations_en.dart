@@ -2061,6 +2061,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsCoverflowHint => 'Swipe through the queue\'s covers side by side';
 
   @override
+  String get settingsCoverflowFlip => 'Flip covers';
+
+  @override
+  String get settingsCoverflowFlipHint => 'Tap the cover to see the album\'s songs';
+
+  @override
   String get visualizerThemeAuto => 'Automatic';
 
   @override

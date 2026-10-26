@@ -150,6 +150,7 @@ void main() {
     WidgetTester tester, {
     Size size = const Size(450, 800),
     bool coverflow = false,
+    bool flip = false,
     bool visualizer = true,
     bool reflection = true,
     String theme = 'retro',
@@ -168,6 +169,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     SharedPreferences.setMockInitialValues({
       'coverflow': coverflow,
+      'coverflow_flip': flip,
       'visualizer_theme': theme,
       'visualizer_reflection': reflection,
     });
@@ -190,6 +192,20 @@ void main() {
         positionProvider.overrideWith((ref) => const Stream.empty()),
         durationProvider.overrideWith((ref) => const Stream.empty()),
         worldRadioFavoritesProvider.overrideWith((ref) async => radioFavorites),
+        albumProvider.overrideWith(
+          (ref, id) async => AlbumDetail(
+            Album(
+              id: id,
+              title: 'Album $id',
+              artist: const NamedRef('artist', 'Artist'),
+              hasCover: true,
+              trackCount: 2,
+            ),
+            [_tracks[1], _tracks[2]],
+            240,
+            false,
+          ),
+        ),
       ],
     );
     addTearDown(() async {
@@ -522,6 +538,36 @@ void main() {
     await tester.pump();
     expect(container.read(visualizerPeaksProvider), isFalse);
     expect(find.text('Peak dots off'), findsOneWidget);
+  });
+
+  testWidgets('a tapped coverflow cover turns over to its album and plays a song from there', (tester) async {
+    final container = await mount(
+      tester,
+      size: const Size(360, 640),
+      coverflow: true,
+      flip: true,
+      view: const PlayerView(queue: _tracks, index: 1, context: 'album:two'),
+    );
+    final player = container.read(playerProvider.notifier) as _Player;
+    expect(find.text('Album two'), findsNothing);
+    await tester.tap(flowArtwork(1));
+    await tester.pumpAndSettle();
+    expect(find.text('Album two'), findsOneWidget);
+    expect(find.byKey(const ValueKey('coverflow-back-track-1')), findsOneWidget);
+    // The visualizer's peaks moved to a long press.
+    expect(container.read(visualizerPeaksProvider), isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('coverflow-back-track-1')));
+    await tester.pump();
+    expect(player.jumps, [2]);
+
+    player.update(const PlayerView(queue: _tracks, index: 2, context: 'album:two'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Album two'), findsNothing);
+    await tester.longPress(flowArtwork(2));
+    await tester.pump();
+    expect(container.read(visualizerPeaksProvider), isFalse);
   });
 
   testWidgets('coverflow starts at the queue index, jumps once after a swipe and follows external changes', (
@@ -857,12 +903,7 @@ void main() {
     expect(find.byType(Coverflow), findsNothing);
     expect(find.byType(TrackCover), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
-    await mount(
-      tester,
-      size: const Size(1920, 1080),
-      view: const PlayerView(),
-      child: const TvNowPlayingPage(),
-    );
+    await mount(tester, size: const Size(1920, 1080), view: const PlayerView(), child: const TvNowPlayingPage());
     expect(find.byType(ImageFiltered), findsNothing);
     expect(find.byKey(const ValueKey('tv-now-playing-gradient')), findsNothing);
     expect(find.byKey(const ValueKey('tv-now-playing-bottom-gradient')), findsNothing);

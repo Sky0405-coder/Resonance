@@ -706,6 +706,8 @@
   "visualizerPeaksOff": "Peak dots off",
   "settingsCoverflow": "Coverflow",
   "settingsCoverflowHint": "Swipe through the queue's covers side by side",
+  "settingsCoverflowFlip": "Flip covers",
+  "settingsCoverflowFlipHint": "Tap the cover to see the album's songs",
   "visualizerThemeAuto": "Automatic",
   "visualizerThemeRetro": "Retro hi-fi",
   "visualizerThemeSynthwave": "Synthwave",
