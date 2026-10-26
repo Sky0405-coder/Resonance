@@ -257,30 +257,32 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                 _BookGrid(value: ref.watch(absSearchProvider((library.id, _query))), progress: progress)
               else ...[
                 SliverToBoxAdapter(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Row(
-                      children: [
-                        for (final (view, label) in [
-                          (_BooksView.library, context.l10n.audiobooksViewLibrary),
-                          (_BooksView.series, context.l10n.audiobooksViewSeries),
-                          (_BooksView.authors, context.l10n.audiobooksViewAuthors),
-                          (_BooksView.narrators, context.l10n.audiobooksViewNarrators),
-                        ])
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(label),
-                              selected: _view == view,
-                              onSelected: (_) => setState(() {
-                                _view = view;
-                                _filter = null;
-                              }),
+                  child: MouseDragScroll(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Row(
+                        children: [
+                          for (final (view, label) in [
+                            (_BooksView.library, context.l10n.audiobooksViewLibrary),
+                            (_BooksView.series, context.l10n.audiobooksViewSeries),
+                            (_BooksView.authors, context.l10n.audiobooksViewAuthors),
+                            (_BooksView.narrators, context.l10n.audiobooksViewNarrators),
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(label),
+                                selected: _view == view,
+                                onSelected: (_) => setState(() {
+                                  _view = view;
+                                  _filter = null;
+                                }),
+                              ),
                             ),
-                          ),
-                        if (widget.embedded) const _AccountMenu(),
-                      ],
+                          if (widget.embedded) const _AccountMenu(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -315,38 +317,36 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                 else if (_view != _BooksView.library)
                   _PersonList(
                     value: ref.watch(
-                      _view == _BooksView.authors
-                          ? absAuthorsProvider(library.id)
-                          : absNarratorsProvider(library.id),
+                      _view == _BooksView.authors ? absAuthorsProvider(library.id) : absNarratorsProvider(library.id),
                     ),
                     icon: _view == _BooksView.authors ? Icons.person : Icons.record_voice_over,
                     onOpen: (p) => setState(() => _filter = (p.name, p.filter)),
                   )
                 else ...[
-                SliverToBoxAdapter(
-                  child: ref
-                      .watch(absShelvesProvider(library.id))
-                      .when(
-                        loading: () => const SizedBox(),
-                        error: (_, _) => const SizedBox(),
-                        data: (shelves) => Column(
-                          children: [
-                            for (final s in shelves.where((s) => s.id == 'continue-listening'))
-                              Shelf(
-                                title: context.l10n.audiobooksContinueListening,
-                                children: [for (final b in s.items) _BookCard(item: b, progress: progress[b.id])],
-                              ),
-                          ],
+                  SliverToBoxAdapter(
+                    child: ref
+                        .watch(absShelvesProvider(library.id))
+                        .when(
+                          loading: () => const SizedBox(),
+                          error: (_, _) => const SizedBox(),
+                          data: (shelves) => Column(
+                            children: [
+                              for (final s in shelves.where((s) => s.id == 'continue-listening'))
+                                Shelf(
+                                  title: context.l10n.audiobooksContinueListening,
+                                  children: [for (final b in s.items) _BookCard(item: b, progress: progress[b.id])],
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                    child: Text(context.l10n.audiobooksAllBooks, style: Theme.of(context).textTheme.titleLarge),
                   ),
-                ),
-                _BookGrid(value: ref.watch(absItemsProvider(library.id)), progress: progress),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                      child: Text(context.l10n.audiobooksAllBooks, style: Theme.of(context).textTheme.titleLarge),
+                    ),
+                  ),
+                  _BookGrid(value: ref.watch(absItemsProvider(library.id)), progress: progress),
                 ],
               ],
               const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
@@ -428,7 +428,9 @@ Widget _sliverLoading() => const SliverToBoxAdapter(
 Widget _sliverEmpty(BuildContext context) => SliverToBoxAdapter(
   child: Padding(
     padding: const EdgeInsets.all(24),
-    child: Center(child: Text(context.l10n.commonNothingFound, style: TextStyle(color: Palette.textMuted))),
+    child: Center(
+      child: Text(context.l10n.commonNothingFound, style: TextStyle(color: Palette.textMuted)),
+    ),
   ),
 );
 

@@ -202,48 +202,50 @@ class _WorldRadioPageState extends ConsumerState<WorldRadioPage> {
           ),
           SizedBox(
             height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(context.l10n.worldRadioFavorites),
-                    selected: _favorites,
-                    onSelected: (selected) {
-                      setState(() {
-                        _favorites = selected;
-                        _tag = null;
-                      });
-                      _reload();
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text('${countryFlag(_country)} ${country?['name'] ?? _country}'),
-                    selected: !_favorites,
-                    onSelected: (_) => _chooseCountry(),
-                  ),
-                ),
-                for (final tag in tags)
+            child: MouseDragScroll(
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
-                      label: Text(tag),
-                      selected: _tag == tag,
+                      label: Text(context.l10n.worldRadioFavorites),
+                      selected: _favorites,
                       onSelected: (selected) {
                         setState(() {
-                          _favorites = false;
-                          _tag = selected ? tag : null;
+                          _favorites = selected;
+                          _tag = null;
                         });
                         _reload();
                       },
                     ),
                   ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text('${countryFlag(_country)} ${country?['name'] ?? _country}'),
+                      selected: !_favorites,
+                      onSelected: (_) => _chooseCountry(),
+                    ),
+                  ),
+                  for (final tag in tags)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(tag),
+                        selected: _tag == tag,
+                        onSelected: (selected) {
+                          setState(() {
+                            _favorites = false;
+                            _tag = selected ? tag : null;
+                          });
+                          _reload();
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           Expanded(

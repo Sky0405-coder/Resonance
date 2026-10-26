@@ -63,34 +63,36 @@ bool _isFeedUrl(String value) {
 Widget _episodeShelf(BuildContext context, WidgetRef ref, List<PodcastEpisode> episodes, {required bool progress}) =>
     SizedBox(
       height: progress ? 270 : 248,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: episodes.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 16),
-        itemBuilder: (_, i) {
-          final episode = episodes[i];
-          return SizedBox(
-            width: 160,
-            child: InkWell(
-              onTap: () => _playEpisode(context, ref, episode),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  NetworkCover(url: episode.coverUrl, icon: Icons.podcasts),
-                  const SizedBox(height: 8),
-                  Text(episode.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  Text(
-                    episode.podcastTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Palette.textMuted),
-                  ),
-                  if (progress) _EpisodeProgress(episode: episode),
-                ],
+      child: MouseDragScroll(
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: episodes.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 16),
+          itemBuilder: (_, i) {
+            final episode = episodes[i];
+            return SizedBox(
+              width: 160,
+              child: InkWell(
+                onTap: () => _playEpisode(context, ref, episode),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    NetworkCover(url: episode.coverUrl, icon: Icons.podcasts),
+                    const SizedBox(height: 8),
+                    Text(episode.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(
+                      episode.podcastTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Palette.textMuted),
+                    ),
+                    if (progress) _EpisodeProgress(episode: episode),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
 
@@ -101,33 +103,35 @@ Widget _resultShelf(BuildContext context, WidgetRef ref, PodcastSection section)
     const SizedBox(height: 12),
     SizedBox(
       height: 220,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: section.items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 16),
-        itemBuilder: (_, i) {
-          final result = section.items[i];
-          return SizedBox(
-            width: 140,
-            child: InkWell(
-              onTap: () => _openResult(context, ref, result),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  NetworkCover(url: result.imageUrl, icon: Icons.podcasts),
-                  const SizedBox(height: 8),
-                  Text(result.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  Text(
-                    result.author ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Palette.textMuted),
-                  ),
-                ],
+      child: MouseDragScroll(
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: section.items.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 16),
+          itemBuilder: (_, i) {
+            final result = section.items[i];
+            return SizedBox(
+              width: 140,
+              child: InkWell(
+                onTap: () => _openResult(context, ref, result),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    NetworkCover(url: result.imageUrl, icon: Icons.podcasts),
+                    const SizedBox(height: 8),
+                    Text(result.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(
+                      result.author ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Palette.textMuted),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     ),
     const SizedBox(height: 24),
@@ -136,33 +140,35 @@ Widget _resultShelf(BuildContext context, WidgetRef ref, PodcastSection section)
 
 Widget _subscriptionShelf(BuildContext context, List<Podcast> podcasts) => SizedBox(
   height: 196,
-  child: ListView.separated(
-    scrollDirection: Axis.horizontal,
-    itemCount: podcasts.length,
-    separatorBuilder: (_, _) => const SizedBox(width: 16),
-    itemBuilder: (_, i) {
-      final podcast = podcasts[i];
-      return SizedBox(
-        width: 140,
-        child: Builder(
-          builder: (context) => InkWell(
-            onTap: () => context.push('/podcasts/${podcast.id}'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Badge(
-                  label: Text('${podcast.unplayedCount}'),
-                  isLabelVisible: podcast.unplayedCount > 0,
-                  child: NetworkCover(url: podcast.imageUrl, icon: Icons.podcasts),
-                ),
-                const SizedBox(height: 8),
-                Text(podcast.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-              ],
+  child: MouseDragScroll(
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: podcasts.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 16),
+      itemBuilder: (_, i) {
+        final podcast = podcasts[i];
+        return SizedBox(
+          width: 140,
+          child: Builder(
+            builder: (context) => InkWell(
+              onTap: () => context.push('/podcasts/${podcast.id}'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Badge(
+                    label: Text('${podcast.unplayedCount}'),
+                    isLabelVisible: podcast.unplayedCount > 0,
+                    child: NetworkCover(url: podcast.imageUrl, icon: Icons.podcasts),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(podcast.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    },
+        );
+      },
+    ),
   ),
 );
 
@@ -232,19 +238,21 @@ class PodcastsPage extends ConsumerWidget {
           if (discover != null) ...[
             Text(context.l10n.podcastsCategories, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final genre in discover.genres)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ActionChip(
-                        label: Text(genre.name),
-                        onPressed: () => context.push('/podcasts/genre/${genre.id}', extra: genre.name),
+            MouseDragScroll(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final genre in discover.genres)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text(genre.name),
+                          onPressed: () => context.push('/podcasts/genre/${genre.id}', extra: genre.name),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 24),

@@ -209,24 +209,26 @@ class _EbooksView extends ConsumerWidget {
             ),
           ),
           SliverToBoxAdapter(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(
-                children: [
-                  for (final (icon, label, route) in [
-                    (Icons.person_outline, context.l10n.booksAuthors, '/books/authors'),
-                    (Icons.collections_bookmark_outlined, context.l10n.booksSeries, '/books/series'),
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ActionChip(
-                        avatar: Icon(icon, size: 18),
-                        label: Text(label),
-                        onPressed: () => context.push(route),
+            child: MouseDragScroll(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(
+                  children: [
+                    for (final (icon, label, route) in [
+                      (Icons.person_outline, context.l10n.booksAuthors, '/books/authors'),
+                      (Icons.collections_bookmark_outlined, context.l10n.booksSeries, '/books/series'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          avatar: Icon(icon, size: 18),
+                          label: Text(label),
+                          onPressed: () => context.push(route),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -313,11 +315,16 @@ class _BookShelf extends StatelessWidget {
         ),
         SizedBox(
           height: (width - 20) * 1.5 + 80,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            itemCount: books.length,
-            itemBuilder: (_, i) => SizedBox(width: width, child: _BookCard(book: books[i])),
+          child: MouseDragScroll(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              itemCount: books.length,
+              itemBuilder: (_, i) => SizedBox(
+                width: width,
+                child: _BookCard(book: books[i]),
+              ),
+            ),
           ),
         ),
       ],

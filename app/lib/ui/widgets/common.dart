@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 
 import '../../l10n/l10n.dart';
 
@@ -453,30 +454,109 @@ class PlaylistCard extends StatelessWidget {
   );
 }
 
-/// Horizontal shelf with a heading, like Spotify's home rows.
-class Shelf extends StatelessWidget {
+/// Lets a horizontal list scroll by dragging with the mouse too; Flutter only drags with touch and trackpads by
+/// default, so a mouse without a horizontal wheel could not reach the end of a row.
+class MouseDragScroll extends StatelessWidget {
+  const MouseDragScroll({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ScrollConfiguration(
+    behavior: ScrollConfiguration.of(context).copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+    child: child,
+  );
+}
+
+/// Horizontal shelf with a heading, like Spotify's home rows. Wide layouts get page-back/forward arrows next to the
+/// heading, the way Spotify's desktop app scrolls its rows.
+class Shelf extends StatefulWidget {
   const Shelf({super.key, required this.title, required this.children, this.itemWidth = 180});
   final String title;
   final List<Widget> children;
   final double itemWidth;
 
   @override
+  State<Shelf> createState() => _ShelfState();
+}
+
+class _ShelfState extends State<Shelf> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _page(int direction) {
+    final position = _controller.position;
+    final step = (position.viewportDimension - widget.itemWidth).clamp(widget.itemWidth, double.infinity);
+    _controller.animateTo(
+      (position.pixels + direction * step).clamp(position.minScrollExtent, position.maxScrollExtent),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (children.isEmpty) return const SizedBox.shrink();
+    if (widget.children.isEmpty) return const SizedBox.shrink();
+    final strings = MaterialLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+          padding: const EdgeInsets.fromLTRB(16, 24, 8, 8),
+          child: Row(
+            children: [
+              Expanded(child: Text(widget.title, style: Theme.of(context).textTheme.titleLarge)),
+              if (isWide(context))
+                ListenableBuilder(
+                  listenable: _controller,
+                  builder: (context, _) {
+                    final position = _controller.hasClients && _controller.position.hasContentDimensions
+                        ? _controller.position
+                        : null;
+                    // Rows that fit on screen need no arrows.
+                    if (position == null || position.maxScrollExtent <= position.minScrollExtent) {
+                      return const SizedBox.shrink();
+                    }
+                    return Row(
+                      children: [
+                        IconButton(
+                          tooltip: strings.previousPageTooltip,
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: position.pixels > position.minScrollExtent ? () => _page(-1) : null,
+                        ),
+                        IconButton(
+                          tooltip: strings.nextPageTooltip,
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: position.pixels < position.maxScrollExtent ? () => _page(1) : null,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+            ],
+          ),
         ),
         SizedBox(
-          height: itemWidth + 72,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            itemCount: children.length,
-            itemBuilder: (_, i) => SizedBox(width: itemWidth, child: children[i]),
+          height: widget.itemWidth + 72,
+          // The arrows only know whether the row overflows once it has been laid out (and again after resizes).
+          child: NotificationListener<ScrollMetricsNotification>(
+            onNotification: (_) {
+              setState(() {});
+              return false;
+            },
+            child: MouseDragScroll(
+              child: ListView.builder(
+                controller: _controller,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                itemCount: widget.children.length,
+                itemBuilder: (_, i) => SizedBox(width: widget.itemWidth, child: widget.children[i]),
+              ),
+            ),
           ),
         ),
       ],
