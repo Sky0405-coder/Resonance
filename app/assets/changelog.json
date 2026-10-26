@@ -1,5 +1,25 @@
 [
   {
+    "version": "1.6.15",
+    "date": "2026-10-26",
+    "de": [
+      "Songs als Klingelton (Android): Im Song-Menü „Als Klingelton verwenden“ wählen, Länge und Ausschnitt einstellen (vorgeschlagen wird die vollste Stelle, meist der Refrain), probehören und als Klingelton, Benachrichtigungs- oder Weckton festlegen.",
+      "Coverflow: Mit der neuen Option „Cover umdrehen“ dreht ein Tipp das Cover um und zeigt die Songs des Albums zum direkten Abspielen. Die Peak-Punkte schaltest du dann per langem Druck.",
+      "Die Reihen auf der Startseite haben auf großen Bildschirmen Pfeile zum Blättern, und alle waagerechten Reihen lassen sich mit der Maus ziehen.",
+      "Bessere Genre-Mixe: Songs werden mit den Last.fm-Genres ihrer Künstler abgeglichen, Sampler-Songs fremder Genres fliegen raus.",
+      "AutoMix-Analyse: Geänderte Dateien werden neu analysiert, beschädigte zählen als erledigt, und die Admin-Anzeige meldet, wenn alles analysiert ist.",
+      "Samsung-TV-App: Die generierten Playlists sind zurück auf der Startseite, der Player zeigt, welche Playlist läuft, die Navigation geht gerade nach unten, und Songs starten schneller und bleiben nicht mehr hängen."
+    ],
+    "en": [
+      "Songs as ringtones (Android): pick \"Use as ringtone\" in the song menu, choose length and section (it suggests the fullest part, usually the chorus), preview it and set it as ringtone, notification or alarm sound.",
+      "Coverflow: with the new \"Flip covers\" option a tap turns the cover over to the album's songs, ready to play. Peak dots then toggle with a long press.",
+      "Home rows get paging arrows on large screens, and every horizontal row can be dragged with the mouse.",
+      "Better genre mixes: songs are checked against their artist's Last.fm genres, sampler songs from other genres are left out.",
+      "AutoMix analysis: changed files are analyzed again, damaged ones count as done, and the admin view says when everything is analyzed.",
+      "Samsung TV app: the generated playlists are back on the home screen, the player shows which playlist is playing, navigation goes straight down, and songs start faster and no longer stall."
+    ]
+  },
+  {
     "version": "1.6.14",
     "date": "2026-10-24",
     "de": [
