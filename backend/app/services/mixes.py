@@ -272,10 +272,45 @@ def genres_related(a: str, b: str) -> bool:
     return b in _RELATED_GENRES.get(a, ()) or a in _RELATED_GENRES.get(b, ())
 
 
-def fitting_genre_tracks(genre: str, pool: list[Track], own_genres: dict[uuid.UUID, set[str]]) -> list[Track]:
-    """Drops songs that are only in the genre through a compilation's tag (a lounge "Deep House" sampler) when the
-    artist's own releases are tagged with other, unrelated genres. Small pools stay complete."""
+# Last.fm kinds of a genre that do not end with its name.
+_LASTFM_KINDS = {
+    "hip hop": {"deutschrap", "german rap", "trap", "boom bap", "g funk", "grime", "drill", "gangsta rap"},
+    "classical": {"baroque", "romantic", "opera", "orchestral", "chamber music", "composer", "piano"},
+    "jazz": {"bebop", "swing", "big band", "jazz fusion", "vocal jazz"},
+    "downtempo": {"chillout", "trip hop", "lounge"},
+}
+# Too broad to check against an artist's Last.fm tags: their kinds are many genres (Adele is "soul" there).
+_BROAD_GENRES = _UMBRELLA_GENRES | {"pop"}
+
+
+def lastfm_supports(genre: str, tag: str) -> bool:
+    """Last.fm tag names the genre or one of its kinds ("acid jazz" → jazz, "alternative" → alternative rock),
+    but not a different genre that only shares a word ("disco house" is house, "jazz hop" is hip hop)."""
+    if tag == genre or tag.endswith(" " + genre) or genre.startswith(tag + " "):
+        return True
+    return tag in _LASTFM_KINDS.get(genre, ())
+
+
+def artist_lastfm_genres(tags: dict[str, int] | None) -> set[str]:
+    """The artist's genres by Last.fm listeners, normalized like the library's genre tags."""
+    return {key for name, count in (tags or {}).items() if count >= 15 for key in genre_keys(name)}
+
+
+def fitting_genre_tracks(
+    genre: str,
+    pool: list[Track],
+    own_genres: dict[uuid.UUID, set[str]],
+    lastfm_genres: dict[uuid.UUID, set[str]] | None = None,
+    known: set[str] | frozenset[str] = frozenset(),
+) -> list[Track]:
+    """Drops songs whose artist does not belong to the genre: by the artist's Last.fm tags when they name one of the
+    library's genres, otherwise only songs that are in the genre through a compilation's tag (a lounge "Deep House"
+    sampler) while the artist's own releases are tagged with other, unrelated genres. Small pools stay complete."""
     def fits(track: Track) -> bool:
+        listened = (lastfm_genres or {}).get(track.artist_id, set())
+        # Broad mixes (Electronic, Pop) take all their kinds; there Last.fm's specific tags would leave out too much.
+        if genre not in _BROAD_GENRES and listened & known:
+            return any(lastfm_supports(genre, tag) for tag in listened)
         if track.album.artist_id == track.artist_id:
             return True
         own = own_genres.get(track.artist_id, set()) - _UMBRELLA_GENRES
@@ -616,7 +651,11 @@ async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool 
     for track in tracks:
         if track.album.artist_id == track.artist_id:
             own_genres[track.artist_id].update(genre_keys(track.genre) or genre_keys(track.album.genre))
-    by_genre = {key: fitting_genre_tracks(key, pool, own_genres) for key, pool in by_genre.items()}
+    lastfm_genres = {artist_id: artist_lastfm_genres(artist.lastfm_tags) for artist_id, artist in artists.items()}
+    known = set(by_genre)
+    by_genre = {
+        key: fitting_genre_tracks(key, pool, own_genres, lastfm_genres, known) for key, pool in by_genre.items()
+    }
     dominant: dict[uuid.UUID, str] = {}
     for artist_id, artist_tracks in by_artist.items():
         counts = Counter(

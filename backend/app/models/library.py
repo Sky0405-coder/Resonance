@@ -13,6 +13,7 @@ from sqlalchemy import (
     false,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -31,6 +32,9 @@ class Artist(Base):
     bio_de: Mapped[str | None] = mapped_column(Text)
     bio_en: Mapped[str | None] = mapped_column(Text)
     info_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Last.fm's top tags for the artist ({"deep house": 100, "house": 79, ...}); genre mixes check songs against them.
+    lastfm_tags: Mapped[dict | None] = mapped_column(JSONB)
+    lastfm_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     albums: Mapped[list["Album"]] = relationship(back_populates="artist")

@@ -518,3 +518,40 @@ async def test_apple_cover_is_first_and_cache_is_separate(env, monkeypatch):
     assert await tagger.fetch_cover(second) == b"/two/1400x1400.jpg"
     await tagger.fetch_cover(first)
     assert calls == [first.cover_url, second.cover_url]
+
+
+async def test_lastfm_artist_tags_are_stored_and_checked_again_after_half_a_year(monkeypatch):
+    def dispatch(request):
+        assert request.url.params["method"] == "artist.getTopTags"
+        if request.url.params["artist"] == "Unknown Tag Artist":
+            return httpx.Response(200, json={"error": 6, "message": "The artist you supplied could not be found"})
+        return httpx.Response(200, json={"toptags": {"tag": [
+            {"name": "Deep House", "count": 100}, {"name": "House", "count": "79"}, {"name": "zero", "count": 0},
+        ]}})
+
+    async def sleep(seconds):
+        # One second between artists; _get's own spacing of Last.fm requests is shorter.
+        assert seconds == 1 or seconds <= 0.25
+
+    monkeypatch.setattr(lastfm, "_last_started", 0)
+    monkeypatch.setattr(lastfm, "_client_factory", lambda: httpx.AsyncClient(transport=httpx.MockTransport(dispatch)))
+    monkeypatch.setattr(lastfm.asyncio, "sleep", sleep)
+    async with SessionLocal() as db:
+        await update_config(db, {"library": {"lastfm_api_key": "test-lastfm-key"}})
+        old = datetime.now(UTC) - timedelta(days=200)
+        for artist in await db.scalars(select(Artist)):
+            artist.lastfm_checked_at, artist.lastfm_tags = datetime.now(UTC), {}
+        known = Artist(name="Tagged Artist", name_key="tagged artist tags", lastfm_checked_at=old)
+        unknown = Artist(name="Unknown Tag Artist", name_key="unknown tag artist")
+        db.add_all([known, unknown])
+        await db.commit()
+        ids = known.id, unknown.id
+    assert await lastfm.run_artist_tags_once() == 2
+    assert await lastfm.run_artist_tags_once() == 0
+    async with SessionLocal() as db:
+        known, unknown = await db.get(Artist, ids[0]), await db.get(Artist, ids[1])
+        assert known.lastfm_tags == {"deep house": 100, "house": 79} and unknown.lastfm_tags == {}
+        assert unknown.lastfm_checked_at is not None
+        await db.delete(known)
+        await db.delete(unknown)
+        await db.commit()

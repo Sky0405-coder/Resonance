@@ -207,6 +207,33 @@ def test_genre_mix_leaves_out_compilation_songs_of_artists_from_other_genres() -
     assert mixes.genres_related("house", "deep house") and not mixes.genres_related("deep house", "tech house")
 
 
+def test_genre_mix_follows_the_artists_lastfm_tags() -> None:
+    lounge, deep, bee_gees, unknown = (uuid.uuid4() for _ in range(4))
+
+    def song(artist_id: uuid.UUID) -> SimpleNamespace:
+        return SimpleNamespace(artist_id=artist_id, album=SimpleNamespace(artist_id=artist_id))
+
+    lastfm = {
+        artist_id: mixes.artist_lastfm_genres(tags) for artist_id, tags in {
+            lounge: {"acid jazz": 100, "chillout": 87, "deep house": 9, "french": 40},
+            deep: {"deep house": 100, "house": 79, "female vocalists": 30},
+            bee_gees: {"disco": 100, "pop": 81, "70s": 47},
+        }.items()
+    }
+    known = {"deep house", "house", "acid jazz", "chillout", "disco", "pop", "jazz", "electronic"}
+    pool = [song(lounge), song(deep), song(unknown), *[song(deep) for _ in range(30)]]
+    # Own releases too: Last.fm decides once it knows the artist; a tag under 15 % does not count.
+    fitting = mixes.fitting_genre_tracks("deep house", pool, {}, lastfm, known)
+    assert pool[0] not in fitting and pool[1] in fitting and pool[2] in fitting
+    assert pool[0] in mixes.fitting_genre_tracks("jazz", pool, {}, lastfm, known)
+    assert pool[0] in mixes.fitting_genre_tracks("electronic", pool, {}, lastfm, known)
+    disco = [song(deep), *[song(bee_gees) for _ in range(30)]]
+    assert mixes.fitting_genre_tracks("disco", disco, {}, lastfm, known) == disco[1:]
+    assert mixes.lastfm_supports("house", "deep house") and not mixes.lastfm_supports("deep house", "house")
+    assert not mixes.lastfm_supports("disco", "disco house") and mixes.lastfm_supports("alternative rock", "alternative")
+    assert mixes.lastfm_supports("hip hop", "deutschrap") and not mixes.lastfm_supports("jazz", "jazz hop")
+
+
 async def test_daily_groups_related_library_limits_and_priority(env: SimpleNamespace) -> None:
     async with SessionLocal() as db:
         groups = []
