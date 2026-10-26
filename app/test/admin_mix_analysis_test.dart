@@ -88,22 +88,33 @@ Future<void> _showAdmin(WidgetTester tester, _AdminApi api, String locale) async
 void main() {
   for (final locale in ['en', 'de']) {
     testWidgets('admin analysis progress formats $locale counts and refreshes', (tester) async {
-      final api = _AdminApi((total: 2000, analyzed: 1250, failed: 1000));
+      final api = _AdminApi((total: 2000, analyzed: 1250, failed: 250));
       await _showAdmin(tester, api, locale);
       expect(find.text(locale == 'en' ? 'AutoMix analysis' : 'AutoMix-Analyse'), findsOneWidget);
       expect(
         find.text(
           locale == 'en'
-              ? '1,250 of 2,000 songs analyzed, 1,000 failed'
-              : '1.250 von 2.000 Songs analysiert, 1.000 fehlgeschlagen',
+              ? '1,250 of 2,000 songs analyzed, 250 failed'
+              : '1.250 von 2.000 Songs analysiert, 250 fehlgeschlagen',
         ),
         findsOneWidget,
       );
-      expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator).first).value, 0.625);
+      // Failed songs count as done.
+      expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator).first).value, 0.75);
+      api.analysisStatus = (total: 2000, analyzed: 1998, failed: 2);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          locale == 'en' ? 'All 2,000 songs analyzed, 2 failed' : 'Alle 2.000 Songs analysiert, 2 fehlgeschlagen',
+        ),
+        findsOneWidget,
+      );
+      expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator).first).value, 1.0);
       api.analysisStatus = (total: 2000, analyzed: 1500, failed: 0);
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      expect(api.calls, 2);
+      expect(api.calls, 3);
       expect(
         find.text(locale == 'en' ? '1,500 of 2,000 songs analyzed' : '1.500 von 2.000 Songs analysiert'),
         findsOneWidget,

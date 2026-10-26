@@ -324,6 +324,7 @@
       }
     }
   },
+  "adminMixAnalysisDone": "All {total} songs analyzed",
   "adminMixAnalysisFailed": ", {failed} failed",
   "@adminMixAnalysisFailed": {
     "placeholders": {

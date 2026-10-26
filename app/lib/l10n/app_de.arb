@@ -661,6 +661,14 @@
       }
     }
   },
+  "adminMixAnalysisDone": "Alle {total} Songs analysiert",
+  "@adminMixAnalysisDone": {
+    "placeholders": {
+      "total": {
+        "type": "String"
+      }
+    }
+  },
   "adminMixAnalysisFailed": ", {failed} fehlgeschlagen",
   "@adminMixAnalysisFailed": {
     "placeholders": {

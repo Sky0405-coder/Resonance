@@ -168,13 +168,21 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                 mixStatus.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text('$e'),
+                  // Failed songs (damaged files) are done too: otherwise the bar never reaches its end.
                   data: (s) => Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LinearProgressIndicator(value: s.total == 0 ? 0 : (s.analyzed / s.total).clamp(0.0, 1.0)),
+                      LinearProgressIndicator(
+                        value: s.total == 0 ? 0 : ((s.analyzed + s.failed) / s.total).clamp(0.0, 1.0),
+                      ),
                       const SizedBox(height: 8),
                       Text(
-                        context.l10n.adminMixAnalysisProgress(numbers.format(s.analyzed), numbers.format(s.total)) +
+                        (s.total > 0 && s.analyzed + s.failed >= s.total
+                                ? context.l10n.adminMixAnalysisDone(numbers.format(s.total))
+                                : context.l10n.adminMixAnalysisProgress(
+                                    numbers.format(s.analyzed),
+                                    numbers.format(s.total),
+                                  )) +
                             (s.failed > 0 ? context.l10n.adminMixAnalysisFailed(numbers.format(s.failed)) : ''),
                       ),
                     ],

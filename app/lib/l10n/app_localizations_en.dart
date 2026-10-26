@@ -1022,6 +1022,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String adminMixAnalysisDone(String total) {
+    return 'All $total songs analyzed';
+  }
+
+  @override
   String adminMixAnalysisFailed(String failed) {
     return ', $failed failed';
   }

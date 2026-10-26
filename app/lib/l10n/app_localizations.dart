@@ -1838,6 +1838,12 @@ abstract class AppLocalizations {
   /// **'{analyzed} von {total} Songs analysiert'**
   String adminMixAnalysisProgress(String analyzed, String total);
 
+  /// No description provided for @adminMixAnalysisDone.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle {total} Songs analysiert'**
+  String adminMixAnalysisDone(String total);
+
   /// No description provided for @adminMixAnalysisFailed.
   ///
   /// In de, this message translates to:
