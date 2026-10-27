@@ -172,6 +172,8 @@ class ContinueCard extends StatelessWidget {
                     children: [
                       Text(
                         kicker.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 11, letterSpacing: 1.2, color: accent, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 4),

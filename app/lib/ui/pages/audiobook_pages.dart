@@ -354,6 +354,7 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                                 if (continuing.length > 1)
                                   Shelf(
                                     title: '',
+                                    itemWidth: 140,
                                     children: [
                                       for (final b in continuing.skip(1)) _BookCard(item: b, progress: progress[b.id]),
                                     ],
@@ -426,8 +427,8 @@ class _BookGrid extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               sliver: SliverGrid.builder(
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 200,
-                  childAspectRatio: 0.68,
+                  maxCrossAxisExtent: 160,
+                  childAspectRatio: 0.62,
                 ),
                 itemCount: items.length,
                 itemBuilder: (_, i) => _BookCard(item: items[i], progress: progress[items[i].id]),

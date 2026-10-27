@@ -890,12 +890,13 @@ class _BookNowPlaying extends ConsumerWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        IconButton(
-                          tooltip: l10n.audiobooksPreviousChapter,
-                          iconSize: 30,
-                          onPressed: chapter == null ? null : previousChapter,
-                          icon: const Icon(Icons.skip_previous_rounded),
-                        ),
+                        if (book.chapters.isNotEmpty)
+                          IconButton(
+                            tooltip: l10n.audiobooksPreviousChapter,
+                            iconSize: 30,
+                            onPressed: chapter == null ? null : previousChapter,
+                            icon: const Icon(Icons.skip_previous_rounded),
+                          ),
                         IconButton(
                           tooltip: episode != null ? l10n.podcastsSkipBack : l10n.playerSkipBack,
                           iconSize: 36,
@@ -911,14 +912,15 @@ class _BookNowPlaying extends ConsumerWidget {
                           icon: const _SkipIcon(seconds: 30, forward: true),
                           onPressed: () => ctrl.skipBook(30),
                         ),
-                        IconButton(
-                          tooltip: l10n.audiobooksNextChapter,
-                          iconSize: 30,
-                          onPressed: chapterIndex < 0 || chapterIndex >= book.chapters.length - 1
-                              ? null
-                              : () => ctrl.seekBook(book.chapters[chapterIndex + 1].start),
-                          icon: const Icon(Icons.skip_next_rounded),
-                        ),
+                        if (book.chapters.isNotEmpty)
+                          IconButton(
+                            tooltip: l10n.audiobooksNextChapter,
+                            iconSize: 30,
+                            onPressed: chapterIndex < 0 || chapterIndex >= book.chapters.length - 1
+                                ? null
+                                : () => ctrl.seekBook(book.chapters[chapterIndex + 1].start),
+                            icon: const Icon(Icons.skip_next_rounded),
+                          ),
                       ],
                     ),
                     SizedBox(height: short ? 8 : 20),

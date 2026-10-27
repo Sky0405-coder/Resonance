@@ -155,6 +155,8 @@
   "downloadsReason": "Reason: {reason}",
   "downloadsRetryFailed": "Retry failed downloads",
   "downloadsOwnSource": "Use your own link",
+  "downloadsCopyTitle": "Copy title and artist",
+  "downloadsCopied": "Copied “{text}”",
   "downloadsOwnSourceLabel": "YouTube or SoundCloud link",
   "downloadsOwnSourceHint": "Regular YouTube videos work too – only the audio is downloaded.",
   "downloadsDeleteEntry": "Delete entry",

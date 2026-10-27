@@ -980,6 +980,18 @@ abstract class AppLocalizations {
   /// **'Eigenen Link angeben'**
   String get downloadsOwnSource;
 
+  /// No description provided for @downloadsCopyTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Titel und Interpret kopieren'**
+  String get downloadsCopyTitle;
+
+  /// No description provided for @downloadsCopied.
+  ///
+  /// In de, this message translates to:
+  /// **'„{text}“ kopiert'**
+  String downloadsCopied(String text);
+
   /// No description provided for @downloadsOwnSourceLabel.
   ///
   /// In de, this message translates to:

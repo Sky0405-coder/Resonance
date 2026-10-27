@@ -323,7 +323,7 @@ class PlayerActionLabel extends StatelessWidget {
   }
 }
 
-/// Cover, title and author/chapter of the playing audiobook (player bars).
+/// Cover, title and author/chapter of the playing audiobook or episode (player bars).
 class _BookInfo extends ConsumerWidget {
   const _BookInfo({required this.book, this.coverSize = 56});
   final BookPlayback book;
@@ -332,10 +332,9 @@ class _BookInfo extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chapter = book.chapterAt(ref.watch(bookPositionProvider));
+    // Opens the player like a song does; the player links on to the podcast or book.
     return InkWell(
-      onTap: () => context.push(
-        book.episode != null ? '/podcasts/${book.episode!.podcastId}' : '/audiobooks/item/${book.itemId}',
-      ),
+      onTap: () => context.push('/now-playing'),
       child: Row(
         children: [
           SizedBox(

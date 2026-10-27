@@ -68,7 +68,7 @@ bool _isFeedUrl(String value) {
 
 Widget _episodeShelf(BuildContext context, WidgetRef ref, List<PodcastEpisode> episodes, {required bool progress}) =>
     SizedBox(
-      height: progress ? 270 : 248,
+      height: progress ? 224 : 204,
       child: MouseDragScroll(
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
@@ -77,20 +77,25 @@ Widget _episodeShelf(BuildContext context, WidgetRef ref, List<PodcastEpisode> e
           itemBuilder: (_, i) {
             final episode = episodes[i];
             return SizedBox(
-              width: 160,
+              width: 124,
               child: InkWell(
                 onTap: () => _playEpisode(context, ref, episode),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    NetworkCover(url: episode.coverUrl, icon: Icons.podcasts),
+                    NetworkCover(url: episode.coverUrl, icon: Icons.podcasts, radius: 8),
                     const SizedBox(height: 8),
-                    Text(episode.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(
+                      episode.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                    ),
                     Text(
                       episode.podcastTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Palette.textMuted),
+                      style: const TextStyle(color: Palette.textMuted, fontSize: 12.5),
                     ),
                     if (progress) _EpisodeProgress(episode: episode),
                   ],
@@ -105,7 +110,10 @@ Widget _episodeShelf(BuildContext context, WidgetRef ref, List<PodcastEpisode> e
 Widget _resultShelf(BuildContext context, WidgetRef ref, PodcastSection section) => Column(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
-    Text(section.title, style: Theme.of(context).textTheme.titleLarge),
+    Text(
+      section.title,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+    ),
     const SizedBox(height: 12),
     SizedBox(
       height: 220,

@@ -1,6 +1,7 @@
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -487,6 +488,7 @@ class _RequestTile extends ConsumerWidget {
                 ],
               ),
             ),
+            _CopyButton(artist: r.artist, title: r.title),
             if (isAdmin && r.status == 'pending_approval') ...[
               const SizedBox(width: 8),
               IconButton(
@@ -505,6 +507,28 @@ class _RequestTile extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Copies "Artist - Title" so a failed download can be looked up in the browser.
+Future<void> copySearchText(BuildContext context, String artist, String title) async {
+  final text = [artist, title].where((s) => s.trim().isNotEmpty).join(' - ');
+  await Clipboard.setData(ClipboardData(text: text));
+  if (context.mounted) showInfo(context, context.l10n.downloadsCopied(text));
+}
+
+class _CopyButton extends StatelessWidget {
+  const _CopyButton({required this.artist, required this.title});
+  final String artist;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: context.l10n.downloadsCopyTitle,
+    icon: const Icon(Icons.content_copy, size: 18),
+    visualDensity: VisualDensity.compact,
+    color: Palette.textMuted,
+    onPressed: () => copySearchText(context, artist, title),
+  );
 }
 
 Future<void> _run(BuildContext context, Future<void> Function() fn) async {
@@ -561,11 +585,32 @@ class RequestDetailPage extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          r.title,
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Flexible(
+                              child: Tooltip(
+                                message: context.l10n.downloadsCopyTitle,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () => copySearchText(context, r.artist, r.title),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        r.title,
+                                        style: Theme.of(context).textTheme.headlineSmall
+                                            ?.copyWith(fontWeight: FontWeight.w800),
+                                      ),
+                                      Text(r.artist, style: const TextStyle(color: Palette.textMuted)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            _CopyButton(artist: r.artist, title: r.title),
+                          ],
                         ),
-                        Text(r.artist, style: const TextStyle(color: Palette.textMuted)),
                         const SizedBox(height: 8),
                         Text(
                           context.l10n.downloadsProgress(
@@ -710,7 +755,11 @@ class _ItemRow extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: () => copySearchText(context, item.artist, item.title),
+                  child: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
                 Text(
                   [
                     item.artist,
@@ -736,6 +785,7 @@ class _ItemRow extends ConsumerWidget {
               padding: const EdgeInsets.only(left: 12),
               child: Text(formatDuration(Duration(seconds: item.duration!.round())), style: muted),
             ),
+          _CopyButton(artist: item.artist, title: item.title),
           if (item.status == 'failed' && request.status != 'rejected')
             IconButton(
               tooltip: context.l10n.downloadsOwnSource,

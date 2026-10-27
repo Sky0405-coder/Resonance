@@ -277,6 +277,8 @@ class _WeekChart extends StatelessWidget {
     final days = [for (var i = 6; i >= 0; i--) DateTime(today.year, today.month, today.day - i)];
     final values = [for (final d in days) stats.on(d)];
     final peak = values.fold(0.0, math.max);
+    // At least half an hour tall, so a week of a few seconds does not look like a busy one.
+    final scale = math.max(peak, 1800.0);
     final weekday = DateFormat.E(l10n.localeName);
     const height = 120.0;
     return Column(
@@ -294,7 +296,7 @@ class _WeekChart extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        if (values[i] > 0 && (values[i] == peak || i == 6))
+                        if (values[i] >= 60 && (values[i] == peak || i == 6))
                           Padding(
                             padding: const EdgeInsets.only(bottom: 4),
                             child: FittedBox(
@@ -308,7 +310,7 @@ class _WeekChart extends StatelessWidget {
                         Container(
                           width: 22,
                           // Empty days keep a sliver so the week's shape still reads.
-                          height: peak == 0 ? 3 : math.max(3, values[i] / peak * height),
+                          height: math.max(3, values[i] / scale * height),
                           decoration: BoxDecoration(
                             color: values[i] > 0 ? accent : Colors.white12,
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),

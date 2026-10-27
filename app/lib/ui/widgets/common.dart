@@ -517,10 +517,17 @@ class _ShelfState extends State<Shelf> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 8, 8),
+          // Without a title (a row continuing the section above) only the arrows remain.
+          padding: widget.title.isEmpty
+              ? const EdgeInsets.fromLTRB(16, 12, 8, 0)
+              : const EdgeInsets.fromLTRB(16, 24, 8, 8),
           child: Row(
             children: [
-              Expanded(child: Text(widget.title, style: Theme.of(context).textTheme.titleLarge)),
+              Expanded(
+                child: widget.title.isEmpty
+                    ? const SizedBox()
+                    : Text(widget.title, style: Theme.of(context).textTheme.titleLarge),
+              ),
               if (isWide(context))
                 ListenableBuilder(
                   listenable: _controller,

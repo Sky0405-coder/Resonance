@@ -502,6 +502,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get downloadsOwnSource => 'Eigenen Link angeben';
 
   @override
+  String get downloadsCopyTitle => 'Titel und Interpret kopieren';
+
+  @override
+  String downloadsCopied(String text) {
+    return '„$text“ kopiert';
+  }
+
+  @override
   String get downloadsOwnSourceLabel => 'YouTube- oder SoundCloud-Link';
 
   @override
