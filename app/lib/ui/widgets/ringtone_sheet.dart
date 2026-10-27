@@ -36,7 +36,6 @@ Future<void> showRingtoneSheet(BuildContext context, WidgetRef ref, Track track)
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
-    showDragHandle: true,
     backgroundColor: const Color(0xFF202020),
     clipBehavior: Clip.antiAlias,
     builder: (_) => RingtoneSheet(track: track),
@@ -234,6 +233,15 @@ class _RingtoneSheetState extends ConsumerState<RingtoneSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Own drag handle: the sheet's built-in one sits above the cover-colored glow and cuts it off.
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(color: Colors.white38, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
               Row(
                 children: [
                   Container(
@@ -654,11 +662,13 @@ class _CutPainter extends CustomPainter {
       // Each bar shows the loudest second it covers; without levels (older server) a gentle wave stands in.
       double level;
       if (levels.isEmpty) {
-        level = 0.35 + 0.15 * math.sin(i / 3);
+        level = 0.6 + 0.2 * math.sin(i / 3);
       } else {
         final a = (i / count * levels.length).floor();
         final b = math.max(a + 1, ((i + 1) / count * levels.length).floor());
         level = levels.sublist(a, math.min(b, levels.length)).fold(0.0, math.max);
+        // Squared: loudly mastered songs sit near the top all along, this brings out verses against choruses.
+        level = level * level;
       }
       final half = math.max(1.5, level * (size.height / 2 - 8));
       final centre = x + _bar / 2;

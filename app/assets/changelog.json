@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.6.16",
+    "date": "2026-10-27",
+    "de": [
+      "Neues Design für „Als Klingelton verwenden“: Der Dialog nimmt die Farbe des Covers an, zeigt den Song als Wellenform mit verschiebbarem Ausschnitt (antippen oder ziehen) und hat große Kacheln für Klingelton, Benachrichtigung und Wecker sowie einen Weg zurück zum Vorschlag.",
+      "Coverflow: Die Rückseite eines umgedrehten Covers zeigt jetzt das verschwommene Cover als Hintergrund, Albumbild, Jahr und Songanzahl, und das Umdrehen läuft weicher."
+    ],
+    "en": [
+      "Redesigned \"Use as ringtone\": the sheet takes on the cover's color, shows the song as a waveform with a movable section (tap or drag) and has large tiles for ringtone, notification and alarm plus a way back to the suggestion.",
+      "Coverflow: a flipped cover's back now shows the blurred cover as background, the album art, year and song count, and the flip moves more smoothly."
+    ]
+  },
+  {
     "version": "1.6.15",
     "date": "2026-10-26",
     "de": [
