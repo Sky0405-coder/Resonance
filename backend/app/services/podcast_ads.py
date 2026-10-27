@@ -315,21 +315,30 @@ def wake() -> None:
 
 
 async def _candidates() -> list[uuid.UUID]:
-    """The newest few episodes of every podcast someone listens to without ads."""
+    """Episodes someone is in the middle of, then the newest few of every podcast someone listens to without ads."""
     now = datetime.now(UTC)
+    open_status = PodcastEpisode.ad_status.is_(None) | (
+        (PodcastEpisode.ad_status == "failed") & (PodcastEpisode.ad_processed_at < now - timedelta(days=1))
+    )
     async with SessionLocal() as db:
+        result = list(await db.scalars(
+            select(PodcastEpisode.id).join(EpisodeProgress, EpisodeProgress.episode_id == PodcastEpisode.id)
+            .join(PodcastSubscription, (PodcastSubscription.podcast_id == PodcastEpisode.podcast_id)
+                  & (PodcastSubscription.user_id == EpisodeProgress.user_id))
+            .where(PodcastSubscription.remove_ads, EpisodeProgress.completed.is_(False),
+                   EpisodeProgress.position_seconds > 0, open_status)
+            .group_by(PodcastEpisode.id).order_by(func.max(EpisodeProgress.updated_at).desc())
+        ))
         podcast_ids = list(await db.scalars(
             select(PodcastSubscription.podcast_id).where(PodcastSubscription.remove_ads).distinct()
         ))
-        result = []
         for podcast_id in podcast_ids:
             result += await db.scalars(select(PodcastEpisode.id).where(
                 PodcastEpisode.podcast_id == podcast_id,
                 PodcastEpisode.published_at >= now - timedelta(days=RECENT_DAYS),
-                PodcastEpisode.ad_status.is_(None)
-                | ((PodcastEpisode.ad_status == "failed") & (PodcastEpisode.ad_processed_at < now - timedelta(days=1))),
+                open_status,
             ).order_by(PodcastEpisode.published_at.desc()).limit(PER_PODCAST))
-        return result
+        return list(dict.fromkeys(result))
 
 
 async def cleanup() -> None:

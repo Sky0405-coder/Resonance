@@ -141,6 +141,14 @@ async def test_process_downloads_compares_and_cleans_up(client, feeds, monkeypat
         await db.commit()
     candidates = await podcast_ads._candidates()
     assert len(candidates) == 2 and set(candidates) <= {e.id for e in episodes}
+    # An older episode someone is in the middle of comes first.
+    oldest = max(episodes, key=lambda e: datetime.now(UTC) - e.published_at)
+    await client.put(f"/api/podcasts/episodes/{oldest.id}/progress", headers=auth(user["token"]),
+                     json={"position_seconds": 600, "completed": False})
+    assert await podcast_ads._candidates() == [oldest.id, *candidates]
+    await client.put(f"/api/podcasts/episodes/{oldest.id}/progress", headers=auth(user["token"]),
+                     json={"position_seconds": 600, "completed": True})
+    assert await podcast_ads._candidates() == candidates
 
     show, intro, ads = chunk(1500), chunk(100), [chunk(200), chunk(160), chunk(240)]
     bodies = {
