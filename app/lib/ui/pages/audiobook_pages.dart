@@ -13,6 +13,8 @@ import '../../player/player.dart';
 import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
+import 'audiobook_stats_page.dart';
+import '../widgets/media_widgets.dart';
 
 /// "1 Std. 23 Min." / "45 Min."
 String formatBookDuration(AppLocalizations l10n, double seconds) {
@@ -224,20 +226,15 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
               if (books.length > 1)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final l in books)
-                          ChoiceChip(
-                            label: Text(l.name),
-                            selected: l.id == library.id,
-                            onSelected: (_) {
-                              setState(() => _filter = null);
-                              ref.read(_selectedLibraryProvider.notifier).select(l.id);
-                            },
-                          ),
-                      ],
+                    padding: const EdgeInsets.only(top: 8),
+                    child: PillTabs(
+                      dense: true,
+                      items: [for (final l in books) (icon: null, label: l.name)],
+                      selected: books.indexOf(library),
+                      onSelected: (i) {
+                        setState(() => _filter = null);
+                        ref.read(_selectedLibraryProvider.notifier).select(books[i].id);
+                      },
                     ),
                   ),
                 ),
@@ -259,32 +256,30 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                 _BookGrid(value: ref.watch(absSearchProvider((library.id, _query))), progress: progress)
               else ...[
                 SliverToBoxAdapter(
-                  child: MouseDragScroll(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      child: Row(
-                        children: [
-                          for (final (view, label) in [
-                            (_BooksView.library, context.l10n.audiobooksViewLibrary),
-                            (_BooksView.series, context.l10n.audiobooksViewSeries),
-                            (_BooksView.authors, context.l10n.audiobooksViewAuthors),
-                            (_BooksView.narrators, context.l10n.audiobooksViewNarrators),
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(label),
-                                selected: _view == view,
-                                onSelected: (_) => setState(() {
-                                  _view = view;
-                                  _filter = null;
-                                }),
-                              ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: MouseDragScroll(
+                            child: PillTabs(
+                              dense: true,
+                              items: [
+                                (icon: null, label: context.l10n.audiobooksViewLibrary),
+                                (icon: null, label: context.l10n.audiobooksViewSeries),
+                                (icon: null, label: context.l10n.audiobooksViewAuthors),
+                                (icon: null, label: context.l10n.audiobooksViewNarrators),
+                              ],
+                              selected: _view.index,
+                              onSelected: (i) => setState(() {
+                                _view = _BooksView.values[i];
+                                _filter = null;
+                              }),
                             ),
-                          if (widget.embedded) const _AccountMenu(),
-                        ],
-                      ),
+                          ),
+                        ),
+                        if (widget.embedded) const _AccountMenu(),
+                      ],
                     ),
                   ),
                 ),
@@ -331,23 +326,45 @@ class _LibraryViewState extends ConsumerState<_LibraryView> {
                         .when(
                           loading: () => const SizedBox(),
                           error: (_, _) => const SizedBox(),
-                          data: (shelves) => Column(
-                            children: [
-                              for (final s in shelves.where((s) => s.id == 'continue-listening'))
-                                Shelf(
-                                  title: context.l10n.audiobooksContinueListening,
-                                  children: [for (final b in s.items) _BookCard(item: b, progress: progress[b.id])],
+                          data: (shelves) {
+                            final continuing = [
+                              for (final s in shelves.where((s) => s.id == 'continue-listening')) ...s.items,
+                            ];
+                            if (continuing.isEmpty) return const SizedBox();
+                            final first = continuing.first;
+                            final p = progress[first.id] ?? first.progress;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                SectionTitle(context.l10n.audiobooksContinueListening),
+                                ContinueCard(
+                                  cover: NetworkCover(
+                                    url: ref.watch(apiProvider).absUrl('items/${first.id}/cover', {'width': '300'}),
+                                    icon: Icons.headphones,
+                                    radius: 0,
+                                  ),
+                                  kicker: context.l10n.navAudiobooks,
+                                  title: first.title,
+                                  subtitle: first.author,
+                                  progress: p?.progress ?? 0,
+                                  remaining: _remaining(context.l10n, first, p),
+                                  onPlay: () => _play(context, ref, first),
+                                  onTap: () => context.push('/audiobooks/item/${first.id}'),
                                 ),
-                            ],
-                          ),
+                                if (continuing.length > 1)
+                                  Shelf(
+                                    title: '',
+                                    children: [
+                                      for (final b in continuing.skip(1)) _BookCard(item: b, progress: progress[b.id]),
+                                    ],
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                   ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                      child: Text(context.l10n.audiobooksAllBooks, style: Theme.of(context).textTheme.titleLarge),
-                    ),
-                  ),
+                  const SliverToBoxAdapter(child: _StatsTeaser()),
+                  SliverToBoxAdapter(child: SectionTitle(context.l10n.audiobooksAllBooks)),
                   _BookGrid(value: ref.watch(absItemsProvider(library.id)), progress: progress),
                 ],
               ],
@@ -798,3 +815,58 @@ Future<void> showChapterSheet(BuildContext context, WidgetRef ref, BookPlayback 
     );
   },
 );
+
+/// Entry to the listening statistics, with the total as a teaser.
+class _StatsTeaser extends ConsumerWidget {
+  const _StatsTeaser();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(absStatsProvider).value;
+    final accent = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Material(
+        color: Palette.card,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => context.push('/audiobooks/stats'),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.insights_rounded, color: accent),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(context.l10n.statsTitle, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      if (stats != null)
+                        Text(
+                          context.l10n.statsTeaser(statTime(context.l10n, stats.total), stats.finished),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Palette.textMuted, fontSize: 13),
+                        ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Palette.textMuted),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

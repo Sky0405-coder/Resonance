@@ -244,3 +244,107 @@ final absFilteredItemsProvider = FutureProvider.autoDispose.family<List<AbsItem>
   });
   return [for (final i in j['results']) AbsItem.fromJson(i, lookupAppLocalizations(ref.read(appLocaleProvider)))];
 });
+
+/// Listening statistics of the linked Audiobookshelf account (like Absorb's stats screen).
+class AbsStats {
+  const AbsStats({
+    required this.total,
+    required this.days,
+    required this.items,
+    required this.finished,
+    required this.finishedThisYear,
+  });
+
+  /// Seconds listened in total.
+  final double total;
+
+  /// Seconds listened per local day ("2026-10-27").
+  final Map<String, double> days;
+
+  /// Most listened books: item id, title, author and seconds, most first.
+  final List<({String id, String title, String? author, double seconds})> items;
+  final int finished;
+  final int finishedThisYear;
+
+  static String dayKey(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  double on(DateTime day) => days[dayKey(day)] ?? 0;
+
+  /// Seconds from [from] through [today] (both local days, inclusive).
+  double between(DateTime from, DateTime today) {
+    var sum = 0.0;
+    for (
+      var d = DateTime(from.year, from.month, from.day);
+      !d.isAfter(today);
+      d = DateTime(d.year, d.month, d.day + 1)
+    ) {
+      sum += on(d);
+    }
+    return sum;
+  }
+
+  int get daysActive => days.values.where((s) => s > 0).length;
+
+  /// Days in a row with listening up to today; a streak still counts while today has no listening yet.
+  int currentStreak(DateTime today) {
+    var day = DateTime(today.year, today.month, today.day);
+    if (on(day) <= 0) day = DateTime(day.year, day.month, day.day - 1);
+    var streak = 0;
+    while (on(day) > 0) {
+      streak++;
+      day = DateTime(day.year, day.month, day.day - 1);
+    }
+    return streak;
+  }
+
+  int get bestStreak {
+    final active = [
+      for (final e in days.entries)
+        if (e.value > 0) DateTime.parse(e.key),
+    ]..sort();
+    var best = 0;
+    var run = 0;
+    DateTime? previous;
+    for (final day in active) {
+      run = previous != null && DateTime(previous.year, previous.month, previous.day + 1) == day ? run + 1 : 1;
+      if (run > best) best = run;
+      previous = day;
+    }
+    return best;
+  }
+
+  factory AbsStats.fromJson(Map<String, dynamic> stats, Map<String, dynamic> me, {DateTime? now}) {
+    final year = (now ?? DateTime.now()).year;
+    final progress = [
+      for (final p in (me['mediaProgress'] as List? ?? const []))
+        if (p['episodeId'] == null) p,
+    ];
+    final finished = progress.where((p) => p['isFinished'] == true).toList();
+    final items = [
+      for (final e in (stats['items'] as Map? ?? const {}).entries)
+        (
+          id: e.key as String,
+          title: (e.value['mediaMetadata']?['title'] as String?) ?? '',
+          author: ((e.value['mediaMetadata']?['authors'] as List?)?.firstOrNull?['name']) as String?,
+          seconds: _num(e.value['timeListening']),
+        ),
+    ]..sort((a, b) => b.seconds.compareTo(a.seconds));
+    return AbsStats(
+      total: _num(stats['totalTime']),
+      days: {for (final e in (stats['days'] as Map? ?? const {}).entries) e.key as String: _num(e.value)},
+      items: items,
+      finished: finished.length,
+      finishedThisYear: finished.where((p) {
+        final at = p['finishedAt'] as num?;
+        return at != null && DateTime.fromMillisecondsSinceEpoch(at.toInt()).year == year;
+      }).length,
+    );
+  }
+}
+
+final absStatsProvider = FutureProvider.autoDispose<AbsStats>((ref) async {
+  final api = ref.watch(apiProvider);
+  final results = await Future.wait([api.absGet('me/listening-stats'), api.absGet('me')]);
+  return AbsStats.fromJson(Map<String, dynamic>.from(results[0]), Map<String, dynamic>.from(results[1]));
+});

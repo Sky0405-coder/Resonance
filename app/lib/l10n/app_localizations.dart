@@ -1064,6 +1064,144 @@ abstract class AppLocalizations {
   /// **'Noch {duration}'**
   String audiobooksTimeRemaining(String duration);
 
+  /// No description provided for @statsUnitHours.
+  ///
+  /// In de, this message translates to:
+  /// **'Std.'**
+  String get statsUnitHours;
+
+  /// No description provided for @statsUnitMinutes.
+  ///
+  /// In de, this message translates to:
+  /// **'Min.'**
+  String get statsUnitMinutes;
+
+  /// No description provided for @statsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Statistik'**
+  String get statsTitle;
+
+  /// No description provided for @statsTotal.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesamte Hörzeit'**
+  String get statsTotal;
+
+  /// No description provided for @statsDaysOfAudio.
+  ///
+  /// In de, this message translates to:
+  /// **'Das sind {days} Tage Audio'**
+  String statsDaysOfAudio(String days);
+
+  /// No description provided for @statsToday.
+  ///
+  /// In de, this message translates to:
+  /// **'Heute'**
+  String get statsToday;
+
+  /// No description provided for @statsThisWeek.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Woche'**
+  String get statsThisWeek;
+
+  /// No description provided for @statsThisMonth.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieser Monat'**
+  String get statsThisMonth;
+
+  /// No description provided for @statsActivity.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktivität'**
+  String get statsActivity;
+
+  /// No description provided for @statsCurrentStreak.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktuelle Serie'**
+  String get statsCurrentStreak;
+
+  /// No description provided for @statsBestStreak.
+  ///
+  /// In de, this message translates to:
+  /// **'Längste Serie'**
+  String get statsBestStreak;
+
+  /// No description provided for @statsDays.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Tag} other{{count} Tage}}'**
+  String statsDays(int count);
+
+  /// No description provided for @statsBooksFinished.
+  ///
+  /// In de, this message translates to:
+  /// **'Bücher gehört'**
+  String get statsBooksFinished;
+
+  /// No description provided for @statsBooksThisYear.
+  ///
+  /// In de, this message translates to:
+  /// **'Bücher dieses Jahr'**
+  String get statsBooksThisYear;
+
+  /// No description provided for @statsDaysActive.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktive Tage'**
+  String get statsDaysActive;
+
+  /// No description provided for @statsDailyAverage.
+  ///
+  /// In de, this message translates to:
+  /// **'Ø pro aktivem Tag'**
+  String get statsDailyAverage;
+
+  /// No description provided for @statsLast7Days.
+  ///
+  /// In de, this message translates to:
+  /// **'Letzte 7 Tage'**
+  String get statsLast7Days;
+
+  /// No description provided for @statsMostListened.
+  ///
+  /// In de, this message translates to:
+  /// **'Am meisten gehört'**
+  String get statsMostListened;
+
+  /// No description provided for @statsHoursMinutesShort.
+  ///
+  /// In de, this message translates to:
+  /// **'{hours} Std. {minutes} Min.'**
+  String statsHoursMinutesShort(int hours, int minutes);
+
+  /// No description provided for @statsMinutesShort.
+  ///
+  /// In de, this message translates to:
+  /// **'{minutes} Min.'**
+  String statsMinutesShort(int minutes);
+
+  /// No description provided for @statsTeaser.
+  ///
+  /// In de, this message translates to:
+  /// **'{time} gehört · {books} Bücher fertig'**
+  String statsTeaser(String time, int books);
+
+  /// No description provided for @mediaContinue.
+  ///
+  /// In de, this message translates to:
+  /// **'Weiterhören'**
+  String get mediaContinue;
+
+  /// No description provided for @mediaLatest.
+  ///
+  /// In de, this message translates to:
+  /// **'Neueste Folgen'**
+  String get mediaLatest;
+
   /// No description provided for @audiobooksChapterOf.
   ///
   /// In de, this message translates to:

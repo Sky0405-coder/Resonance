@@ -12,6 +12,7 @@ import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
+import '../widgets/media_widgets.dart';
 import '../widgets/track_list.dart';
 import 'audiobook_pages.dart';
 import 'podcast_pages.dart';
@@ -119,10 +120,11 @@ class _BooksHubPageState extends ConsumerState<BooksHubPage> with TickerProvider
     final ebooks = ref.watch(ebooksVisibleProvider);
     final audiobooks = ref.watch(audiobooksVisibleProvider);
     final podcasts = ref.watch(podcastsVisibleProvider);
-    final tabs = <(String, Widget, bool)>[
-      if (ebooks) (context.l10n.booksEbooks, const _EbooksView(), true),
-      if (audiobooks) (context.l10n.navAudiobooks, const AudiobooksPage(embedded: true), false),
-      if (podcasts) (context.l10n.navPodcasts, const PodcastsPage(embedded: true), false),
+    final tabs = <(String, IconData, Widget, bool)>[
+      if (ebooks) (context.l10n.booksEbooks, Icons.menu_book_rounded, const _EbooksView(), true),
+      if (audiobooks)
+        (context.l10n.navAudiobooks, Icons.headphones_rounded, const AudiobooksPage(embedded: true), false),
+      if (podcasts) (context.l10n.navPodcasts, Icons.podcasts_rounded, const PodcastsPage(embedded: true), false),
     ];
     if (tabs.length <= 1) {
       _syncTabController(null);
@@ -133,22 +135,40 @@ class _BooksHubPageState extends ConsumerState<BooksHubPage> with TickerProvider
     }
     _syncTabController(tabs.length);
     final controller = _tabController!;
-    final ebookIndex = tabs.indexWhere((tab) => tab.$3);
+    final ebookIndex = tabs.indexWhere((tab) => tab.$4);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(context.l10n.navMedia, style: const TextStyle(fontWeight: FontWeight.w800)),
-        actions: [if (controller.index == ebookIndex && ebookIndex >= 0) const _EbookActions()],
-        bottom: tabs.length > 1
-            ? TabBar(
-                controller: controller,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: [for (final tab in tabs) Tab(text: tab.$1)],
-              )
-            : null,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.navMedia,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  if (controller.index == ebookIndex && ebookIndex >= 0) const _EbookActions(),
+                ],
+              ),
+            ),
+            PillTabs(
+              items: [for (final tab in tabs) (icon: tab.$2, label: tab.$1)],
+              selected: controller.index,
+              onSelected: controller.animateTo,
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: TabBarView(controller: controller, children: [for (final tab in tabs) tab.$3]),
+            ),
+          ],
+        ),
       ),
-      body: TabBarView(controller: controller, children: [for (final tab in tabs) tab.$2]),
     );
   }
 }

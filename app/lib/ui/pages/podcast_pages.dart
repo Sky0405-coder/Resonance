@@ -17,6 +17,7 @@ import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import '../widgets/track_list.dart';
 import '../widgets/common.dart';
+import '../widgets/media_widgets.dart';
 
 void _changed(WidgetRef ref, String id) {
   ref.invalidate(podcastSubscriptionsProvider);
@@ -160,10 +161,31 @@ Widget _subscriptionShelf(BuildContext context, List<Podcast> podcasts) => Sized
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Badge(
-                    label: Text('${podcast.unplayedCount}'),
-                    isLabelVisible: podcast.unplayedCount > 0,
-                    child: NetworkCover(url: podcast.imageUrl, icon: Icons.podcasts),
+                  Stack(
+                    children: [
+                      NetworkCover(url: podcast.imageUrl, icon: Icons.podcasts, radius: 10),
+                      if (podcast.unplayedCount > 0)
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 6)],
+                            ),
+                            child: Text(
+                              '${podcast.unplayedCount}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: onColor(Theme.of(context).colorScheme.primary),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text(podcast.title, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -203,66 +225,82 @@ class PodcastsPage extends ConsumerWidget {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 140),
+        padding: const EdgeInsets.fromLTRB(0, 16, 0, 140),
         children: [
-          TextField(
-            readOnly: true,
-            // Only opens the search page; never shows a focus outline when coming back.
-            canRequestFocus: false,
-            onTap: () => context.push('/podcasts/search'),
-            decoration: searchDecoration(context.l10n.podcastsSearchHint),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              readOnly: true,
+              // Only opens the search page; never shows a focus outline when coming back.
+              canRequestFocus: false,
+              onTap: () => context.push('/podcasts/search'),
+              decoration: searchDecoration(context.l10n.podcastsSearchHint),
+            ),
           ),
-          const SizedBox(height: 24),
           AsyncBody(
             value: continued,
             onRetry: () => ref.invalidate(podcastContinueProvider),
-            builder: (episodes) => episodes.isEmpty
-                ? const SizedBox.shrink()
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(context.l10n.podcastsContinue, style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 12),
-                      _episodeShelf(context, ref, episodes, progress: true),
-                      const SizedBox(height: 24),
-                    ],
+            builder: (episodes) {
+              if (episodes.isEmpty) return const SizedBox.shrink();
+              final first = episodes.first;
+              final duration = first.durationSeconds;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SectionTitle(context.l10n.podcastsContinue),
+                  ContinueCard(
+                    cover: NetworkCover(url: first.coverUrl, icon: Icons.podcasts, radius: 0),
+                    kicker: first.podcastTitle,
+                    title: first.title,
+                    progress: duration == null || duration <= 0 ? 0 : first.positionSeconds / duration,
+                    remaining: duration == null
+                        ? null
+                        : context.l10n.podcastsTimeLeft(
+                            formatRemaining(context.l10n, duration - first.positionSeconds),
+                          ),
+                    onPlay: () => _playEpisode(context, ref, first),
+                    onTap: () => showEpisodeSheet(context, ref, first),
                   ),
+                  if (episodes.length > 1) ...[
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16),
+                      child: _episodeShelf(context, ref, episodes.skip(1).toList(), progress: true),
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
           if (latest.isNotEmpty) ...[
-            Text(context.l10n.podcastsNewEpisodes, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            _episodeShelf(context, ref, latest, progress: false),
-            const SizedBox(height: 24),
+            SectionTitle(context.l10n.podcastsNewEpisodes, padding: const EdgeInsets.fromLTRB(16, 28, 8, 4)),
+            for (final (i, episode) in latest.take(6).indexed) ...[
+              if (i > 0) const Divider(height: 1, indent: 84, endIndent: 16, color: Palette.divider),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: PodcastEpisodeTile(episode: episode, showPodcast: true),
+              ),
+            ],
           ],
           if ((subscriptions.value ?? const <Podcast>[]).isNotEmpty) ...[
-            Text(context.l10n.podcastsYourPodcasts, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            _subscriptionShelf(context, subscriptions.value!),
-            const SizedBox(height: 24),
+            SectionTitle(context.l10n.podcastsYourPodcasts),
+            Padding(padding: const EdgeInsets.only(left: 16), child: _subscriptionShelf(context, subscriptions.value!)),
           ],
           if (discover != null) ...[
-            Text(context.l10n.podcastsCategories, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
+            SectionTitle(context.l10n.podcastsCategories),
             MouseDragScroll(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final genre in discover.genres)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ActionChip(
-                          label: Text(genre.name),
-                          onPressed: () => context.push('/podcasts/genre/${genre.id}', extra: genre.name),
-                        ),
-                      ),
-                  ],
-                ),
+              child: PillTabs(
+                dense: true,
+                items: [for (final genre in discover.genres) (icon: null, label: genre.name)],
+                selected: -1,
+                onSelected: (i) =>
+                    context.push('/podcasts/genre/${discover.genres[i].id}', extra: discover.genres[i].name),
               ),
             ),
             const SizedBox(height: 24),
             for (final section in discover.sections)
-              if (section.items.isNotEmpty) _resultShelf(context, ref, section),
+              if (section.items.isNotEmpty)
+                Padding(padding: const EdgeInsets.only(left: 16), child: _resultShelf(context, ref, section)),
           ],
         ],
       ),
@@ -882,8 +920,11 @@ class _EpisodeMeta extends StatelessWidget {
 }
 
 class PodcastEpisodeTile extends ConsumerWidget {
-  const PodcastEpisodeTile({super.key, required this.episode});
+  const PodcastEpisodeTile({super.key, required this.episode, this.showPodcast = false});
   final PodcastEpisode episode;
+
+  /// With the cover and podcast name, for lists mixing podcasts.
+  final bool showPodcast;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -904,10 +945,24 @@ class PodcastEpisodeTile extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Row(
             children: [
+              if (showPodcast) ...[
+                SizedBox(
+                  width: 56,
+                  child: NetworkCover(url: episode.coverUrl, icon: Icons.podcasts, radius: 8),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (showPodcast)
+                      Text(
+                        episode.podcastTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Palette.textMuted, fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
                     _EpisodeMeta(episode: episode),
                     const SizedBox(height: 4),
                     Text(
@@ -920,7 +975,7 @@ class PodcastEpisodeTile extends ConsumerWidget {
                         color: playing ? accent : Colors.white,
                       ),
                     ),
-                    if (episode.description?.isNotEmpty ?? false) ...[
+                    if (!showPodcast && (episode.description?.isNotEmpty ?? false)) ...[
                       const SizedBox(height: 4),
                       Text(
                         episode.description!,

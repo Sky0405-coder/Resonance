@@ -566,6 +566,86 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get statsUnitHours => 'h';
+
+  @override
+  String get statsUnitMinutes => 'm';
+
+  @override
+  String get statsTitle => 'Your stats';
+
+  @override
+  String get statsTotal => 'Total listening time';
+
+  @override
+  String statsDaysOfAudio(String days) {
+    return 'That\'s $days days of audio';
+  }
+
+  @override
+  String get statsToday => 'Today';
+
+  @override
+  String get statsThisWeek => 'This week';
+
+  @override
+  String get statsThisMonth => 'This month';
+
+  @override
+  String get statsActivity => 'Activity';
+
+  @override
+  String get statsCurrentStreak => 'Current streak';
+
+  @override
+  String get statsBestStreak => 'Best streak';
+
+  @override
+  String statsDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count days', one: '1 day');
+    return '$_temp0';
+  }
+
+  @override
+  String get statsBooksFinished => 'Books finished';
+
+  @override
+  String get statsBooksThisYear => 'Books this year';
+
+  @override
+  String get statsDaysActive => 'Days active';
+
+  @override
+  String get statsDailyAverage => 'Daily average';
+
+  @override
+  String get statsLast7Days => 'Last 7 days';
+
+  @override
+  String get statsMostListened => 'Most listened';
+
+  @override
+  String statsHoursMinutesShort(int hours, int minutes) {
+    return '${hours}h ${minutes}m';
+  }
+
+  @override
+  String statsMinutesShort(int minutes) {
+    return '${minutes}m';
+  }
+
+  @override
+  String statsTeaser(String time, int books) {
+    return '$time listened · $books books finished';
+  }
+
+  @override
+  String get mediaContinue => 'Continue';
+
+  @override
+  String get mediaLatest => 'Latest episodes';
+
+  @override
   String audiobooksChapterOf(int index, int count) {
     return 'Chapter $index of $count';
   }

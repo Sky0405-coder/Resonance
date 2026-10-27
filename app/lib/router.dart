@@ -22,6 +22,7 @@ import 'ui/tv/tv_search_page.dart';
 import 'ui/pages/admin/admin_page.dart';
 import 'ui/pages/admin/duplicates_page.dart';
 import 'ui/pages/audiobook_pages.dart';
+import 'ui/pages/audiobook_stats_page.dart';
 import 'ui/pages/podcast_pages.dart';
 import 'ui/pages/auth_pages.dart';
 import 'ui/pages/book_pages.dart';
@@ -221,6 +222,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ),
           ),
+          GoRoute(path: '/audiobooks/stats', builder: (_, _) => const AudiobookStatsPage()),
           GoRoute(
             path: '/audiobooks/item/:id',
             builder: (_, s) => TvPage(
