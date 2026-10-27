@@ -6,6 +6,7 @@ import 'package:resonance/core/api.dart';
 import 'package:resonance/core/models.dart';
 import 'package:resonance/core/session.dart';
 import 'package:resonance/l10n/l10n.dart';
+import 'package:resonance/player/spectrum.dart';
 import 'package:resonance/ui/widgets/ringtone_sheet.dart';
 
 const _track = Track(
@@ -22,8 +23,8 @@ class _Api extends ApiClient {
   final downloads = <String>[];
 
   @override
-  Future<({double start, double duration})> ringtoneSuggestion(String trackId, int length) async =>
-      (start: 62.0, duration: 200.0);
+  Future<({double start, double duration, List<double> levels})> ringtoneSuggestion(String trackId, int length) async =>
+      (start: 62.0, duration: 200.0, levels: [for (var i = 0; i < 200; i++) (i % 7) / 7]);
 
   @override
   Future<void> downloadMedia(String url, String Function(String? contentType) destination, {cancelToken}) async {
@@ -61,7 +62,10 @@ void main() {
     final api = _Api();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [apiProvider.overrideWithValue(api)],
+        overrides: [
+          apiProvider.overrideWithValue(api),
+          coverColorProvider.overrideWith((ref, image) async => Colors.teal),
+        ],
         child: MaterialApp(
           locale: const Locale('de'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -103,6 +107,18 @@ void main() {
     final set = calls.firstWhere((call) => call.method == 'setDefault');
     expect(set.arguments, {'uri': 'content://media/external/audio/media/7', 'type': 'alarm'});
     expect(find.text('„Song“ ist jetzt dein Weckton'), findsOneWidget);
+  });
+
+  testWidgets('a tap on the waveform moves the cut there, and it can go back to the suggestion', (tester) async {
+    await show(tester);
+    await tester.tap(find.byKey(const ValueKey('ringtone-start')));
+    await tester.pump();
+    expect(find.text('1:25 – 1:55'), findsOneWidget);
+
+    await tester.tap(find.text('Zurück zum Vorschlag'));
+    await tester.pumpAndSettle();
+    expect(find.text('1:02 – 1:32'), findsOneWidget);
+    expect(find.text('Zurück zum Vorschlag'), findsNothing);
   });
 
   // Semantics off: a dialog over a modal sheet trips a framework assertion in the test binding's semantics pass

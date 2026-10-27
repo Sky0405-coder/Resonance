@@ -105,10 +105,15 @@ class ApiClient {
   String ringtoneUrl(String trackId, double start, int length) =>
       '$baseUrl/api/tracks/$trackId/ringtone?start=${start.toStringAsFixed(1)}&length=$length&token=$token';
 
-  /// Where a ringtone should start (the song's fullest part) and the song's length, in seconds.
-  Future<({double start, double duration})> ringtoneSuggestion(String trackId, int length) async {
+  /// Where a ringtone should start (the song's fullest part), the song's length in seconds and its loudness per
+  /// second (0..1, empty from older servers).
+  Future<({double start, double duration, List<double> levels})> ringtoneSuggestion(String trackId, int length) async {
     final data = await _get('/api/tracks/$trackId/ringtone/suggestion', {'length': length});
-    return (start: (data['start'] as num).toDouble(), duration: (data['duration'] as num).toDouble());
+    return (
+      start: (data['start'] as num).toDouble(),
+      duration: (data['duration'] as num).toDouble(),
+      levels: [for (final level in data['levels'] as List? ?? const []) (level as num).toDouble()],
+    );
   }
 
   String artistImageUrl(String id, {int size = 300}) => '$baseUrl/api/artists/$id/image?size=$size&token=$token';

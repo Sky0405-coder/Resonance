@@ -31,6 +31,11 @@ def test_highlight_finds_the_first_loud_stretch_and_skips_the_outro() -> None:
     assert ringtone.highlight(energy, 10) == 20
 
 
+def test_levels_are_scaled_to_the_loudest_second() -> None:
+    assert ringtone.levels(np.array([0.2, 0.4, 0.1])) == [0.5, 1.0, 0.25]
+    assert ringtone.levels(np.zeros(2)) == [0.0, 0.0]
+
+
 def test_highlight_of_short_or_silent_songs_starts_at_zero() -> None:
     assert ringtone.highlight(np.ones(8), 30) == 0
     assert ringtone.highlight(np.zeros(100), 30) == 0
@@ -69,7 +74,11 @@ async def test_suggestion_starts_at_the_loud_part(env) -> None:
     client, headers, track_id = env
     response = await client.get(f"/api/tracks/{track_id}/ringtone/suggestion?length=8", headers=headers)
     assert response.status_code == 200
-    assert response.json() == {"start": 12.0, "duration": 40.0}
+    body = response.json()
+    assert (body["start"], body["duration"]) == (12.0, 40.0)
+    assert len(body["levels"]) == 40
+    assert body["levels"][15] == 1.0
+    assert body["levels"][0] < 0.1
 
 
 async def test_cut_is_a_faded_mp3_of_the_asked_length(env, tmp_path: Path) -> None:

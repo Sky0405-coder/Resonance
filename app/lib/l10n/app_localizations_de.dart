@@ -2840,6 +2840,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get ringtoneSuggested => 'Vorschlag: die vollste Stelle des Songs, meist der Refrain';
 
   @override
+  String coverflowBackSongs(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Songs', one: '1 Song');
+    return '$_temp0';
+  }
+
+  @override
+  String get ringtoneBackToSuggestion => 'Zurück zum Vorschlag';
+
+  @override
   String get ringtonePreview => 'Probehören';
 
   @override

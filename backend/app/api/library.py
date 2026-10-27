@@ -392,11 +392,12 @@ async def _track_file(db: DB, track_id: uuid.UUID) -> tuple[Track, Path]:
 @router.get("/tracks/{track_id}/ringtone/suggestion")
 async def ringtone_suggestion(
     track_id: uuid.UUID, user: CurrentUser, db: DB, length: float = Query(30, ge=5, le=60)
-) -> dict[str, float]:
-    """Where a ringtone of `length` seconds should start: the song's loudest stretch, usually its chorus."""
+) -> dict[str, float | list[float]]:
+    """Where a ringtone of `length` seconds should start: the song's loudest stretch, usually its chorus. With the
+    song's loudness per second (0..1) for the picker's waveform."""
     track, path = await _track_file(db, track_id)
-    start = min(await ringtone.suggest_start(path, length), max(0.0, track.duration - length))
-    return {"start": start, "duration": track.duration}
+    start, levels = await ringtone.suggest(path, length)
+    return {"start": min(start, max(0.0, track.duration - length)), "duration": track.duration, "levels": levels}
 
 
 @router.get("/tracks/{track_id}/ringtone")

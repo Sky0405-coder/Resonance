@@ -1040,6 +1040,8 @@
   "ringtoneSeconds": "{seconds} s",
   "ringtoneRange": "{start} – {end}",
   "ringtoneSuggested": "Suggested: the song's fullest part, usually the chorus",
+  "coverflowBackSongs": "{count, plural, =1{1 song} other{{count} songs}}",
+  "ringtoneBackToSuggestion": "Back to the suggestion",
   "ringtonePreview": "Preview",
   "ringtoneStopPreview": "Stop preview",
   "ringtoneTypeRingtone": "Ringtone",

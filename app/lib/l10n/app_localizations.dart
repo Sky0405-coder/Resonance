@@ -5090,6 +5090,18 @@ abstract class AppLocalizations {
   /// **'Vorschlag: die vollste Stelle des Songs, meist der Refrain'**
   String get ringtoneSuggested;
 
+  /// No description provided for @coverflowBackSongs.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Song} other{{count} Songs}}'**
+  String coverflowBackSongs(int count);
+
+  /// No description provided for @ringtoneBackToSuggestion.
+  ///
+  /// In de, this message translates to:
+  /// **'Zurück zum Vorschlag'**
+  String get ringtoneBackToSuggestion;
+
   /// No description provided for @ringtonePreview.
   ///
   /// In de, this message translates to:

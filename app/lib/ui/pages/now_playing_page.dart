@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import '../../l10n/l10n.dart';
 
@@ -309,7 +310,7 @@ class TrackCover extends ConsumerWidget {
                         ? _turned(
                             Material(
                               elevation: 16,
-                              color: Palette.card,
+                              color: Palette.background,
                               borderRadius: BorderRadius.circular(8),
                               clipBehavior: Clip.antiAlias,
                               child: back,
@@ -369,15 +370,19 @@ class TrackCover extends ConsumerWidget {
   }
 
   /// Turns [child] about its vertical axis; past halfway the back side turns the rest of the way in, unmirrored.
-  Widget _turned(Widget child) => flip == 0
-      ? child
-      : Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.001)
-            ..rotateY(math.pi * (flip > 0.5 ? flip - 1 : flip)),
-          child: child,
-        );
+  /// Halfway it also sinks back a little, as if lifted off and turned in the hand.
+  Widget _turned(Widget child) {
+    if (flip == 0) return child;
+    final depth = 1 - 0.1 * math.sin(math.pi * flip);
+    return Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.identity()
+        ..setEntry(3, 2, 0.0012)
+        ..rotateY(math.pi * (flip > 0.5 ? flip - 1 : flip))
+        ..scaleByDouble(depth, depth, depth, 1),
+      child: child,
+    );
+  }
 }
 
 class Coverflow extends ConsumerStatefulWidget {
@@ -601,7 +606,12 @@ class _CoverflowState extends ConsumerState<Coverflow> with TickerProviderStateM
           ..scaleByDouble(scale, scale, scale, 1),
         child: IgnorePointer(
           ignoring: !centered,
-          child: flips ? AnimatedBuilder(animation: _flip, builder: (context, _) => cover(_flip.value)) : cover(0),
+          child: flips
+              ? AnimatedBuilder(
+                  animation: _flip,
+                  builder: (context, _) => cover(Curves.easeInOutCubic.transform(_flip.value)),
+                )
+              : cover(0),
         ),
       ),
     );
@@ -937,7 +947,8 @@ class _CoverVisualizer extends ConsumerWidget {
   }
 }
 
-/// The back of a turned-over coverflow cover: the album's songs, the playing one highlighted.
+/// The back of a turned-over coverflow cover: the album's songs over its blurred, darkened cover, the playing one
+/// highlighted.
 class _AlbumBack extends ConsumerWidget {
   const _AlbumBack({required this.track, required this.onClose, required this.onPlay});
   final Track track;
@@ -948,80 +959,159 @@ class _AlbumBack extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
+    final tint = ref.watch(coverColorProvider(coverImageProvider(ref, track.album.id, size: 300))).value ?? accent;
     final current = ref.watch(playerProvider.select((p) => p.current?.id));
     final album = ref.watch(albumProvider(track.album.id));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final info = album.value?.album;
+    final muted = theme.textTheme.bodySmall?.copyWith(color: Colors.white70);
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        InkWell(
-          key: const ValueKey('coverflow-back-header'),
-          onTap: onClose,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  album.value?.album.title ?? track.album.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  album.value?.album.artist.name ?? track.artist.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(color: Palette.textMuted),
-                ),
+        ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28, tileMode: TileMode.clamp),
+          child: CoverImage(albumId: track.album.id, size: 300, radius: 0),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color.alphaBlend(tint.withValues(alpha: 0.18), const Color(0xB3000000)),
+                const Color(0xD9000000),
               ],
             ),
           ),
         ),
-        const Divider(height: 1),
-        Expanded(
-          child: album.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              key: const ValueKey('coverflow-back-header'),
+              onTap: onClose,
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(ApiException.from(e, context.l10n).message, textAlign: TextAlign.center),
+                padding: const EdgeInsets.fromLTRB(14, 14, 10, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: const [BoxShadow(color: Color(0x80000000), blurRadius: 10, offset: Offset(0, 4))],
+                      ),
+                      child: CoverImage(albumId: track.album.id, size: 150, radius: 6),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            info?.title ?? track.album.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            [
+                              info?.artist.name ?? track.artist.name,
+                              if (info?.year != null) '${info!.year}',
+                              if (album.value != null) context.l10n.coverflowBackSongs(album.value!.tracks.length),
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.flip_to_front_rounded, size: 20, color: Colors.white54),
+                  ],
+                ),
               ),
             ),
-            data: (detail) => ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: detail.tracks.length,
-              itemBuilder: (context, i) {
-                final song = detail.tracks[i];
-                final playing = song.id == current;
-                final style = theme.textTheme.bodyMedium?.copyWith(color: playing ? accent : null);
-                return InkWell(
-                  key: ValueKey('coverflow-back-track-$i'),
-                  onTap: () => onPlay(detail, i),
+            Container(height: 1, margin: const EdgeInsets.symmetric(horizontal: 14), color: Colors.white12),
+            Expanded(
+              child: album.when(
+                loading: () => Center(child: CircularProgressIndicator(strokeWidth: 2.5, color: tint)),
+                error: (e, _) => Center(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 28,
-                          child: playing
-                              ? Icon(Icons.volume_up, size: 16, color: accent)
-                              : Text('${song.trackNo ?? i + 1}', style: style?.copyWith(color: Palette.textMuted)),
-                        ),
-                        Expanded(
-                          child: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          formatDuration(Duration(milliseconds: (song.duration * 1000).round())),
-                          style: theme.textTheme.bodySmall?.copyWith(color: Palette.textMuted),
-                        ),
-                      ],
-                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Text(ApiException.from(e, context.l10n).message, textAlign: TextAlign.center),
                   ),
-                );
-              },
+                ),
+                // The list fades out at its edges instead of being cut off.
+                data: (detail) => ShaderMask(
+                  blendMode: BlendMode.dstIn,
+                  shaderCallback: (rect) => const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
+                    stops: [0, 0.04, 0.92, 1],
+                  ).createShader(rect),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 14),
+                    itemCount: detail.tracks.length,
+                    itemBuilder: (context, i) {
+                      final song = detail.tracks[i];
+                      final playing = song.id == current;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 1),
+                        child: Material(
+                          color: playing ? tint.withValues(alpha: 0.16) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            key: ValueKey('coverflow-back-track-$i'),
+                            onTap: () => onPlay(detail, i),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 26,
+                                    child: playing
+                                        ? Icon(Icons.graphic_eq_rounded, size: 18, color: tint)
+                                        : Text(
+                                            '${song.trackNo ?? i + 1}',
+                                            style: muted?.copyWith(
+                                              color: Colors.white54,
+                                              fontFeatures: const [ui.FontFeature.tabularFigures()],
+                                            ),
+                                          ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      song.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: playing ? tint : Colors.white,
+                                        fontWeight: playing ? FontWeight.w600 : null,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    formatDuration(Duration(milliseconds: (song.duration * 1000).round())),
+                                    style: muted?.copyWith(
+                                      color: Colors.white54,
+                                      fontFeatures: const [ui.FontFeature.tabularFigures()],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );

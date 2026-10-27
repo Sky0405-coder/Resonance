@@ -45,12 +45,21 @@ def highlight(energy: np.ndarray, length: float) -> float:
     return float(np.flatnonzero(sums >= best * 0.97)[0])
 
 
-async def suggest_start(path: Path, length: float) -> float:
+def levels(energy: np.ndarray) -> list[float]:
+    """Loudness per second scaled to 0..1, for drawing the song's shape under the cut picker."""
+    peak = float(energy.max()) if len(energy) else 0.0
+    if peak <= 0:
+        return [0.0] * len(energy)
+    return [round(float(v), 2) for v in energy / peak]
+
+
+async def suggest(path: Path, length: float) -> tuple[float, list[float]]:
+    """Where the cut should start and the song's loudness per second (empty if it cannot be decoded)."""
     try:
         energy = await asyncio.to_thread(_energy, path)
     except (subprocess.SubprocessError, OSError):
-        return 0.0
-    return highlight(energy, length)
+        return 0.0, []
+    return highlight(energy, length), levels(energy)
 
 
 async def cut(path: Path, start: float, length: float) -> bytes:
