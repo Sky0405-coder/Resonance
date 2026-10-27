@@ -175,6 +175,8 @@ class ApiClient {
   /// Marks all episodes of a podcast as played, or all as new again.
   Future<void> markPodcastPlayed(String id, {required bool completed}) =>
       _put('/api/podcasts/$id/played', {'completed': completed});
+  Future<void> setPodcastRemoveAds(String id, {required bool enabled}) =>
+      _put('/api/podcasts/$id/remove-ads', {'enabled': enabled});
   Future<PodcastEpisode> podcastEpisode(String id) async =>
       PodcastEpisode.fromJson(await _get('/api/podcasts/episodes/$id'));
   Future<List<PodcastSearchResult>> podcastSearch(String query) async => [

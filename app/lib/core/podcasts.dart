@@ -18,6 +18,7 @@ class Podcast {
     this.unplayedCount = 0,
     this.episodeCount = 0,
     this.completedCount = 0,
+    this.removeAds = false,
     this.episodes = const [],
   });
 
@@ -31,6 +32,9 @@ class Podcast {
   final int unplayedCount;
   final int episodeCount;
   final int completedCount;
+
+  /// Episodes play without the ads the host splices in (cleaned on the server).
+  final bool removeAds;
   final List<PodcastEpisode> episodes;
 
   factory Podcast.fromJson(Map<String, dynamic> j) => Podcast(
@@ -44,6 +48,7 @@ class Podcast {
     unplayedCount: j['unplayed_count'] ?? 0,
     episodeCount: j['episode_count'] ?? 0,
     completedCount: j['completed_count'] ?? 0,
+    removeAds: j['remove_ads'] ?? false,
     episodes: [for (final e in j['episodes'] ?? const []) PodcastEpisode.fromJson(e)],
   );
 }
@@ -61,6 +66,7 @@ class PodcastEpisode {
     this.durationSeconds,
     this.positionSeconds = 0,
     this.completed = false,
+    this.adsRemovedSeconds,
   });
 
   final String id;
@@ -74,6 +80,9 @@ class PodcastEpisode {
   final double? durationSeconds;
   final double positionSeconds;
   final bool completed;
+
+  /// How much inserted advertising the ad-free file is shorter by.
+  final double? adsRemovedSeconds;
   String? get coverUrl => imageUrl ?? podcastImageUrl;
 
   factory PodcastEpisode.fromJson(Map<String, dynamic> j) => PodcastEpisode(
@@ -88,6 +97,7 @@ class PodcastEpisode {
     durationSeconds: (j['duration_seconds'] as num?)?.toDouble(),
     positionSeconds: (j['position_seconds'] as num?)?.toDouble() ?? 0,
     completed: j['completed'] ?? false,
+    adsRemovedSeconds: (j['ads_removed_seconds'] as num?)?.toDouble(),
   );
 }
 

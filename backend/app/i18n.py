@@ -11,6 +11,7 @@ _EXACT: dict[str, str] = {
     "Podcast-Kategorie nicht gefunden": "Podcast category not found",
     "Podcast-Charts nicht erreichbar": "Podcast charts unavailable",
     "Podcast-Feed nicht erreichbar oder ungültig": "Podcast feed unavailable or invalid",
+    "Nur für abonnierte Podcasts": "Only for subscribed podcasts",
     "Bücher sind nicht aktiviert": "Books are not enabled",
     "Automatische Downloads sind deaktiviert": "Automatic downloads are disabled",
     "Das Buch ist schon in der Bibliothek": "The book is already in the library",

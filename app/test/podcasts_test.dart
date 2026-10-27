@@ -78,7 +78,9 @@ class _Api extends ApiClient {
   final pages = <int>[];
   final orders = <bool>[];
   final markedAll = <bool>[];
+  final removeAds = <bool>[];
   bool subscribed = true;
+  bool adFree = false;
   bool manyEpisodes = false;
   int absCalls = 0;
 
@@ -91,6 +93,11 @@ class _Api extends ApiClient {
 
   @override
   Future<void> markPodcastPlayed(String id, {required bool completed}) async => markedAll.add(completed);
+  @override
+  Future<void> setPodcastRemoveAds(String id, {required bool enabled}) async {
+    removeAds.add(enabled);
+    adFree = enabled;
+  }
 
   @override
   Future<dynamic> absPost(String path, [Object? body]) async {
@@ -135,6 +142,7 @@ class _Api extends ApiClient {
       unplayedCount: 3,
       episodeCount: 4,
       completedCount: 1,
+      removeAds: adFree,
       episodes: offset > 0
           ? []
           : manyEpisodes
@@ -619,6 +627,10 @@ void main() {
   });
 
   testWidgets('detail shows episode progress, completed state, and subscription toggle', (tester) async {
+    tester.view.physicalSize = const Size(900, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await page(tester, const PodcastPage(id: 'podcast'));
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.text('4 min left'), findsOneWidget);
@@ -649,7 +661,43 @@ void main() {
     expect(find.text('Played'), findsOneWidget);
   });
 
+  testWidgets('a subscribed podcast can be listened to without inserted ads', (tester) async {
+    api.episode = const PodcastEpisode(
+      id: 'episode',
+      podcastId: 'podcast',
+      title: 'Episode title',
+      podcastTitle: 'Podcast title',
+      durationSeconds: 3600,
+      adsRemovedSeconds: 125,
+    );
+    tester.view.physicalSize = const Size(900, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await page(tester, const PodcastPage(id: 'podcast'));
+    expect(find.text('Remove inserted ads'), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, false);
+    expect(find.text('−3 min'), findsOneWidget);
+    await tester.tap(find.text('Remove inserted ads'));
+    await tester.pumpAndSettle();
+    expect(api.removeAds, [true]);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, true);
+
+    await tester.tap(find.text('Episode title'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 min of ads removed'), findsOneWidget);
+
+    api.subscribed = false;
+    container.invalidate(podcastProvider('podcast'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove inserted ads'), findsNothing);
+  });
+
   testWidgets('episodes can be marked played, all at once, and listed oldest first', (tester) async {
+    tester.view.physicalSize = const Size(900, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await page(tester, const PodcastPage(id: 'podcast'));
     await tester.tap(find.byIcon(Icons.more_vert).last);
     await tester.pumpAndSettle();
@@ -677,6 +725,10 @@ void main() {
   });
 
   testWidgets('tapping an episode opens its show notes with play and mark actions', (tester) async {
+    tester.view.physicalSize = const Size(900, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     api.episode = const PodcastEpisode(
       id: 'episode',
       podcastId: 'podcast',

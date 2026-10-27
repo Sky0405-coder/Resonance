@@ -110,10 +110,7 @@ Widget _episodeShelf(BuildContext context, WidgetRef ref, List<PodcastEpisode> e
 Widget _resultShelf(BuildContext context, WidgetRef ref, PodcastSection section) => Column(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
-    Text(
-      section.title,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-    ),
+    Text(section.title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
     const SizedBox(height: 12),
     SizedBox(
       height: 220,
@@ -532,6 +529,16 @@ class _PodcastPageState extends ConsumerState<PodcastPage> {
     }
   }
 
+  Future<void> _setRemoveAds(Podcast podcast, bool enabled) async {
+    try {
+      await ref.read(apiProvider).setPodcastRemoveAds(podcast.id, enabled: enabled);
+      _more.clear();
+      _changed(ref, podcast.id);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
   void _setOrder(bool oldestFirst) {
     setState(() {
       _more.clear();
@@ -705,6 +712,10 @@ class _PodcastPageState extends ConsumerState<PodcastPage> {
                     ),
                   ),
                 ],
+                if (podcast.subscribed) ...[
+                  const SizedBox(height: 16),
+                  _RemoveAdsCard(value: podcast.removeAds, onChanged: (value) => _setRemoveAds(podcast, value)),
+                ],
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -829,6 +840,13 @@ Future<void> showEpisodeSheet(BuildContext context, WidgetRef ref, PodcastEpisod
         ),
         const SizedBox(height: 8),
         _EpisodeMeta(episode: episode),
+        if ((episode.adsRemovedSeconds ?? 0) >= 1) ...[
+          const SizedBox(height: 4),
+          Text(
+            context.l10n.podcastsAdsRemoved(formatRemaining(context.l10n, episode.adsRemovedSeconds!)),
+            style: const TextStyle(color: Palette.textMuted, fontSize: 12.5),
+          ),
+        ],
         const SizedBox(height: 16),
         Row(
           children: [
@@ -870,6 +888,48 @@ Future<void> showEpisodeSheet(BuildContext context, WidgetRef ref, PodcastEpisod
 );
 
 /// Date and length of an episode; for started ones how much is left, for finished ones a check.
+class _RemoveAdsCard extends StatelessWidget {
+  const _RemoveAdsCard({required this.value, required this.onChanged});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: value ? accent.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => onChanged(!value),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+          child: Row(
+            children: [
+              Icon(Icons.content_cut, size: 20, color: value ? accent : Palette.textMuted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.podcastsRemoveAds, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.l10n.podcastsRemoveAdsHint,
+                      style: const TextStyle(color: Palette.textMuted, fontSize: 12.5, height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(value: value, onChanged: onChanged),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _EpisodeMeta extends StatelessWidget {
   const _EpisodeMeta({required this.episode});
   final PodcastEpisode episode;
@@ -911,6 +971,20 @@ class _EpisodeMeta extends StatelessWidget {
           Text(
             context.l10n.podcastsTimeLeft(formatRemaining(context.l10n, duration - episode.positionSeconds)),
             style: style.copyWith(color: accent, fontWeight: FontWeight.w600),
+          ),
+        ],
+        if ((episode.adsRemovedSeconds ?? 0) >= 1) ...[
+          const SizedBox(width: 8),
+          Tooltip(
+            message: context.l10n.podcastsAdsRemoved(formatRemaining(context.l10n, episode.adsRemovedSeconds!)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.content_cut, size: 13, color: Palette.textMuted),
+                const SizedBox(width: 3),
+                Text('−${formatRemaining(context.l10n, episode.adsRemovedSeconds!)}', style: style),
+              ],
+            ),
           ),
         ],
         if (episode.completed) ...[

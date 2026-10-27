@@ -5252,6 +5252,24 @@ abstract class AppLocalizations {
   /// **'Nächste ungehörte Folge abspielen'**
   String get podcastsPlayFirstUnplayed;
 
+  /// No description provided for @podcastsRemoveAds.
+  ///
+  /// In de, this message translates to:
+  /// **'Eingespielte Werbung entfernen'**
+  String get podcastsRemoveAds;
+
+  /// No description provided for @podcastsRemoveAdsHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Folgen liegen kurz nach Erscheinen ohne eingespielte Werbespots bereit. Werbung, die die Hosts selbst sprechen, bleibt drin.'**
+  String get podcastsRemoveAdsHint;
+
+  /// No description provided for @podcastsAdsRemoved.
+  ///
+  /// In de, this message translates to:
+  /// **'{time} Werbung entfernt'**
+  String podcastsAdsRemoved(String time);
+
   /// No description provided for @playerPodcastLoadError.
   ///
   /// In de, this message translates to:

@@ -2936,6 +2936,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get podcastsPlayFirstUnplayed => 'Nächste ungehörte Folge abspielen';
 
   @override
+  String get podcastsRemoveAds => 'Eingespielte Werbung entfernen';
+
+  @override
+  String get podcastsRemoveAdsHint =>
+      'Neue Folgen liegen kurz nach Erscheinen ohne eingespielte Werbespots bereit. Werbung, die die Hosts selbst sprechen, bleibt drin.';
+
+  @override
+  String podcastsAdsRemoved(String time) {
+    return '$time Werbung entfernt';
+  }
+
+  @override
   String get playerPodcastLoadError => 'Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut.';
 
   @override

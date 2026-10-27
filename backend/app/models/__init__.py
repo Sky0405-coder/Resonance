@@ -22,6 +22,7 @@ from app.models.library import (
 from app.models.podcasts import (
     EpisodeProgress,
     Podcast,
+    PodcastAd,
     PodcastEpisode,
     PodcastSubscription,
 )
@@ -64,6 +65,7 @@ __all__ = [
     "PlaylistEntry",
     "PlaylistShare",
     "Podcast",
+    "PodcastAd",
     "PodcastEpisode",
     "PodcastSubscription",
     "QualityUpgradeAttempt",

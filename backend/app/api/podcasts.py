@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import and_, delete, func, literal, select, true
 from sqlalchemy.dialects.postgresql import insert
@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app import i18n
 from app.deps import DB, CurrentUser
 from app.models import EpisodeProgress, Podcast, PodcastEpisode, PodcastSubscription
-from app.services import podcasts
+from app.services import podcast_ads, podcasts
 
 router = APIRouter(prefix="/api/podcasts", tags=["podcasts"])
 
@@ -27,6 +27,10 @@ class ProgressIn(BaseModel):
 
 class PlayedIn(BaseModel):
     completed: bool
+
+
+class RemoveAdsIn(BaseModel):
+    enabled: bool
 
 
 class PodcastSearchResult(BaseModel):
@@ -67,12 +71,21 @@ def _podcast(podcast: Podcast) -> dict:
     )}
 
 
-def _episode(episode: PodcastEpisode, podcast: Podcast, progress: EpisodeProgress | None) -> dict:
+def _episode(
+    episode: PodcastEpisode, podcast: Podcast, progress: EpisodeProgress | None, ad_free: set[uuid.UUID],
+) -> dict:
+    """`ad_free` holds the podcasts the user listens to without inserted ads; their cleaned episodes report the
+    cleaned length and how much was cut, the others whether removal is still to come."""
+    removing = podcast.id in ad_free
+    cleaned = removing and episode.ad_status == "done"
     return {
         **{key: getattr(episode, key) for key in (
-            "id", "podcast_id", "guid", "title", "description", "published_at", "duration_seconds",
+            "id", "podcast_id", "guid", "title", "description", "published_at",
             "audio_url", "audio_type", "image_url", "created_at",
         )},
+        "duration_seconds": episode.ad_duration if cleaned else episode.duration_seconds,
+        "ads_removed_seconds": episode.ad_seconds if cleaned else None,
+        "ad_status": (episode.ad_status or "pending") if removing else None,
         "podcast_title": podcast.title,
         "podcast_image_url": podcast.image_url,
         "position_seconds": progress.position_seconds if progress else 0,
@@ -85,6 +98,12 @@ async def _get_podcast(db: DB, id: uuid.UUID) -> Podcast:
     if podcast is None:
         raise HTTPException(404, "Podcast nicht gefunden")
     return podcast
+
+
+async def _ad_free(db: DB, user_id: uuid.UUID) -> set[uuid.UUID]:
+    return set(await db.scalars(select(PodcastSubscription.podcast_id).where(
+        PodcastSubscription.user_id == user_id, PodcastSubscription.remove_ads,
+    )))
 
 
 async def _get_episode(db: DB, id: uuid.UUID) -> PodcastEpisode:
@@ -166,7 +185,8 @@ async def continue_listening(user: CurrentUser, db: DB) -> list[dict]:
         .join(EpisodeProgress, EpisodeProgress.episode_id == PodcastEpisode.id)
         .where(EpisodeProgress.user_id == user.id, EpisodeProgress.completed.is_(False))
         .order_by(EpisodeProgress.updated_at.desc(), PodcastEpisode.id).limit(10))
-    return [_episode(episode, podcast, progress) for episode, podcast, progress in rows]
+    ad_free = await _ad_free(db, user.id)
+    return [_episode(episode, podcast, progress, ad_free) for episode, podcast, progress in rows]
 
 
 @router.get("/discover")
@@ -245,7 +265,8 @@ async def latest(
         .order_by(PodcastEpisode.published_at.desc().nullslast(), PodcastEpisode.id)
         .limit(limit)
     )
-    return [_episode(episode, podcast, progress) for episode, podcast, progress in rows]
+    ad_free = await _ad_free(db, user.id)
+    return [_episode(episode, podcast, progress, ad_free) for episode, podcast, progress in rows]
 
 
 @router.get("/episodes/{id}")
@@ -253,7 +274,7 @@ async def episode(id: uuid.UUID, user: CurrentUser, db: DB) -> dict:
     episode = await _get_episode(db, id)
     podcast = await _get_podcast(db, episode.podcast_id)
     progress = await db.get(EpisodeProgress, (user.id, id))
-    return _episode(episode, podcast, progress)
+    return _episode(episode, podcast, progress, await _ad_free(db, user.id))
 
 
 @router.put("/episodes/{id}/progress", status_code=204)
@@ -267,9 +288,18 @@ async def progress(id: uuid.UUID, body: ProgressIn, user: CurrentUser, db: DB) -
     return Response(status_code=204)
 
 
-@router.get("/episodes/{id}/stream")
-async def stream(id: uuid.UUID, user: CurrentUser, db: DB) -> RedirectResponse:
+@router.get("/episodes/{id}/stream", response_model=None)
+async def stream(id: uuid.UUID, user: CurrentUser, db: DB) -> RedirectResponse | FileResponse:
+    """The ad-free file when the user wants one and it is ready, otherwise the host's file (and the episode is
+    queued, so it is ad-free next time)."""
     episode = await _get_episode(db, id)
+    subscription = await db.get(PodcastSubscription, (user.id, episode.podcast_id))
+    if subscription is not None and subscription.remove_ads:
+        path = podcast_ads.episode_path(episode.id)
+        if episode.ad_status == "done" and path.exists():
+            return FileResponse(path, media_type="audio/mpeg")
+        if episode.ad_status in (None, "failed", "done"):
+            podcast_ads.request(episode.id)
     return RedirectResponse(episode.audio_url, status_code=302)
 
 
@@ -288,15 +318,30 @@ async def detail(
     rows = await db.execute(select(PodcastEpisode, EpisodeProgress).outerjoin(EpisodeProgress, and_(
         EpisodeProgress.episode_id == PodcastEpisode.id, EpisodeProgress.user_id == user.id,
     )).where(PodcastEpisode.podcast_id == id).order_by(*sort).offset(offset).limit(limit))
-    subscribed = await db.get(PodcastSubscription, (user.id, id)) is not None
+    subscription = await db.get(PodcastSubscription, (user.id, id))
+    ad_free = {id} if subscription is not None and subscription.remove_ads else set()
     count = await db.scalar(select(func.count()).select_from(PodcastEpisode).where(PodcastEpisode.podcast_id == id))
     completed = await db.scalar(select(func.count()).select_from(EpisodeProgress).join(PodcastEpisode).where(
         PodcastEpisode.podcast_id == id, EpisodeProgress.user_id == user.id, EpisodeProgress.completed,
     ))
     return {
-        **_podcast(podcast), "subscribed": subscribed, "episode_count": count, "completed_count": completed,
-        "episodes": [_episode(episode, podcast, progress) for episode, progress in rows],
+        **_podcast(podcast), "subscribed": subscription is not None, "remove_ads": bool(ad_free),
+        "episode_count": count, "completed_count": completed,
+        "episodes": [_episode(episode, podcast, progress, ad_free) for episode, progress in rows],
     }
+
+
+@router.put("/{id}/remove-ads", status_code=204)
+async def remove_ads(id: uuid.UUID, body: RemoveAdsIn, user: CurrentUser, db: DB) -> Response:
+    """Listen to a subscribed podcast without inserted ads; its newest episodes are cleaned in the background."""
+    subscription = await db.get(PodcastSubscription, (user.id, id))
+    if subscription is None:
+        raise HTTPException(409, "Nur für abonnierte Podcasts")
+    subscription.remove_ads = body.enabled
+    await db.commit()
+    if body.enabled:
+        podcast_ads.wake()
+    return Response(status_code=204)
 
 
 @router.put("/{id}/played", status_code=204)

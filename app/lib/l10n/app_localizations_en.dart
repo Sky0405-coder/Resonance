@@ -2959,6 +2959,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get podcastsPlayFirstUnplayed => 'Play the next unplayed episode';
 
   @override
+  String get podcastsRemoveAds => 'Remove inserted ads';
+
+  @override
+  String get podcastsRemoveAdsHint =>
+      'New episodes are ready without spliced-in ad spots shortly after release. Ads read by the hosts stay in.';
+
+  @override
+  String podcastsAdsRemoved(String time) {
+    return '$time of ads removed';
+  }
+
+  @override
   String get playerPodcastLoadError => 'The podcast episode couldn\'t be loaded. Please try again.';
 
   @override

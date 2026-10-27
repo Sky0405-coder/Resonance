@@ -1,7 +1,16 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Text, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    Float,
+    ForeignKey,
+    LargeBinary,
+    Text,
+    UniqueConstraint,
+    false,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -38,6 +47,24 @@ class PodcastEpisode(Base):
     audio_type: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Inserted-ad removal (services/podcast_ads.py): None (not tried), done, none (no ads found), unsupported, failed.
+    ad_status: Mapped[str | None] = mapped_column(Text)
+    ad_seconds: Mapped[float | None] = mapped_column(Float)
+    # Length of the ad-free file.
+    ad_duration: Mapped[float | None] = mapped_column(Float)
+    ad_processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PodcastAd(Base):
+    """Frame hashes of an ad cut from an episode, to find the same spot in later episodes."""
+
+    __tablename__ = "podcast_ads"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    podcast_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("podcasts.id", ondelete="SET NULL"))
+    hashes: Mapped[bytes] = mapped_column(LargeBinary)
+    seconds: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
 class PodcastSubscription(Base):
@@ -46,6 +73,7 @@ class PodcastSubscription(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     podcast_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("podcasts.id", ondelete="CASCADE"), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    remove_ads: Mapped[bool] = mapped_column(default=False, server_default=false())
 
 
 class EpisodeProgress(Base):
