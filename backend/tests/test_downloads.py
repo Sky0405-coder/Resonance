@@ -790,6 +790,29 @@ async def test_youtube_find_fallback(meta: TrackMeta, monkeypatch: pytest.Monkey
     assert candidate.ref == "right" and candidate.score == 90 and seen == ["songs", "videos"]
 
 
+async def test_youtube_finds_label_uploads(meta: TrackMeta, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.sources import youtube
+
+    class Music:
+        def search(self, query: str, filter: str, limit: int) -> list[dict]:
+            if filter == "songs":
+                return []
+            label = [{"name": "Schema Records"}]
+            return [
+                {"videoId": "other", "title": f"Unrelated Singer - {meta.title}", "artists": label, "duration": "0:03"},
+                {
+                    "videoId": "live", "title": f"{meta.artist} – {meta.title} (Live)", "artists": label,
+                    "duration": "0:03",
+                },
+                {"videoId": "label", "title": f"{meta.artist} - {meta.title}", "artists": label, "duration": "0:03"},
+            ]
+
+    monkeypatch.setattr(youtube, "YTMusic", Music)
+    candidate = await YouTubeMusicSource().find(meta)
+    assert (candidate.ref, candidate.title, candidate.artist) == ("label", meta.title, meta.artist)
+    assert candidate.score == 90
+
+
 @pytest.mark.parametrize(
     ("codec", "extension", "expected"),
     [

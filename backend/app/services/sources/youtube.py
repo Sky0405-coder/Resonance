@@ -214,12 +214,23 @@ class YouTubeMusicSource:
                             )
                         except ValueError:
                             pass
-                    score = score_candidate(meta, title, artists, duration, filter == "videos")
+                    variants = [(title, artists)]
+                    # Label and fan channels upload videos as "Artist - Title": the channel is not the artist.
+                    parts = re.split(r"\s+[-–—]\s+", title, maxsplit=1)
+                    if filter == "videos" and len(parts) == 2:
+                        variants.append((parts[1], [parts[0]]))
+                    scored = [
+                        (score, title, artists)
+                        for title, artists in variants
+                        if (score := score_candidate(meta, title, artists, duration, filter == "videos")) is not None
+                    ]
+                    if not scored:
+                        continue
+                    score, title, artists = max(scored, key=lambda v: v[0])
                     # YouTube Music lists censored album versions under the same title; prefer the explicit one.
-                    if score is not None and result.get("isExplicit"):
+                    if result.get("isExplicit"):
                         score += EXPLICIT_BONUS
-                    if score is not None:
-                        candidates.append(Candidate(self.name, ref, title, " / ".join(artists), duration, score))
+                    candidates.append(Candidate(self.name, ref, title, " / ".join(artists), duration, score))
                 if candidates:
                     return max(candidates, key=lambda c: c.score)
             return None
