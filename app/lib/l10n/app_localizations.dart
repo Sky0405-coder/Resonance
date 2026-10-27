@@ -995,7 +995,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadsOwnSourceLabel.
   ///
   /// In de, this message translates to:
-  /// **'YouTube- oder SoundCloud-Link'**
+  /// **'YouTube-, SoundCloud- oder Bandcamp-Link'**
   String get downloadsOwnSourceLabel;
 
   /// No description provided for @downloadsOwnSourceHint.
@@ -2606,6 +2606,18 @@ abstract class AppLocalizations {
   /// **'Wird versucht, wenn YouTube nichts findet'**
   String get adminSoundCloudSourceHint;
 
+  /// No description provided for @adminBandcampSource.
+  ///
+  /// In de, this message translates to:
+  /// **'Bandcamp als Quelle'**
+  String get adminBandcampSource;
+
+  /// No description provided for @adminBandcampSourceHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Freie Streams in 128 kbit/s, wird zuletzt versucht'**
+  String get adminBandcampSourceHint;
+
   /// No description provided for @downloadsSearch.
   ///
   /// In de, this message translates to:
@@ -3689,7 +3701,7 @@ abstract class AppLocalizations {
   /// No description provided for @redownloadYoutubeLabel.
   ///
   /// In de, this message translates to:
-  /// **'YouTube- oder SoundCloud-Link (optional)'**
+  /// **'YouTube-, SoundCloud- oder Bandcamp-Link (optional)'**
   String get redownloadYoutubeLabel;
 
   /// No description provided for @redownloadYoutubeHint.

@@ -134,7 +134,7 @@ _EXACT: dict[str, str] = {
     "YouTube blockiert gerade – neuer Versuch in 30 Minuten": "YouTube is blocking downloads right now – retrying in 30 minutes",
     "Abgebrochen": "Cancelled",
     "Kein gültiger YouTube-Link": "Invalid YouTube link",
-    "Kein gültiger YouTube- oder SoundCloud-Link": "Invalid YouTube or SoundCloud link",
+    "Kein gültiger YouTube-, SoundCloud- oder Bandcamp-Link": "Invalid YouTube, SoundCloud or Bandcamp link",
     "Nur fehlgeschlagene Songs können eine eigene Quelle bekommen": "Only failed songs can get a custom source",
     "Kein passender Torrent gefunden": "No matching torrent found",
     "Torrent-Download fehlgeschlagen": "Torrent download failed",

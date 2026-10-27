@@ -239,7 +239,7 @@ async def test_invalid_link(client: httpx.AsyncClient, env: SimpleNamespace, url
     response = await client.post(f"/api/tracks/{env.track_id}/redownload", json={"youtube_url": url}, headers=env.user)
     assert response.status_code == 422
     if len(url) <= 500:
-        assert response.json()["detail"] == "Kein gültiger YouTube- oder SoundCloud-Link"
+        assert response.json()["detail"] == "Kein gültiger YouTube-, SoundCloud- oder Bandcamp-Link"
 
 
 async def test_forced_link_and_retry(client: httpx.AsyncClient, env: SimpleNamespace) -> None:

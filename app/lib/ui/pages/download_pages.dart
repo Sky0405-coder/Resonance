@@ -766,6 +766,8 @@ class _ItemRow extends ConsumerWidget {
                     requestStatusLabel(context.l10n, item.status),
                     if (item.source == 'youtube') context.l10n.catalogYouTubeMusic,
                     if (item.source == 'torrent') context.l10n.downloadsTorrent,
+                    if (item.source == 'soundcloud') 'SoundCloud',
+                    if (item.source == 'bandcamp') 'Bandcamp',
                   ].join(' • '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

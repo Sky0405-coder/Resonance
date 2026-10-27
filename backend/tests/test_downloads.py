@@ -12,6 +12,7 @@ from typing import Self
 
 import httpx
 import pytest
+import yt_dlp
 from fastapi import HTTPException
 from PIL import Image
 from sqlalchemy import select
@@ -22,13 +23,13 @@ from app.models import Album, Artist, DownloadItem, DownloadRequest, Job, Track,
 from app.services import downloads, scanner, sources
 from app.services.deezer import DeezerClient, DeezerError, artist_string, deezer
 from app.services.deezer import NotFound as DeezerNotFound
-from app.services.downloads import DownloadManager, manager, request_status
+from app.services.downloads import DownloadManager, manager, parse_source_url, request_status
 from app.services.library_paths import target_relpath
 from app.services.musicbrainz import MusicBrainzClient, MusicBrainzError, NotFound, TrackMeta, mb
 from app.services.resolve import meta_from_deezer, resolve_album, resolve_track
 from app.services.scanner import import_file
 from app.services.server_config import ServerConfig, update_config
-from app.services.sources import enabled_sources
+from app.services.sources import bandcamp, enabled_sources
 from app.services.sources.base import Cancelled, Candidate
 from app.services.sources.soundcloud import SoundCloudSource
 from app.services.sources.youtube import YouTubeMusicSource, score_candidate
@@ -928,6 +929,63 @@ async def test_soundcloud_find_scoring(meta: TrackMeta, monkeypatch: pytest.Monk
     assert source.candidate(ref) == Candidate("soundcloud", ref, "", "", None, 100)
 
 
+async def test_bandcamp_find(meta: TrackMeta, monkeypatch: pytest.MonkeyPatch) -> None:
+    queries = []
+    durations = {"https://label.example/track/song": 3, "https://band.bandcamp.com/track/long": 60}
+
+    async def search(self, text: str) -> list[dict]:
+        queries.append(text)
+        if text.startswith("The "):
+            return []
+        return [
+            {"type": "a", "name": meta.title, "band_name": meta.artist, "item_url_path": "https://x/album/a"},
+            {"type": "t", "name": "Unrelated", "band_name": meta.artist, "item_url_path": "https://x/track/u"},
+            {"type": "t", "name": f"{meta.title} - Club RMX", "band_name": meta.artist,
+             "item_url_path": "https://x/track/rmx"},
+            {"type": "t", "name": meta.title, "band_name": meta.artist, "item_url_path": "https://x/track/no-stream"},
+            {"type": "t", "name": meta.title, "band_name": meta.artist,
+             "item_url_path": "https://band.bandcamp.com/track/long"},
+            {"type": "t", "name": f"{meta.title} ft. Someone", "band_name": meta.artist.removeprefix("The "),
+             "item_url_path": "https://label.example/track/song"},
+        ]
+
+    class Downloader:
+        def __init__(self, options: dict) -> None:
+            pass
+
+        def __enter__(self) -> Self:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def extract_info(self, url: str, download: bool) -> dict:
+            if url not in durations:
+                raise yt_dlp.utils.DownloadError("No video formats found!")
+            return {"duration": durations[url]}
+
+    monkeypatch.setattr(bandcamp.BandcampSource, "_search", search)
+    monkeypatch.setattr(bandcamp.yt_dlp, "YoutubeDL", Downloader)
+    featured = meta.model_copy(update={"artist": "The Test Artist", "title": f"{meta.title} (feat. Someone)"})
+    source = bandcamp.BandcampSource()
+    candidate = await source.find(featured)
+    assert queries == [f"The Test Artist {meta.title}", f"Test Artist {meta.title}"]
+    assert candidate == Candidate("bandcamp", "https://label.example/track/song", f"{meta.title} ft. Someone",
+                                  "Test Artist", 3, candidate.score)
+    assert await source.find(featured, frozenset({"https://label.example/track/song"})) is None
+    assert bandcamp.search_texts(meta) == [f"{meta.artist} {meta.title}", meta.title]
+
+
+def test_bandcamp_links() -> None:
+    assert parse_source_url("https://buyu.bandcamp.com/track/something-unique") == (
+        "bandcamp", "https://buyu.bandcamp.com/track/something-unique",
+    )
+    for url in ["https://buyu.bandcamp.com/album/havana", "http://buyu.bandcamp.com/track/x",
+                "https://shop.buyu-records.com/track/x", "https://bandcamp.com.evil.example/track/x"]:
+        with pytest.raises(HTTPException):
+            parse_source_url(url)
+
+
 async def test_soundcloud_find_extractor_error(
     meta: TrackMeta, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -1016,6 +1074,7 @@ async def test_soundcloud_source_order(
     cfg = ServerConfig()
     cfg.downloads.youtube_enabled = youtube_enabled
     cfg.downloads.soundcloud_enabled = soundcloud_enabled
+    cfg.downloads.bandcamp_enabled = False
     expected = ([youtube] if youtube_enabled else []) + ([soundcloud] if soundcloud_enabled else [])
     assert enabled_sources(cfg) == expected
     assert enabled_sources(cfg) == expected
@@ -1338,7 +1397,6 @@ async def test_resolve_album_fallback(
         seen.append(value)
         if reason in {"not_found", "error"}:
             raise NotFound("missing") if reason == "not_found" else MusicBrainzError("unavailable")
-        return None
 
     if reason == "no_upc":
         deezer_data["album"].pop("upc")
@@ -1371,7 +1429,6 @@ async def test_barcode_deduplication(env: SimpleNamespace, deezer_data: dict, mo
 
     async def barcode(value: str, count: int) -> None:
         seen.append(value)
-        return None
 
     monkeypatch.setattr(mb, "release_by_barcode", barcode)
     await resolve_album(env.album)

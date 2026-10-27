@@ -520,7 +520,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get downloadsOwnSourceLabel => 'YouTube or SoundCloud link';
+  String get downloadsOwnSourceLabel => 'YouTube, SoundCloud or Bandcamp link';
 
   @override
   String get downloadsOwnSourceHint => 'Regular YouTube videos work too – only the audio is downloaded.';
@@ -1458,6 +1458,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminSoundCloudSourceHint => 'Tried when YouTube finds nothing';
 
   @override
+  String get adminBandcampSource => 'Bandcamp as a source';
+
+  @override
+  String get adminBandcampSourceHint => 'Free 128 kbit/s streams, tried last';
+
+  @override
   String get downloadsSearch => 'Search';
 
   @override
@@ -2115,7 +2121,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The song is searched again and replaced. The source used before is skipped. Likes and playlists are kept.';
 
   @override
-  String get redownloadYoutubeLabel => 'YouTube or SoundCloud link (optional)';
+  String get redownloadYoutubeLabel => 'YouTube, SoundCloud or Bandcamp link (optional)';
 
   @override
   String get redownloadYoutubeHint => 'If you want a specific version';

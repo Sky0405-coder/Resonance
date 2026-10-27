@@ -31,6 +31,7 @@ from app.services.musicbrainz import TrackMeta
 from app.services.resolve import explicit_album_id, explicit_track_id, resolve_album, resolve_track
 from app.services.scanner import AUDIO_EXTENSIONS, import_file, import_files
 from app.services.server_config import load_config
+from app.services.sources.bandcamp import track_url as bandcamp_track_url
 from app.services.sources.base import Cancelled
 from app.services.sources.soundcloud import track_url
 from app.services.sources.youtube import norm, video_id
@@ -630,7 +631,8 @@ class DownloadManager:
                 await self._change(item.id, status="exists", track_id=track.library_id)
                 return
             enabled = sources.enabled_sources(cfg)
-            forced = item.source in {"youtube", "soundcloud"} and item.source_ref and (redownload or item.source_pinned)
+            pinned = redownload or item.source_pinned
+            forced = item.source in {"youtube", "soundcloud", "bandcamp"} and item.source_ref and pinned
             if forced:
                 enabled = [source for source in enabled if source.name == item.source]
             if not enabled:
@@ -780,12 +782,14 @@ manager = DownloadManager()
 
 
 def parse_source_url(url: str) -> tuple[str, str]:
-    """A YouTube (also plain youtube.com videos, audio only) or SoundCloud link → (source, ref)."""
+    """A YouTube (also plain youtube.com videos, audio only), SoundCloud or Bandcamp link → (source, ref)."""
     if ref := video_id(url):
         return "youtube", ref
     if ref := track_url(url):
         return "soundcloud", ref
-    raise HTTPException(422, "Kein gültiger YouTube- oder SoundCloud-Link")
+    if ref := bandcamp_track_url(url):
+        return "bandcamp", ref
+    raise HTTPException(422, "Kein gültiger YouTube-, SoundCloud- oder Bandcamp-Link")
 
 
 async def set_item_source(db: AsyncSession, request: DownloadRequest, item: DownloadItem, url: str) -> None:

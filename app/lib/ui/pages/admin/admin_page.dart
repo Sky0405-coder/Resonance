@@ -1074,6 +1074,14 @@ class _ServerTab extends ConsumerWidget {
               }),
             ),
             SwitchListTile(
+              title: Text(context.l10n.adminBandcampSource),
+              subtitle: Text(context.l10n.adminBandcampSourceHint),
+              value: dl['bandcamp_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'downloads': {'bandcamp_enabled': v},
+              }),
+            ),
+            SwitchListTile(
               title: Text(context.l10n.adminQualityUpgrades),
               subtitle: Text(context.l10n.adminQualityUpgradesHint),
               value: dl['quality_upgrade_enabled'],

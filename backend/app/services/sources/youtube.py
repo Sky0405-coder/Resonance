@@ -89,6 +89,7 @@ def score_candidate(
         "karaoke",
         "instrumental",
         "remix",
+        "rmx",
         "sped up",
         "slowed",
         "nightcore",
