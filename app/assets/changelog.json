@@ -1,5 +1,27 @@
 [
   {
+    "version": "1.6.17",
+    "date": "2026-10-27",
+    "de": [
+      "Podcasts ohne eingespielte Werbung: Bei abonnierten Podcasts „Eingespielte Werbung entfernen“ einschalten. Der Server bereinigt neue und angefangene Folgen, und die Folge zeigt, wie viel herausgeschnitten wurde. Werbung, die die Hosts selbst sprechen, bleibt drin.",
+      "Ein richtiger Player für Podcasts und Hörbücher: Farben vom Cover, Kapitelkarte, Kapitel vor und zurück, Restzeit bei der eingestellten Geschwindigkeit sowie Tasten für Tempo, Sleep-Timer, Kapitel und Shownotes. Die Leiste unten öffnet ihn.",
+      "Podcasts: Folgen oder ganze Podcasts als gehört oder ungehört markieren, älteste Folgen zuerst anzeigen (merkt sich die App pro Podcast), neue Podcast-Seite mit Restzeit und Shownotes.",
+      "Medien neu gestaltet: Tabs mit Icons, eine große Weiterhören-Karte, klare Abschnitte und Zähler für neue Folgen.",
+      "Hörbuch-Statistik: Gesamtzeit, heute, Woche und Monat, Serien, beendete Bücher, die letzten 7 Tage und die meistgehörten Bücher.",
+      "Downloads: Titel und Interpret lassen sich per Knopf oder Antippen kopieren, um einen fehlgeschlagenen Song im Browser zu suchen.",
+      "Resonance gibt es jetzt als fertiges Docker-Image mit Compose-Datei zum Selbsthosten."
+    ],
+    "en": [
+      "Podcasts without inserted ads: turn on \"Remove inserted ads\" for a subscribed podcast. The server cleans new and started episodes, and each episode shows how much was cut. Ads read by the hosts stay in.",
+      "A proper player for podcasts and audiobooks: cover colors, a chapter card, previous and next chapter, time left at the current speed and buttons for speed, sleep timer, chapters and show notes. The bar at the bottom opens it.",
+      "Podcasts: mark episodes or whole podcasts as played or unplayed, list oldest episodes first (remembered per podcast), new podcast page with time left and show notes.",
+      "Media redesigned: tabs with icons, a big continue card, clear sections and counts of new episodes.",
+      "Audiobook stats: total time, today, week and month, streaks, books finished, the last 7 days and the most listened books.",
+      "Downloads: copy title and artist with a button or a tap to look up a failed song in the browser.",
+      "Resonance now comes as a ready-made Docker image with a compose file for self-hosting."
+    ]
+  },
+  {
     "version": "1.6.16",
     "date": "2026-10-27",
     "de": [
