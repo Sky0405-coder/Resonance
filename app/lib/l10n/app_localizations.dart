@@ -1064,6 +1064,42 @@ abstract class AppLocalizations {
   /// **'Noch {duration}'**
   String audiobooksTimeRemaining(String duration);
 
+  /// No description provided for @audiobooksChapterOf.
+  ///
+  /// In de, this message translates to:
+  /// **'Kapitel {index} von {count}'**
+  String audiobooksChapterOf(int index, int count);
+
+  /// No description provided for @audiobooksPreviousChapter.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorheriges Kapitel'**
+  String get audiobooksPreviousChapter;
+
+  /// No description provided for @audiobooksNextChapter.
+  ///
+  /// In de, this message translates to:
+  /// **'Nächstes Kapitel'**
+  String get audiobooksNextChapter;
+
+  /// No description provided for @playerSpeedShort.
+  ///
+  /// In de, this message translates to:
+  /// **'Tempo'**
+  String get playerSpeedShort;
+
+  /// No description provided for @playerSleepShort.
+  ///
+  /// In de, this message translates to:
+  /// **'Timer'**
+  String get playerSleepShort;
+
+  /// No description provided for @playerAtSpeed.
+  ///
+  /// In de, this message translates to:
+  /// **'bei {speed}'**
+  String playerAtSpeed(String speed);
+
   /// No description provided for @audiobooksNotConfigured.
   ///
   /// In de, this message translates to:
@@ -4975,6 +5011,96 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'15 Sekunden zurück'**
   String get podcastsSkipBack;
+
+  /// No description provided for @podcastsMarkPlayed.
+  ///
+  /// In de, this message translates to:
+  /// **'Als gehört markieren'**
+  String get podcastsMarkPlayed;
+
+  /// No description provided for @podcastsMarkUnplayed.
+  ///
+  /// In de, this message translates to:
+  /// **'Als ungehört markieren'**
+  String get podcastsMarkUnplayed;
+
+  /// No description provided for @podcastsMarkAllPlayed.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle als gehört markieren'**
+  String get podcastsMarkAllPlayed;
+
+  /// No description provided for @podcastsMarkAllUnplayed.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle als ungehört markieren'**
+  String get podcastsMarkAllUnplayed;
+
+  /// No description provided for @podcastsSort.
+  ///
+  /// In de, this message translates to:
+  /// **'Reihenfolge'**
+  String get podcastsSort;
+
+  /// No description provided for @podcastsNewestFirst.
+  ///
+  /// In de, this message translates to:
+  /// **'Neueste zuerst'**
+  String get podcastsNewestFirst;
+
+  /// No description provided for @podcastsOldestFirst.
+  ///
+  /// In de, this message translates to:
+  /// **'Älteste zuerst'**
+  String get podcastsOldestFirst;
+
+  /// No description provided for @podcastsEpisodeStats.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Folge} other{{count} Folgen}} · {played} gehört'**
+  String podcastsEpisodeStats(int count, int played);
+
+  /// No description provided for @podcastsTimeLeft.
+  ///
+  /// In de, this message translates to:
+  /// **'noch {time}'**
+  String podcastsTimeLeft(String time);
+
+  /// No description provided for @podcastsPlayed.
+  ///
+  /// In de, this message translates to:
+  /// **'Gehört'**
+  String get podcastsPlayed;
+
+  /// No description provided for @podcastsShowNotes.
+  ///
+  /// In de, this message translates to:
+  /// **'Shownotes'**
+  String get podcastsShowNotes;
+
+  /// No description provided for @podcastsPlayEpisode.
+  ///
+  /// In de, this message translates to:
+  /// **'Folge abspielen'**
+  String get podcastsPlayEpisode;
+
+  /// No description provided for @podcastsMore.
+  ///
+  /// In de, this message translates to:
+  /// **'Mehr'**
+  String get podcastsMore;
+
+  /// No description provided for @podcastsLess.
+  ///
+  /// In de, this message translates to:
+  /// **'Weniger'**
+  String get podcastsLess;
+
+  /// No description provided for @podcastsPlayFirstUnplayed.
+  ///
+  /// In de, this message translates to:
+  /// **'Nächste ungehörte Folge abspielen'**
+  String get podcastsPlayFirstUnplayed;
 
   /// No description provided for @playerPodcastLoadError.
   ///

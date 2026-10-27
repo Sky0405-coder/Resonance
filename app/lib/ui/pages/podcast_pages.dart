@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +12,9 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
 import '../../player/player.dart';
+import '../../player/spectrum.dart';
 import '../widgets/catalog.dart';
+import '../widgets/collection.dart';
 import '../widgets/track_list.dart';
 import '../widgets/common.dart';
 
@@ -451,87 +456,429 @@ class _PodcastPageState extends ConsumerState<PodcastPage> {
   bool _busy = false;
   bool _loading = false;
   bool _hasMore = true;
+  bool _descriptionOpen = false;
+
+  Future<void> _toggleSubscription(Podcast podcast) async {
+    setState(() => _busy = true);
+    try {
+      final api = ref.read(apiProvider);
+      if (podcast.subscribed) {
+        await api.unsubscribePodcast(podcast.id);
+      } else {
+        await api.subscribePodcast(podcast.feedUrl);
+      }
+      _changed(ref, podcast.id);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _markAll(Podcast podcast, bool completed) async {
+    try {
+      await ref.read(apiProvider).markPodcastPlayed(podcast.id, completed: completed);
+      _more.clear();
+      _changed(ref, podcast.id);
+      ref.invalidate(podcastContinueProvider);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
+  void _setOrder(bool oldestFirst) {
+    setState(() {
+      _more.clear();
+      _hasMore = true;
+    });
+    ref.read(podcastOldestFirstProvider(widget.id).notifier).set(oldestFirst);
+  }
+
+  Future<void> _loadMore(int loaded) async {
+    setState(() => _loading = true);
+    try {
+      final next = await ref
+          .read(apiProvider)
+          .podcast(widget.id, offset: loaded, oldestFirst: ref.read(podcastOldestFirstProvider(widget.id)));
+      if (mounted) {
+        setState(() {
+          _more.addAll(next.episodes);
+          _hasMore = next.episodes.length == 50;
+        });
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(context.l10n.navPodcasts)),
-    body: AsyncBody(
-      value: ref.watch(podcastProvider(widget.id)),
-      onRetry: () => ref.invalidate(podcastProvider(widget.id)),
-      builder: (podcast) {
-        final episodes = [...podcast.episodes, ..._more];
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 140),
-          children: [
-            Center(
-              child: SizedBox(
-                width: 220,
-                child: NetworkCover(url: podcast.imageUrl, icon: Icons.podcasts),
-              ),
+  Widget build(BuildContext context) {
+    final oldestFirst = ref.watch(podcastOldestFirstProvider(widget.id));
+    final value = ref.watch(podcastProvider(widget.id));
+    final url = value.value?.imageUrl;
+    final tint = url == null ? null : ref.watch(coverColorProvider(CachedNetworkImageProvider(url))).value;
+    final accent = Theme.of(context).colorScheme.primary;
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(backgroundColor: Colors.transparent),
+      body: TweenAnimationBuilder<Color?>(
+        duration: const Duration(milliseconds: 500),
+        tween: ColorTween(end: darkTint(tint ?? accent)),
+        builder: (context, color, child) => DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [color!, Palette.background],
+              stops: const [0, 0.45],
             ),
-            const SizedBox(height: 16),
-            Text(podcast.title, style: Theme.of(context).textTheme.headlineMedium),
-            if (podcast.author != null) Text(podcast.author!, style: const TextStyle(color: Palette.textMuted)),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                onPressed: _busy
-                    ? null
-                    : () async {
-                        setState(() => _busy = true);
-                        try {
-                          final api = ref.read(apiProvider);
-                          if (podcast.subscribed) {
-                            await api.unsubscribePodcast(podcast.id);
-                          } else {
-                            await api.subscribePodcast(podcast.feedUrl);
-                          }
-                          _changed(ref, podcast.id);
-                        } catch (e) {
-                          if (context.mounted) showError(context, e);
-                        } finally {
-                          if (mounted) setState(() => _busy = false);
-                        }
+          ),
+          child: child,
+        ),
+        child: AsyncBody(
+          value: value,
+          onRetry: () => ref.invalidate(podcastProvider(widget.id)),
+          builder: (podcast) {
+            final episodes = [...podcast.episodes, ..._more];
+            final next = episodes.where((e) => !e.completed).firstOrNull;
+            return ListView(
+              padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + kToolbarHeight, 20, kBottomInset),
+              children: [
+                Center(
+                  child: Container(
+                    width: 200,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [BoxShadow(color: Color(0x80000000), blurRadius: 30, offset: Offset(0, 12))],
+                    ),
+                    child: NetworkCover(url: podcast.imageUrl, icon: Icons.podcasts, radius: 12),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  podcast.title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                if (podcast.author != null) ...[
+                  const SizedBox(height: 2),
+                  Text(podcast.author!, style: const TextStyle(color: Palette.textMuted, fontSize: 15)),
+                ],
+                if (podcast.episodeCount > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    context.l10n.podcastsEpisodeStats(podcast.episodeCount, podcast.completedCount),
+                    style: const TextStyle(color: Palette.textMuted, fontSize: 13),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    podcast.subscribed
+                        ? OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+                            onPressed: _busy ? null : () => _toggleSubscription(podcast),
+                            icon: const Icon(Icons.check, size: 18),
+                            label: Text(context.l10n.podcastsSubscribed),
+                          )
+                        : FilledButton.icon(
+                            style: FilledButton.styleFrom(shape: const StadiumBorder()),
+                            onPressed: _busy ? null : () => _toggleSubscription(podcast),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: Text(context.l10n.podcastsSubscribe),
+                          ),
+                    const SizedBox(width: 4),
+                    PopupMenuButton<String>(
+                      tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (action) => switch (action) {
+                        'played' => _markAll(podcast, true),
+                        'unplayed' => _markAll(podcast, false),
+                        _ => null,
                       },
-                child: Text(podcast.subscribed ? context.l10n.podcastsUnsubscribe : context.l10n.podcastsSubscribe),
-              ),
-            ),
-            if (podcast.description?.isNotEmpty ?? false)
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: Text(context.l10n.podcastsDescription),
-                children: [Align(alignment: Alignment.centerLeft, child: Text(podcast.description!))],
-              ),
-            const SizedBox(height: 16),
-            Text(context.l10n.podcastsEpisodes, style: Theme.of(context).textTheme.titleLarge),
-            for (final episode in episodes) PodcastEpisodeTile(episode: episode),
-            if (podcast.episodes.length == 50 && _hasMore)
-              TextButton(
-                onPressed: _loading
-                    ? null
-                    : () async {
-                        setState(() => _loading = true);
-                        try {
-                          final next = await ref.read(apiProvider).podcast(widget.id, offset: episodes.length);
-                          if (mounted) {
-                            setState(() {
-                              _more.addAll(next.episodes);
-                              _hasMore = next.episodes.length == 50;
-                            });
-                          }
-                        } catch (e) {
-                          if (context.mounted) showError(context, e);
-                        } finally {
-                          if (mounted) setState(() => _loading = false);
-                        }
-                      },
-                child: Text(context.l10n.podcastsLoadMore),
-              ),
-          ],
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'played',
+                          child: _MenuRow(
+                            icon: const Icon(Icons.done_all),
+                            label: Text(context.l10n.podcastsMarkAllPlayed),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'unplayed',
+                          child: _MenuRow(
+                            icon: const Icon(Icons.remove_done),
+                            label: Text(context.l10n.podcastsMarkAllUnplayed),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (next != null)
+                      Tooltip(
+                        message: context.l10n.podcastsPlayFirstUnplayed,
+                        child: Material(
+                          color: accent,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => _playEpisode(context, ref, next),
+                            child: SizedBox(
+                              width: 56,
+                              height: 56,
+                              child: Icon(Icons.play_arrow_rounded, size: 34, color: onColor(accent)),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (podcast.description?.isNotEmpty ?? false) ...[
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => setState(() => _descriptionOpen = !_descriptionOpen),
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      alignment: Alignment.topCenter,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            podcast.description!,
+                            maxLines: _descriptionOpen ? null : 3,
+                            overflow: _descriptionOpen ? null : TextOverflow.ellipsis,
+                            style: const TextStyle(color: Palette.textMuted, height: 1.4),
+                          ),
+                          Text(
+                            _descriptionOpen ? context.l10n.podcastsLess : context.l10n.podcastsMore,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.l10n.podcastsEpisodes,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    PopupMenuButton<bool>(
+                      tooltip: context.l10n.podcastsSort,
+                      initialValue: oldestFirst,
+                      onSelected: _setOrder,
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: false, child: Text(context.l10n.podcastsNewestFirst)),
+                        PopupMenuItem(value: true, child: Text(context.l10n.podcastsOldestFirst)),
+                      ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.swap_vert, size: 18, color: Palette.textMuted),
+                            const SizedBox(width: 6),
+                            Text(
+                              oldestFirst ? context.l10n.podcastsOldestFirst : context.l10n.podcastsNewestFirst,
+                              style: const TextStyle(color: Palette.textMuted, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                for (final (i, episode) in episodes.indexed) ...[
+                  if (i > 0) const Divider(height: 1, color: Palette.divider),
+                  PodcastEpisodeTile(episode: episode),
+                ],
+                if (podcast.episodes.length == 50 && _hasMore)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Center(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+                        onPressed: _loading ? null : () => _loadMore(episodes.length),
+                        child: Text(context.l10n.podcastsLoadMore),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// A dark, still colorful version of a cover's color for page backgrounds.
+Color darkTint(Color color) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl.withLightness(math.min(hsl.lightness, 0.24)).withSaturation(math.min(hsl.saturation, 0.6)).toColor();
+}
+
+Future<void> setEpisodePlayed(BuildContext context, WidgetRef ref, PodcastEpisode episode, bool played) async {
+  try {
+    await ref
+        .read(apiProvider)
+        .saveEpisodeProgress(
+          episode.id,
+          played ? episode.durationSeconds ?? episode.positionSeconds : 0,
+          completed: played,
         );
-      },
+    _changed(ref, episode.podcastId);
+    ref.invalidate(podcastContinueProvider);
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
+}
+
+/// Show notes of an episode with play and played/unplayed actions.
+Future<void> showEpisodeSheet(BuildContext context, WidgetRef ref, PodcastEpisode episode) => showModalBottomSheet(
+  context: context,
+  useRootNavigator: true,
+  isScrollControlled: true,
+  showDragHandle: true,
+  backgroundColor: const Color(0xFF202020),
+  builder: (sheet) => DraggableScrollableSheet(
+    expand: false,
+    initialChildSize: 0.6,
+    maxChildSize: 0.92,
+    builder: (_, controller) => ListView(
+      controller: controller,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      children: [
+        Row(
+          children: [
+            SizedBox(
+              width: 64,
+              child: NetworkCover(url: episode.coverUrl, icon: Icons.podcasts, radius: 8),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    episode.podcastTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Palette.textMuted, fontSize: 13),
+                  ),
+                  Text(
+                    episode.title,
+                    style: Theme.of(sheet).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _EpisodeMeta(episode: episode),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(shape: const StadiumBorder(), minimumSize: const Size(0, 48)),
+                onPressed: () {
+                  Navigator.pop(sheet);
+                  _playEpisode(context, ref, episode);
+                },
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: Text(context.l10n.podcastsPlayEpisode),
+              ),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(shape: const StadiumBorder(), minimumSize: const Size(0, 48)),
+              onPressed: () {
+                Navigator.pop(sheet);
+                setEpisodePlayed(context, ref, episode, !episode.completed);
+              },
+              icon: Icon(episode.completed ? Icons.remove_done : Icons.done),
+              label: Text(episode.completed ? context.l10n.podcastsMarkUnplayed : context.l10n.podcastsMarkPlayed),
+            ),
+          ],
+        ),
+        if (episode.description?.isNotEmpty ?? false) ...[
+          const SizedBox(height: 20),
+          Text(
+            context.l10n.podcastsShowNotes,
+            style: Theme.of(sheet).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          SelectableText(episode.description!, style: const TextStyle(color: Palette.textMuted, height: 1.45)),
+        ],
+      ],
     ),
-  );
+  ),
+);
+
+/// Date and length of an episode; for started ones how much is left, for finished ones a check.
+class _EpisodeMeta extends StatelessWidget {
+  const _EpisodeMeta({required this.episode});
+  final PodcastEpisode episode;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = episode.publishedAt;
+    final duration = episode.durationSeconds;
+    final started = episode.positionSeconds > 0 && !episode.completed && duration != null && duration > 0;
+    final accent = Theme.of(context).colorScheme.primary;
+    const style = TextStyle(color: Palette.textMuted, fontSize: 12.5);
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            [
+              if (date != null) formatEpisodeDate(date.toLocal(), Localizations.localeOf(context).toString()),
+              if (duration != null && !started) formatLongDuration(context.l10n, duration),
+            ].join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        ),
+        if (started) ...[
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 48,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: (episode.positionSeconds / duration).clamp(0, 1),
+                minHeight: 3,
+                backgroundColor: Colors.white12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.podcastsTimeLeft(formatRemaining(context.l10n, duration - episode.positionSeconds)),
+            style: style.copyWith(color: accent, fontWeight: FontWeight.w600),
+          ),
+        ],
+        if (episode.completed) ...[
+          const SizedBox(width: 8),
+          Icon(Icons.check_circle, size: 14, color: accent),
+          const SizedBox(width: 4),
+          Text(
+            context.l10n.podcastsPlayed,
+            style: style.copyWith(color: accent, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class PodcastEpisodeTile extends ConsumerWidget {
@@ -540,26 +887,110 @@ class PodcastEpisodeTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final date = episode.publishedAt;
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-      title: Text(episode.title),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            [
-              if (date != null) formatEpisodeDate(date.toLocal(), Localizations.localeOf(context).toString()),
-              if (episode.durationSeconds != null) formatLongDuration(context.l10n, episode.durationSeconds!),
-            ].join(' • '),
+    final accent = Theme.of(context).colorScheme.primary;
+    final playing = ref.watch(playerProvider.select((p) => p.book?.episode?.id == episode.id));
+    final duration = episode.durationSeconds;
+    final progress = episode.completed
+        ? 1.0
+        : duration == null || duration <= 0
+        ? 0.0
+        : (episode.positionSeconds / duration).clamp(0.0, 1.0);
+    return InkWell(
+      onTap: () => showEpisodeSheet(context, ref, episode),
+      onLongPress: () => setEpisodePlayed(context, ref, episode, !episode.completed),
+      child: Opacity(
+        opacity: episode.completed && !playing ? 0.55 : 1,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _EpisodeMeta(episode: episode),
+                    const SizedBox(height: 4),
+                    Text(
+                      episode.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                        color: playing ? accent : Colors.white,
+                      ),
+                    ),
+                    if (episode.description?.isNotEmpty ?? false) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        episode.description!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Palette.textMuted, fontSize: 13, height: 1.35),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Play button with the listened share as a ring around it.
+              Tooltip(
+                message: context.l10n.podcastsPlayEpisode,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => _playEpisode(context, ref, episode),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned.fill(
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 2.5,
+                            color: accent,
+                            backgroundColor: Colors.white24,
+                          ),
+                        ),
+                        Icon(
+                          playing ? Icons.graphic_eq_rounded : Icons.play_arrow_rounded,
+                          size: 26,
+                          color: playing ? accent : Colors.white,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+                icon: const Icon(Icons.more_vert, color: Palette.textMuted),
+                onSelected: (action) => switch (action) {
+                  'played' => setEpisodePlayed(context, ref, episode, !episode.completed),
+                  'notes' => showEpisodeSheet(context, ref, episode),
+                  _ => null,
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'played',
+                    child: _MenuRow(
+                      icon: Icon(episode.completed ? Icons.remove_done : Icons.done),
+                      label: Text(
+                        episode.completed ? context.l10n.podcastsMarkUnplayed : context.l10n.podcastsMarkPlayed,
+                      ),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'notes',
+                    child: _MenuRow(icon: const Icon(Icons.notes), label: Text(context.l10n.podcastsShowNotes)),
+                  ),
+                ],
+              ),
+            ],
           ),
-          _EpisodeProgress(episode: episode),
-        ],
+        ),
       ),
-      trailing: episode.completed
-          ? Tooltip(message: context.l10n.podcastsCompleted, child: const Icon(Icons.check))
-          : const Icon(Icons.play_arrow),
-      onTap: () => _playEpisode(context, ref, episode),
     );
   }
 }
@@ -574,7 +1005,29 @@ class _EpisodeProgress extends StatelessWidget {
     if (episode.positionSeconds <= 0 || duration == null || duration <= 0) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: LinearProgressIndicator(value: (episode.positionSeconds / duration).clamp(0, 1)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: LinearProgressIndicator(
+          value: (episode.positionSeconds / duration).clamp(0, 1),
+          minHeight: 3,
+          backgroundColor: Colors.white12,
+        ),
+      ),
     );
   }
+}
+
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label});
+  final Widget icon;
+  final Widget label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      IconTheme.merge(data: const IconThemeData(size: 20), child: icon),
+      const SizedBox(width: 14),
+      Flexible(child: label),
+    ],
+  );
 }

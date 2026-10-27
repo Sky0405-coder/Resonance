@@ -205,7 +205,10 @@ class PodcastBackIcon extends StatelessWidget {
 }
 
 class SpeedButton extends ConsumerWidget {
-  const SpeedButton({super.key});
+  const SpeedButton({super.key, this.labeled = false});
+
+  /// With a caption under it, for the spoken-word player's bottom row.
+  final bool labeled;
 
   static const speeds = [0.75, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
 
@@ -214,6 +217,15 @@ class SpeedButton extends ConsumerWidget {
     final speed = ref.watch(playerProvider.select((p) => p.speed));
     String label(double v) =>
         '${NumberFormat(v == v.roundToDouble() ? '0' : '0.00', context.l10n.localeName).format(v)}×';
+    final accent = Theme.of(context).colorScheme.primary;
+    final value = Text(
+      label(speed),
+      style: TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: labeled ? 16 : null,
+        color: speed == 1 ? (labeled ? Colors.white : Palette.textMuted) : accent,
+      ),
+    );
     return PopupMenuButton<double>(
       useRootNavigator: true,
       tooltip: context.l10n.playerSpeed,
@@ -224,45 +236,90 @@ class SpeedButton extends ConsumerWidget {
           if (ref.read(playerProvider).book?.episode == null || v != 1.1)
             PopupMenuItem(value: v, child: Text(label(v))),
       ],
-      child: SizedBox(
-        width: 48,
-        child: Center(
-          child: Text(
-            label(speed),
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: speed == 1 ? Palette.textMuted : Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ),
-      ),
+      child: labeled
+          ? PlayerActionLabel(
+              top: SizedBox(height: 22, child: Center(child: value)),
+              label: context.l10n.playerSpeedShort,
+            )
+          : SizedBox(width: 48, child: Center(child: value)),
     );
   }
 }
 
 class SleepTimerButton extends ConsumerWidget {
-  const SleepTimerButton({super.key});
+  const SleepTimerButton({super.key, this.labeled = false});
+
+  /// With a caption under it (the time it pauses at, when set).
+  final bool labeled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sleepAt = ref.watch(playerProvider.select((p) => p.sleepAt));
     final ctrl = ref.read(playerProvider.notifier);
+    final accent = Theme.of(context).colorScheme.primary;
+    final icon = Icon(
+      sleepAt == null ? Icons.bedtime_outlined : Icons.bedtime,
+      size: labeled ? 22 : null,
+      color: sleepAt == null ? (labeled ? Colors.white : Palette.textMuted) : accent,
+    );
     return PopupMenuButton<int>(
       useRootNavigator: true,
       tooltip: sleepAt == null
           ? context.l10n.playerSleepTimer
           : context.l10n.playerSleepTimerTime((TimeOfDay.fromDateTime(sleepAt).format(context)).toString()),
-      icon: Icon(
-        sleepAt == null ? Icons.bedtime_outlined : Icons.bedtime,
-        color: sleepAt == null ? Palette.textMuted : Theme.of(context).colorScheme.primary,
-      ),
+      icon: labeled ? null : icon,
       onSelected: (m) => ctrl.setSleepTimer(m == 0 ? null : Duration(minutes: m)),
       itemBuilder: (_) => [
         for (final m in const [5, 10, 15, 30, 45, 60, 90])
           PopupMenuItem(value: m, child: Text(context.l10n.playerTimerMinutes(m))),
         if (sleepAt != null) PopupMenuItem(value: 0, child: Text(context.l10n.playerDisableTimer)),
       ],
+      child: labeled
+          ? PlayerActionLabel(
+              top: icon,
+              label: sleepAt == null ? context.l10n.playerSleepShort : TimeOfDay.fromDateTime(sleepAt).format(context),
+              highlight: sleepAt != null,
+            )
+          : null,
     );
+  }
+}
+
+/// A control with a small caption under it (spoken-word player); tappable itself when [onTap] is given.
+class PlayerActionLabel extends StatelessWidget {
+  const PlayerActionLabel({super.key, required this.top, required this.label, this.onTap, this.highlight = false});
+  final Widget top;
+  final String label;
+  final VoidCallback? onTap;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = SizedBox(
+      width: 76,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            top,
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: highlight ? Theme.of(context).colorScheme.primary : Palette.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (onTap == null) return content;
+    return InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap, child: content);
   }
 }
 
@@ -528,7 +585,9 @@ class MiniPlayer extends ConsumerWidget {
                 child: Row(
                   children: [
                     if (p.station != null) ...[
-                      Expanded(child: StationInfo(station: p.station!, now: p.stationNow, coverSize: 42)),
+                      Expanded(
+                        child: StationInfo(station: p.station!, now: p.stationNow, coverSize: 42),
+                      ),
                     ] else if (p.book != null) ...[
                       Expanded(child: _BookInfo(book: p.book!, coverSize: 42)),
                       IconButton(

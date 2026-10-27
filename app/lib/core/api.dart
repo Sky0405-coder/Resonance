@@ -167,8 +167,14 @@ class ApiClient {
   Future<List<PodcastSearchResult>> podcastGenre(int id) async => [
     for (final item in await _get('/api/podcasts/genres/$id')) PodcastSearchResult.fromJson(item),
   ];
-  Future<Podcast> podcast(String id, {int offset = 0, int limit = 50}) async =>
-      Podcast.fromJson(await _get('/api/podcasts/$id', {'offset': offset, 'limit': limit}));
+  Future<Podcast> podcast(String id, {int offset = 0, int limit = 50, bool oldestFirst = false}) async =>
+      Podcast.fromJson(
+        await _get('/api/podcasts/$id', {'offset': offset, 'limit': limit, if (oldestFirst) 'order': 'oldest'}),
+      );
+
+  /// Marks all episodes of a podcast as played, or all as new again.
+  Future<void> markPodcastPlayed(String id, {required bool completed}) =>
+      _put('/api/podcasts/$id/played', {'completed': completed});
   Future<PodcastEpisode> podcastEpisode(String id) async =>
       PodcastEpisode.fromJson(await _get('/api/podcasts/episodes/$id'));
   Future<List<PodcastSearchResult>> podcastSearch(String query) async => [

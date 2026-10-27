@@ -16,6 +16,8 @@ class Podcast {
     this.imageUrl,
     this.subscribed = false,
     this.unplayedCount = 0,
+    this.episodeCount = 0,
+    this.completedCount = 0,
     this.episodes = const [],
   });
 
@@ -27,6 +29,8 @@ class Podcast {
   final String? imageUrl;
   final bool subscribed;
   final int unplayedCount;
+  final int episodeCount;
+  final int completedCount;
   final List<PodcastEpisode> episodes;
 
   factory Podcast.fromJson(Map<String, dynamic> j) => Podcast(
@@ -38,6 +42,8 @@ class Podcast {
     imageUrl: j['image_url'],
     subscribed: j['subscribed'] ?? false,
     unplayedCount: j['unplayed_count'] ?? 0,
+    episodeCount: j['episode_count'] ?? 0,
+    completedCount: j['completed_count'] ?? 0,
     episodes: [for (final e in j['episodes'] ?? const []) PodcastEpisode.fromJson(e)],
   );
 }
@@ -102,15 +108,14 @@ class PodcastSearchResult {
   final String? imageUrl;
   final String? source;
 
-  factory PodcastSearchResult.fromJson(Map<String, dynamic> j) =>
-      PodcastSearchResult(
-        feedUrl: j['feed_url'],
-        title: j['title'],
-        itunesId: (j['itunes_id'] as num?)?.toInt(),
-        author: j['author'],
-        imageUrl: j['image_url'],
-        source: j['source'],
-      );
+  factory PodcastSearchResult.fromJson(Map<String, dynamic> j) => PodcastSearchResult(
+    feedUrl: j['feed_url'],
+    title: j['title'],
+    itunesId: (j['itunes_id'] as num?)?.toInt(),
+    author: j['author'],
+    imageUrl: j['image_url'],
+    source: j['source'],
+  );
 }
 
 class PodcastGenre {
@@ -166,8 +171,25 @@ final podcastDiscoverProvider = FutureProvider.autoDispose<PodcastDiscover>(
 final podcastGenreProvider = FutureProvider.autoDispose.family<List<PodcastSearchResult>, int>(
   (ref, id) => ref.watch(apiProvider).podcastGenre(id),
 );
+
+/// Whether a podcast's episodes are listed oldest first (to listen through a series from the start), per podcast.
+final podcastOldestFirstProvider = NotifierProvider.family<PodcastOldestFirst, bool, String>(PodcastOldestFirst.new);
+
+class PodcastOldestFirst extends Notifier<bool> {
+  PodcastOldestFirst(this.id);
+  final String id;
+
+  @override
+  bool build() => ref.read(prefsProvider).getBool('podcast_oldest_first_$id') ?? false;
+
+  void set(bool oldestFirst) {
+    state = oldestFirst;
+    ref.read(prefsProvider).setBool('podcast_oldest_first_$id', oldestFirst);
+  }
+}
+
 final podcastProvider = FutureProvider.autoDispose.family<Podcast, String>(
-  (ref, id) => ref.watch(apiProvider).podcast(id),
+  (ref, id) => ref.watch(apiProvider).podcast(id, oldestFirst: ref.watch(podcastOldestFirstProvider(id))),
 );
 final podcastSearchProvider = FutureProvider.autoDispose.family<List<PodcastSearchResult>, String>(
   (ref, query) => ref.watch(apiProvider).podcastSearch(query),

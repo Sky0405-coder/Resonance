@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
@@ -682,33 +684,115 @@ class AudiobookPage extends ConsumerWidget {
 Future<void> showChapterSheet(BuildContext context, WidgetRef ref, BookPlayback book) => showModalBottomSheet(
   context: context,
   useRootNavigator: true,
-  backgroundColor: const Color(0xFF282828),
+  backgroundColor: const Color(0xFF202020),
   showDragHandle: true,
   isScrollControlled: true,
   builder: (sheet) {
     final position = ref.read(bookPositionProvider);
     final accent = Theme.of(context).colorScheme.primary;
+    final current = book.chapters.indexWhere((c) => position >= c.start && position < c.end);
+    const rowHeight = 60.0;
+    // Opens at the playing chapter, a few rows above it so earlier ones stay in view.
+    final controller = ScrollController(initialScrollOffset: math.max(0, current - 2) * rowHeight);
     return SafeArea(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.7),
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: book.chapters.length,
-          itemBuilder: (_, i) {
-            final c = book.chapters[i];
-            final active = position >= c.start && position < c.end;
-            return ListTile(
-              title: Text(c.title, style: TextStyle(color: active ? accent : null)),
-              trailing: Text(
-                formatBookDuration(context.l10n, c.end - c.start),
-                style: const TextStyle(color: Palette.textMuted),
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.75),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                context.l10n.audiobooksChapters,
+                style: Theme.of(sheet).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
-              onTap: () {
-                Navigator.pop(sheet);
-                ref.read(playerProvider.notifier).seekBook(c.start);
-              },
-            );
-          },
+            ),
+            Flexible(
+              child: ListView.builder(
+                controller: controller,
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                itemExtent: rowHeight,
+                itemCount: book.chapters.length,
+                itemBuilder: (_, i) {
+                  final c = book.chapters[i];
+                  final active = i == current;
+                  final done = current >= 0 && i < current;
+                  final length = math.max(1.0, c.end - c.start);
+                  return Material(
+                    color: active ? accent.withValues(alpha: 0.14) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(sheet);
+                        ref.read(playerProvider.notifier).seekBook(c.start);
+                      },
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 34,
+                                  child: active
+                                      ? Icon(Icons.graphic_eq_rounded, color: accent, size: 20)
+                                      : Text(
+                                          '${i + 1}',
+                                          style: TextStyle(
+                                            color: done ? Colors.white38 : Palette.textMuted,
+                                            fontFeatures: const [FontFeature.tabularFigures()],
+                                          ),
+                                        ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    c.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: active
+                                          ? accent
+                                          : done
+                                          ? Colors.white54
+                                          : Colors.white,
+                                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  formatBookDuration(context.l10n, length),
+                                  style: const TextStyle(color: Palette.textMuted, fontSize: 12.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (active)
+                            Positioned(
+                              left: 12,
+                              right: 12,
+                              bottom: 6,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(2),
+                                child: LinearProgressIndicator(
+                                  value: ((position - c.start) / length).clamp(0, 1),
+                                  minHeight: 2,
+                                  color: accent,
+                                  backgroundColor: Colors.white12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

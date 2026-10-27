@@ -4,10 +4,13 @@ import 'dart:ui' as ui;
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api.dart';
+import '../../core/audiobooks.dart';
 import '../../core/theme.dart';
 import '../../core/models.dart';
 import '../../core/library.dart';
@@ -15,6 +18,7 @@ import '../../player/player.dart';
 import '../../player/spectrum.dart';
 import '../../player/visualizer_themes.dart';
 import 'audiobook_pages.dart';
+import 'podcast_pages.dart';
 import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
@@ -35,7 +39,12 @@ class NowPlayingPage extends ConsumerWidget {
     final station = ref.watch(playerProvider.select((p) => p.station));
     final stationNow = ref.watch(playerProvider.select((p) => p.stationNow));
     final accent = Theme.of(context).colorScheme.primary;
-    final coverColor = track != null && book == null && station == null && ref.watch(visualizerEnabledProvider)
+    // Spoken word always takes the cover's color; music only with the visualizer (whose bars use it too).
+    final coverColor = book != null
+        ? book.coverUrl.isEmpty
+              ? null
+              : ref.watch(coverColorProvider(CachedNetworkImageProvider(book.coverUrl))).value
+        : track != null && station == null && ref.watch(visualizerEnabledProvider)
         ? ref.watch(coverColorProvider(coverImageProvider(ref, track.album.id, size: 300))).value
         : null;
     final hsl = coverColor == null ? null : HSLColor.fromColor(coverColor);
@@ -761,82 +770,299 @@ class _BookNowPlaying extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chapter = book.chapterAt(ref.watch(bookPositionProvider));
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          Row(
+    final l10n = context.l10n;
+    final position = ref.watch(bookPositionProvider);
+    final speed = ref.watch(playerProvider.select((p) => p.speed));
+    final ctrl = ref.read(playerProvider.notifier);
+    final chapter = book.chapterAt(position);
+    final chapterIndex = chapter == null ? -1 : book.chapters.indexOf(chapter);
+    final episode = book.episode;
+    final remaining = math.max(0.0, book.duration - position);
+    final speedText = '${NumberFormat(speed == speed.roundToDouble() ? '0' : '0.0#', l10n.localeName).format(speed)}×';
+    void previousChapter() {
+      if (chapter == null) return;
+      // Like a CD player: back to this chapter's start, or to the previous one when just started.
+      final target = position - chapter.start > 3 || chapterIndex == 0
+          ? chapter.start
+          : book.chapters[chapterIndex - 1].start;
+      ctrl.seekBook(target);
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final short = constraints.maxHeight < 700;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
             children: [
-              IconButton(icon: const Icon(Icons.keyboard_arrow_down, size: 32), onPressed: () => context.pop()),
-              Expanded(
-                child: Text(
-                  book.episode != null ? context.l10n.podcastsEpisode : context.l10n.audiobooksBook,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.w700),
+              Row(
+                children: [
+                  IconButton(icon: const Icon(Icons.keyboard_arrow_down, size: 32), onPressed: () => context.pop()),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(
+                          (episode != null ? l10n.navPodcasts : l10n.navAudiobooks).toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            letterSpacing: 1.4,
+                            color: Palette.textMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          episode?.podcastTitle ?? book.author ?? book.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: episode != null ? l10n.podcastsOpen : l10n.playerGoToAudiobook,
+                    icon: const Icon(Icons.info_outline),
+                    onPressed: () {
+                      context.pop();
+                      context.push(
+                        episode != null ? '/podcasts/${episode.podcastId}' : '/audiobooks/item/${book.itemId}',
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Flexible(
+                flex: 12,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440, maxHeight: 440),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 40, offset: Offset(0, 18))],
+                      ),
+                      child: NetworkCover(
+                        url: book.coverUrl.isEmpty ? null : book.coverUrl,
+                        radius: 14,
+                        icon: episode != null ? Icons.podcasts : Icons.headphones,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              IconButton(
-                tooltip: book.episode != null ? context.l10n.podcastsOpen : context.l10n.playerGoToAudiobook,
-                icon: const Icon(Icons.info_outline),
-                onPressed: () {
-                  context.pop();
-                  context.push(
-                    book.episode != null ? '/podcasts/${book.episode!.podcastId}' : '/audiobooks/item/${book.itemId}',
-                  );
-                },
+              const Spacer(),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      book.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    if (book.author != null && episode == null)
+                      Text(
+                        book.author!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Palette.textMuted, fontSize: 16),
+                      ),
+                    if (chapter != null) ...[
+                      SizedBox(height: short ? 10 : 16),
+                      _ChapterCard(book: book, chapter: chapter, index: chapterIndex, position: position, speed: speed),
+                    ],
+                    SizedBox(height: short ? 6 : 12),
+                    const SeekBar(),
+                    Center(
+                      child: Text(
+                        [
+                          l10n.audiobooksTimeRemaining(formatRemaining(l10n, remaining / speed)),
+                          if (speed != 1) l10n.playerAtSpeed(speedText),
+                        ].join(' '),
+                        style: const TextStyle(color: Palette.textMuted, fontSize: 12.5),
+                      ),
+                    ),
+                    SizedBox(height: short ? 4 : 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        IconButton(
+                          tooltip: l10n.audiobooksPreviousChapter,
+                          iconSize: 30,
+                          onPressed: chapter == null ? null : previousChapter,
+                          icon: const Icon(Icons.skip_previous_rounded),
+                        ),
+                        IconButton(
+                          tooltip: episode != null ? l10n.podcastsSkipBack : l10n.playerSkipBack,
+                          iconSize: 36,
+                          icon: episode != null
+                              ? const _SkipIcon(seconds: 15, forward: false)
+                              : const _SkipIcon(seconds: 30, forward: false),
+                          onPressed: () => ctrl.skipBook(episode != null ? -15 : -30),
+                        ),
+                        const TransportControls(big: true, playPauseOnly: true),
+                        IconButton(
+                          tooltip: l10n.playerSkipForward,
+                          iconSize: 36,
+                          icon: const _SkipIcon(seconds: 30, forward: true),
+                          onPressed: () => ctrl.skipBook(30),
+                        ),
+                        IconButton(
+                          tooltip: l10n.audiobooksNextChapter,
+                          iconSize: 30,
+                          onPressed: chapterIndex < 0 || chapterIndex >= book.chapters.length - 1
+                              ? null
+                              : () => ctrl.seekBook(book.chapters[chapterIndex + 1].start),
+                          icon: const Icon(Icons.skip_next_rounded),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: short ? 8 : 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        const SpeedButton(labeled: true),
+                        const SleepTimerButton(labeled: true),
+                        if (book.chapters.isNotEmpty)
+                          _PlayerAction(
+                            icon: Icons.format_list_numbered_rounded,
+                            label: l10n.audiobooksChapters,
+                            onTap: () => showChapterSheet(context, ref, book),
+                          ),
+                        if (episode != null)
+                          _PlayerAction(
+                            icon: Icons.notes_rounded,
+                            label: l10n.podcastsShowNotes,
+                            onTap: () => showEpisodeSheet(context, ref, episode),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: short ? 8 : 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The current chapter: its number, title, how far into it and how long it still runs.
+class _ChapterCard extends ConsumerWidget {
+  const _ChapterCard({
+    required this.book,
+    required this.chapter,
+    required this.index,
+    required this.position,
+    required this.speed,
+  });
+  final BookPlayback book;
+  final AbsChapter chapter;
+  final int index;
+  final double position;
+  final double speed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accent = Theme.of(context).colorScheme.primary;
+    final length = math.max(1.0, chapter.end - chapter.start);
+    final into = (position - chapter.start).clamp(0.0, length);
+    return Material(
+      color: Colors.white.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => showChapterSheet(context, ref, book),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    context.l10n.audiobooksChapterOf(index + 1, book.chapters.length).toUpperCase(),
+                    style: TextStyle(fontSize: 11, letterSpacing: 1, color: accent, fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  Text(
+                    context.l10n.audiobooksTimeRemaining(formatRemaining(context.l10n, (length - into) / speed)),
+                    style: const TextStyle(fontSize: 12, color: Palette.textMuted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                chapter.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: into / length,
+                  minHeight: 3,
+                  color: accent,
+                  backgroundColor: Colors.white12,
+                ),
               ),
             ],
           ),
-          const Spacer(),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 480),
-            child: Material(
-              elevation: 16,
-              borderRadius: BorderRadius.circular(8),
-              clipBehavior: Clip.antiAlias,
-              child: NetworkCover(url: book.coverUrl.isEmpty ? null : book.coverUrl, radius: 8, icon: Icons.headphones),
-            ),
-          ),
-          const Spacer(),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  book.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  [?book.author, ?chapter?.title].join(' • '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Palette.textMuted, fontSize: 16),
-                ),
-                const SizedBox(height: 12),
-                const SeekBar(),
-                const SizedBox(height: 8),
-                const Center(child: TransportControls(big: true)),
-                if (book.chapters.isNotEmpty)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () => showChapterSheet(context, ref, book),
-                      icon: const Icon(Icons.format_list_bulleted),
-                      label: Text(context.l10n.audiobooksChapters),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
+        ),
       ),
     );
   }
+}
+
+/// A round arrow with the seconds it skips inside.
+class _SkipIcon extends StatelessWidget {
+  const _SkipIcon({required this.seconds, required this.forward});
+  final int seconds;
+  final bool forward;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = IconTheme.of(context).size ?? 24;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Transform.flip(
+          flipX: forward,
+          child: Icon(Icons.replay_rounded, size: size),
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: size * 0.1),
+          child: Text(
+            '$seconds',
+            style: TextStyle(fontSize: size * 0.27, fontWeight: FontWeight.w800, color: IconTheme.of(context).color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// An icon with a small label under it, for the spoken-word player's bottom row.
+class _PlayerAction extends StatelessWidget {
+  const _PlayerAction({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => PlayerActionLabel(
+    onTap: onTap,
+    top: Icon(icon, size: 22, color: Colors.white),
+    label: label,
+  );
 }
 
 class QueuePage extends ConsumerWidget {

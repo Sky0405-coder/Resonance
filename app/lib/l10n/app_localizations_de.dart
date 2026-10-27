@@ -556,6 +556,28 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String audiobooksChapterOf(int index, int count) {
+    return 'Kapitel $index von $count';
+  }
+
+  @override
+  String get audiobooksPreviousChapter => 'Vorheriges Kapitel';
+
+  @override
+  String get audiobooksNextChapter => 'Nächstes Kapitel';
+
+  @override
+  String get playerSpeedShort => 'Tempo';
+
+  @override
+  String get playerSleepShort => 'Timer';
+
+  @override
+  String playerAtSpeed(String speed) {
+    return 'bei $speed';
+  }
+
+  @override
   String get audiobooksNotConfigured => 'Hörbücher sind auf diesem Server nicht eingerichtet.';
 
   @override
@@ -2774,6 +2796,56 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get podcastsSkipBack => '15 Sekunden zurück';
+
+  @override
+  String get podcastsMarkPlayed => 'Als gehört markieren';
+
+  @override
+  String get podcastsMarkUnplayed => 'Als ungehört markieren';
+
+  @override
+  String get podcastsMarkAllPlayed => 'Alle als gehört markieren';
+
+  @override
+  String get podcastsMarkAllUnplayed => 'Alle als ungehört markieren';
+
+  @override
+  String get podcastsSort => 'Reihenfolge';
+
+  @override
+  String get podcastsNewestFirst => 'Neueste zuerst';
+
+  @override
+  String get podcastsOldestFirst => 'Älteste zuerst';
+
+  @override
+  String podcastsEpisodeStats(int count, int played) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Folgen', one: '1 Folge');
+    return '$_temp0 · $played gehört';
+  }
+
+  @override
+  String podcastsTimeLeft(String time) {
+    return 'noch $time';
+  }
+
+  @override
+  String get podcastsPlayed => 'Gehört';
+
+  @override
+  String get podcastsShowNotes => 'Shownotes';
+
+  @override
+  String get podcastsPlayEpisode => 'Folge abspielen';
+
+  @override
+  String get podcastsMore => 'Mehr';
+
+  @override
+  String get podcastsLess => 'Weniger';
+
+  @override
+  String get podcastsPlayFirstUnplayed => 'Nächste ungehörte Folge abspielen';
 
   @override
   String get playerPodcastLoadError => 'Die Podcast-Episode konnte nicht geladen werden. Bitte versuche es erneut.';

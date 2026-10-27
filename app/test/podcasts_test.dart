@@ -25,6 +25,7 @@ import 'package:resonance/player/equalizer.dart';
 import 'package:resonance/player/connect.dart';
 import 'package:resonance/player/player.dart';
 import 'package:resonance/ui/pages/book_pages.dart';
+import 'package:resonance/ui/pages/now_playing_page.dart';
 import 'package:resonance/ui/pages/podcast_pages.dart';
 import 'package:resonance/ui/shell.dart';
 import 'package:resonance/ui/tv/tv_shell.dart';
@@ -74,6 +75,8 @@ class _Api extends ApiClient {
   final queries = <String>[];
   final feeds = <String>[];
   final pages = <int>[];
+  final orders = <bool>[];
+  final markedAll = <bool>[];
   bool subscribed = true;
   bool manyEpisodes = false;
   int absCalls = 0;
@@ -84,6 +87,9 @@ class _Api extends ApiClient {
   Future<void> saveEpisodeProgress(String id, double position, {required bool completed}) async {
     saves.add((id, position, completed));
   }
+
+  @override
+  Future<void> markPodcastPlayed(String id, {required bool completed}) async => markedAll.add(completed);
 
   @override
   Future<dynamic> absPost(String path, [Object? body]) async {
@@ -115,8 +121,9 @@ class _Api extends ApiClient {
   @override
   Future<List<Podcast>> podcastSubscriptions() async => subscribed ? [await podcast('podcast')] : [];
   @override
-  Future<Podcast> podcast(String id, {int offset = 0, int limit = 50}) async {
+  Future<Podcast> podcast(String id, {int offset = 0, int limit = 50, bool oldestFirst = false}) async {
     pages.add(offset);
+    orders.add(oldestFirst);
     return Podcast(
       id: id,
       feedUrl: 'https://pod.example/feed',
@@ -125,6 +132,8 @@ class _Api extends ApiClient {
       description: 'Plain description',
       subscribed: subscribed,
       unplayedCount: 3,
+      episodeCount: 4,
+      completedCount: 1,
       episodes: offset > 0
           ? []
           : manyEpisodes
@@ -481,6 +490,35 @@ void main() {
     container.dispose();
   });
 
+  testWidgets('the spoken-word player shows what is left, speed, timer and show notes', (tester) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    api.episode = const PodcastEpisode(
+      id: 'episode',
+      podcastId: 'podcast',
+      title: 'Episode title',
+      podcastTitle: 'Podcast title',
+      description: 'Notes of the episode',
+      durationSeconds: 3900,
+      positionSeconds: 60,
+    );
+    await container.read(playerProvider.notifier).playEpisode(_episode);
+    await page(tester, const NowPlayingPage());
+    expect(find.text('PODCASTS'), findsOneWidget);
+    expect(find.text('Episode title'), findsOneWidget);
+    expect(find.text('1×'), findsOneWidget);
+    expect(find.text('Timer'), findsOneWidget);
+    expect(find.text('1 hr 4 min left'), findsOneWidget);
+    await tester.tap(find.text('Show notes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Notes of the episode'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    container.dispose();
+  });
+
   for (final language in ['en', 'de']) {
     testWidgets('podcasts home renders localized shelves and discovery in $language', (tester) async {
       tester.view.physicalSize = const Size(900, 2200);
@@ -582,8 +620,10 @@ void main() {
   testWidgets('detail shows episode progress, completed state, and subscription toggle', (tester) async {
     await page(tester, const PodcastPage(id: 'podcast'));
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    expect(find.text('Unsubscribe'), findsOneWidget);
-    await tester.tap(find.text('Unsubscribe'));
+    expect(find.text('4 min left'), findsOneWidget);
+    expect(find.text('4 episodes · 1 played'), findsOneWidget);
+    expect(find.text('Subscribed'), findsOneWidget);
+    await tester.tap(find.text('Subscribed'));
     await tester.pumpAndSettle();
     expect(api.subscribed, false);
     expect(find.text('Subscribe'), findsOneWidget);
@@ -604,7 +644,54 @@ void main() {
         ),
       ),
     );
-    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle), findsOneWidget);
+    expect(find.text('Played'), findsOneWidget);
+  });
+
+  testWidgets('episodes can be marked played, all at once, and listed oldest first', (tester) async {
+    await page(tester, const PodcastPage(id: 'podcast'));
+    await tester.tap(find.byIcon(Icons.more_vert).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mark as played'));
+    await tester.pumpAndSettle();
+    expect(api.saves.last, ('episode', 300.0, true));
+
+    await tester.longPress(find.text('Episode title'));
+    await tester.pumpAndSettle();
+    expect(api.saves.last, ('episode', 300.0, true));
+
+    await tester.tap(find.byIcon(Icons.more_vert).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mark all as played'));
+    await tester.pumpAndSettle();
+    expect(api.markedAll, [true]);
+
+    await tester.tap(find.text('Newest first'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Oldest first').last);
+    await tester.pumpAndSettle();
+    expect(api.orders.last, true);
+    expect(container.read(podcastOldestFirstProvider('podcast')), true);
+    expect(find.text('Oldest first'), findsOneWidget);
+  });
+
+  testWidgets('tapping an episode opens its show notes with play and mark actions', (tester) async {
+    api.episode = const PodcastEpisode(
+      id: 'episode',
+      podcastId: 'podcast',
+      title: 'Episode title',
+      podcastTitle: 'Podcast title',
+      description: 'What this episode is about',
+      durationSeconds: 300,
+    );
+    await page(tester, const PodcastPage(id: 'podcast'));
+    await tester.tap(find.text('Episode title'));
+    await tester.pumpAndSettle();
+    expect(find.text('Show notes'), findsOneWidget);
+    expect(find.text('What this episode is about'), findsNWidgets(2));
+    await tester.tap(find.text('Mark as played'));
+    await tester.pumpAndSettle();
+    expect(api.saves.last, ('episode', 300.0, true));
   });
 
   testWidgets('search debounces, opens without subscribing, and offers explicit subscribe and RSS add', (tester) async {

@@ -566,6 +566,28 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String audiobooksChapterOf(int index, int count) {
+    return 'Chapter $index of $count';
+  }
+
+  @override
+  String get audiobooksPreviousChapter => 'Previous chapter';
+
+  @override
+  String get audiobooksNextChapter => 'Next chapter';
+
+  @override
+  String get playerSpeedShort => 'Speed';
+
+  @override
+  String get playerSleepShort => 'Timer';
+
+  @override
+  String playerAtSpeed(String speed) {
+    return 'at $speed';
+  }
+
+  @override
   String get audiobooksNotConfigured => 'Audiobooks aren\'t set up on this server.';
 
   @override
@@ -2797,6 +2819,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get podcastsSkipBack => 'Back 15 seconds';
+
+  @override
+  String get podcastsMarkPlayed => 'Mark as played';
+
+  @override
+  String get podcastsMarkUnplayed => 'Mark as unplayed';
+
+  @override
+  String get podcastsMarkAllPlayed => 'Mark all as played';
+
+  @override
+  String get podcastsMarkAllUnplayed => 'Mark all as unplayed';
+
+  @override
+  String get podcastsSort => 'Order';
+
+  @override
+  String get podcastsNewestFirst => 'Newest first';
+
+  @override
+  String get podcastsOldestFirst => 'Oldest first';
+
+  @override
+  String podcastsEpisodeStats(int count, int played) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count episodes', one: '1 episode');
+    return '$_temp0 · $played played';
+  }
+
+  @override
+  String podcastsTimeLeft(String time) {
+    return '$time left';
+  }
+
+  @override
+  String get podcastsPlayed => 'Played';
+
+  @override
+  String get podcastsShowNotes => 'Show notes';
+
+  @override
+  String get podcastsPlayEpisode => 'Play episode';
+
+  @override
+  String get podcastsMore => 'More';
+
+  @override
+  String get podcastsLess => 'Less';
+
+  @override
+  String get podcastsPlayFirstUnplayed => 'Play the next unplayed episode';
 
   @override
   String get playerPodcastLoadError => 'The podcast episode couldn\'t be loaded. Please try again.';

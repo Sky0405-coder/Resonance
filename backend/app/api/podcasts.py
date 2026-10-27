@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, Field, HttpUrl
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, delete, func, literal, select, true
 from sqlalchemy.dialects.postgresql import insert
 
 from app import i18n
@@ -22,6 +22,10 @@ class SubscribeIn(BaseModel):
 
 class ProgressIn(BaseModel):
     position_seconds: float = Field(ge=0, allow_inf_nan=False)
+    completed: bool
+
+
+class PlayedIn(BaseModel):
     completed: bool
 
 
@@ -273,15 +277,44 @@ async def stream(id: uuid.UUID, user: CurrentUser, db: DB) -> RedirectResponse:
 async def detail(
     id: uuid.UUID, user: CurrentUser, db: DB,
     offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200),
+    order: Literal["newest", "oldest"] = "newest",
 ) -> dict:
+    """The podcast with a page of its episodes, newest first or (to listen through from the start) oldest first."""
     podcast = await _get_podcast(db, id)
+    if order == "oldest":
+        sort = (PodcastEpisode.published_at.asc().nullsfirst(), PodcastEpisode.created_at, PodcastEpisode.id)
+    else:
+        sort = (PodcastEpisode.published_at.desc().nullslast(), PodcastEpisode.created_at.desc(), PodcastEpisode.id)
     rows = await db.execute(select(PodcastEpisode, EpisodeProgress).outerjoin(EpisodeProgress, and_(
         EpisodeProgress.episode_id == PodcastEpisode.id, EpisodeProgress.user_id == user.id,
-    )).where(PodcastEpisode.podcast_id == id)
-        .order_by(PodcastEpisode.published_at.desc().nullslast(), PodcastEpisode.created_at.desc(), PodcastEpisode.id)
-        .offset(offset).limit(limit))
+    )).where(PodcastEpisode.podcast_id == id).order_by(*sort).offset(offset).limit(limit))
     subscribed = await db.get(PodcastSubscription, (user.id, id)) is not None
+    count = await db.scalar(select(func.count()).select_from(PodcastEpisode).where(PodcastEpisode.podcast_id == id))
+    completed = await db.scalar(select(func.count()).select_from(EpisodeProgress).join(PodcastEpisode).where(
+        PodcastEpisode.podcast_id == id, EpisodeProgress.user_id == user.id, EpisodeProgress.completed,
+    ))
     return {
-        **_podcast(podcast), "subscribed": subscribed,
+        **_podcast(podcast), "subscribed": subscribed, "episode_count": count, "completed_count": completed,
         "episodes": [_episode(episode, podcast, progress) for episode, progress in rows],
     }
+
+
+@router.put("/{id}/played", status_code=204)
+async def mark_all_played(id: uuid.UUID, body: PlayedIn, user: CurrentUser, db: DB) -> Response:
+    """Marks every episode of the podcast as heard (or, with `completed: false`, all of them as new again)."""
+    await _get_podcast(db, id)
+    if body.completed:
+        statement = insert(EpisodeProgress).from_select(
+            ["user_id", "episode_id", "position_seconds", "completed"],
+            select(literal(user.id), PodcastEpisode.id, literal(0.0), true()).where(PodcastEpisode.podcast_id == id),
+        )
+        await db.execute(statement.on_conflict_do_update(
+            index_elements=["user_id", "episode_id"], set_={"completed": True, "updated_at": datetime.now(UTC)},
+        ))
+    else:
+        await db.execute(delete(EpisodeProgress).where(
+            EpisodeProgress.user_id == user.id,
+            EpisodeProgress.episode_id.in_(select(PodcastEpisode.id).where(PodcastEpisode.podcast_id == id)),
+        ))
+    await db.commit()
+    return Response(status_code=204)

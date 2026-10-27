@@ -128,6 +128,23 @@ async def test_subscribe_progress_continue_counts_and_stream(client, feeds):
     assert single["position_seconds"] == 120 and single["completed"]
     page = (await client.get(f"/api/podcasts/{id}?offset=1&limit=1", headers=headers)).json()
     assert len(page["episodes"]) == 1 and page["episodes"][0]["position_seconds"] == 20
+    detail = (await client.get(f"/api/podcasts/{id}", headers=headers)).json()
+    assert (detail["episode_count"], detail["completed_count"]) == (4, 1)
+    oldest = (await client.get(f"/api/podcasts/{id}?order=oldest", headers=headers)).json()["episodes"]
+    assert [e["id"] for e in oldest] == [e["id"] for e in reversed(detail["episodes"])]
+    assert (await client.get(f"/api/podcasts/{id}?order=random", headers=headers)).status_code == 422
+    r = await client.put(f"/api/podcasts/{id}/played", headers=headers, json={"completed": True})
+    assert r.status_code == 204
+    detail = (await client.get(f"/api/podcasts/{id}", headers=headers)).json()
+    assert detail["completed_count"] == 4 and all(e["completed"] for e in detail["episodes"])
+    # Marking all as heard keeps where an episode was left off.
+    assert [e["position_seconds"] for e in detail["episodes"] if e["id"] == second] == [20]
+    assert (await client.get(f"/api/podcasts/{id}", headers=auth(other["token"]))).json()["completed_count"] == 0
+    await client.put(f"/api/podcasts/{id}/played", headers=headers, json={"completed": False})
+    assert (await client.get(f"/api/podcasts/{id}", headers=headers)).json()["completed_count"] == 0
+    for episode, position, done in [(first, 120, True), (second, 20, False)]:
+        await client.put(f"/api/podcasts/episodes/{episode}/progress", headers=headers,
+                         json={"position_seconds": position, "completed": done})
     response = await client.get(f"/api/podcasts/episodes/{first}/stream?token={user['token']}")
     assert response.status_code == 302 and response.headers["location"] == single["audio_url"]
     assert (await client.get(f"/api/podcasts/episodes/{first}/stream")).status_code == 401

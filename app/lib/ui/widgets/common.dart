@@ -87,6 +87,17 @@ String formatLongDuration(AppLocalizations l10n, double seconds) {
   return l10n.commonDurationMinutesSeconds(d.inMinutes, d.inSeconds.remainder(60));
 }
 
+/// Hours and minutes only ("1 Std. 6 Min.", "4 Min."), rounded up, for how much is left of something long.
+String formatRemaining(AppLocalizations l10n, double seconds) {
+  final minutes = (seconds / 60).ceil().clamp(1, 1 << 31);
+  if (minutes >= 60) {
+    return minutes % 60 == 0
+        ? l10n.commonDurationHours('${minutes ~/ 60}')
+        : l10n.commonDurationHoursMinutes(minutes ~/ 60, minutes % 60);
+  }
+  return l10n.commonDurationMinutes(minutes);
+}
+
 /// "1 Song" / "3 Songs".
 String songs(AppLocalizations l10n, int n) => l10n.commonSongs(n);
 
