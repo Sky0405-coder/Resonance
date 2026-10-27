@@ -1,0 +1,126 @@
+# Resonance with docker compose, from the prebuilt image (no build needed).
+#
+#   1. Copy this file and .env.example into a folder, rename .env.example to .env and fill it in.
+#   2. Create the folders, owned by the user that owns your music (PUID/PGID):
+#        mkdir -p data/app data/postgres data/downloads data/books data/import
+#   3. docker compose up -d            (with torrents and/or audiobooks: see the profiles below)
+#   4. Open http://<server>:8765, create the admin account (the first account becomes admin) and start a library scan
+#      in the admin dashboard.
+#
+# Optional parts, switched on with profiles:
+#   docker compose --profile torrents up -d      Prowlarr + qBittorrent behind a VPN (gluetun kill switch)
+#   docker compose --profile audiobooks up -d    Audiobookshelf for audiobooks
+# Both can be combined. Afterwards connect them in Admin → Server (Prowlarr API key and qBittorrent login,
+# Audiobookshelf address as reachable from outside, e.g. https://audio.example.com or http://<server>:13378).
+
+services:
+  resonance:
+    image: ghcr.io/sky0405-coder/resonance:${RESONANCE_VERSION:-latest}
+    restart: unless-stopped
+    # Files in the library belong to this user.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      HOME: /data/app/home
+      TZ: ${TZ:-Europe/Berlin}
+      RESONANCE_DATABASE_URL: postgresql+asyncpg://resonance:${POSTGRES_PASSWORD}@postgres:5432/resonance
+      RESONANCE_QBITTORRENT_URL: http://gluetun:8080
+      RESONANCE_PROWLARR_URL: http://prowlarr:9696
+    volumes:
+      - ${MUSIC_PATH}:/data/music
+      - ${DOWNLOADS_PATH:-./data/downloads}:/data/downloads
+      - ${BOOKS_PATH:-./data/books}:/data/books
+      - ${IMPORT_PATH:-./data/import}:/data/import
+      - ${APPDATA_PATH:-./data}/app:/data/app
+    ports:
+      - "${APP_PORT:-8765}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: resonance
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: resonance
+    volumes:
+      - ${APPDATA_PATH:-./data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resonance"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- profile "torrents" -------------------------------------------------------------------------------------
+  # All torrent traffic goes through the VPN; when the tunnel drops, gluetun's firewall blocks everything.
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    profiles: [torrents]
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      # Any provider gluetun supports works; see https://github.com/qdm12/gluetun-wiki
+      VPN_SERVICE_PROVIDER: ${VPN_SERVICE_PROVIDER:-protonvpn}
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY:-}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES:-10.2.0.2/32}
+      SERVER_COUNTRIES: ${VPN_SERVER_COUNTRIES:-Netherlands}
+      VPN_PORT_FORWARDING: "on"
+      # Pushes the forwarded port into qBittorrent (enable "Bypass authentication for clients on localhost" there).
+      VPN_PORT_FORWARDING_UP_COMMAND: >-
+        /bin/sh -c 'wget -O- --retry-connrefused --post-data
+        "json={\"listen_port\":{{PORTS}},\"current_network_interface\":\"{{VPN_INTERFACE}}\"}"
+        http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - ${APPDATA_PATH:-./data}/gluetun:/gluetun
+    ports:
+      - "${QBIT_PORT:-8095}:8080"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    profiles: [torrents]
+    restart: unless-stopped
+    network_mode: "service:gluetun"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Europe/Berlin}
+      WEBUI_PORT: "8080"
+    volumes:
+      - ${APPDATA_PATH:-./data}/qbittorrent:/config
+      # Same path as in Resonance, so finished downloads can be hardlinked into the library.
+      - ${DOWNLOADS_PATH:-./data/downloads}:/data/downloads
+    depends_on:
+      gluetun:
+        condition: service_started
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    profiles: [torrents]
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - ${APPDATA_PATH:-./data}/prowlarr:/config
+    ports:
+      - "${PROWLARR_PORT:-9696}:9696"
+
+  # --- profile "audiobooks" -----------------------------------------------------------------------------------
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    profiles: [audiobooks]
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - ${AUDIOBOOKS_PATH:-./data/audiobooks}:/audiobooks
+      - ${APPDATA_PATH:-./data}/audiobookshelf/config:/config
+      - ${APPDATA_PATH:-./data}/audiobookshelf/metadata:/metadata
+    ports:
+      - "${AUDIOBOOKSHELF_PORT:-13378}:80"

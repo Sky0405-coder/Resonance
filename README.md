@@ -50,8 +50,59 @@ Der Server spricht außerdem OpenSubsonic, damit lassen sich auch andere Subsoni
 backend/   Python 3.12 · FastAPI · SQLAlchemy (async) · PostgreSQL + pgvector · Alembic
 app/       Flutter-Client für Android, Linux, Windows und Web
 tv/tizen/  Samsung-TV-App (HTML/JavaScript, Tizen 5.5+)
-Dockerfile, docker-compose.yml   Deployment-Stack (App, Postgres, gluetun/ProtonVPN, qBittorrent, Prowlarr)
+Dockerfile                    Image (wird per GitHub Actions als ghcr.io/sky0405-coder/resonance gebaut)
+deploy/docker-compose.yml     Compose-Datei zum Selbsthosten mit dem fertigen Image
+docker-compose.yml            Stack für Coolify (baut selbst; App, Postgres, gluetun/ProtonVPN, qBittorrent, Prowlarr)
 ```
+
+## Installation mit Docker Compose
+
+Das Image wird bei jedem Push auf `main` (Tag `edge`) und bei jedem Release (Tags `latest`, `1.6.17`, `1.6`) für
+amd64 und arm64 gebaut, ein eigener Build ist nicht nötig.
+
+```bash
+mkdir resonance && cd resonance
+curl -LO https://raw.githubusercontent.com/Sky0405-coder/Resonance/main/deploy/docker-compose.yml
+curl -L -o .env https://raw.githubusercontent.com/Sky0405-coder/Resonance/main/deploy/.env.example
+nano .env                                   # POSTGRES_PASSWORD, MUSIC_PATH, PUID/PGID
+mkdir -p data/app data/postgres data/downloads data/books data/import
+docker compose up -d
+```
+
+Danach `http://<server>:8765` öffnen, das Admin-Konto anlegen und im Admin-Dashboard einen Bibliotheks-Scan starten.
+Optionale Teile werden über Profile zugeschaltet (auch kombinierbar):
+
+| Profil | Startet | Wofür |
+| --- | --- | --- |
+| `torrents` | gluetun (VPN mit Kill-Switch), qBittorrent, Prowlarr | Automatische Downloads von Alben, Songs und E-Books |
+| `audiobooks` | Audiobookshelf | Hörbücher-Tab in der App |
+
+```bash
+docker compose --profile torrents --profile audiobooks up -d
+```
+
+Aktualisieren: `docker compose pull && docker compose up -d`. Eine feste Version statt der neuesten gibt es über
+`RESONANCE_VERSION` in der `.env`.
+
+## Empfohlene Dienste
+
+- **Reverse Proxy mit HTTPS** (Caddy, Traefik, Nginx Proxy Manager oder ein Cloudflare Tunnel) vor Port 8765. Die
+  Android-App, Chromecast und die Medien-Benachrichtigung funktionieren außerhalb des Heimnetzes nur sinnvoll über
+  HTTPS.
+- **Audiobookshelf** (Profil `audiobooks`) für Hörbücher. Unter Admin → Server die Adresse eintragen, unter der
+  Audiobookshelf auch von außen erreichbar ist (z. B. `https://audio.example.com`).
+- **Prowlarr + qBittorrent hinter einem VPN** (Profil `torrents`) für Downloads. Am besten ein Anbieter mit
+  Port-Forwarding (z. B. ProtonVPN), sonst seeden Torrents kaum. In Prowlarr die Indexer anlegen, dann unter
+  Admin → Server den Prowlarr-API-Key und den qBittorrent-Login eintragen.
+- **Kostenlose API-Schlüssel** unter Admin → Server, alle optional:
+  - AcoustID (acoustid.org/new-application): erkennt Songs am Audio-Fingerabdruck beim Import
+  - Last.fm (last.fm/api): Genres und Tags für Song-Radio und Mixe
+  - Discogs (discogs.com → Settings → Developers): weitere Quelle im Metadaten-Editor
+  - fanart.tv: Künstlerbilder und Banner
+  - Spotify Client ID/Secret (developer.spotify.com): Playlists aus Spotify importieren und synchronisieren
+  - Google Books: bessere Treffer bei der E-Book-Suche
+- **Backups**: der Ordner `data/postgres` (oder regelmäßig `pg_dump`) und `data/app` enthalten Konten, Playlists,
+  Statistiken und Einstellungen; die Musik selbst liegt in `MUSIC_PATH`.
 
 ## Installation mit Coolify
 

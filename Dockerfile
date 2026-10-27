@@ -1,6 +1,8 @@
 # --- Flutter web build -------------------------------------------------------
 # Pinned to the same Flutter release used for development (see app/pubspec.yaml SDK constraint).
-FROM debian:bookworm-slim AS web
+# Runs on the build machine's own platform: the web build is the same for every image architecture, so an arm64
+# image does not need Flutter under emulation.
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS web
 ARG FLUTTER_VERSION=3.47.7
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl unzip xz-utils ca-certificates \
