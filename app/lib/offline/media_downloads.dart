@@ -173,13 +173,20 @@ class MediaDownloadsState {
   int get totalBytes => items.values.fold(0, (total, item) => total + item.size);
 }
 
-/// Fetches one file to [path], reporting its progress (0..1).
+/// One file of an item: where it comes from and the temporary path it goes to.
+class MediaTransfer {
+  const MediaTransfer({required this.taskId, required this.url, required this.path});
+  final String taskId;
+  final String url;
+  final String path;
+}
+
+/// Fetches the files of one item, reporting the share done of all of them (0..1). Files that arrived stay at their
+/// path even when another one failed (which throws).
 abstract class MediaFetcher {
   Future<void> fetch({
-    required String taskId,
-    required String url,
+    required List<MediaTransfer> files,
     required Map<String, String> headers,
-    required String path,
     required String name,
     required bool wifiOnly,
     required void Function(double) onProgress,
@@ -193,45 +200,67 @@ abstract class MediaFetcher {
 /// Android and iOS: the system downloads, also while the app is in the background, with a notification.
 class BackgroundMediaFetcher extends MediaFetcher {
   final _downloader = FileDownloader();
-  bool _configured = false;
+  Future<void>? _setup;
 
   @override
   Future<void> fetch({
-    required String taskId,
-    required String url,
+    required List<MediaTransfer> files,
     required Map<String, String> headers,
-    required String path,
     required String name,
     required bool wifiOnly,
     required void Function(double) onProgress,
     required CancelToken cancel,
   }) async {
-    if (!_configured) {
-      _configured = true;
-      _downloader.configureNotificationForGroup(
-        'media',
-        running: const TaskNotification('{displayName}', '{progress}'),
-        progressBar: true,
+    // At most three files of a group at once; the rest wait natively, so a book keeps going in the background.
+    await (_setup ??= _downloader.configure(globalConfig: [(Config.holdingQueue, (null, null, 3))]));
+    // All files of an item share one notification ("12/78") that stays until the last one is done, instead of one
+    // notification per file that vanishes and comes back.
+    _downloader.configureNotificationForGroup(
+      'media',
+      running: TaskNotification(name, files.length > 1 ? '{numFinished}/{numTotal}' : '{progress}'),
+      progressBar: true,
+      groupNotificationId: files.length > 1 ? 'media' : '',
+    );
+    final tasks = <DownloadTask>[];
+    for (final file in files) {
+      final (baseDirectory, directory, filename) = await Task.split(filePath: file.path);
+      tasks.add(
+        DownloadTask(
+          taskId: file.taskId,
+          group: 'media',
+          url: file.url,
+          headers: headers,
+          baseDirectory: baseDirectory,
+          directory: directory,
+          filename: filename,
+          displayName: name,
+          retries: 3,
+          requiresWiFi: wifiOnly,
+          updates: Updates.statusAndProgress,
+          allowPause: false,
+        ),
       );
     }
-    final (baseDirectory, directory, filename) = await Task.split(filePath: path);
-    final task = DownloadTask(
-      taskId: taskId,
-      group: 'media',
-      url: url,
-      headers: headers,
-      baseDirectory: baseDirectory,
-      directory: directory,
-      filename: filename,
-      displayName: name,
-      retries: 3,
-      requiresWiFi: wifiOnly,
-      updates: Updates.statusAndProgress,
-      allowPause: false,
+    final index = {for (final (i, file) in files.indexed) file.taskId: i};
+    final progress = List.filled(files.length, 0.0);
+    void report() => onProgress(progress.fold(0.0, (a, b) => a + b) / files.length);
+    cancel.whenCancel.then((_) => _downloader.cancelTasksWithIds(index.keys)).ignore();
+    final batch = await _downloader.downloadBatch(
+      tasks,
+      taskProgressCallback: (update) {
+        final i = index[update.task.taskId];
+        if (i == null || update.progress < 0) return;
+        progress[i] = update.progress;
+        report();
+      },
+      taskStatusCallback: (update) {
+        final i = index[update.task.taskId];
+        if (i == null || update.status != TaskStatus.complete) return;
+        progress[i] = 1;
+        report();
+      },
     );
-    cancel.whenCancel.then((_) => _downloader.cancelTaskWithId(taskId)).ignore();
-    final result = await _downloader.download(task, onProgress: (p) => p >= 0 ? onProgress(p) : null);
-    if (result.status != TaskStatus.complete) throw Exception('download ${result.status.name}');
+    if (batch.numFailed > 0) throw Exception('${batch.numFailed} of ${files.length} files failed');
   }
 
   @override
@@ -240,27 +269,29 @@ class BackgroundMediaFetcher extends MediaFetcher {
   }
 }
 
-/// Desktop: the app downloads itself while it runs.
+/// Desktop: the app downloads itself while it runs, one file after the other.
 class DioMediaFetcher extends MediaFetcher {
   DioMediaFetcher(this._api);
   final ApiClient Function() _api;
 
   @override
   Future<void> fetch({
-    required String taskId,
-    required String url,
+    required List<MediaTransfer> files,
     required Map<String, String> headers,
-    required String path,
     required String name,
     required bool wifiOnly,
     required void Function(double) onProgress,
     required CancelToken cancel,
-  }) => _api().downloadMedia(
-    url,
-    (_) => path,
-    cancelToken: cancel,
-    onProgress: (received, total) => total > 0 ? onProgress(received / total) : null,
-  );
+  }) async {
+    for (final (i, file) in files.indexed) {
+      await _api().downloadMedia(
+        file.url,
+        (_) => file.path,
+        cancelToken: cancel,
+        onProgress: (received, total) => total > 0 ? onProgress((i + received / total) / files.length) : null,
+      );
+    }
+  }
 
   @override
   Future<void> cancelAll() async {}
@@ -546,30 +577,45 @@ class MediaDownloadsController extends Notifier<MediaDownloadsState> {
     final folder = Directory(state.folder(item));
     await folder.create(recursive: true);
     final count = item.files.length;
-    for (final (i, file) in item.files.indexed) {
-      final path = state.filePath(item, i);
-      if (await File(path).exists()) continue;
-      final part = '$path.part';
-      try {
+    // Files already on the device (from an interrupted earlier attempt) are kept.
+    final missing = [
+      for (final (i, file) in item.files.indexed)
+        if (!await File(state.filePath(item, i)).exists())
+          MediaTransfer(
+            taskId: 'media:${item.key}:$i',
+            url: _url(api, item, file),
+            path: '${state.filePath(item, i)}.part',
+          ),
+    ];
+    final share = (count - missing.length) / count;
+    try {
+      if (missing.isNotEmpty) {
         await fetcher.fetch(
-          taskId: 'media:${item.key}:$i',
-          url: _url(api, item, file),
+          files: missing,
           headers: api.mediaHeaders,
-          path: part,
           name: item.title,
           wifiOnly: ref.read(offlineSettingsProvider).wifiOnly,
           onProgress: (p) {
-            if (_current == item.key) _publish(progress: {...state.progress, item.key: (i + p) / count});
+            if (_current == item.key) {
+              _publish(progress: {...state.progress, item.key: share + p * missing.length / count});
+            }
           },
           cancel: cancel,
         );
-        if (cancel.isCancelled || !state.items.containsKey(item.key)) return;
-        await File(part).rename(path);
-      } finally {
-        final leftover = File(part);
-        if (await leftover.exists()) await leftover.delete();
+      }
+    } finally {
+      // Keep what arrived, also when another file failed; a removed item's folder goes away anyway.
+      for (final file in missing) {
+        final part = File(file.path);
+        if (!await part.exists()) continue;
+        if (cancel.isCancelled || !state.items.containsKey(item.key)) {
+          await part.delete();
+        } else {
+          await part.rename(file.path.substring(0, file.path.length - '.part'.length));
+        }
       }
     }
+    if (cancel.isCancelled || !state.items.containsKey(item.key)) return;
     if (item.coverUrl != null) {
       // Plain client: episode covers are on other hosts, which must not get the token header.
       try {

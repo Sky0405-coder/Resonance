@@ -98,27 +98,38 @@ class _Api extends ApiClient {
 
 class _Fetcher extends MediaFetcher {
   final urls = <String>[];
-  final tasks = <String>[];
+  final batches = <List<String>>[];
+  final names = <String>[];
   Completer<void>? hold;
   bool fail = false;
 
+  /// URLs that fail once while the other files of the batch arrive.
+  final failOnce = <String>{};
+
   @override
   Future<void> fetch({
-    required String taskId,
-    required String url,
+    required List<MediaTransfer> files,
     required Map<String, String> headers,
-    required String path,
     required String name,
     required bool wifiOnly,
     required void Function(double) onProgress,
     required CancelToken cancel,
   }) async {
-    urls.add(url);
-    tasks.add(taskId);
+    batches.add([for (final file in files) file.taskId]);
+    names.add(name);
     if (fail) throw ApiException('unreachable');
-    await File(path).writeAsBytes([1, 2, 3]);
+    var failed = 0;
+    for (final file in files) {
+      urls.add(file.url);
+      if (failOnce.remove(file.url)) {
+        failed++;
+      } else {
+        await File(file.path).writeAsBytes([1, 2, 3]);
+      }
+    }
     onProgress(0.5);
     if (hold != null) await hold!.future;
+    if (failed > 0) throw ApiException('unreachable');
   }
 
   @override
@@ -230,6 +241,22 @@ void main() {
     await removing;
     expect(downloads().items.containsKey('episode:e1'), isFalse);
     expect(Directory('${directory.path}/episode/e1').existsSync(), isFalse);
+  });
+
+  test('an audiobook goes out as one batch, and a retry fetches only the missing files', () async {
+    fetcher.failOnce.add('http://test/api/abs/api/items/b1/file/2?token=token');
+    await controller().addAudiobook('b1');
+    await _until(() => downloads().phase('audiobook', 'b1') == MediaDownloadPhase.failed);
+    expect(fetcher.batches.single, ['media:audiobook:b1:0', 'media:audiobook:b1:1']);
+    expect(fetcher.names.single, 'Book');
+    final item = downloads().item('audiobook', 'b1')!;
+    expect(File(downloads().filePath(item, 0)).existsSync(), isTrue);
+    expect(File('${downloads().filePath(item, 1)}.part').existsSync(), isFalse);
+
+    controller().retry('audiobook:b1');
+    await _until(() => downloads().ready('audiobook', 'b1') != null);
+    expect(fetcher.batches.last, ['media:audiobook:b1:1']);
+    expect(downloads().ready('audiobook', 'b1')!.size, 6);
   });
 
   test('positions listened to offline reach the server later', () async {
