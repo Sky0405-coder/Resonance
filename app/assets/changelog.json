@@ -1,5 +1,21 @@
 [
   {
+    "version": "1.6.18",
+    "date": "2026-10-28",
+    "de": [
+      "Podcast-Folgen, Hörbücher und E-Books aufs Gerät laden: Folgen über die Shownotes oder das ⋮-Menü, Hörbücher und E-Books über den Download-Knopf auf ihrer Seite. Offline stehen sie auf der Startseite unter „Podcasts, Hörbücher & E-Books“, Folgen und Hörbücher spielen dann aus der Datei, E-Books öffnen sich in deiner Lese-App.",
+      "Offline gehörte Positionen merkt sich die App und schickt sie an den Server bzw. Audiobookshelf, sobald du wieder online bist.",
+      "Die Einstellungen zeigen den Speicher dieser Downloads, und „Alle Downloads löschen“ entfernt sie mit.",
+      "Downloads: Songs, die es nur auf Bandcamp frei gibt, werden jetzt dort gefunden, und Bandcamp-Links lassen sich als eigene Quelle angeben. Auf YouTube werden auch Uploads von Labels gefunden, die als „Interpret - Titel“ benannt sind."
+    ],
+    "en": [
+      "Download podcast episodes, audiobooks and ebooks to the device: episodes from the show notes or the ⋮ menu, audiobooks and ebooks with the download button on their page. Offline they are on the home page under \"Podcasts, audiobooks & ebooks\"; episodes and audiobooks play from the file, ebooks open in your reading app.",
+      "Positions listened to offline are remembered and sent to the server or Audiobookshelf once you are back online.",
+      "Settings show the storage these downloads use, and \"Delete all downloads\" removes them too.",
+      "Downloads: songs only freely available on Bandcamp are now found there, and Bandcamp links can be given as your own source. On YouTube, label uploads named \"Artist - Title\" are found as well."
+    ]
+  },
+  {
     "version": "1.6.17",
     "date": "2026-10-27",
     "de": [
