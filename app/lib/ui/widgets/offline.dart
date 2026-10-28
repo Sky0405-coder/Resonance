@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
+import '../../offline/media_downloads.dart';
 import '../../offline/offline_store.dart';
 import 'collection.dart';
 import 'common.dart';
+import 'media_download.dart';
 
 class OfflineDownloadButton extends ConsumerStatefulWidget {
   const OfflineDownloadButton({super.key, required this.kind, required this.id});
@@ -91,12 +93,13 @@ class OfflineCollections extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (kIsWeb) return const SizedBox.shrink();
     final offline = ref.watch(offlineProvider);
+    final media = ref.watch(mediaDownloadsProvider.select((s) => s.items.isNotEmpty));
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(top: 8, bottom: kBottomInset),
       children: [
         ?heading,
-        if (offline.collections.isEmpty)
+        if (offline.collections.isEmpty && !media)
           Padding(
             padding: const EdgeInsets.all(32),
             child: Text(
@@ -107,6 +110,7 @@ class OfflineCollections extends ConsumerWidget {
           ),
         for (final collection in offline.collections.values)
           _CollectionTile(collection: collection, status: offline.status(collection.key)),
+        const MediaDownloadsSection(),
       ],
     );
   }

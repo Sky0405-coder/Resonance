@@ -23,6 +23,7 @@ import '../../player/connect.dart';
 import '../../player/spectrum.dart';
 import '../../player/visualizer_themes.dart';
 import '../../player/equalizer_controller.dart';
+import '../../offline/media_downloads.dart';
 import '../../offline/offline_store.dart';
 import 'equalizer_page.dart';
 import '../widgets/collection.dart';
@@ -718,13 +719,17 @@ class _OfflineSettings extends ConsumerWidget {
     final settings = ref.watch(offlineSettingsProvider);
     final offline = ref.watch(offlineProvider);
     final controller = ref.read(offlineSettingsProvider.notifier);
-    final bytes = offline.totalBytes;
-    final gigabytes = bytes >= 1024 * 1024 * 1024;
-    final value = NumberFormat(
-      '0.0',
-      Localizations.localeOf(context).toLanguageTag(),
-    ).format(bytes / (gigabytes ? 1024 * 1024 * 1024 : 1024 * 1024));
-    final size = gigabytes ? context.l10n.offlineGigabytes(value) : context.l10n.offlineMegabytes(value);
+    final media = ref.watch(mediaDownloadsProvider);
+    String format(int bytes) {
+      final gigabytes = bytes >= 1024 * 1024 * 1024;
+      final value = NumberFormat(
+        '0.0',
+        Localizations.localeOf(context).toLanguageTag(),
+      ).format(bytes / (gigabytes ? 1024 * 1024 * 1024 : 1024 * 1024));
+      return gigabytes ? context.l10n.offlineGigabytes(value) : context.l10n.offlineMegabytes(value);
+    }
+
+    final size = format(offline.totalBytes);
     final count = offline.tracks.keys.where(offline.isDownloaded).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -762,6 +767,12 @@ class _OfflineSettings extends ConsumerWidget {
             ].join('\n'),
           ),
         ),
+        if (media.items.isNotEmpty)
+          ListTile(
+            leading: const Icon(Icons.headphones),
+            title: Text(context.l10n.mediaStorage),
+            subtitle: Text(context.l10n.mediaStorageUsed(format(media.totalBytes), media.items.length)),
+          ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: OutlinedButton(
@@ -769,6 +780,7 @@ class _OfflineSettings extends ConsumerWidget {
               if (!await confirmOfflineDelete(context, context.l10n.offlineClearConfirm)) return;
               try {
                 await ref.read(offlineProvider.notifier).clearAll();
+                await ref.read(mediaDownloadsProvider.notifier).clearAll();
               } catch (e) {
                 if (context.mounted) showError(context, e);
               }

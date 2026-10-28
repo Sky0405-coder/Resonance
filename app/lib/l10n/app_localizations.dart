@@ -3479,13 +3479,13 @@ abstract class AppLocalizations {
   /// No description provided for @offlineBanner.
   ///
   /// In de, this message translates to:
-  /// **'Offline – nur heruntergeladene Musik'**
+  /// **'Offline – nur Heruntergeladenes'**
   String get offlineBanner;
 
   /// No description provided for @offlineEmptyHint.
   ///
   /// In de, this message translates to:
-  /// **'Lade Alben und Playlists herunter, um sie offline zu hören.'**
+  /// **'Lade Alben, Playlists, Podcast-Folgen, Hörbücher und E-Books herunter, um sie offline zu nutzen.'**
   String get offlineEmptyHint;
 
   /// No description provided for @offlineDownloaded.
@@ -5485,6 +5485,84 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Klingeltöne aus Songs brauchen Android 10 oder neuer'**
   String get ringtoneUnsupported;
+
+  /// No description provided for @mediaDownload.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufs Gerät laden'**
+  String get mediaDownload;
+
+  /// No description provided for @mediaDownloaded.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf dem Gerät'**
+  String get mediaDownloaded;
+
+  /// No description provided for @mediaDownloading.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird aufs Gerät geladen …'**
+  String get mediaDownloading;
+
+  /// No description provided for @mediaRemoveTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Vom Gerät löschen?'**
+  String get mediaRemoveTitle;
+
+  /// No description provided for @mediaRemove.
+  ///
+  /// In de, this message translates to:
+  /// **'Vom Gerät löschen'**
+  String get mediaRemove;
+
+  /// No description provided for @mediaFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Download fehlgeschlagen – tippen zum Wiederholen'**
+  String get mediaFailed;
+
+  /// No description provided for @mediaSection.
+  ///
+  /// In de, this message translates to:
+  /// **'Podcasts, Hörbücher & E-Books'**
+  String get mediaSection;
+
+  /// No description provided for @mediaOpen.
+  ///
+  /// In de, this message translates to:
+  /// **'Öffnen'**
+  String get mediaOpen;
+
+  /// No description provided for @mediaOpenFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine App zum Öffnen dieser Datei gefunden'**
+  String get mediaOpenFailed;
+
+  /// No description provided for @mediaStorage.
+  ///
+  /// In de, this message translates to:
+  /// **'Podcasts, Hörbücher & E-Books'**
+  String get mediaStorage;
+
+  /// No description provided for @mediaStorageUsed.
+  ///
+  /// In de, this message translates to:
+  /// **'{size} • {count} auf dem Gerät'**
+  String mediaStorageUsed(String size, int count);
+
+  /// No description provided for @mediaKindEpisode.
+  ///
+  /// In de, this message translates to:
+  /// **'Podcast-Folge'**
+  String get mediaKindEpisode;
+
+  /// No description provided for @mediaKindEbook.
+  ///
+  /// In de, this message translates to:
+  /// **'E-Book'**
+  String get mediaKindEbook;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

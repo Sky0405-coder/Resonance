@@ -27,7 +27,12 @@ class _Api extends ApiClient {
       (start: 62.0, duration: 200.0, levels: [for (var i = 0; i < 200; i++) (i % 7) / 7]);
 
   @override
-  Future<void> downloadMedia(String url, String Function(String? contentType) destination, {cancelToken}) async {
+  Future<void> downloadMedia(
+    String url,
+    String Function(String? contentType) destination, {
+    cancelToken,
+    onProgress,
+  }) async {
     downloads.add(url);
     destination('audio/mpeg');
   }

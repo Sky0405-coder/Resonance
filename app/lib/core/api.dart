@@ -86,11 +86,13 @@ class ApiClient {
     String url,
     String Function(String? contentType) destination, {
     CancelToken? cancelToken,
+    void Function(int received, int total)? onProgress,
   }) => _call(() async {
     await _dio.download(
       url,
       (Headers headers) => destination(headers.value('content-type')),
       cancelToken: cancelToken,
+      onReceiveProgress: onProgress,
       options: Options(receiveTimeout: const Duration(minutes: 10)),
     );
   });

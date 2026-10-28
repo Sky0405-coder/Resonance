@@ -1997,10 +1997,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminRadioPlaylistRetention => 'Keep radios (days since last use, 0 = forever)';
 
   @override
-  String get offlineBanner => 'Offline – downloaded music only';
+  String get offlineBanner => 'Offline – downloads only';
 
   @override
-  String get offlineEmptyHint => 'Download albums and playlists to listen offline.';
+  String get offlineEmptyHint =>
+      'Download albums, playlists, podcast episodes, audiobooks and ebooks to use them offline.';
 
   @override
   String get offlineDownloaded => 'Downloaded';
@@ -3096,4 +3097,45 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ringtoneUnsupported => 'Ringtones from songs need Android 10 or newer';
+
+  @override
+  String get mediaDownload => 'Download to device';
+
+  @override
+  String get mediaDownloaded => 'On this device';
+
+  @override
+  String get mediaDownloading => 'Downloading to device …';
+
+  @override
+  String get mediaRemoveTitle => 'Remove from device?';
+
+  @override
+  String get mediaRemove => 'Remove from device';
+
+  @override
+  String get mediaFailed => 'Download failed – tap to retry';
+
+  @override
+  String get mediaSection => 'Podcasts, audiobooks & ebooks';
+
+  @override
+  String get mediaOpen => 'Open';
+
+  @override
+  String get mediaOpenFailed => 'No app found to open this file';
+
+  @override
+  String get mediaStorage => 'Podcasts, audiobooks & ebooks';
+
+  @override
+  String mediaStorageUsed(String size, int count) {
+    return '$size • $count on this device';
+  }
+
+  @override
+  String get mediaKindEpisode => 'Podcast episode';
+
+  @override
+  String get mediaKindEbook => 'Ebook';
 }

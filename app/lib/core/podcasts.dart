@@ -99,6 +99,22 @@ class PodcastEpisode {
     completed: j['completed'] ?? false,
     adsRemovedSeconds: (j['ads_removed_seconds'] as num?)?.toDouble(),
   );
+
+  /// Kept with a downloaded episode, to play it without the server.
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'podcast_id': podcastId,
+    'title': title,
+    'podcast_title': podcastTitle,
+    'description': description,
+    'image_url': imageUrl,
+    'podcast_image_url': podcastImageUrl,
+    'published_at': publishedAt?.toIso8601String(),
+    'duration_seconds': durationSeconds,
+    'position_seconds': positionSeconds,
+    'completed': completed,
+    'ads_removed_seconds': adsRemovedSeconds,
+  };
 }
 
 class PodcastSearchResult {

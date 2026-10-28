@@ -17,6 +17,7 @@ import 'core/desktop.dart';
 import 'core/changelog.dart';
 import 'core/session.dart';
 import 'integrations/discord_presence.dart';
+import 'offline/media_downloads.dart';
 import 'offline/offline_store.dart';
 import 'player/audio_handler.dart';
 import 'core/theme.dart';
@@ -51,6 +52,7 @@ Future<void> main() async {
     ],
   );
   if (!kIsWeb) await container.read(offlineProvider.notifier).load();
+  if (!kIsWeb) await container.read(mediaDownloadsProvider.notifier).load();
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
     // Playback category: keeps playing when locked / in the background and ignores the silent switch.
     await (await AudioSession.instance).configure(const AudioSessionConfiguration.music());

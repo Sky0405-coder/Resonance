@@ -14,6 +14,7 @@ import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import 'audiobook_stats_page.dart';
+import '../widgets/media_download.dart';
 import '../widgets/media_widgets.dart';
 
 /// "1 Std. 23 Min." / "45 Min."
@@ -611,6 +612,7 @@ class AudiobookPage extends ConsumerWidget {
                         context.l10n.audiobooksContinueListening,
                         style: TextStyle(color: Theme.of(context).colorScheme.primary),
                       ),
+                    MediaDownloadButton(kind: 'audiobook', id: id, onAdd: (downloads) => downloads.addAudiobook(id)),
                     PopupMenuButton<String>(
                       useRootNavigator: true,
                       icon: const Icon(Icons.more_horiz, color: Palette.textMuted),

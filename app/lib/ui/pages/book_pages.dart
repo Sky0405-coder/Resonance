@@ -10,8 +10,10 @@ import '../../core/podcasts.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
+import '../../offline/media_downloads.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
+import '../widgets/media_download.dart';
 import '../widgets/media_widgets.dart';
 import '../widgets/track_list.dart';
 import 'audiobook_pages.dart';
@@ -675,6 +677,8 @@ class BookPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final book = ref.watch(bookProvider(id));
     final isAdmin = ref.watch(sessionProvider.select((s) => s.user?.isAdmin ?? false));
+    final downloads = ref.watch(mediaDownloadsProvider);
+    final local = downloads.ready('ebook', id);
     return Scaffold(
       appBar: AppBar(
         actions: [
@@ -725,15 +729,28 @@ class BookPage extends ConsumerWidget {
                 style: const TextStyle(color: Palette.textMuted, fontSize: 13),
               ),
               const SizedBox(height: 20),
-              Center(
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.download),
-                  label: Text(context.l10n.booksDownload),
-                  onPressed: () => launchUrl(
-                    Uri.parse(ref.read(apiProvider).bookFileUrl(b.id)),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Once on the device it opens from there, also offline.
+                  if (local != null)
+                    FilledButton.icon(
+                      icon: const Icon(Icons.menu_book),
+                      label: Text(context.l10n.mediaOpen),
+                      onPressed: () => openEbookFile(context, downloads.filePath(local, 0)),
+                    )
+                  else
+                    FilledButton.icon(
+                      icon: const Icon(Icons.download),
+                      label: Text(context.l10n.booksDownload),
+                      onPressed: () => launchUrl(
+                        Uri.parse(ref.read(apiProvider).bookFileUrl(b.id)),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  MediaDownloadButton(kind: 'ebook', id: b.id, onAdd: (downloads) => downloads.addEbook(b.id)),
+                ],
               ),
               if (b.description != null) ...[const SizedBox(height: 24), Text(b.description!)],
             ],

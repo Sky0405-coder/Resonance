@@ -15,6 +15,7 @@ import 'radio_follow.dart';
 
 import '../core/api.dart';
 import '../core/downloads.dart';
+import '../offline/media_downloads.dart';
 import '../offline/offline_store.dart';
 import '../core/audiobooks.dart';
 import '../core/podcasts.dart';
@@ -1047,10 +1048,26 @@ class PlayerController extends Notifier<PlayerView> {
 
   /// Uses the same single-source spoken-word mode as audiobooks, without an ABS session.
   Future<void> playEpisode(PodcastEpisode episode) => _switch(() async {
-    final current = await _api.podcastEpisode(episode.id);
-    final url = _api.episodeStreamUrl(current.id);
+    final downloads = kIsWeb ? null : ref.read(mediaDownloadsProvider);
+    final download = downloads?.ready('episode', episode.id);
+    PodcastEpisode current;
+    double position;
+    if (download == null) {
+      current = await _api.podcastEpisode(episode.id);
+      position = current.completed ? 0.0 : current.positionSeconds;
+    } else {
+      // Downloaded: the saved file and its data, with the newer of the server's and this device's position.
+      current = download.episode;
+      final server = ref.read(sessionProvider).offline || download.pending
+          ? null
+          : await _api.podcastEpisode(episode.id).then<PodcastEpisode?>((e) => e, onError: (Object _) => null);
+      final completed = server?.completed ?? download.completed;
+      position = completed ? 0.0 : server?.positionSeconds ?? download.position ?? current.positionSeconds;
+    }
+    final url = download == null
+        ? _api.episodeStreamUrl(current.id)
+        : Uri.file(downloads!.filePath(download, 0)).toString();
     final duration = current.durationSeconds ?? 0;
-    final position = current.completed ? 0.0 : current.positionSeconds;
     final book = BookPlayback(
       itemId: current.id,
       sessionId: '',
@@ -1079,34 +1096,72 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   /// Starts an Audiobookshelf playback session and plays it from the saved position
-  /// (or from [startAt] seconds, e.g. a chapter).
+  /// (or from [startAt] seconds, e.g. a chapter). Downloaded books play their files on the device, and without a
+  /// session when the server cannot be reached.
   Future<void> playBook(AbsItem item, {double? startAt}) => _switch(() async {
-    final s = await _api.absPost('items/${item.id}/play', {
-      'deviceInfo': {'clientName': 'Resonance', 'deviceName': 'Resonance'},
-      'forceDirectPlay': true,
-      'forceTranscode': false,
-      'mediaPlayer': 'resonance',
-      'supportedMimeTypes': ['audio/flac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/aac', 'audio/x-m4b'],
-    });
+    final downloads = kIsWeb ? null : ref.read(mediaDownloadsProvider);
+    final download = downloads?.ready('audiobook', item.id);
+    // Positions listened to offline go first, so the session starts from them.
+    if (download != null && download.pending && !ref.read(sessionProvider).offline) {
+      await ref.read(mediaDownloadsProvider.notifier).flush();
+    }
+    Map<String, dynamic>? s;
+    try {
+      if (download == null || !ref.read(sessionProvider).offline) {
+        s = Map<String, dynamic>.from(
+          await _api.absPost('items/${item.id}/play', {
+            'deviceInfo': {'clientName': 'Resonance', 'deviceName': 'Resonance'},
+            'forceDirectPlay': true,
+            'forceTranscode': false,
+            'mediaPlayer': 'resonance',
+            'supportedMimeTypes': ['audio/flac', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/aac', 'audio/x-m4b'],
+          }),
+        );
+      }
+    } catch (_) {
+      if (download == null) rethrow;
+    }
     final coverUrl = _api.absUrl('items/${item.id}/cover', {'width': '600'});
+    final local = download == null
+        ? null
+        : [
+            for (final (i, f) in download.files.indexed)
+              BookPart(
+                url: Uri.file(downloads!.filePath(download, i)).toString(),
+                start: f.start,
+                duration: f.duration,
+              ),
+          ];
+    final stored = download == null ? null : AbsItem.fromJson(download.data, _l10n);
+    final tracks = s?['audioTracks'] as List?;
     final book = BookPlayback(
       itemId: item.id,
-      sessionId: s['id'],
-      title: s['displayTitle'] ?? item.title,
-      author: s['displayAuthor'] ?? item.author,
+      sessionId: s?['id'] ?? '',
+      title: s?['displayTitle'] ?? item.title,
+      author: s?['displayAuthor'] ?? item.author,
       coverUrl: coverUrl,
-      duration: (s['duration'] as num?)?.toDouble() ?? item.duration,
-      parts: [
-        for (final t in s['audioTracks'])
-          BookPart(
-            url: _api.absUrl((t['contentUrl'] as String).replaceFirst(RegExp(r'^/api/'), '')),
-            start: (t['startOffset'] as num).toDouble(),
-            duration: (t['duration'] as num).toDouble(),
-          ),
-      ],
-      chapters: [for (final c in (s['chapters'] as List? ?? const [])) AbsChapter.fromJson(c)],
+      duration: (s?['duration'] as num?)?.toDouble() ?? stored?.duration ?? item.duration,
+      // The session's files unless the same ones are on the device.
+      parts: local != null && (tracks == null || tracks.length == local.length)
+          ? local
+          : [
+              for (final t in tracks!)
+                BookPart(
+                  url: _api.absUrl((t['contentUrl'] as String).replaceFirst(RegExp(r'^/api/'), '')),
+                  start: (t['startOffset'] as num).toDouble(),
+                  duration: (t['duration'] as num).toDouble(),
+                ),
+            ],
+      chapters: s == null
+          ? stored!.chapters
+          : [for (final c in (s['chapters'] as List? ?? const [])) AbsChapter.fromJson(c)],
     );
-    final position = startAt ?? (s['currentTime'] as num?)?.toDouble() ?? 0;
+    final position =
+        startAt ??
+        (s?['currentTime'] as num?)?.toDouble() ??
+        (download?.completed ?? false ? 0 : download?.position) ??
+        item.progress?.currentTime ??
+        0;
     var index = book.parts.lastIndexWhere((p) => p.start <= position);
     if (index < 0) index = 0;
     await _replacePlayback(
@@ -1140,6 +1195,7 @@ class PlayerController extends Notifier<PlayerView> {
     final book = state.book;
     if (book == null) return;
     final episode = book.episode;
+    final downloads = kIsWeb ? null : ref.read(mediaDownloadsProvider.notifier);
     if (episode != null) {
       final seconds = position ?? bookPosition;
       final length = duration ?? _spokenDuration;
@@ -1153,22 +1209,38 @@ class PlayerController extends Notifier<PlayerView> {
       _pendingEpisodeSync = pending.catchError((Object _) {});
       try {
         await pending;
+        downloads?.savePosition('episode', episode.id, seconds, completed: finished, synced: true);
         ref.invalidate(podcastContinueProvider);
         ref.invalidate(podcastSubscriptionsProvider);
         ref.invalidate(podcastProvider(episode.podcastId));
       } catch (_) {
-        // A subsequent periodic save, pause or stop retries the current position.
+        // A downloaded episode keeps the position for later; otherwise the next save retries it.
+        downloads?.savePosition('episode', episode.id, seconds, completed: finished, synced: false);
       }
       return;
     }
     final listened = _bookListened;
     _bookListened = 0;
-    final body = {'currentTime': position ?? bookPosition, 'timeListened': listened, 'duration': book.duration};
+    final seconds = position ?? bookPosition;
+    final finished = book.duration > 0 && seconds >= book.duration - 30;
     try {
-      await _api.absPost('session/${book.sessionId}/${close ? 'close' : 'sync'}', body);
+      if (book.sessionId.isEmpty) {
+        // Started offline: no session, only the position.
+        await _api.absPatch('me/progress/${book.itemId}', {
+          'currentTime': seconds,
+          'duration': book.duration,
+          'progress': book.duration > 0 ? (seconds / book.duration).clamp(0, 1) : 0,
+          'isFinished': finished,
+        });
+      } else {
+        final body = {'currentTime': seconds, 'timeListened': listened, 'duration': book.duration};
+        await _api.absPost('session/${book.sessionId}/${close ? 'close' : 'sync'}', body);
+      }
+      downloads?.savePosition('audiobook', book.itemId, seconds, completed: finished, synced: true);
     } catch (_) {
       // Offline or session expired: keep the time for the next attempt.
       _bookListened += listened;
+      downloads?.savePosition('audiobook', book.itemId, seconds, completed: finished, synced: false);
     }
   }
 

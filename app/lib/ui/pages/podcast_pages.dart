@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/podcasts.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../offline/media_downloads.dart';
 import '../../l10n/l10n.dart';
 import '../../player/player.dart';
 import '../../player/spectrum.dart';
@@ -17,7 +19,9 @@ import '../widgets/catalog.dart';
 import '../widgets/collection.dart';
 import '../widgets/track_list.dart';
 import '../widgets/common.dart';
+import '../widgets/media_download.dart';
 import '../widgets/media_widgets.dart';
+import '../widgets/offline.dart';
 
 void _changed(WidgetRef ref, String id) {
   ref.invalidate(podcastSubscriptionsProvider);
@@ -797,6 +801,24 @@ Future<void> setEpisodePlayed(BuildContext context, WidgetRef ref, PodcastEpisod
   }
 }
 
+Future<void> _toggleDownload(
+  BuildContext context,
+  WidgetRef ref,
+  PodcastEpisode episode,
+  MediaDownloadPhase phase,
+) async {
+  final downloads = ref.read(mediaDownloadsProvider.notifier);
+  try {
+    if (phase == MediaDownloadPhase.none) {
+      await downloads.addEpisode(episode);
+    } else if (await confirmOfflineDelete(context, context.l10n.mediaRemoveTitle)) {
+      await downloads.remove('episode:${episode.id}');
+    }
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+  }
+}
+
 /// Show notes of an episode with play and played/unplayed actions.
 Future<void> showEpisodeSheet(BuildContext context, WidgetRef ref, PodcastEpisode episode) => showModalBottomSheet(
   context: context,
@@ -835,6 +857,12 @@ Future<void> showEpisodeSheet(BuildContext context, WidgetRef ref, PodcastEpisod
                   ),
                 ],
               ),
+            ),
+            MediaDownloadButton(
+              kind: 'episode',
+              id: episode.id,
+              size: 28,
+              onAdd: (downloads) => downloads.addEpisode(episode),
             ),
           ],
         ),
@@ -1012,6 +1040,7 @@ class PodcastEpisodeTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accent = Theme.of(context).colorScheme.primary;
     final playing = ref.watch(playerProvider.select((p) => p.book?.episode?.id == episode.id));
+    final download = ref.watch(mediaDownloadsProvider.select((s) => s.phase('episode', episode.id)));
     final duration = episode.durationSeconds;
     final progress = episode.completed
         ? 1.0
@@ -1045,7 +1074,15 @@ class PodcastEpisodeTile extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: Palette.textMuted, fontSize: 12.5, fontWeight: FontWeight.w600),
                       ),
-                    _EpisodeMeta(episode: episode),
+                    Row(
+                      children: [
+                        if (download == MediaDownloadPhase.done) ...[
+                          Icon(Icons.download_for_offline, size: 14, color: accent),
+                          const SizedBox(width: 4),
+                        ],
+                        Expanded(child: _EpisodeMeta(episode: episode)),
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       episode.title,
@@ -1106,6 +1143,7 @@ class PodcastEpisodeTile extends ConsumerWidget {
                 onSelected: (action) => switch (action) {
                   'played' => setEpisodePlayed(context, ref, episode, !episode.completed),
                   'notes' => showEpisodeSheet(context, ref, episode),
+                  'download' => _toggleDownload(context, ref, episode, download),
                   _ => null,
                 },
                 itemBuilder: (_) => [
@@ -1122,6 +1160,20 @@ class PodcastEpisodeTile extends ConsumerWidget {
                     value: 'notes',
                     child: _MenuRow(icon: const Icon(Icons.notes), label: Text(context.l10n.podcastsShowNotes)),
                   ),
+                  if (!kIsWeb)
+                    PopupMenuItem(
+                      value: 'download',
+                      child: _MenuRow(
+                        icon: Icon(
+                          download == MediaDownloadPhase.none
+                              ? Icons.download_for_offline_outlined
+                              : Icons.delete_outline,
+                        ),
+                        label: Text(
+                          download == MediaDownloadPhase.none ? context.l10n.mediaDownload : context.l10n.mediaRemove,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],

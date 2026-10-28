@@ -19,6 +19,7 @@ import 'package:resonance/core/podcasts.dart';
 import 'package:resonance/core/session.dart';
 import 'package:resonance/core/tv_mode.dart';
 import 'package:resonance/l10n/l10n.dart';
+import 'package:resonance/offline/media_downloads.dart';
 import 'package:resonance/offline/offline_store.dart';
 import 'package:resonance/player/engine.dart';
 import 'package:resonance/player/equalizer.dart';
@@ -73,6 +74,7 @@ class _Api extends ApiClient {
     durationSeconds: 180,
   );
   final saves = <(String, double, bool)>[];
+  bool failSaves = false;
   final queries = <String>[];
   final feeds = <String>[];
   final pages = <int>[];
@@ -88,6 +90,7 @@ class _Api extends ApiClient {
   Future<PodcastEpisode> podcastEpisode(String id) async => episode;
   @override
   Future<void> saveEpisodeProgress(String id, double position, {required bool completed}) async {
+    if (failSaves) throw ApiException('offline');
     saves.add((id, position, completed));
   }
 
@@ -271,6 +274,26 @@ class _Engine implements PlaybackEngine {
 class _Offline extends OfflineController {
   @override
   OfflineState build() => const OfflineState();
+}
+
+class _Media extends MediaDownloadsController {
+  _Media(this.initial);
+  final MediaDownloadsState initial;
+  final positions = <(String, double, bool)>[];
+
+  @override
+  MediaDownloadsState build() => initial;
+
+  @override
+  Future<void> savePosition(
+    String kind,
+    String id,
+    double position, {
+    required bool completed,
+    required bool synced,
+  }) async {
+    positions.add(('$kind:$id', position, synced));
+  }
 }
 
 class _Session extends SessionNotifier {
@@ -460,6 +483,56 @@ void main() {
     expect(engine.isBook, false);
     expect(engine.speed, 1);
     expect(api.absCalls, 0);
+  });
+
+  testWidgets('downloaded episodes play their file and keep positions the server did not get', (tester) async {
+    final download = MediaDownload(
+      kind: 'episode',
+      id: 'episode',
+      title: 'Saved title',
+      data: const PodcastEpisode(
+        id: 'episode',
+        podcastId: 'podcast',
+        title: 'Saved title',
+        podcastTitle: 'Podcast',
+        durationSeconds: 300,
+      ).toJson(),
+      files: const [MediaFile(name: 'episode.mp3')],
+      addedAt: DateTime.utc(2026),
+      done: true,
+      position: 200,
+      pending: true,
+    );
+    final media = _Media(MediaDownloadsState(items: {download.key: download}, directory: '/data/media'));
+    container.dispose();
+    container = ProviderContainer(
+      overrides: [
+        apiProvider.overrideWithValue(api),
+        prefsProvider.overrideWithValue(await SharedPreferences.getInstance()),
+        playerProvider.overrideWith(() => PlayerController(engine: engine)),
+        offlineProvider.overrideWith(_Offline.new),
+        sessionProvider.overrideWith(_Session.new),
+        connectProvider.overrideWith(_Connect.new),
+        mediaDownloadsProvider.overrideWith(() => media),
+      ],
+    );
+    final player = container.read(playerProvider.notifier);
+    await player.playEpisode(_episode);
+    final source = engine.audioSources.single() as UriAudioSource;
+    expect(source.uri, Uri.file('/data/media/episode/episode/episode.mp3'));
+    // This device's newer position, not the server's 60 seconds.
+    expect(engine.position, const Duration(seconds: 200));
+    expect(container.read(playerProvider).book!.title, 'Saved title');
+    api.failSaves = true;
+    engine.position = const Duration(seconds: 210);
+    await player.pause();
+    expect(media.positions.last, ('episode:episode', 210.0, false));
+    api.failSaves = false;
+    engine.position = const Duration(seconds: 220);
+    await player.pause();
+    expect(media.positions.last, ('episode:episode', 220.0, true));
+    expect(api.saves.last, ('episode', 220.0, false));
+    container.dispose();
   });
 
   testWidgets('unknown feed durations use engine duration, skips clamp, completed episodes restart', (tester) async {

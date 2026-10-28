@@ -164,7 +164,12 @@ class _Api extends ApiClient {
   }
 
   @override
-  Future<void> downloadMedia(String url, String Function(String?) destination, {CancelToken? cancelToken}) async {
+  Future<void> downloadMedia(
+    String url,
+    String Function(String?) destination, {
+    CancelToken? cancelToken,
+    void Function(int, int)? onProgress,
+  }) async {
     final uri = Uri.parse(url);
     downloaded.add(uri);
     final path = destination(contentTypes[uri.pathSegments[2]] ?? 'audio/flac');
