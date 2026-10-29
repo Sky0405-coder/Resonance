@@ -790,7 +790,119 @@ class _BookNowPlaying extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final short = constraints.maxHeight < 700;
+        // Phones in landscape: cover on the left, controls on the right, like the music player.
+        final landscape = constraints.maxWidth > constraints.maxHeight && constraints.maxHeight < 600;
+        final short = landscape || constraints.maxHeight < 700;
+        final cover = ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 440),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 40, offset: Offset(0, 18))],
+              ),
+              child: NetworkCover(
+                url: book.coverUrl.isEmpty ? null : book.coverUrl,
+                radius: 14,
+                icon: episode != null ? Icons.podcasts : Icons.headphones,
+              ),
+            ),
+          ),
+        );
+        final controls = ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                book.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              if (book.author != null && episode == null)
+                Text(
+                  book.author!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Palette.textMuted, fontSize: 16),
+                ),
+              if (chapter != null) ...[
+                SizedBox(height: short ? 10 : 16),
+                _ChapterCard(book: book, chapter: chapter, index: chapterIndex, position: position, speed: speed),
+              ],
+              SizedBox(height: short ? 6 : 12),
+              const SeekBar(),
+              Center(
+                child: Text(
+                  [
+                    l10n.audiobooksTimeRemaining(formatRemaining(l10n, remaining / speed)),
+                    if (speed != 1) l10n.playerAtSpeed(speedText),
+                  ].join(' '),
+                  style: const TextStyle(color: Palette.textMuted, fontSize: 12.5),
+                ),
+              ),
+              SizedBox(height: short ? 4 : 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  if (book.chapters.isNotEmpty)
+                    IconButton(
+                      tooltip: l10n.audiobooksPreviousChapter,
+                      iconSize: 30,
+                      onPressed: chapter == null ? null : previousChapter,
+                      icon: const Icon(Icons.skip_previous_rounded),
+                    ),
+                  IconButton(
+                    tooltip: episode != null ? l10n.podcastsSkipBack : l10n.playerSkipBack,
+                    iconSize: 36,
+                    icon: episode != null
+                        ? const _SkipIcon(seconds: 15, forward: false)
+                        : const _SkipIcon(seconds: 30, forward: false),
+                    onPressed: () => ctrl.skipBook(episode != null ? -15 : -30),
+                  ),
+                  const TransportControls(big: true, playPauseOnly: true),
+                  IconButton(
+                    tooltip: l10n.playerSkipForward,
+                    iconSize: 36,
+                    icon: const _SkipIcon(seconds: 30, forward: true),
+                    onPressed: () => ctrl.skipBook(30),
+                  ),
+                  if (book.chapters.isNotEmpty)
+                    IconButton(
+                      tooltip: l10n.audiobooksNextChapter,
+                      iconSize: 30,
+                      onPressed: chapterIndex < 0 || chapterIndex >= book.chapters.length - 1
+                          ? null
+                          : () => ctrl.seekBook(book.chapters[chapterIndex + 1].start),
+                      icon: const Icon(Icons.skip_next_rounded),
+                    ),
+                ],
+              ),
+              SizedBox(height: short ? 8 : 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  const SpeedButton(labeled: true),
+                  const SleepTimerButton(labeled: true),
+                  if (book.chapters.isNotEmpty)
+                    _PlayerAction(
+                      icon: Icons.format_list_numbered_rounded,
+                      label: l10n.audiobooksChapters,
+                      onTap: () => showChapterSheet(context, ref, book),
+                    ),
+                  if (episode != null)
+                    _PlayerAction(
+                      icon: Icons.notes_rounded,
+                      label: l10n.podcastsShowNotes,
+                      onTap: () => showEpisodeSheet(context, ref, episode),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
@@ -831,122 +943,33 @@ class _BookNowPlaying extends ConsumerWidget {
                   ),
                 ],
               ),
-              const Spacer(),
-              Flexible(
-                flex: 12,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440, maxHeight: 440),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 40, offset: Offset(0, 18))],
-                      ),
-                      child: NetworkCover(
-                        url: book.coverUrl.isEmpty ? null : book.coverUrl,
-                        radius: 14,
-                        icon: episode != null ? Icons.podcasts : Icons.headphones,
-                      ),
+              if (landscape)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 16),
+                    child: LayoutBuilder(
+                      builder: (context, available) {
+                        final side = math.min(available.maxHeight, available.maxWidth * 0.45);
+                        return Row(
+                          children: [
+                            SizedBox.square(dimension: side, child: cover),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              child: Center(child: SingleChildScrollView(child: controls)),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
-                ),
-              ),
-              const Spacer(),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      book.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    if (book.author != null && episode == null)
-                      Text(
-                        book.author!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Palette.textMuted, fontSize: 16),
-                      ),
-                    if (chapter != null) ...[
-                      SizedBox(height: short ? 10 : 16),
-                      _ChapterCard(book: book, chapter: chapter, index: chapterIndex, position: position, speed: speed),
-                    ],
-                    SizedBox(height: short ? 6 : 12),
-                    const SeekBar(),
-                    Center(
-                      child: Text(
-                        [
-                          l10n.audiobooksTimeRemaining(formatRemaining(l10n, remaining / speed)),
-                          if (speed != 1) l10n.playerAtSpeed(speedText),
-                        ].join(' '),
-                        style: const TextStyle(color: Palette.textMuted, fontSize: 12.5),
-                      ),
-                    ),
-                    SizedBox(height: short ? 4 : 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        if (book.chapters.isNotEmpty)
-                          IconButton(
-                            tooltip: l10n.audiobooksPreviousChapter,
-                            iconSize: 30,
-                            onPressed: chapter == null ? null : previousChapter,
-                            icon: const Icon(Icons.skip_previous_rounded),
-                          ),
-                        IconButton(
-                          tooltip: episode != null ? l10n.podcastsSkipBack : l10n.playerSkipBack,
-                          iconSize: 36,
-                          icon: episode != null
-                              ? const _SkipIcon(seconds: 15, forward: false)
-                              : const _SkipIcon(seconds: 30, forward: false),
-                          onPressed: () => ctrl.skipBook(episode != null ? -15 : -30),
-                        ),
-                        const TransportControls(big: true, playPauseOnly: true),
-                        IconButton(
-                          tooltip: l10n.playerSkipForward,
-                          iconSize: 36,
-                          icon: const _SkipIcon(seconds: 30, forward: true),
-                          onPressed: () => ctrl.skipBook(30),
-                        ),
-                        if (book.chapters.isNotEmpty)
-                          IconButton(
-                            tooltip: l10n.audiobooksNextChapter,
-                            iconSize: 30,
-                            onPressed: chapterIndex < 0 || chapterIndex >= book.chapters.length - 1
-                                ? null
-                                : () => ctrl.seekBook(book.chapters[chapterIndex + 1].start),
-                            icon: const Icon(Icons.skip_next_rounded),
-                          ),
-                      ],
-                    ),
-                    SizedBox(height: short ? 8 : 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        const SpeedButton(labeled: true),
-                        const SleepTimerButton(labeled: true),
-                        if (book.chapters.isNotEmpty)
-                          _PlayerAction(
-                            icon: Icons.format_list_numbered_rounded,
-                            label: l10n.audiobooksChapters,
-                            onTap: () => showChapterSheet(context, ref, book),
-                          ),
-                        if (episode != null)
-                          _PlayerAction(
-                            icon: Icons.notes_rounded,
-                            label: l10n.podcastsShowNotes,
-                            onTap: () => showEpisodeSheet(context, ref, episode),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: short ? 8 : 20),
+                )
+              else ...[
+                const Spacer(),
+                Flexible(flex: 12, child: cover),
+                const Spacer(),
+                controls,
+                SizedBox(height: short ? 8 : 20),
+              ],
             ],
           ),
         );

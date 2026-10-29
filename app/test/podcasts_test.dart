@@ -32,6 +32,7 @@ import 'package:resonance/ui/shell.dart';
 import 'package:resonance/ui/tv/tv_shell.dart';
 import 'package:resonance/ui/tv/tv_media_pages.dart';
 import 'package:resonance/ui/tv/tv_focusable.dart';
+import 'package:resonance/ui/widgets/catalog.dart';
 import 'package:resonance/ui/widgets/media_widgets.dart';
 import 'package:resonance/ui/widgets/player_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -620,6 +621,31 @@ void main() {
     await tester.tap(find.text('Show notes'));
     await tester.pumpAndSettle();
     expect(find.text('Notes of the episode'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    container.dispose();
+  });
+
+  testWidgets('in landscape the spoken-word player puts the cover next to the controls', (tester) async {
+    tester.view.physicalSize = const Size(915, 412);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    api.episode = const PodcastEpisode(
+      id: 'episode',
+      podcastId: 'podcast',
+      title: 'Episode title',
+      podcastTitle: 'Podcast title',
+      durationSeconds: 3900,
+      positionSeconds: 60,
+    );
+    await container.read(playerProvider.notifier).playEpisode(_episode);
+    await page(tester, const NowPlayingPage());
+    final cover = tester.getRect(find.byType(NetworkCover));
+    final title = tester.getRect(find.text('Episode title'));
+    expect(cover.right, lessThan(title.left));
+    expect(cover.height, greaterThan(250));
+    expect(find.text('Show notes'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     container.dispose();
