@@ -25,6 +25,8 @@ class _Engine implements PlaybackEngine {
   @override
   Stream<Duration> get positionStream => const Stream.empty();
   @override
+  Stream<Duration?> get durationStream => const Stream.empty();
+  @override
   bool playing = false;
   @override
   double get speed => 1;

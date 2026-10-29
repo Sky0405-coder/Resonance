@@ -54,6 +54,19 @@ class BookPlayback {
   final List<AbsChapter> chapters;
 
   AbsChapter? chapterAt(double seconds) => chapters.where((c) => seconds >= c.start && seconds < c.end).firstOrNull;
+
+  /// The same episode with the length of its actual file.
+  BookPlayback withDuration(double seconds) => BookPlayback(
+    itemId: itemId,
+    sessionId: sessionId,
+    title: title,
+    author: author,
+    coverUrl: coverUrl,
+    duration: seconds,
+    parts: [for (final p in parts) BookPart(url: p.url, start: p.start, duration: seconds)],
+    chapters: chapters,
+    episode: episode,
+  );
 }
 
 /// Receives the player's actions while a Jam is active (the server owns the queue then).
@@ -258,6 +271,14 @@ class PlayerController extends Notifier<PlayerView> {
       }),
       engine.positionStream.listen(_trackListening),
       engine.errorStream.listen(_stationError),
+      // A feed's length often includes ads that are not in the file (or were cut out); the file's own length is the
+      // truth, otherwise an episode that has ended still shows minutes left.
+      engine.durationStream.listen((d) {
+        final book = state.book;
+        if (_switching || d == null || d <= Duration.zero || book?.episode == null) return;
+        final seconds = d.inMilliseconds / 1000;
+        if ((seconds - book!.duration).abs() > 1) state = _copy(book: book.withDuration(seconds));
+      }),
     ]);
     final radioFollow = RadioFollow(
       loadPlaylist: (id) async {
@@ -315,6 +336,7 @@ class PlayerController extends Notifier<PlayerView> {
     double? speed,
     DateTime? Function()? sleepAt,
     StationNowPlaying? Function()? stationNow,
+    BookPlayback? book,
   }) => PlayerView(
     queue: queue ?? state.queue,
     index: index ?? state.index,
@@ -327,7 +349,7 @@ class PlayerController extends Notifier<PlayerView> {
     isRadio: isRadio ?? state.isRadio,
     loop: loop ?? state.loop,
     context: context ?? state.context,
-    book: state.book,
+    book: book ?? state.book,
     station: state.station,
     stationNow: stationNow == null ? state.stationNow : stationNow(),
     speed: speed ?? state.speed,

@@ -65,11 +65,11 @@ mkdir resonance && cd resonance
 curl -LO https://raw.githubusercontent.com/Sky0405-coder/Resonance/main/deploy/docker-compose.yml
 curl -L -o .env https://raw.githubusercontent.com/Sky0405-coder/Resonance/main/deploy/.env.example
 nano .env                                   # POSTGRES_PASSWORD, MUSIC_PATH, PUID/PGID
-mkdir -p data/app data/postgres data/downloads data/books data/import
 docker compose up -d
 ```
 
-Danach `http://<server>:8765` öffnen, das Admin-Konto anlegen und im Admin-Dashboard einen Bibliotheks-Scan starten.
+Fehlende Ordner legt der erste Start selbst an (sie gehören dann PUID/PGID). Danach `http://<server>:8765` öffnen,
+das Admin-Konto anlegen und im Admin-Dashboard einen Bibliotheks-Scan starten.
 Optionale Teile werden über Profile zugeschaltet (auch kombinierbar):
 
 | Profil | Startet | Wofür |

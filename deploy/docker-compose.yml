@@ -1,10 +1,9 @@
 # Resonance with docker compose, from the prebuilt image (no build needed).
 #
 #   1. Copy this file and .env.example into a folder, rename .env.example to .env and fill it in.
-#   2. Create the folders, owned by the user that owns your music (PUID/PGID):
-#        mkdir -p data/app data/postgres data/downloads data/books data/import
-#   3. docker compose up -d            (with torrents and/or audiobooks: see the profiles below)
-#   4. Open http://<server>:8765, create the admin account (the first account becomes admin) and start a library scan
+#   2. docker compose up -d            (with torrents and/or audiobooks: see the profiles below)
+#      Missing folders are created on the first start and belong to PUID/PGID.
+#   3. Open http://<server>:8765, create the admin account (the first account becomes admin) and start a library scan
 #      in the admin dashboard.
 #
 # Optional parts, switched on with profiles:
@@ -34,8 +33,34 @@ services:
     ports:
       - "${APP_PORT:-8765}:8000"
     depends_on:
+      setup:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
+
+  # Creates missing folders before the start and hands new (empty) ones to PUID/PGID: Docker creates a missing bind
+  # source as root, and Resonance runs as PUID and could not write there. Existing folders are left alone.
+  setup:
+    image: busybox:stable
+    restart: "no"
+    user: "0:0"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    command:
+      - sh
+      - -c
+      - |
+        for d in /data/music /data/downloads /data/books /data/import /data/app; do
+          if [ "$$(stat -c %u "$$d")" = 0 ] && [ -z "$$(ls -A "$$d")" ]; then chown "$$PUID:$$PGID" "$$d"; fi
+        done
+        mkdir -p /data/app/home && chown "$$PUID:$$PGID" /data/app/home
+    volumes:
+      - ${MUSIC_PATH}:/data/music
+      - ${DOWNLOADS_PATH:-./data/downloads}:/data/downloads
+      - ${BOOKS_PATH:-./data/books}:/data/books
+      - ${IMPORT_PATH:-./data/import}:/data/import
+      - ${APPDATA_PATH:-./data}/app:/data/app
 
   postgres:
     image: pgvector/pgvector:pg17

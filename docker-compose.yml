@@ -12,7 +12,8 @@
 #   PROTON_SERVER_COUNTRIES  e.g. Netherlands,Switzerland
 #   PROWLARR_NETWORK         Docker network of an existing Prowlarr, e.g. the media stack's Coolify network
 #   PROWLARR_URL             e.g. http://prowlarr-<id>:9696
-#   PUID / PGID             owner of the music files on the host (default 1000:1000); APPDATA_PATH/app must be writable by it
+#   PUID / PGID             owner of the music files on the host (default 1000:1000); missing folders are created
+#                            on start and belong to it
 #   APP_PORT / QBIT_PORT     host ports bound to 127.0.0.1 (for a reverse proxy / Cloudflare tunnel on the host),
 #                            default 8765 (Resonance) and 8095 (qBittorrent web UI)
 #
@@ -38,26 +39,84 @@ services:
       - type: bind
         source: ${MUSIC_PATH}
         target: /data/music
+        bind:
+          create_host_path: true
       - type: bind
         source: ${DOWNLOADS_PATH}
         target: /data/downloads
+        bind:
+          create_host_path: true
       - type: bind
         source: ${BOOKS_PATH}
         target: /data/books
+        bind:
+          create_host_path: true
       - type: bind
         source: ${IMPORT_PATH}
         target: /data/import
+        bind:
+          create_host_path: true
       - type: bind
         source: ${APPDATA_PATH}/app
         target: /data/app
+        bind:
+          create_host_path: true
     ports:
       - "127.0.0.1:${APP_PORT:-8765}:8000"
     networks:
       - default
       - prowlarr
     depends_on:
+      setup:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
+
+  # Creates missing folders before the start and hands new (empty) ones to PUID/PGID: Docker creates a missing bind
+  # source as root, and Resonance runs as PUID and could not write there. Existing folders are left alone.
+  setup:
+    image: busybox:stable
+    restart: "no"
+    # Coolify: a one-off job, its exit is not an unhealthy app.
+    exclude_from_hc: true
+    user: "0:0"
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    command:
+      - sh
+      - -c
+      - |
+        for d in /data/music /data/downloads /data/books /data/import /data/app; do
+          if [ "$$(stat -c %u "$$d")" = 0 ] && [ -z "$$(ls -A "$$d")" ]; then chown "$$PUID:$$PGID" "$$d"; fi
+        done
+        mkdir -p /data/app/home && chown "$$PUID:$$PGID" /data/app/home
+    volumes:
+      - type: bind
+        source: ${MUSIC_PATH}
+        target: /data/music
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ${DOWNLOADS_PATH}
+        target: /data/downloads
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ${BOOKS_PATH}
+        target: /data/books
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ${IMPORT_PATH}
+        target: /data/import
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ${APPDATA_PATH}/app
+        target: /data/app
+        bind:
+          create_host_path: true
 
   postgres:
     image: pgvector/pgvector:pg17
@@ -70,6 +129,8 @@ services:
       - type: bind
         source: ${APPDATA_PATH}/postgres
         target: /var/lib/postgresql/data
+        bind:
+          create_host_path: true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U resonance"]
       interval: 10s
@@ -103,6 +164,8 @@ services:
       - type: bind
         source: ${APPDATA_PATH}/gluetun
         target: /gluetun
+        bind:
+          create_host_path: true
     ports:
       - "127.0.0.1:${QBIT_PORT:-8095}:8080"   # qBittorrent web UI
 
@@ -119,9 +182,13 @@ services:
       - type: bind
         source: ${APPDATA_PATH}/qbittorrent
         target: /config
+        bind:
+          create_host_path: true
       - type: bind
         source: ${DOWNLOADS_PATH}
         target: /data/downloads
+        bind:
+          create_host_path: true
     # Started, not healthy: when ProtonVPN is slow to connect the deploy must not fail and leave qBittorrent stopped.
     # Until the tunnel is up gluetun's firewall blocks all traffic, so qBittorrent still never leaks.
     depends_on:

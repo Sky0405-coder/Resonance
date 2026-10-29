@@ -109,6 +109,8 @@ class _Engine implements PlaybackEngine {
   @override
   Stream<Duration> get positionStream => positions.stream;
   @override
+  Stream<Duration?> get durationStream => const Stream.empty();
+  @override
   Stream<int?> get currentIndexStream => const Stream.empty();
   @override
   Stream<LoopMode> get loopModeStream => const Stream.empty();

@@ -191,6 +191,9 @@ class _Engine implements PlaybackEngine {
   Stream<Object> get errorStream => const Stream.empty();
   @override
   Stream<Duration> get positionStream => const Stream.empty();
+  final durations = StreamController<Duration?>.broadcast(sync: true);
+  @override
+  Stream<Duration?> get durationStream => durations.stream;
   @override
   Stream<int?> get currentIndexStream => const Stream.empty();
   @override
@@ -569,6 +572,27 @@ void main() {
     engine.states.add(PlayerState(true, ProcessingState.completed));
     await tester.pump();
     expect(api.saves.last, ('episode', 300.0, true));
+    container.dispose();
+  });
+
+  testWidgets('the file\'s own length replaces a feed length that still counts cut-out ads', (tester) async {
+    final player = container.read(playerProvider.notifier);
+    api.episode = const PodcastEpisode(
+      id: 'episode',
+      podcastId: 'podcast',
+      title: 'Ad-free',
+      podcastTitle: 'Podcast',
+      durationSeconds: 4500,
+      positionSeconds: 0,
+    );
+    await player.playEpisode(_episode);
+    expect(container.read(playerProvider).book!.duration, 4500);
+    engine.durations.add(const Duration(seconds: 4335));
+    expect(container.read(playerProvider).book!.duration, 4335);
+    expect(container.read(playerProvider).book!.parts.single.duration, 4335);
+    engine.position = const Duration(seconds: 4320);
+    await player.pause();
+    expect(api.saves.last.$3, true);
     container.dispose();
   });
 

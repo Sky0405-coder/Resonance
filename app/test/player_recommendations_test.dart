@@ -67,6 +67,8 @@ class _Engine implements PlaybackEngine {
   @override
   Stream<Duration> get positionStream => const Stream.empty();
   @override
+  Stream<Duration?> get durationStream => const Stream.empty();
+  @override
   Stream<Object> get errorStream => const Stream.empty();
   @override
   int crossfadeSeconds = 0;
