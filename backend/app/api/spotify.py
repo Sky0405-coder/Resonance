@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.deps import DB, CurrentUser
 from app.i18n import language, translate
 from app.models import SpotifyAccount, SpotifyImport, SpotifyPlaylistLink, User
-from app.services import apple_music, spotify
+from app.services import playlist_search, spotify
 from app.services.server_config import load_config
 
 router = APIRouter(prefix="/api/spotify", tags=["spotify"])
@@ -180,7 +180,7 @@ async def create_import(body: SpotifyImportIn, user: CurrentUser, db: DB, reques
         raise HTTPException(422, "Nichts ausgewählt")
     links: list[str] = []
     for link in body.links:
-        id = spotify.playlist_id_from_link(link) or apple_music.playlist_ref_from_link(link)
+        id = playlist_search.ref_from_link(link)
         if id is None:
             raise HTTPException(422, f"Ungültiger Spotify-Link: {link}")
         if id not in links:

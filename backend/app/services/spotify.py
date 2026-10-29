@@ -233,6 +233,8 @@ class SpotifyTrack:
     added_at: datetime | None
     position: int
     uri: str | None = None
+    # Known for playlists that come from Deezer.
+    deezer_id: str | None = None
 
 
 async def fetch_embed_playlist(id: str) -> tuple[dict, list[SpotifyTrack]]:
@@ -392,6 +394,8 @@ def _message(batch: SpotifyImport, message: str) -> None:
 
 
 async def _deezer_id(track: SpotifyTrack) -> str | None:
+    if track.deezer_id:
+        return track.deezer_id
     if track.isrc:
         found = await deezer.track_by_isrc(track.isrc)
         if found is not None:
@@ -527,6 +531,16 @@ async def run_import(import_id: uuid.UUID) -> None:
                         continue
                     await import_playlist(id, metadata["name"], tracks)
             for id in batch.links:
+                if id.startswith("deezer:"):
+                    from app.services import playlist_search
+
+                    try:
+                        metadata, tracks = await playlist_search.fetch_deezer(id)
+                    except SpotifyError as e:
+                        _message(batch, f"{id.removeprefix('deezer:')}: {e.message}")
+                        continue
+                    await import_playlist(id, metadata["name"], tracks, "Von Deezer importiert")
+                    continue
                 if id.startswith("apple:"):
                     from app.services import apple_music
 

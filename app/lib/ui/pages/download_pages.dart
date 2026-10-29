@@ -69,10 +69,178 @@ class CatalogSearchSection extends ConsumerWidget {
                       title: context.l10n.commonArtists,
                       children: [for (final a in r.artists) CatalogArtistCard(artist: a)],
                     ),
+                    _PlaylistShelf(query: query),
                   ],
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// Deezer, Apple Music and Spotify playlists to import; loads on its own so slow services do not hold up the rest.
+class _PlaylistShelf extends ConsumerWidget {
+  const _PlaylistShelf({required this.query});
+  final String query;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playlists = ref.watch(catalogPlaylistsProvider(query)).value ?? const <CatalogPlaylist>[];
+    return Shelf(
+      title: context.l10n.libraryPlaylists,
+      children: [
+        for (final p in playlists)
+          MediaCard(
+            image: NetworkCover(url: p.imageUrl, icon: Icons.queue_music),
+            title: p.name,
+            subtitle: [p.sourceName, ?p.owner].join(' • '),
+            onTap: () => context.push(Uri(path: '/catalog/playlist', queryParameters: {'link': p.link}).toString()),
+          ),
+      ],
+    );
+  }
+}
+
+/// The songs of a Deezer, Apple Music or Spotify playlist; importing it creates a playlist in the library and
+/// downloads the songs that are missing.
+class CatalogPlaylistPage extends ConsumerStatefulWidget {
+  const CatalogPlaylistPage({super.key, required this.link});
+  final String link;
+
+  @override
+  ConsumerState<CatalogPlaylistPage> createState() => _CatalogPlaylistPageState();
+}
+
+class _CatalogPlaylistPageState extends ConsumerState<CatalogPlaylistPage> {
+  bool _busy = false;
+
+  Future<void> _import() async {
+    final l10n = context.l10n;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(apiProvider)
+          .startSpotifyImport(liked: false, playlistIds: const [], links: [widget.link], downloadMissing: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.spotifyStarted),
+          action: SnackBarAction(label: l10n.catalogPlaylistShowImport, onPressed: () => context.push('/spotify')),
+        ),
+      );
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final value = ref.watch(catalogPlaylistProvider(widget.link));
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: AsyncBody(
+        value: value,
+        onRetry: () => ref.invalidate(catalogPlaylistProvider(widget.link)),
+        builder: (d) {
+          final p = d.playlist;
+          final total = d.tracks.length;
+          final have = d.inLibraryCount;
+          final duration = d.tracks.fold<double>(0, (s, t) => s + (t.duration ?? 0));
+          final accent = Theme.of(context).colorScheme.primary;
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: CollectionHeader(
+                  image: NetworkCover(url: p.imageUrl, icon: Icons.queue_music),
+                  kind: l10n.catalogPlaylistKind,
+                  title: p.name,
+                  meta: Text(
+                    [
+                      p.sourceName,
+                      ?p.owner,
+                      songs(l10n, total),
+                      if (duration > 0) formatLongDuration(l10n, duration),
+                      have == total && total > 0 ? l10n.catalogAllInLibrary : l10n.catalogLibraryCount(have, total),
+                    ].join(' • '),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: _busy || total == 0 ? null : _import,
+                            icon: const Icon(Icons.download_rounded),
+                            label: Text(d.playlistId == null ? l10n.catalogPlaylistImport : l10n.catalogPlaylistUpdate),
+                          ),
+                          if (d.playlistId != null)
+                            OutlinedButton.icon(
+                              onPressed: () => context.push('/playlist/${d.playlistId}'),
+                              icon: const Icon(Icons.library_music_outlined),
+                              label: Text(l10n.catalogOpenInLibrary),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.catalogPlaylistImportHint,
+                        style: const TextStyle(color: Palette.textMuted, fontSize: 13),
+                      ),
+                      if (p.source == 'spotify' && total == 100)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            l10n.catalogSpotifyPreviewLimit,
+                            style: const TextStyle(color: Palette.textMuted, fontSize: 13),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                sliver: SliverList.builder(
+                  itemCount: total,
+                  itemBuilder: (context, i) {
+                    final t = d.tracks[i];
+                    return ListTile(
+                      dense: true,
+                      leading: SizedBox(
+                        width: 28,
+                        child: Center(
+                          child: t.libraryId != null
+                              ? Icon(Icons.check_circle, size: 18, color: accent)
+                              : Text('${i + 1}', style: const TextStyle(color: Palette.textMuted)),
+                        ),
+                      ),
+                      title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text([t.artist, ?t.album].join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      trailing: t.duration == null
+                          ? null
+                          : Text(
+                              formatDuration(Duration(milliseconds: (t.duration! * 1000).round())),
+                              style: const TextStyle(color: Palette.textMuted),
+                            ),
+                    );
+                  },
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
+            ],
+          );
+        },
+      ),
     );
   }
 }

@@ -1508,6 +1508,42 @@ abstract class AppLocalizations {
   /// **'In Bibliothek'**
   String get catalogInLibrary;
 
+  /// No description provided for @catalogPlaylistKind.
+  ///
+  /// In de, this message translates to:
+  /// **'Playlist'**
+  String get catalogPlaylistKind;
+
+  /// No description provided for @catalogPlaylistImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Importieren und fehlende Songs laden'**
+  String get catalogPlaylistImport;
+
+  /// No description provided for @catalogPlaylistUpdate.
+  ///
+  /// In de, this message translates to:
+  /// **'Erneut importieren'**
+  String get catalogPlaylistUpdate;
+
+  /// No description provided for @catalogPlaylistShowImport.
+  ///
+  /// In de, this message translates to:
+  /// **'Ansehen'**
+  String get catalogPlaylistShowImport;
+
+  /// No description provided for @catalogPlaylistImportHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Legt die Playlist in deiner Bibliothek an; fehlende Songs werden heruntergeladen und rücken nach.'**
+  String get catalogPlaylistImportHint;
+
+  /// No description provided for @catalogSpotifyPreviewLimit.
+  ///
+  /// In de, this message translates to:
+  /// **'Spotify gibt bei fremden Playlists nur die ersten 100 Songs heraus.'**
+  String get catalogSpotifyPreviewLimit;
+
   /// No description provided for @downloadsStatusPendingApproval.
   ///
   /// In de, this message translates to:

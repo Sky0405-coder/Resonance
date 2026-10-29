@@ -395,6 +395,15 @@ class ApiClient {
   Future<CatalogSearch> catalogSearch(String q, {int limit = 10}) async =>
       CatalogSearch.fromJson(await _get('/api/catalog/search', {'q': q, 'limit': limit}));
 
+  /// Public playlists of Deezer, Apple Music and Spotify.
+  Future<List<CatalogPlaylist>> catalogPlaylists(String q) async => [
+    for (final p in await _get('/api/catalog/playlists', {'q': q}))
+      CatalogPlaylist.fromJson(Map<String, dynamic>.from(p)),
+  ];
+
+  Future<CatalogPlaylistDetail> catalogPlaylist(String link) async =>
+      CatalogPlaylistDetail.fromJson(Map<String, dynamic>.from(await _get('/api/catalog/playlist', {'link': link})));
+
   Future<CatalogSearch> editorSearch(String q, {required String types}) async =>
       CatalogSearch.fromJson(await _get('/api/admin/library/search', {'q': q, 'types': types, 'limit': 25}));
 

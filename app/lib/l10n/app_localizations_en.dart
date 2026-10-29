@@ -824,6 +824,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catalogInLibrary => 'In library';
 
   @override
+  String get catalogPlaylistKind => 'Playlist';
+
+  @override
+  String get catalogPlaylistImport => 'Import and download missing songs';
+
+  @override
+  String get catalogPlaylistUpdate => 'Import again';
+
+  @override
+  String get catalogPlaylistShowImport => 'View';
+
+  @override
+  String get catalogPlaylistImportHint =>
+      'Creates the playlist in your library; missing songs are downloaded and added once they arrive.';
+
+  @override
+  String get catalogSpotifyPreviewLimit => 'Spotify only hands out the first 100 songs of other people\'s playlists.';
+
+  @override
   String get downloadsStatusPendingApproval => 'Waiting for approval';
 
   @override

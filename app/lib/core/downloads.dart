@@ -17,6 +17,14 @@ final catalogSearchProvider = FutureProvider.autoDispose.family<CatalogSearch, S
   (ref, q) => ref.watch(apiProvider).catalogSearch(q),
 );
 
+final catalogPlaylistsProvider = FutureProvider.autoDispose.family<List<CatalogPlaylist>, String>(
+  (ref, q) => ref.watch(apiProvider).catalogPlaylists(q),
+);
+
+final catalogPlaylistProvider = FutureProvider.autoDispose.family<CatalogPlaylistDetail, String>(
+  (ref, link) => ref.watch(apiProvider).catalogPlaylist(link),
+);
+
 final catalogAlbumProvider = FutureProvider.autoDispose.family<CatalogAlbumDetail, String>(
   (ref, id) => ref.watch(apiProvider).catalogAlbum(id),
 );

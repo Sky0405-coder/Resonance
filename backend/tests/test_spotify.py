@@ -27,7 +27,7 @@ from app.models import (
     Track,
     TrackLike,
 )
-from app.services import apple_music, spotify
+from app.services import apple_music, playlist_search, spotify
 from app.services.deezer import deezer
 from app.services.downloads import manager
 from app.services.musicbrainz import TrackMeta
@@ -1323,3 +1323,99 @@ async def test_api_accepts_apple_music_links(env: SimpleNamespace, monkeypatch: 
     assert response.status_code == 202, response.text
     async with SessionLocal() as db:
         assert (await db.scalar(select(SpotifyImport))).links == ["apple:de:pl.c10a2c113db14685a0b09fa5834d8e8b"]
+
+
+@pytest.mark.parametrize(
+    ("link", "ref"),
+    [
+        ("https://www.deezer.com/de/playlist/11533942424", "deezer:11533942424"),
+        ("deezer.com/playlist/65490170?utm_source=x", "deezer:65490170"),
+        ("https://www.deezer.com/de/album/123", None),
+        ("https://deezer.com.evil.example/playlist/1", None),
+    ],
+)
+def test_deezer_ref_from_link(link: str, ref: str | None) -> None:
+    assert playlist_search.ref_from_link(link) == ref
+
+
+def deezer_playlist_handler(request: httpx.Request) -> httpx.Response:
+    if request.url.path == "/playlist/77":
+        return httpx.Response(200, json={"title": "Deezer mix", "creator": {"name": "Editor"}, "picture_xl": "x.jpg"})
+    if request.url.path == "/playlist/77/tracks":
+        index = int(request.url.params["index"])
+        songs = [("Song", "USABC1234567", 180), ("Second", None, 180), ("Missing", None, 200)]
+        page = [
+            {"id": 100 + i, "title": title, "isrc": isrc, "duration": duration, "artist": {"name": "Artist"},
+             "album": {"title": "Album"}}
+            for i, (title, isrc, duration) in enumerate(songs)
+        ][index : index + 2]
+        return httpx.Response(200, json={"data": page, **({"next": "more"} if index == 0 else {})})
+    raise AssertionError(f"Unexpected Deezer request: {request.url}")
+
+
+async def test_deezer_link_import(env: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        first = await library_track(db, isrc="USABC1234567")
+        await library_track(db, "Second", isrc=None)
+        await db.commit()
+    env.deezer_handler = deezer_playlist_handler
+    response = await env.client.post(
+        "/api/spotify/imports", headers=env.headers, json={"links": ["https://www.deezer.com/de/playlist/77"]}
+    )
+    assert response.status_code == 202, response.text
+    await spotify.stop()
+    batch = await run(env, liked=False, links=["deezer:77"], download_missing=True)
+    assert (batch.status, batch.total, batch.matched, batch.missing, batch.requested) == ("done", 3, 2, 1, 1)
+    # The Deezer id of a missing song is known, no lookup needed.
+    assert env.requests[-1] == (env.user_id, "track", "102", False)
+    async with SessionLocal() as db:
+        link = await db.scalar(select(SpotifyPlaylistLink))
+        playlist = await db.get(Playlist, link.playlist_id)
+        assert (link.spotify_playlist_id, playlist.name, playlist.description) == (
+            "deezer:77", "Deezer mix", "Von Deezer importiert",
+        )
+        entries = list(await db.scalars(select(PlaylistEntry).order_by(PlaylistEntry.position)))
+        assert entries[0].track_id == first.id and len(entries) == 2
+
+
+async def test_playlist_search_and_preview(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def deezer_search(q: str, limit: int) -> list[dict]:
+        return [{"source": "deezer", "link": f"https://www.deezer.com/playlist/{i}", "name": f"D{i}"} for i in (1, 2)]
+
+    async def apple_search(q: str, limit: int) -> list[dict]:
+        raise spotify.SpotifyError(502, "Apple Music nicht erreichbar")
+
+    def spotify_search_handler(request: httpx.Request) -> httpx.Response | None:
+        if request.url.host == "accounts.spotify.com":
+            assert parse_qs(request.content.decode()) == {"grant_type": ["client_credentials"]}
+            return httpx.Response(200, json={"access_token": "access", "expires_in": 3600})
+        if request.url.host == "api.spotify.com" and request.url.path == "/v1/search":
+            assert request.url.params["type"] == "playlist" and request.headers["authorization"] == "Bearer access"
+            items = [None, {"name": "S1", "external_urls": {"spotify": "https://open.spotify.com/playlist/x"},
+                            "images": [{"url": "s.jpg"}], "owner": {"display_name": "Owner"},
+                            "tracks": {"total": 12}}]
+            return httpx.Response(200, json={"playlists": {"items": items}})
+        return None
+
+    monkeypatch.setattr(playlist_search, "_search_deezer", deezer_search)
+    monkeypatch.setattr(playlist_search, "_search_apple", apple_search)
+    env.handler = spotify_search_handler
+    response = await env.client.get("/api/catalog/playlists", headers=env.headers, params={"q": "mix"})
+    assert response.status_code == 200, response.text
+    assert [(p["source"], p["name"]) for p in response.json()] == [("deezer", "D1"), ("spotify", "S1"), ("deezer", "D2")]
+    assert response.json()[1]["track_count"] == 12
+
+    async with SessionLocal() as db:
+        first = await library_track(db, isrc="USABC1234567")
+        await db.commit()
+    env.deezer_handler = deezer_playlist_handler
+    link = "https://www.deezer.com/playlist/77"
+    response = await env.client.get("/api/catalog/playlist", headers=env.headers, params={"link": link})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["source"], body["name"], body["owner"], body["playlist_id"]) == ("deezer", "Deezer mix", "Editor", None)
+    assert [(t["title"], t["library_id"]) for t in body["tracks"]] == [
+        ("Song", str(first.id)), ("Second", None), ("Missing", None),
+    ]
+    bad = await env.client.get("/api/catalog/playlist", headers=env.headers, params={"link": "https://example.com"})
+    assert bad.status_code == 422

@@ -629,6 +629,72 @@ class CatalogSearch {
   );
 }
 
+/// A public playlist of Deezer, Apple Music or Spotify that can be imported.
+class CatalogPlaylist {
+  const CatalogPlaylist({
+    required this.source,
+    required this.link,
+    required this.name,
+    this.owner,
+    this.imageUrl,
+    this.trackCount,
+  });
+  final String source;
+  final String link;
+  final String name;
+  final String? owner;
+  final String? imageUrl;
+  final int? trackCount;
+
+  String get sourceName => switch (source) {
+    'deezer' => 'Deezer',
+    'apple' => 'Apple Music',
+    _ => 'Spotify',
+  };
+
+  factory CatalogPlaylist.fromJson(Map<String, dynamic> j) => CatalogPlaylist(
+    source: j['source'] as String,
+    link: j['link'] as String,
+    name: j['name'] as String,
+    owner: j['owner'] as String?,
+    imageUrl: j['image_url'] as String?,
+    trackCount: j['track_count'] as int?,
+  );
+}
+
+class CatalogPlaylistTrack {
+  const CatalogPlaylistTrack({required this.title, required this.artist, this.album, this.duration, this.libraryId});
+  final String title;
+  final String artist;
+  final String? album;
+  final double? duration;
+  final String? libraryId;
+
+  factory CatalogPlaylistTrack.fromJson(Map<String, dynamic> j) => CatalogPlaylistTrack(
+    title: j['title'] as String,
+    artist: j['artist'] as String? ?? '',
+    album: j['album'] as String?,
+    duration: (j['duration'] as num?)?.toDouble(),
+    libraryId: j['library_id'] as String?,
+  );
+}
+
+/// A playlist's songs before importing it; [playlistId] is the library playlist of an earlier import.
+class CatalogPlaylistDetail {
+  const CatalogPlaylistDetail({required this.playlist, required this.tracks, this.playlistId});
+  final CatalogPlaylist playlist;
+  final List<CatalogPlaylistTrack> tracks;
+  final String? playlistId;
+
+  int get inLibraryCount => tracks.where((t) => t.libraryId != null).length;
+
+  factory CatalogPlaylistDetail.fromJson(Map<String, dynamic> j) => CatalogPlaylistDetail(
+    playlist: CatalogPlaylist.fromJson({...j, 'track_count': (j['tracks'] as List).length}),
+    tracks: [for (final t in j['tracks']) CatalogPlaylistTrack.fromJson(Map<String, dynamic>.from(t))],
+    playlistId: j['playlist_id'] as String?,
+  );
+}
+
 class CatalogArtistDetail {
   const CatalogArtistDetail(this.artist, this.topTracks, this.albums);
   final CatalogArtist artist;

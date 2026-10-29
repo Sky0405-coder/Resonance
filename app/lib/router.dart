@@ -175,6 +175,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, s) => CatalogAlbumPage(id: s.pathParameters['id']!),
           ),
           GoRoute(
+            path: '/catalog/playlist',
+            builder: (_, s) => CatalogPlaylistPage(link: s.uri.queryParameters['link'] ?? ''),
+          ),
+          GoRoute(
             path: '/catalog/artist/:id',
             builder: (_, s) => CatalogArtistPage(id: s.pathParameters['id']!),
           ),

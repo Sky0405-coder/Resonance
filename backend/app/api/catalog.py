@@ -1,8 +1,10 @@
 import asyncio
 
 from fastapi import APIRouter, HTTPException, Path, Query
+from sqlalchemy import select
 
 from app.deps import DB, CurrentUser
+from app.models import SpotifyPlaylistLink
 from app.schemas import (
     CatalogAlbum,
     CatalogAlbumDetail,
@@ -11,8 +13,10 @@ from app.schemas import (
     CatalogSearchOut,
     CatalogTrack,
 )
+from app.services import playlist_search, spotify
 from app.services.deezer import DeezerError, NotFound, artist_string, deezer
 from app.services.matching import match_albums, match_artists, match_tracks
+from app.services.server_config import load_config
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
@@ -100,6 +104,41 @@ async def search(
     await match_albums(db, albums)
     await match_tracks(db, tracks)
     return CatalogSearchOut(artists=artists, albums=albums, tracks=tracks)
+
+
+@router.get("/playlists")
+async def playlists(user: CurrentUser, db: DB, q: str = Query(min_length=1, max_length=200)) -> list[dict]:
+    """Public playlists of Deezer, Apple Music and Spotify (Spotify only with the app keys in Admin → Server)."""
+    return await playlist_search.search(q, (await load_config(db)).spotify)
+
+
+@router.get("/playlist")
+async def playlist(user: CurrentUser, db: DB, link: str = Query(min_length=1, max_length=500)) -> dict:
+    """A playlist's songs before importing it, with the ones already in the library."""
+    try:
+        ref, metadata, tracks = await playlist_search.fetch(link)
+    except spotify.SpotifyError as e:
+        raise HTTPException(e.status if e.status in (404, 422) else 502, e.message) from e
+    ids = await spotify.match(db, tracks)
+    await db.commit()
+    imported = await db.scalar(select(SpotifyPlaylistLink.playlist_id).where(
+        SpotifyPlaylistLink.user_id == user.id, SpotifyPlaylistLink.spotify_playlist_id == ref,
+    ))
+    return {
+        "source": ref.split(":", 1)[0] if ":" in ref else "spotify",
+        "link": link,
+        "name": metadata["name"],
+        "owner": metadata.get("owner"),
+        "image_url": metadata.get("image_url"),
+        "playlist_id": imported,
+        "tracks": [
+            {
+                "title": track.title, "artist": track.artist, "album": track.album, "duration": track.duration,
+                "library_id": id,
+            }
+            for track, id in zip(tracks, ids, strict=True)
+        ],
+    }
 
 
 @router.get("/artists/{id}", response_model=CatalogArtistDetail)
