@@ -27,6 +27,9 @@ services:
       context: .
       # Build steps use the host's resolver (bridge containers on some hosts cannot reach the LAN DNS).
       network: host
+      # Newer Docker (bake builds) only allows the host network when the build asks for it.
+      entitlements:
+        - network.host
     restart: unless-stopped
     # Files in the library belong to the host user (same as qBittorrent's PUID/PGID).
     user: "${PUID:-1000}:${PGID:-1000}"
