@@ -137,13 +137,22 @@ bool camelotCompatible(String a, String b) {
   return distance <= 1 || distance == 11;
 }
 
-/// The filter-out transition is short: about four beats, between 2.5 and 5 seconds.
+/// The filter-out transition (tempos too far apart): about eight beats, between 4 and 8 seconds.
 Duration _filterOutDuration(double? bpm) =>
-    _seconds((bpm != null && bpm > 0 ? 4 * 60 / bpm : 3.0).clamp(2.5, 5.0).toDouble());
+    _seconds((bpm != null && bpm > 0 ? 8 * 60 / bpm : 6.0).clamp(4.0, 8.0).toDouble());
 
-/// Tempos within 16 % (also at double or half time) are matched; otherwise, or when the keys clash, the current song
-/// is filtered out instead of a long blend. [minSeconds] (the crossfade setting) lengthens short blends up to 20
-/// seconds; the blend then starts earlier by whole bars so it stays on the beat.
+/// A blend runs for about [automixBlendBeats] beats (16 s at 120 BPM), between [automixMinSeconds] and
+/// [automixMaxSeconds]; with clashing keys only half as long, so the harmonies rub briefly.
+const automixBlendBeats = 32;
+const automixMinSeconds = 6.0;
+const automixMaxSeconds = 20.0;
+
+/// Tempos within 16 % (also at double or half time) are matched and blended; tempos further apart filter the current
+/// song out. The blend starts at the analyzed mix-out point, earlier by whole bars when the outro is shorter than
+/// the blend (never in the first half of the song). [minSeconds] (the crossfade setting) asks for up to 30 seconds.
+///
+/// Vocals (from the server's song analysis or synced lyrics) are handed over: the next song's voice comes in only
+/// after the current one has stopped singing, and the bass swaps at that moment.
 AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds = 0}) {
   final overlap = outgoing.end - outgoing.mixOut;
   if (outgoing.mixOut <= 0 || overlap < 2) return null;
@@ -168,56 +177,60 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds
       speed = math.sqrt(ratio);
     }
   }
-  if (keysClash || tempoMismatch) {
-    final short = _filterOutDuration(outgoing.bpm);
+  final bpm = outgoing.bpm != null && outgoing.bpm! > 0 ? outgoing.bpm : null;
+  final beat = bpm == null ? null : 60 / bpm;
+  final bar = beat == null ? null : 4 * beat;
+  double toBars(double seconds) => bar == null ? seconds : (seconds / bar - 1e-4).ceil() * bar;
+  if (tempoMismatch) {
+    final short = _filterOutDuration(bpm);
+    final lead = math.min(overlap, short.inMicroseconds / 1e6 + 2);
     return AutomixPlan(
-      start: _seconds(math.max(outgoing.mixOut, outgoing.end - overlap.clamp(0, 6).toDouble())),
+      start: _seconds(math.max(outgoing.mixOut, outgoing.end - lead)),
       incomingStart: _seconds(incoming.mixIn),
       duration: short,
-      // Still on the beat when the tempos match, even if the keys do not.
       speed: speed,
       outgoingSpeed: outgoingSpeed,
       bassSwap: Duration.zero,
       filterOut: true,
     );
   }
+  var target = (beat == null ? 12.0 : automixBlendBeats * beat).clamp(automixMinSeconds, automixMaxSeconds).toDouble();
+  if (keysClash) target = math.max(automixMinSeconds, target / 2);
+  target = math.max(target, math.min(minSeconds, 30).toDouble());
+  final latest = outgoing.end - math.min(automixMinSeconds, overlap);
   var start = outgoing.mixOut;
-  var duration = overlap.clamp(3, 14).toDouble();
-  final wanted = math.min(minSeconds, 20).toDouble();
-  if (wanted > duration) {
-    var earlier = math.max(0.0, wanted - overlap);
-    if (outgoing.bpm != null && outgoing.bpm! > 0) {
-      final bar = 4 * 60 / outgoing.bpm!;
-      earlier = (earlier / bar).ceil() * bar;
-    }
-    // Never reach back into the first half of the song.
-    if (start - earlier < outgoing.end / 2) earlier = 0;
+  var duration = math.min(overlap, target);
+  if (target > overlap) {
+    // Start earlier by whole bars, but not before the middle of the song.
+    var earlier = toBars(target - overlap);
+    final room = start - outgoing.end / 2;
+    if (earlier > room) earlier = bar == null ? math.max(0.0, room) : math.max(0.0, (room / bar).floor() * bar);
     start -= earlier;
-    duration = math.max(duration, math.min(wanted, overlap + earlier));
+    duration = math.min(target, overlap + earlier);
   }
-  final originalStart = start;
-  final vocalsOut = outgoing.vocalsOut;
-  if (vocalsOut != null && start < vocalsOut) {
-    start = vocalsOut;
-    if (outgoing.bpm != null && outgoing.bpm! > 0) {
-      final bar = 4 * 60 / outgoing.bpm!;
-      start = originalStart + ((vocalsOut - originalStart) / bar).ceil() * bar;
+  // Seconds into the blend at which the current song stops singing and the next one starts.
+  final voiceEnds = outgoing.vocalsOut == null ? null : outgoing.vocalsOut! - start;
+  final voiceStarts = incoming.vocalsIn == null ? null : (incoming.vocalsIn! - incoming.mixIn) / speed;
+  // Both voices known: the next voice must not start before the current one ends. Otherwise the unknown side is
+  // assumed to be in the middle of the blend.
+  final ends = voiceEnds ?? (voiceStarts == null ? null : 0.0);
+  final starts = voiceStarts ?? (voiceEnds == null ? null : duration / 2);
+  // Between these, neither song sings: the bass swaps there.
+  (double, double)? quiet;
+  if (ends != null && starts != null) {
+    var later = 0.0;
+    if (ends > starts + 0.01) {
+      // Start later by whole bars, as far as the end of the song allows; the blend keeps its length while it can.
+      final room = math.max(0.0, latest - start);
+      later = toBars(ends - starts);
+      if (later > room) later = bar == null ? room : (room / bar).floor() * bar;
+      start += later;
+      duration = math.min(duration, outgoing.end - start);
     }
-    duration = math.min(duration, outgoing.end - start);
-    if (duration < 3) {
-      start = math.max(originalStart, outgoing.end - 3);
-      duration = outgoing.end - start;
-    }
+    if (ends - later <= starts + 0.01) quiet = (math.max(0.0, ends - later), math.min(starts, duration));
   }
-  final vocalsIn = incoming.vocalsIn;
-  if (vocalsIn != null && incoming.mixIn + duration > vocalsIn) {
-    duration = math.max(3.0, vocalsIn - incoming.mixIn);
-  }
-  // Swap the bass on the outgoing song's beat closest to the middle.
-  var swap = duration / 2;
-  final bpm = outgoing.bpm;
-  if (bpm != null && bpm > 0) {
-    final beat = 60 / bpm;
+  var swap = quiet == null ? duration / 2 : (duration / 2).clamp(quiet.$1, math.max(quiet.$1, quiet.$2)).toDouble();
+  if (beat != null) {
     swap = ((swap / beat).round() * beat).clamp(beat, math.max(beat, duration - beat)).toDouble();
   }
   return AutomixPlan(
