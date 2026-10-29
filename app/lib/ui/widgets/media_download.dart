@@ -110,21 +110,33 @@ Future<void> openEbookFile(BuildContext context, String path) async {
 
 /// The downloaded episodes, audiobooks and ebooks, below the music on the offline page.
 class MediaDownloadsSection extends ConsumerWidget {
-  const MediaDownloadsSection({super.key});
+  const MediaDownloadsSection({super.key, this.kinds});
+
+  /// Only these kinds ('episode', 'audiobook', 'ebook'); all when null.
+  final Set<String>? kinds;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (kIsWeb) return const SizedBox.shrink();
     final downloads = ref.watch(mediaDownloadsProvider);
-    if (downloads.items.isEmpty) return const SizedBox.shrink();
+    final items = [
+      for (final item in downloads.items.values.toList().reversed)
+        if (kinds?.contains(item.kind) ?? true) item,
+    ];
+    if (items.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-          child: Text(context.l10n.mediaSection, style: Theme.of(context).textTheme.titleLarge),
+          child: Text(
+            kinds?.length == 1 && kinds!.single == 'episode'
+                ? context.l10n.mediaSectionEpisodes
+                : context.l10n.mediaSection,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
         ),
-        for (final item in downloads.items.values.toList().reversed) _MediaTile(item: item, downloads: downloads),
+        for (final item in items) _MediaTile(item: item, downloads: downloads),
       ],
     );
   }
@@ -144,6 +156,7 @@ class _MediaTile extends ConsumerWidget {
       _ => Icons.menu_book,
     };
     final phase = downloads.phase(item.kind, item.id);
+    final progress = downloads.progress[item.key];
     final kind = switch (item.kind) {
       'episode' => context.l10n.mediaKindEpisode,
       'audiobook' => context.l10n.audiobooksBook,
@@ -160,15 +173,29 @@ class _MediaTile extends ConsumerWidget {
               ),
       ),
       title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        [
-          kind,
-          ?item.subtitle,
-          if (phase == MediaDownloadPhase.downloading) context.l10n.mediaDownloading,
-          if (phase == MediaDownloadPhase.failed) context.l10n.mediaFailed,
-        ].join(' • '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            [
+              kind,
+              ?item.subtitle,
+              if (phase == MediaDownloadPhase.downloading)
+                progress == null
+                    ? context.l10n.mediaDownloading
+                    : '${context.l10n.mediaDownloading} ${(progress * 100).floor()} %',
+              if (phase == MediaDownloadPhase.failed) context.l10n.mediaFailed,
+            ].join(' • '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (phase == MediaDownloadPhase.downloading)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: LinearProgressIndicator(value: progress, minHeight: 3, borderRadius: BorderRadius.circular(2)),
+            ),
+        ],
       ),
       trailing: MediaDownloadButton(kind: item.kind, id: item.id, size: 24, onAdd: (_) async {}),
       onTap: phase == MediaDownloadPhase.done ? () => openMediaDownload(context, ref, item) : null,

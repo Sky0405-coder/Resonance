@@ -3101,6 +3101,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mediaSection => 'Podcasts, Hörbücher & E-Books';
 
   @override
+  String get mediaSectionEpisodes => 'Heruntergeladene Folgen';
+
+  @override
+  String get mediaOfflineEmpty =>
+      'Keine Folgen, Hörbücher oder E-Books auf dem Gerät. Lade sie mit dem Download-Symbol herunter, solange du online bist.';
+
+  @override
   String get mediaOpen => 'Öffnen';
 
   @override

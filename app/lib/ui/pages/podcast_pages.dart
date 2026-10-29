@@ -214,6 +214,29 @@ class PodcastsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!kIsWeb && ref.watch(sessionProvider.select((s) => s.offline))) {
+      // Without the server: what is on the device (audiobooks and ebooks too, their tabs need the server).
+      final body = ListView(
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 140),
+        children: [
+          const MediaDownloadsSection(),
+          if (ref.watch(mediaDownloadsProvider.select((s) => s.items.isEmpty)))
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                context.l10n.mediaOfflineEmpty,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Palette.textMuted),
+              ),
+            ),
+        ],
+      );
+      if (embedded) return body;
+      return Scaffold(
+        appBar: AppBar(title: Text(context.l10n.navPodcasts)),
+        body: body,
+      );
+    }
     final subscriptions = ref.watch(podcastSubscriptionsProvider);
     final continued = ref.watch(podcastContinueProvider);
     final latest = ref.watch(podcastLatestProvider).value ?? const <PodcastEpisode>[];
@@ -281,6 +304,7 @@ class PodcastsPage extends ConsumerWidget {
               );
             },
           ),
+          if (!kIsWeb) const MediaDownloadsSection(kinds: {'episode'}),
           if (latest.isNotEmpty) ...[
             SectionTitle(context.l10n.podcastsNewEpisodes, padding: const EdgeInsets.fromLTRB(16, 28, 8, 4)),
             for (final (i, episode) in latest.take(6).indexed) ...[
@@ -1041,6 +1065,7 @@ class PodcastEpisodeTile extends ConsumerWidget {
     final accent = Theme.of(context).colorScheme.primary;
     final playing = ref.watch(playerProvider.select((p) => p.book?.episode?.id == episode.id));
     final download = ref.watch(mediaDownloadsProvider.select((s) => s.phase('episode', episode.id)));
+    final downloadProgress = ref.watch(mediaDownloadsProvider.select((s) => s.progress['episode:${episode.id}']));
     final duration = episode.durationSeconds;
     final progress = episode.completed
         ? 1.0
@@ -1078,6 +1103,15 @@ class PodcastEpisodeTile extends ConsumerWidget {
                       children: [
                         if (download == MediaDownloadPhase.done) ...[
                           Icon(Icons.download_for_offline, size: 14, color: accent),
+                          const SizedBox(width: 4),
+                        ] else if (download == MediaDownloadPhase.downloading) ...[
+                          SizedBox.square(
+                            dimension: 12,
+                            child: CircularProgressIndicator(value: downloadProgress, strokeWidth: 1.5),
+                          ),
+                          const SizedBox(width: 6),
+                        ] else if (download == MediaDownloadPhase.failed) ...[
+                          Icon(Icons.error_outline, size: 14, color: Theme.of(context).colorScheme.error),
                           const SizedBox(width: 4),
                         ],
                         Expanded(child: _EpisodeMeta(episode: episode)),

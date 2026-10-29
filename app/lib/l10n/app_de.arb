@@ -1794,6 +1794,8 @@
   "mediaRemove": "Vom Gerät löschen",
   "mediaFailed": "Download fehlgeschlagen – tippen zum Wiederholen",
   "mediaSection": "Podcasts, Hörbücher & E-Books",
+  "mediaSectionEpisodes": "Heruntergeladene Folgen",
+  "mediaOfflineEmpty": "Keine Folgen, Hörbücher oder E-Books auf dem Gerät. Lade sie mit dem Download-Symbol herunter, solange du online bist.",
   "mediaOpen": "Öffnen",
   "mediaOpenFailed": "Keine App zum Öffnen dieser Datei gefunden",
   "mediaStorage": "Podcasts, Hörbücher & E-Books",

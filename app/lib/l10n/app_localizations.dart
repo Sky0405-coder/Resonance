@@ -5534,6 +5534,18 @@ abstract class AppLocalizations {
   /// **'Podcasts, Hörbücher & E-Books'**
   String get mediaSection;
 
+  /// No description provided for @mediaSectionEpisodes.
+  ///
+  /// In de, this message translates to:
+  /// **'Heruntergeladene Folgen'**
+  String get mediaSectionEpisodes;
+
+  /// No description provided for @mediaOfflineEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Folgen, Hörbücher oder E-Books auf dem Gerät. Lade sie mit dem Download-Symbol herunter, solange du online bist.'**
+  String get mediaOfflineEmpty;
+
   /// No description provided for @mediaOpen.
   ///
   /// In de, this message translates to:

@@ -315,6 +315,11 @@ class _Session extends SessionNotifier {
   );
 }
 
+class _OfflineSession extends _Session {
+  @override
+  SessionState build() => super.build().copyWith(offline: true);
+}
+
 class _Connect extends ConnectController {
   @override
   ConnectView build() {
@@ -621,6 +626,70 @@ void main() {
     await tester.tap(find.text('Show notes'));
     await tester.pumpAndSettle();
     expect(find.text('Notes of the episode'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    container.dispose();
+  });
+
+  testWidgets('offline the podcasts tab lists what is on the device, with the progress of running downloads', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final episode = MediaDownload(
+      kind: 'episode',
+      id: 'episode',
+      title: 'Saved title',
+      subtitle: 'Podcast',
+      data: const PodcastEpisode(
+        id: 'episode',
+        podcastId: 'podcast',
+        title: 'Saved title',
+        podcastTitle: 'Podcast',
+      ).toJson(),
+      files: const [MediaFile(name: 'episode.mp3')],
+      addedAt: DateTime.utc(2026),
+      done: true,
+    );
+    final book = MediaDownload(
+      kind: 'audiobook',
+      id: 'book',
+      title: 'Long book',
+      data: const {},
+      files: const [
+        MediaFile(name: '1.mp3'),
+        MediaFile(name: '2.mp3'),
+      ],
+      addedAt: DateTime.utc(2026, 2),
+    );
+    container.dispose();
+    container = ProviderContainer(
+      overrides: [
+        apiProvider.overrideWithValue(api),
+        prefsProvider.overrideWithValue(await SharedPreferences.getInstance()),
+        playerProvider.overrideWith(() => PlayerController(engine: engine)),
+        offlineProvider.overrideWith(_Offline.new),
+        sessionProvider.overrideWith(_OfflineSession.new),
+        connectProvider.overrideWith(_Connect.new),
+        mediaDownloadsProvider.overrideWith(
+          () => _Media(
+            MediaDownloadsState(
+              items: {episode.key: episode, book.key: book},
+              progress: {book.key: 0.42},
+              directory: '/data/media',
+            ),
+          ),
+        ),
+      ],
+    );
+    await page(tester, const PodcastsPage());
+    expect(find.text('Saved title'), findsOneWidget);
+    expect(find.text('Long book'), findsOneWidget);
+    expect(find.textContaining('42 %'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('Continue listening'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     container.dispose();

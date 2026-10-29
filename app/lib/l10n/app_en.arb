@@ -1114,6 +1114,8 @@
   "mediaRemove": "Remove from device",
   "mediaFailed": "Download failed – tap to retry",
   "mediaSection": "Podcasts, audiobooks & ebooks",
+  "mediaSectionEpisodes": "Downloaded episodes",
+  "mediaOfflineEmpty": "No episodes, audiobooks or ebooks on this device. Download them with the download icon while you are online.",
   "mediaOpen": "Open",
   "mediaOpenFailed": "No app found to open this file",
   "mediaStorage": "Podcasts, audiobooks & ebooks",

@@ -3123,6 +3123,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mediaSection => 'Podcasts, audiobooks & ebooks';
 
   @override
+  String get mediaSectionEpisodes => 'Downloaded episodes';
+
+  @override
+  String get mediaOfflineEmpty =>
+      'No episodes, audiobooks or ebooks on this device. Download them with the download icon while you are online.';
+
+  @override
   String get mediaOpen => 'Open';
 
   @override
