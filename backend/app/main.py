@@ -21,6 +21,7 @@ from app.api import (
     editor,
     imports,
     jam,
+    key_checks,
     kosync,
     library,
     me,
@@ -159,6 +160,7 @@ for module in (
     jam,
     devices,
     diagnostics,
+    key_checks,
 ):
     app.include_router(module.router)
 app.include_router(books.admin_router)

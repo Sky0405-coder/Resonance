@@ -2696,6 +2696,12 @@ abstract class AppLocalizations {
   /// **'Verbindung testen'**
   String get adminTestConnection;
 
+  /// No description provided for @adminTestKey.
+  ///
+  /// In de, this message translates to:
+  /// **'Schlüssel testen'**
+  String get adminTestKey;
+
   /// No description provided for @adminProwlarr.
   ///
   /// In de, this message translates to:

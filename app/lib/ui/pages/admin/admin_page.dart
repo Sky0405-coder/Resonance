@@ -689,7 +689,7 @@ class _ServerTab extends ConsumerWidget {
                     ? context.l10n.adminAcoustIdNotSet
                     : context.l10n.adminConfigured,
               ),
-              trailing: const Icon(Icons.edit),
+              trailing: _EditTrailing(check: (lib['acoustid_api_key'] ?? '').isEmpty ? null : 'acoustid'),
               onTap: () async {
                 final ctrl = TextEditingController(text: lib['acoustid_api_key'] ?? '');
                 final key = await showDialog<String>(
@@ -719,6 +719,7 @@ class _ServerTab extends ConsumerWidget {
             ),
             _LibraryKeyTile(
               field: 'discogs_token',
+              check: 'discogs',
               title: context.l10n.adminDiscogsToken,
               helper: context.l10n.adminDiscogsHint,
               value: lib['discogs_token'] ?? '',
@@ -726,6 +727,7 @@ class _ServerTab extends ConsumerWidget {
             ),
             _LibraryKeyTile(
               field: 'lastfm_api_key',
+              check: 'lastfm',
               title: context.l10n.adminLastfmKey,
               helper: context.l10n.adminLastfmHint,
               value: lib['lastfm_api_key'] ?? '',
@@ -733,6 +735,7 @@ class _ServerTab extends ConsumerWidget {
             ),
             _LibraryKeyTile(
               field: 'fanarttv_api_key',
+              check: 'fanarttv',
               title: context.l10n.adminFanartKey,
               value: lib['fanarttv_api_key'] ?? '',
               patch: patch,
@@ -973,6 +976,7 @@ class _ServerTab extends ConsumerWidget {
             _TextTile(
               title: context.l10n.adminDiscordClientId,
               value: integrations['discord_client_id'] ?? '',
+              check: (integrations['discord_client_id'] ?? '').isEmpty ? null : 'discord',
               hint: context.l10n.adminDiscordClientIdHint,
               onChanged: (v) async {
                 await patch({
@@ -993,6 +997,7 @@ class _ServerTab extends ConsumerWidget {
             _TextTile(
               title: context.l10n.adminSpotifyClientSecret,
               value: spotify['client_secret'] ?? '',
+              check: (spotify['client_secret'] ?? '').isEmpty ? null : 'spotify',
               secret: true,
               onChanged: (v) => patch({
                 'spotify': {'client_secret': v},
@@ -1195,18 +1200,28 @@ class _NumberTile extends StatelessWidget {
 }
 
 class _TextTile extends StatelessWidget {
-  const _TextTile({required this.title, required this.value, required this.onChanged, this.secret = false, this.hint});
+  const _TextTile({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.secret = false,
+    this.hint,
+    this.check,
+  });
   final String title;
   final String value;
   final bool secret;
   final String? hint;
   final ValueChanged<String> onChanged;
 
+  /// Service whose key [ApiClient.checkKey] can test, shown as a button next to the edit icon.
+  final String? check;
+
   @override
   Widget build(BuildContext context) => ListTile(
     title: Text(title),
     subtitle: Text(value.isEmpty ? context.l10n.adminNotConfigured : (secret ? '••••••••' : value)),
-    trailing: const Icon(Icons.edit),
+    trailing: _EditTrailing(check: check),
     onTap: () async {
       final ctrl = TextEditingController(text: value);
       final result = await showDialog<String>(
@@ -1228,6 +1243,65 @@ class _TextTile extends StatelessWidget {
       if (result != null) onChanged(result);
     },
   );
+}
+
+/// The edit icon of a settings tile, with a button that tests the saved key when [check] names its service.
+class _EditTrailing extends ConsumerStatefulWidget {
+  const _EditTrailing({this.check});
+  final String? check;
+
+  @override
+  ConsumerState<_EditTrailing> createState() => _EditTrailingState();
+}
+
+class _EditTrailingState extends ConsumerState<_EditTrailing> {
+  bool _busy = false;
+  bool? _ok;
+
+  @override
+  void didUpdateWidget(_EditTrailing old) {
+    super.didUpdateWidget(old);
+    // A new key has not been tested yet.
+    if (old.check != widget.check) _ok = null;
+  }
+
+  Future<void> _check() async {
+    setState(() => _busy = true);
+    try {
+      final r = await ref.read(apiProvider).checkKey(widget.check!);
+      if (!mounted) return;
+      setState(() => _ok = r['ok'] == true);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${r['message'] ?? ''}')));
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.check == null) return const Icon(Icons.edit);
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: context.l10n.adminTestKey,
+          onPressed: _busy ? null : _check,
+          icon: _busy
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : switch (_ok) {
+                  true => Icon(Icons.check_circle, color: scheme.primary),
+                  false => Icon(Icons.error_outline, color: scheme.error),
+                  null => const Icon(Icons.network_check),
+                },
+        ),
+        const SizedBox(width: 4),
+        const Icon(Icons.edit),
+      ],
+    );
+  }
 }
 
 /// Checks the Prowlarr / qBittorrent connection with the saved credentials.
@@ -1530,18 +1604,20 @@ class _LibraryKeyTile extends StatelessWidget {
     required this.value,
     required this.patch,
     this.helper,
+    this.check,
   });
   final String field;
   final String title;
   final String value;
   final String? helper;
+  final String? check;
   final Future<void> Function(Map<String, dynamic>) patch;
 
   @override
   Widget build(BuildContext context) => ListTile(
     title: Text(title),
     subtitle: Text(value.isEmpty ? (helper ?? context.l10n.adminAcoustIdNotSet) : context.l10n.adminConfigured),
-    trailing: const Icon(Icons.edit),
+    trailing: _EditTrailing(check: value.isEmpty ? null : check),
     onTap: () async {
       final ctrl = TextEditingController(text: value);
       final key = await showDialog<String>(

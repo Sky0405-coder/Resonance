@@ -1512,6 +1512,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminTestConnection => 'Test connection';
 
   @override
+  String get adminTestKey => 'Test key';
+
+  @override
   String get adminProwlarr => 'Prowlarr';
 
   @override

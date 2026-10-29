@@ -475,6 +475,7 @@
   "adminDownloadsPerDay": "Downloads per user per day",
   "adminNotConfigured": "Not set",
   "adminTestConnection": "Test connection",
+  "adminTestKey": "Test key",
   "adminProwlarr": "Prowlarr",
   "adminQbittorrent": "qBittorrent",
   "editorSavedTrack": "Saved: {title} – {artist} ({album})",

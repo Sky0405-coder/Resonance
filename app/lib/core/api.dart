@@ -508,6 +508,10 @@ class ApiClient {
   Future<Map<String, dynamic>> torrentStatus() async =>
       Map<String, dynamic>.from(await _get('/api/admin/torrents/status'));
 
+  /// Asks a service whether the saved key works: acoustid, discogs, lastfm, fanarttv, spotify or discord.
+  Future<Map<String, dynamic>> checkKey(String service) async =>
+      Map<String, dynamic>.from(await _get('/api/admin/keys/$service/check'));
+
   Future<void> runQualityUpgrades() => _post('/api/admin/upgrades/run');
 
   Future<Map<String, dynamic>> youtubeCookies() async =>

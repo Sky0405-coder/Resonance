@@ -1490,6 +1490,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminTestConnection => 'Verbindung testen';
 
   @override
+  String get adminTestKey => 'Schlüssel testen';
+
+  @override
   String get adminProwlarr => 'Prowlarr';
 
   @override
