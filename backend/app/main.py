@@ -53,6 +53,7 @@ from app.services import (
     mixpoints,
     podcast_ads,
     upgrades,
+    vocals,
 )
 from app.services import audiobookshelf as abs_service
 from app.services import mixes as mixes_service
@@ -84,6 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await artist_info.start()
     await lastfm.start()
     await mixpoints.start()
+    await vocals.start()
     await lyrics.start()
     await podcasts_service.start()
     await podcast_ads.start()
@@ -95,6 +97,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         await duplicates.stop()
         await mixpoints.stop()
+        await vocals.stop()
         await lyrics.stop()
         await podcasts_service.stop()
         await podcast_ads.stop()

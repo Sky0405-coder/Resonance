@@ -549,6 +549,10 @@ class ApiClient {
     return (total: j['total'] as int, analyzed: j['analyzed'] as int, failed: j['failed'] as int);
   }
 
+  /// The optional song analysis (vocal detection): state ('off', 'installing', 'ready', 'failed'), message and counts.
+  Future<Map<String, dynamic>> vocalAnalysisStatus() async =>
+      Map<String, dynamic>.from((await _get('/api/mixpoints/status'))['vocals'] as Map);
+
   Future<({int total, int synced, int plainOnly, int instrumental, int none, int missing})> lyricsStatus() async {
     final j = await _get('/api/admin/lyrics/status');
     return (

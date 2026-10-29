@@ -18,6 +18,7 @@ from app.models.library import (
     TrackFingerprint,
     TrackLyrics,
     TrackMixPoints,
+    TrackVocals,
 )
 from app.models.podcasts import (
     EpisodeProgress,
@@ -85,5 +86,6 @@ __all__ = [
     "TrackLike",
     "TrackLyrics",
     "TrackMixPoints",
+    "TrackVocals",
     "User",
 ]

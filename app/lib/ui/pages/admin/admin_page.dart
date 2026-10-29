@@ -59,6 +59,7 @@ final _mixAnalysisStatusProvider = FutureProvider.autoDispose<({int total, int a
   (ref) => ref.watch(apiProvider).mixAnalysisStatus(),
 );
 final _lyricsStatusProvider = FutureProvider.autoDispose((ref) => ref.watch(apiProvider).lyricsStatus());
+final _vocalAnalysisStatusProvider = FutureProvider.autoDispose((ref) => ref.watch(apiProvider).vocalAnalysisStatus());
 
 String formatBytes(int b, {String? locale, bool megabytes = false}) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -92,6 +93,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
     _mixPoll = Timer.periodic(const Duration(seconds: 5), (_) {
       ref.invalidate(_mixAnalysisStatusProvider);
       ref.invalidate(_lyricsStatusProvider);
+      ref.invalidate(_vocalAnalysisStatusProvider);
     });
   }
 
@@ -188,6 +190,7 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
                     ],
                   ),
                 ),
+                const _VocalAnalysisStatus(),
               ],
             ),
           ),
@@ -303,6 +306,39 @@ class _OverviewTabState extends ConsumerState<_OverviewTab> {
 String _dateTime(BuildContext context, DateTime d) {
   final l = d.toLocal();
   return '${MaterialLocalizations.of(context).formatShortDate(l)} ${TimeOfDay.fromDateTime(l).format(context)}';
+}
+
+/// Progress of the optional vocal detection, below the AutoMix analysis; nothing while it is off.
+class _VocalAnalysisStatus extends ConsumerWidget {
+  const _VocalAnalysisStatus();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(_vocalAnalysisStatusProvider).value;
+    if (s == null || s['enabled'] != true) return const SizedBox.shrink();
+    final numbers = NumberFormat.decimalPattern(context.l10n.localeName);
+    final total = s['total'] as int;
+    final analyzed = s['analyzed'] as int;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          switch (s['state']) {
+            'installing' => const LinearProgressIndicator(),
+            'failed' => const SizedBox.shrink(),
+            _ => LinearProgressIndicator(value: total == 0 ? 0 : (analyzed / total).clamp(0.0, 1.0)),
+          },
+          const SizedBox(height: 8),
+          Text(switch (s['state']) {
+            'installing' => context.l10n.adminVocalAnalysisInstalling,
+            'failed' => context.l10n.adminVocalAnalysisFailed('${s['message'] ?? ''}'),
+            _ => context.l10n.adminVocalAnalysisProgress(numbers.format(analyzed), numbers.format(total)),
+          }),
+        ],
+      ),
+    );
+  }
 }
 
 class _StatCard extends StatelessWidget {
@@ -776,6 +812,18 @@ class _ServerTab extends ConsumerWidget {
               onChanged: (v) => patch({
                 'library': {'auto_import': v},
               }),
+            ),
+            SwitchListTile(
+              title: Text(context.l10n.adminVocalAnalysis),
+              subtitle: Text(context.l10n.adminVocalAnalysisHint),
+              isThreeLine: true,
+              value: lib['vocal_analysis'] ?? false,
+              onChanged: (v) async {
+                await patch({
+                  'library': {'vocal_analysis': v},
+                });
+                ref.invalidate(_vocalAnalysisStatusProvider);
+              },
             ),
             SwitchListTile(
               title: Text(context.l10n.adminLyricsOnline),

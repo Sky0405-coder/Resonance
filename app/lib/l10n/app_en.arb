@@ -331,6 +331,13 @@
   "adminStorage": "Storage",
   "adminPlaytime": "Playtime",
   "adminMixAnalysis": "AutoMix analysis",
+  "adminVocalAnalysis": "Vocal detection for AutoMix",
+  "adminVocalAnalysisHint": "Splits the start and end of every song into voice and music (Demucs) so voices do not overlap in transitions. Switching it on downloads about 1 GB once; each song then takes about a minute of CPU time in the background, the whole library several days. Often played songs go first.",
+  "adminVocalAnalysisInstalling": "Setting up vocal detection (about 1 GB) …",
+  "adminVocalAnalysisFailed": "Setting up vocal detection failed, next attempt in an hour: {message}",
+  "@adminVocalAnalysisFailed": {"placeholders": {"message": {"type": "String"}}},
+  "adminVocalAnalysisProgress": "Vocal detection: {analyzed} of {total} songs",
+  "@adminVocalAnalysisProgress": {"placeholders": {"analyzed": {"type": "String"}, "total": {"type": "String"}}},
   "adminLyrics": "Lyrics",
   "adminLyricsProgress": "{synced} synced, {plainOnly} plain only, {none} none · {pending} pending",
   "@adminLyricsProgress": {

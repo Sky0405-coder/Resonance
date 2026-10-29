@@ -307,7 +307,9 @@ async def test_status_counts_current_results_for_permanent_tracks_and_requires_a
     monkeypatch.setattr(mixpoints, "analyze_async", no_analysis)
     assert (await client.get("/api/mixpoints/status")).status_code == 401
     empty = await client.get("/api/mixpoints/status", headers=headers)
-    assert empty.status_code == 200 and empty.json() == {"total": 2, "analyzed": 0, "failed": 0}
+    assert empty.status_code == 200
+    assert {key: empty.json()[key] for key in ("total", "analyzed", "failed")} == {"total": 2, "analyzed": 0, "failed": 0}
+    assert empty.json()["vocals"] == {"state": "off", "message": None, "enabled": False, "total": 2, "analyzed": 0}
     invite = (await client.post("/api/admin/invites", json={}, headers=headers)).json()["token"]
     user = await register(client, "mix-listener", invite)
     assert (await client.get("/api/mixpoints/status", headers=auth(user["token"]))).status_code == 403
@@ -338,7 +340,10 @@ async def test_status_counts_current_results_for_permanent_tracks_and_requires_a
             ))
         await db.commit()
     response = await client.get("/api/mixpoints/status", headers=headers)
-    assert response.status_code == 200 and response.json() == {"total": 6, "analyzed": 1, "failed": 2}
+    assert response.status_code == 200
+    assert {key: response.json()[key] for key in ("total", "analyzed", "failed")} == {
+        "total": 6, "analyzed": 1, "failed": 2,
+    }
 
 
 async def test_keys_api_reads_stored_keys_without_analysis(env, monkeypatch: pytest.MonkeyPatch) -> None:

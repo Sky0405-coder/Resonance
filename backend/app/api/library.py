@@ -37,7 +37,7 @@ from app.schemas import (
     SearchResult,
     TrackOut,
 )
-from app.services import covers, mixpoints, ringtone, spectrum, transcode
+from app.services import covers, mixpoints, ringtone, spectrum, transcode, vocals
 from app.services.deezer import DeezerError, deezer
 from app.services.downloads import create_redownload
 from app.services.lyrics import get_lyrics
@@ -423,7 +423,7 @@ async def ringtone_file(
 
 
 @router.get("/mixpoints/status")
-async def get_mixpoint_status(admin: AdminUser, db: DB) -> dict[str, int]:
+async def get_mixpoint_status(admin: AdminUser, db: DB) -> dict[str, int | dict]:
     total, analyzed, failed = (await db.execute(
         select(
             func.count(Track.id),
@@ -437,7 +437,7 @@ async def get_mixpoint_status(admin: AdminUser, db: DB) -> dict[str, int]:
         )
         .where(Track.is_temporary.is_(False))
     )).one()
-    return {"total": total, "analyzed": analyzed, "failed": failed}
+    return {"total": total, "analyzed": analyzed, "failed": failed, "vocals": await vocals.status(db)}
 
 
 @router.get("/mixpoints/keys")

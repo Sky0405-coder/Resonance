@@ -3,10 +3,12 @@
     "version": "1.6.19",
     "date": "2026-10-28",
     "de": [
-      "Hörbuch-Downloads laufen jetzt in einem Stück: eine Benachrichtigung mit „12/78“ und Gesamtfortschritt statt einer, die bei jeder Datei verschwindet und neu aufpoppt. Drei Dateien laden gleichzeitig, und nach einem Abbruch werden nur die fehlenden Dateien nachgeladen."
+      "Hörbuch-Downloads laufen jetzt in einem Stück: eine Benachrichtigung mit „12/78“ und Gesamtfortschritt statt einer, die bei jeder Datei verschwindet und neu aufpoppt.",
+      "Drei Dateien laden gleichzeitig, und nach einem Abbruch werden nur die fehlenden Dateien nachgeladen."
     ],
     "en": [
-      "Audiobook downloads now run in one go: a single notification with \"12/78\" and the overall progress instead of one that disappears and pops up again for every file. Three files load at once, and after an interruption only the missing files are fetched."
+      "Audiobook downloads now run in one go: a single notification with \"12/78\" and the overall progress instead of one that disappears and pops up again for every file.",
+      "Three files load at once, and after an interruption only the missing files are fetched."
     ]
   },
   {

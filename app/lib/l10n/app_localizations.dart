@@ -2036,6 +2036,36 @@ abstract class AppLocalizations {
   /// **'AutoMix-Analyse'**
   String get adminMixAnalysis;
 
+  /// No description provided for @adminVocalAnalysis.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesangserkennung für AutoMix'**
+  String get adminVocalAnalysis;
+
+  /// No description provided for @adminVocalAnalysisHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Trennt Anfang und Ende jedes Songs in Stimme und Musik (Demucs), damit sich bei Übergängen keine Stimmen überlagern. Beim Einschalten wird einmalig etwa 1 GB heruntergeladen; jeder Song braucht dann rund eine Minute Rechenzeit im Hintergrund, die ganze Bibliothek mehrere Tage. Oft gehörte Songs kommen zuerst dran.'**
+  String get adminVocalAnalysisHint;
+
+  /// No description provided for @adminVocalAnalysisInstalling.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesangserkennung wird eingerichtet (etwa 1 GB) …'**
+  String get adminVocalAnalysisInstalling;
+
+  /// No description provided for @adminVocalAnalysisFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Einrichtung der Gesangserkennung fehlgeschlagen, neuer Versuch in einer Stunde: {message}'**
+  String adminVocalAnalysisFailed(String message);
+
+  /// No description provided for @adminVocalAnalysisProgress.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesangserkennung: {analyzed} von {total} Songs'**
+  String adminVocalAnalysisProgress(String analyzed, String total);
+
   /// No description provided for @adminLyrics.
   ///
   /// In de, this message translates to:

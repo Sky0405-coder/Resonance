@@ -37,6 +37,11 @@ class _AdminApi extends ApiClient {
     return analysisStatus;
   }
 
+  Map<String, dynamic> vocals = {'state': 'off', 'message': null, 'enabled': false, 'total': 0, 'analyzed': 0};
+
+  @override
+  Future<Map<String, dynamic>> vocalAnalysisStatus() async => vocals;
+
   @override
   Future<({int total, int synced, int plainOnly, int instrumental, int none, int missing})> lyricsStatus() async {
     lyricsCalls++;
@@ -120,6 +125,34 @@ void main() {
         findsOneWidget,
       );
       expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator).first).value, 0.75);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('vocal detection shows its setup and progress in $locale only while switched on', (tester) async {
+      final api = _AdminApi((total: 2000, analyzed: 2000, failed: 0));
+      await _showAdmin(tester, api, locale);
+      expect(find.textContaining(locale == 'en' ? 'Vocal detection' : 'Gesangserkennung'), findsNothing);
+      api.vocals = {'state': 'installing', 'message': null, 'enabled': true, 'total': 2000, 'analyzed': 0};
+      await tester.pump(const Duration(seconds: 5));
+      // The setup bar runs without an end, so it never settles.
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.text(
+          locale == 'en'
+              ? 'Setting up vocal detection (about 1 GB) …'
+              : 'Gesangserkennung wird eingerichtet (etwa 1 GB) …',
+        ),
+        findsOneWidget,
+      );
+      api.vocals = {'state': 'ready', 'message': null, 'enabled': true, 'total': 2000, 'analyzed': 300};
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(locale == 'en' ? 'Vocal detection: 300 of 2,000 songs' : 'Gesangserkennung: 300 von 2.000 Songs'),
+        findsOneWidget,
+      );
+      expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator).at(1)).value, 0.15);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 

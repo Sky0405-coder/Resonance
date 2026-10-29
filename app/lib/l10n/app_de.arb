@@ -676,6 +676,13 @@
   "adminStorage": "Speicher",
   "adminPlaytime": "Spielzeit",
   "adminMixAnalysis": "AutoMix-Analyse",
+  "adminVocalAnalysis": "Gesangserkennung für AutoMix",
+  "adminVocalAnalysisHint": "Trennt Anfang und Ende jedes Songs in Stimme und Musik (Demucs), damit sich bei Übergängen keine Stimmen überlagern. Beim Einschalten wird einmalig etwa 1 GB heruntergeladen; jeder Song braucht dann rund eine Minute Rechenzeit im Hintergrund, die ganze Bibliothek mehrere Tage. Oft gehörte Songs kommen zuerst dran.",
+  "adminVocalAnalysisInstalling": "Gesangserkennung wird eingerichtet (etwa 1 GB) …",
+  "adminVocalAnalysisFailed": "Einrichtung der Gesangserkennung fehlgeschlagen, neuer Versuch in einer Stunde: {message}",
+  "@adminVocalAnalysisFailed": {"placeholders": {"message": {"type": "String"}}},
+  "adminVocalAnalysisProgress": "Gesangserkennung: {analyzed} von {total} Songs",
+  "@adminVocalAnalysisProgress": {"placeholders": {"analyzed": {"type": "String"}, "total": {"type": "String"}}},
   "adminLyrics": "Songtexte",
   "adminLyricsProgress": "{synced} mit synchronisiertem Text, {plainOnly} nur Text, {none} ohne · {pending} noch offen",
   "@adminLyricsProgress": {

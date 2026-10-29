@@ -1135,6 +1135,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adminMixAnalysis => 'AutoMix analysis';
 
   @override
+  String get adminVocalAnalysis => 'Vocal detection for AutoMix';
+
+  @override
+  String get adminVocalAnalysisHint =>
+      'Splits the start and end of every song into voice and music (Demucs) so voices do not overlap in transitions. Switching it on downloads about 1 GB once; each song then takes about a minute of CPU time in the background, the whole library several days. Often played songs go first.';
+
+  @override
+  String get adminVocalAnalysisInstalling => 'Setting up vocal detection (about 1 GB) …';
+
+  @override
+  String adminVocalAnalysisFailed(String message) {
+    return 'Setting up vocal detection failed, next attempt in an hour: $message';
+  }
+
+  @override
+  String adminVocalAnalysisProgress(String analyzed, String total) {
+    return 'Vocal detection: $analyzed of $total songs';
+  }
+
+  @override
   String get adminLyrics => 'Lyrics';
 
   @override

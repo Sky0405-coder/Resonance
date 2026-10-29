@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import SessionLocal
 from app.models import Track, TrackLyrics, TrackMixPoints
+from app.services import vocals
 from app.services.lyrics import parse_lrc
 from app.services.transcode import resolve_path
 
@@ -294,8 +295,14 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
             .on_conflict_do_update(index_elements=[TrackMixPoints.track_id], set_=values)
         )
         await db.commit()
+    # The song analysis hears the voice; synced lyrics are the fallback.
+    heard = await vocals.bounds_for(db, [tracks[id] for id, points in result.items() if points is not None])
     for id, points in result.items():
-        if points is not None and (lyric := lyrics.get(id)) is not None:
+        if points is None:
+            continue
+        if id in heard:
+            points.vocals_in, points.vocals_out = heard[id]
+        elif (lyric := lyrics.get(id)) is not None:
             points.vocals_in, points.vocals_out = _vocal_bounds(
                 lyric.synced, tracks[id].duration, instrumental=lyric.instrumental
             )

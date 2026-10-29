@@ -759,7 +759,7 @@ async def test_admin_permissions_empty_import_and_info(env):
     )
     assert LibraryConfig().model_dump() == dict(
         lyrics_online=True, acoustid_api_key="", discogs_token="", lastfm_api_key="", fanarttv_api_key="",
-        import_mode="move", import_unidentified=True, auto_import=True,
+        import_mode="move", import_unidentified=True, auto_import=True, vocal_analysis=False,
     )
 
 

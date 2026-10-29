@@ -134,3 +134,18 @@ class TrackMixPoints(Base):
     mix_out: Mapped[float | None] = mapped_column(Float)
     end: Mapped[float | None] = mapped_column(Float)
     analyzed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TrackVocals(Base):
+    """Where a track's voice starts and ends, from a stem separation of its intro and outro (optional song analysis
+    for AutoMix). Without a voice in a part, the bound is the edge of the analyzed window."""
+
+    __tablename__ = "track_vocals"
+
+    track_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True)
+    version: Mapped[int]
+    mtime: Mapped[float] = mapped_column(Float)
+    failed: Mapped[bool] = mapped_column(default=False, server_default=false())
+    vocals_in: Mapped[float | None] = mapped_column(Float)
+    vocals_out: Mapped[float | None] = mapped_column(Float)
+    analyzed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

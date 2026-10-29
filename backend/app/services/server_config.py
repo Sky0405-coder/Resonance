@@ -90,6 +90,9 @@ class LibraryConfig(BaseModel):
     import_unidentified: bool = True
     # Periodically import new files from the import folder (only in "move" mode).
     auto_import: bool = True
+    # Song analysis for AutoMix: finds where the voice starts and ends with a stem separation (Demucs, installed on
+    # first use, about 1 GB) – about a minute of CPU per song, in the background.
+    vocal_analysis: bool = False
 
 
 class AudiobookshelfConfig(BaseModel):

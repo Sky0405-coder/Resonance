@@ -1114,6 +1114,26 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminMixAnalysis => 'AutoMix-Analyse';
 
   @override
+  String get adminVocalAnalysis => 'Gesangserkennung für AutoMix';
+
+  @override
+  String get adminVocalAnalysisHint =>
+      'Trennt Anfang und Ende jedes Songs in Stimme und Musik (Demucs), damit sich bei Übergängen keine Stimmen überlagern. Beim Einschalten wird einmalig etwa 1 GB heruntergeladen; jeder Song braucht dann rund eine Minute Rechenzeit im Hintergrund, die ganze Bibliothek mehrere Tage. Oft gehörte Songs kommen zuerst dran.';
+
+  @override
+  String get adminVocalAnalysisInstalling => 'Gesangserkennung wird eingerichtet (etwa 1 GB) …';
+
+  @override
+  String adminVocalAnalysisFailed(String message) {
+    return 'Einrichtung der Gesangserkennung fehlgeschlagen, neuer Versuch in einer Stunde: $message';
+  }
+
+  @override
+  String adminVocalAnalysisProgress(String analyzed, String total) {
+    return 'Gesangserkennung: $analyzed von $total Songs';
+  }
+
+  @override
   String get adminLyrics => 'Songtexte';
 
   @override
