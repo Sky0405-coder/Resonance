@@ -1,5 +1,27 @@
 [
   {
+    "version": "1.6.20",
+    "date": "2026-10-29",
+    "de": [
+      "Playlists von Deezer, Apple Music und Spotify in der Suche: Vorschau mit allen Songs (✓ = schon in der Bibliothek), ein Tipp importiert die Playlist und lädt fehlende Songs. Deezer-Links gehen jetzt auch im Link-Import.",
+      "AutoMix überblendet deutlich länger (etwa 32 Schläge, 6–20 s, mit dem Crossfade-Regler bis 30 s) und übergibt den Gesang, statt bei Stimmen auf 3 s zu kürzen.",
+      "Optionale Gesangserkennung für AutoMix (Admin → Server → Bibliothek, standardmäßig aus): Der Server hört selbst, wo in Intro und Outro gesungen wird.",
+      "Podcast- und Hörbuch-Player im Querformat: Cover neben der Bedienung wie bei Songs.",
+      "Folgen mit herausgeschnittener Werbung zeigen die richtige Restzeit und gelten am Ende als gehört.",
+      "Downloads von Folgen und Hörbüchern zeigen ihren Fortschritt; der Podcast-Tab listet heruntergeladene Folgen und zeigt offline alles, was auf dem Gerät liegt.",
+      "Admin: Prüf-Knopf für jeden API-Schlüssel. Medien-Tabs jetzt in der Reihenfolge Podcasts, Hörbücher, E-Books."
+    ],
+    "en": [
+      "Deezer, Apple Music and Spotify playlists in search: a preview with all songs (✓ = already in the library), one tap imports the playlist and downloads the missing songs. Deezer links work in the link import too.",
+      "AutoMix blends much longer (about 32 beats, 6–20 s, up to 30 s with the crossfade setting) and hands the vocals over instead of cutting to 3 s.",
+      "Optional vocal detection for AutoMix (Admin → Server → Library, off by default): the server listens where the intro and outro have singing.",
+      "Podcast and audiobook player in landscape: cover next to the controls like for songs.",
+      "Episodes with removed ads show the right remaining time and count as played at the end.",
+      "Episode and audiobook downloads show their progress; the podcasts tab lists downloaded episodes and offline shows everything on the device.",
+      "Admin: a test button for every API key. Media tabs now in the order podcasts, audiobooks, ebooks."
+    ]
+  },
+  {
     "version": "1.6.19",
     "date": "2026-10-28",
     "de": [
