@@ -483,6 +483,14 @@ async def test_lrclib_search(monkeypatch: pytest.MonkeyPatch, difference: float,
     ]
 
 
+@pytest.mark.parametrize("duration", [0, 0.4, 3600.6, 4138.4])
+async def test_lrclib_skips_lengths_it_does_not_know(monkeypatch: pytest.MonkeyPatch, duration: float) -> None:
+    get = AsyncMock()
+    monkeypatch.setattr(httpx.AsyncClient, "get", get)
+    assert await lyrics.lrclib_lookup("Paul van Dyk", "Live @ Unionhalle", "Sets", duration) is None
+    get.assert_not_called()
+
+
 async def test_lrclib_retries_transient_503(monkeypatch: pytest.MonkeyPatch) -> None:
     statuses = iter([503, 503, 200])
 

@@ -109,6 +109,10 @@ def local_lyrics(path: Path) -> str | None:
 
 async def lrclib_lookup(artist: str, title: str, album: str, duration: float) -> dict | None:
     global _client
+    # LRCLIB only knows songs from 1 s to an hour (it rejects other lengths); DJ sets and files without a length have
+    # no lyrics there, and asking would fail on every retry.
+    if not duration or not 1 <= round(duration) <= 3600:
+        return None
     if _client is None:
         _client = httpx.AsyncClient(
             base_url="https://lrclib.net/api/",
