@@ -1021,11 +1021,8 @@ void main() {
     expect(find.descendant(of: find.byType(PillTabs), matching: find.text('Ebooks')), findsOneWidget);
     expect(find.descendant(of: find.byType(PillTabs), matching: find.text('Audiobooks')), findsOneWidget);
     expect(find.descendant(of: find.byType(PillTabs), matching: find.text('Podcasts')), findsOneWidget);
-    expect(find.byTooltip('Requests'), findsOneWidget);
-    expect(find.byTooltip('Import'), findsOneWidget);
-    expect(find.byTooltip('Add by RSS link'), findsNothing);
-    await tester.tap(find.descendant(of: find.byType(PillTabs), matching: find.text('Podcasts')));
-    await tester.pumpAndSettle();
+    final labels = tester.widget<PillTabs>(find.byType(PillTabs).first).items.map((item) => item.label);
+    expect(labels, ['Podcasts', 'Audiobooks', 'Ebooks']);
     expect(find.byTooltip('Requests'), findsNothing);
     expect(find.byTooltip('Import'), findsNothing);
     expect(find.byTooltip('Add by RSS link'), findsNothing);

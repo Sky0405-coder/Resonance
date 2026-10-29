@@ -218,13 +218,12 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
           _Section(context.l10n.settingsMediaTabs),
-          if (ebooksEnabled)
-            SwitchListTile(
-              title: Text(context.l10n.settingsEbooks),
-              subtitle: Text(context.l10n.settingsShowInMenu),
-              value: ref.watch(ebooksVisibleProvider),
-              onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.ebooks, !v),
-            ),
+          SwitchListTile(
+            title: Text(context.l10n.navPodcasts),
+            subtitle: Text(context.l10n.settingsShowInMenu),
+            value: ref.watch(podcastsVisibleProvider),
+            onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, !v),
+          ),
           if (audiobooksEnabled)
             SwitchListTile(
               title: Text(context.l10n.navAudiobooks),
@@ -232,12 +231,13 @@ class SettingsPage extends ConsumerWidget {
               value: ref.watch(audiobooksVisibleProvider),
               onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.audiobooks, !v),
             ),
-          SwitchListTile(
-            title: Text(context.l10n.navPodcasts),
-            subtitle: Text(context.l10n.settingsShowInMenu),
-            value: ref.watch(podcastsVisibleProvider),
-            onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.podcasts, !v),
-          ),
+          if (ebooksEnabled)
+            SwitchListTile(
+              title: Text(context.l10n.settingsEbooks),
+              subtitle: Text(context.l10n.settingsShowInMenu),
+              value: ref.watch(ebooksVisibleProvider),
+              onChanged: (v) => ref.read(hiddenMediaSectionsProvider.notifier).setHidden(MediaSection.ebooks, !v),
+            ),
           _Section(context.l10n.settingsPlayback),
           const TvAmbientModeSetting(),
           if (isDiscordDesktop)

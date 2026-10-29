@@ -86,7 +86,7 @@ class BookCover extends ConsumerWidget {
   }
 }
 
-/// Bottom tab "Bücher": ebooks and, if set up, audiobooks side by side.
+/// Bottom tab "Medien": podcasts, audiobooks and ebooks side by side (in that order).
 class BooksHubPage extends ConsumerStatefulWidget {
   const BooksHubPage({super.key});
 
@@ -123,10 +123,10 @@ class _BooksHubPageState extends ConsumerState<BooksHubPage> with TickerProvider
     final audiobooks = ref.watch(audiobooksVisibleProvider);
     final podcasts = ref.watch(podcastsVisibleProvider);
     final tabs = <(String, IconData, Widget, bool)>[
-      if (ebooks) (context.l10n.booksEbooks, Icons.menu_book_rounded, const _EbooksView(), true),
+      if (podcasts) (context.l10n.navPodcasts, Icons.podcasts_rounded, const PodcastsPage(embedded: true), false),
       if (audiobooks)
         (context.l10n.navAudiobooks, Icons.headphones_rounded, const AudiobooksPage(embedded: true), false),
-      if (podcasts) (context.l10n.navPodcasts, Icons.podcasts_rounded, const PodcastsPage(embedded: true), false),
+      if (ebooks) (context.l10n.booksEbooks, Icons.menu_book_rounded, const _EbooksView(), true),
     ];
     if (tabs.length <= 1) {
       _syncTabController(null);
