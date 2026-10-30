@@ -1,5 +1,23 @@
 [
   {
+    "version": "1.6.21",
+    "date": "2026-10-30",
+    "de": [
+      "AutoMix ohne Lautstärkesprünge: Beim Bass-Wechsel wird nur noch der tiefe Bass getauscht, fließend über einen Beat. Bisher wurde ein Song plötzlich dumpf und der andere sprang lauter.",
+      "AutoMix passt das Tempo sinnvoller an: Der laufende Song wird nicht mehr schneller, wenn der nächste eigentlich langsamer ist. Danach gleitet der neue Song ruhiger über 16 Sekunden zu seinem Tempo zurück.",
+      "Songs mit sehr unterschiedlichem Tempo klingen weicher aus: etwa 16 Beats lang wird der Bass fließend ausgefiltert, der nächste Song kommt erst dazu, wenn der alte Beat ausdünnt.",
+      "Überspringen oder Pausieren mitten in einer Überblendung blendet kurz aus statt hart abzubrechen; die Überblendung selbst schwillt in der Mitte nicht mehr an.",
+      "Desktop: Equalizer und AutoMix-Filter setzen bei Tempo-Änderungen nicht mehr kurz aus."
+    ],
+    "en": [
+      "AutoMix without volume jumps: the bass swap only exchanges the low bass, smoothly over one beat. Before, one song suddenly turned dull and the other jumped louder.",
+      "AutoMix adjusts the tempo more sensibly: the current song no longer speeds up when the next one is actually slower. Afterwards the new song glides back to its tempo more calmly over 16 seconds.",
+      "Songs with very different tempos fade out more softly: the bass is filtered away smoothly over about 16 beats, and the next song only joins once the old beat thins out.",
+      "Skipping or pausing in the middle of a transition fades briefly instead of cutting off; the blend itself no longer swells in the middle.",
+      "Desktop: the equalizer and AutoMix filters no longer drop out briefly on tempo changes."
+    ]
+  },
+  {
     "version": "1.6.20",
     "date": "2026-10-29",
     "de": [
