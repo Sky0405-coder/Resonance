@@ -347,6 +347,13 @@ void main() {
       expect(112 * large.outgoingSpeed, closeTo(100 * large.speed, 1e-9));
     });
 
+    test('equal tempos start on the beat without a speed change', () {
+      final same = automixPlan(points(bpm: 120), points(bpm: 120))!;
+      expect(same.beatMatched, isTrue);
+      expect(same.changesTempo, isFalse);
+      expect(automixPlan(points(bpm: 121), points(bpm: 120))!.changesTempo, isTrue);
+    });
+
     test('the current song never drifts away from the next one\'s own tempo', () {
       // 70 BPM blends at double time (140) into 130: the current song must not speed up toward a slower song.
       final half = automixPlan(points(bpm: 130), points(bpm: 70))!;

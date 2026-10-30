@@ -109,6 +109,10 @@ class AutomixPlan {
   final bool filterOut;
 
   bool get beatMatched => speed != 1;
+
+  /// Whether the next song's tempo actually changes (equal tempos are beat-matched without a speed change, which
+  /// on Android can click).
+  bool get changesTempo => (speed - 1).abs() >= 1e-4;
 }
 
 Duration _seconds(double s) => Duration(microseconds: (s * 1e6).round());
@@ -476,6 +480,10 @@ class PlaybackEngine {
   EqualizerSettings _equalizer = EqualizerSettings();
   Future<void> _equalizerUpdate = Future.value();
   bool _equalizerQueued = false;
+  bool _equalizerFull = false;
+
+  /// The band levels (millibel) last set on each Android equalizer, so a transition only touches bands that change.
+  final _equalizerLevels = <List<int>?>[null, null];
   int _activeIndex = 0;
   AudioPlayer get _active => _players[_activeIndex];
   AudioPlayer get _inactive => _players[1 - _activeIndex];
@@ -575,13 +583,18 @@ class PlaybackEngine {
     JustAudioMediaKit.setAudioFilter(filters.isEmpty ? null : filters.join(','));
   }
 
-  Future<void> _applyEqualizer() {
-    // Serialize writes so a slower parameter lookup cannot overwrite a newer slider change; a transition's many small
-    // steps collapse into the next pending write, which reads the latest values.
+  /// Writes the equalizer settings and AutoMix cuts to the Android equalizers. [onlyChanges] (AutoMix steps) only
+  /// sets the bands whose level changed: each write takes effect at once and can click.
+  Future<void> _applyEqualizer({bool onlyChanges = false}) {
+    // Serialize writes so a slower parameter lookup cannot overwrite a newer slider change; a transition's steps
+    // collapse into the next pending write, which reads the latest values.
+    _equalizerFull |= !onlyChanges;
     if (_equalizerQueued) return _equalizerUpdate;
     _equalizerQueued = true;
     _equalizerUpdate = _equalizerUpdate.then((_) async {
       _equalizerQueued = false;
+      final full = _equalizerFull;
+      _equalizerFull = false;
       if (_disposed) return;
       await Future.wait(
         _equalizers.indexed.map((entry) async {
@@ -590,7 +603,8 @@ class PlaybackEngine {
             final cut = _bassCut[slot];
             // With AutoMix the effect stays on (flat when unused): switching it on and off mid-song stutters.
             final enabled = _equalizer.enabled || cut != null || _automix;
-            await eq.setEnabled(enabled);
+            final previous = full ? null : _equalizerLevels[slot];
+            if (previous == null) await eq.setEnabled(enabled);
             // Before the first source, just_audio's parameter future has not completed yet.
             final parameters = await eq.parameters.timeout(const Duration(milliseconds: 100));
             if (_disposed) return;
@@ -603,14 +617,20 @@ class PlaybackEngine {
               minMb,
               maxMb,
             );
+            final applied = <int>[];
             for (var i = 0; i < parameters.bands.length; i++) {
               final reduction = cut?.reductionAt(parameters.bands[i].centerFrequency) ?? 0.0;
               final level = (levels[i] + reduction * 100).round().clamp(minMb, maxMb);
-              await parameters.bands[i].setGain(level / 100);
+              applied.add(level);
+              if (previous == null || previous.length <= i || previous[i] != level) {
+                await parameters.bands[i].setGain(level / 100);
+              }
             }
-            await eq.setEnabled(enabled);
+            _equalizerLevels[slot] = applied;
+            if (previous == null) await eq.setEnabled(enabled);
           } catch (_) {
             // Audio sessions can be absent or replaced; retry the remembered settings after loading.
+            _equalizerLevels[slot] = null;
           }
         }),
       );
@@ -680,7 +700,7 @@ class PlaybackEngine {
       await fade.incoming.load();
       await _applyEqualizer();
       await fade.incoming.seek(fade.plan!.incomingStart, index: fade.index);
-      await fade.incoming.setSpeed(_speed * fade.plan!.speed);
+      if (fade.plan!.changesTempo) await fade.incoming.setSpeed(_speed * fade.plan!.speed);
       // The next song comes in without its bass; the bass swaps over halfway (see [_startAutomix]).
       if (!fade.plan!.filterOut) await _setCut(fade.incoming, fade.index, AutomixCut.bassSwap, force: true);
       if (_disposed || currentIndex != index || _fade != fade) {
@@ -753,13 +773,14 @@ class PlaybackEngine {
   }
 
   /// After a beat-matched transition the new song drifts back to its own tempo.
-  /// Moves [player] from [from] to [to] in one-second steps (each speed change costs the decoder a moment, so
-  /// few, small and even steps sound smoother than many tiny ones).
+  /// Moves [player] from [from] to [to] over [duration] in steps of about 1 %: each speed change makes Android's
+  /// audio output start over, which can click, so a small difference takes few steps (a 3 % one three).
   void _rampSpeed(AudioPlayer player, double from, double to, Duration duration) {
     _speedRamp?.cancel();
-    final steps = (duration.inMilliseconds / 1000).round().clamp(1, 24);
+    final steps = ((to - from).abs() / 0.01).ceil().clamp(1, 8);
+    final interval = duration ~/ steps;
     var step = 0;
-    _speedRamp = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _speedRamp = Timer.periodic(interval < const Duration(seconds: 1) ? const Duration(seconds: 1) : interval, (timer) {
       step++;
       final done = step >= steps || _disposed;
       player.setSpeed(done ? to : from + (to - from) * step / steps).ignore();
@@ -801,8 +822,13 @@ class PlaybackEngine {
   /// only sent again with [force].
   Future<void> _setCut(AudioPlayer player, int? index, AutomixCut? cut, {bool force = false}) async {
     final slot = _players.indexOf(player);
+    // Android's equalizer clicks on every change: the bass swaps in one step there and the sweep moves in 3 dB steps
+    // (the desktop filters change smoothly). Resending only helps the desktop filters, which can start over.
+    if (!_desktop && cut != null) {
+      cut = AutomixCut(bass: cut.bass.roundToDouble(), sweep: (cut.sweep * 20).round() / 20);
+    }
     if (cut != null && cut.neutral) cut = null;
-    if (_bassCut[slot] == cut && !force) return;
+    if (_bassCut[slot] == cut && !(force && _desktop)) return;
     _bassCut[slot] = cut;
     if (_desktop) {
       final key = index == null ? null : sourceKeyForIndex?.call(index);
@@ -812,7 +838,7 @@ class PlaybackEngine {
         JustAudioMediaKit.sourceCommand(key, command);
       }
     } else if (_equalizers.isNotEmpty) {
-      await _applyEqualizer();
+      await _applyEqualizer(onlyChanges: true);
     }
   }
 
@@ -826,7 +852,7 @@ class PlaybackEngine {
     }
     if (_bassCut.any((cut) => cut != null)) {
       _bassCut.fillRange(0, 2, null);
-      if (_equalizers.isNotEmpty) await _applyEqualizer();
+      if (_equalizers.isNotEmpty) await _applyEqualizer(onlyChanges: true);
     }
   }
 
@@ -884,7 +910,7 @@ class PlaybackEngine {
       if (!silence) await fade.incoming.setVolume(_targetVolume);
       _activeIndex = 1 - _activeIndex;
       _fade = null;
-      if (fade.plan?.beatMatched ?? false) {
+      if (fade.plan?.changesTempo ?? false) {
         _rampSpeed(fade.incoming, _speed * fade.plan!.speed, _speed, const Duration(seconds: 16));
       }
     } finally {
