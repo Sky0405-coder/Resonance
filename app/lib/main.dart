@@ -34,7 +34,9 @@ Future<void> main() async {
   usePathUrlStrategy();
 
   if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows)) {
-    // just_audio has no native Linux/Windows backend; media_kit (libmpv) provides it.
+    // just_audio has no native Linux/Windows backend; media_kit (libmpv) provides it. Without its pitch control mpv
+    // keeps the pitch on tempo changes itself, so AutoMix's tempo steps leave the audio filters alone.
+    JustAudioMediaKit.pitch = false;
     JustAudioMediaKit.ensureInitialized(linux: true, windows: true);
   }
   final prefs = await SharedPreferences.getInstance();

@@ -6,3 +6,8 @@ Future<void> setProperty(Player player, String key, dynamic value) {
   // noop
   return Future.value();
 }
+
+Future<void> runCommand(Player player, List<String> command) {
+  // noop
+  return Future.value();
+}

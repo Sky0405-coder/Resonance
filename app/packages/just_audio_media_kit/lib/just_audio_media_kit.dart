@@ -64,6 +64,17 @@ class JustAudioMediaKit extends JustAudioPlatform {
     _applyFilters();
   }
 
+  /// Sends an mpv [command] to whichever player is playing a media whose URI contains [key], e.g. an `af-command`
+  /// that changes a filter's values live (a new filter chain would interrupt the sound for a moment).
+  static void sourceCommand(String key, List<String> command) {
+    for (final player in _filterPlayers) {
+      if (!player.plays(key)) continue;
+      unawaited(player.command(command).catchError((Object error) {
+        _logger.fine('Could not run $command', error);
+      }));
+    }
+  }
+
   static bool get hasFilters => audioFilter != null || _sourceFilters.isNotEmpty;
 
   /// The combined filter for a player playing [uri].
@@ -132,8 +143,7 @@ class JustAudioMediaKit extends JustAudioPlatform {
   @override
   Future<AudioPlayerPlatform> init(InitRequest request) async {
     if (_players.containsKey(request.id)) {
-      throw PlatformException(
-          code: 'error', message: 'Player ${request.id} already exists!');
+      throw PlatformException(code: 'error', message: 'Player ${request.id} already exists!');
     }
 
     _logger.fine('instantiating new player ${request.id}');
@@ -147,8 +157,7 @@ class JustAudioMediaKit extends JustAudioPlatform {
   }
 
   @override
-  Future<DisposePlayerResponse> disposePlayer(
-      DisposePlayerRequest request) async {
+  Future<DisposePlayerResponse> disposePlayer(DisposePlayerRequest request) async {
     _logger.fine('disposing player ${request.id}');
 
     // temporary workaround because disposePlayer is called more than once
@@ -159,8 +168,7 @@ class JustAudioMediaKit extends JustAudioPlatform {
     }
 
     if (!_players.containsKey(request.id)) {
-      throw PlatformException(
-          code: 'error', message: 'Player ${request.id} doesn\'t exist.');
+      throw PlatformException(code: 'error', message: 'Player ${request.id} doesn\'t exist.');
     }
 
     _filterPlayers.remove(_players[request.id]);
@@ -175,8 +183,7 @@ class JustAudioMediaKit extends JustAudioPlatform {
   }
 
   @override
-  Future<DisposeAllPlayersResponse> disposeAllPlayers(
-      DisposeAllPlayersRequest request) async {
+  Future<DisposeAllPlayersResponse> disposeAllPlayers(DisposeAllPlayersRequest request) async {
     _logger.fine('disposing of all players...');
     if (_players.isNotEmpty) {
       _filterPlayers.removeAll(_players.values);

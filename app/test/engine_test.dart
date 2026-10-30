@@ -318,9 +318,9 @@ void main() {
     test('vocal bounds leave the filter-out transition unchanged', () {
       final plan = automixPlan(points(bpm: 128, vocalsOut: 210), points(bpm: 100, vocalsIn: 0), minSeconds: 20)!;
       expect(plan.filterOut, isTrue);
-      // Eight beats at 128 BPM = 3.75 s, at least 4 s, starting 6 s before the end.
-      expect(plan.duration, const Duration(seconds: 4));
-      expect(plan.start, const Duration(seconds: 204));
+      // Sixteen beats at 128 BPM = 7.5 s, ending two seconds before the song does.
+      expect(plan.duration, const Duration(milliseconds: 7500));
+      expect(plan.start, const Duration(milliseconds: 200500));
       expect(plan.bassSwap, Duration.zero);
     });
 
@@ -380,8 +380,9 @@ void main() {
       expect(clash.duration, const Duration(seconds: 8));
       final tempo = automixPlan(keyed(bpm: 128), keyed(bpm: 100))!;
       expect((tempo.filterOut, tempo.beatMatched), (true, false));
-      expect(tempo.duration, const Duration(seconds: 4));
-      expect(tempo.start, const Duration(seconds: 204));
+      // Sixteen beats (7.5 s at 128 BPM), ending two seconds before the song does.
+      expect(tempo.duration, const Duration(milliseconds: 7500));
+      expect(tempo.start, const Duration(milliseconds: 200500));
       expect(
         automixPlan(keyed(bpm: 120, key: '8A'), keyed(bpm: 120, key: '9A'))!.duration,
         const Duration(seconds: 16),
@@ -389,35 +390,46 @@ void main() {
       expect(automixPlan(keyed(), keyed())!.filterOut, isFalse);
     });
 
-    test('filter-out volumes and sweep steps', () {
-      const d = Duration(seconds: 4);
-      final (outStart, inStart) = filterOutVolumes(
-        elapsed: Duration.zero,
+    test('filter-out volumes and a smooth sweep', () {
+      const d = Duration(seconds: 8);
+      (double, double) at(int ms) => filterOutVolumes(
+        elapsed: Duration(milliseconds: ms),
         duration: d,
         outgoingTarget: 1,
         incomingTarget: 1,
       );
-      expect((outStart, inStart), (1.0, 0.0));
-      final (_, inEarly) = filterOutVolumes(
-        elapsed: const Duration(milliseconds: 1600),
-        duration: d,
-        outgoingTarget: 1,
-        incomingTarget: 1,
-      );
-      expect(inEarly, closeTo(1, 1e-9));
-      expect(filterOutCut(1).lowUpTo, 250);
-      expect(filterOutCut(4).lowUpTo, 2000);
-      expect(filterOutCut(4).lowDb, -24);
-      expect(filterOutCut(2, bpm: 120).echoMs, 250);
-      expect(filterOutCut(3, bpm: 120).mpvFilter, 'lavfi=[highpass=f=1000:p=2,aecho=0.8:0.6:250:0.35]');
+      expect(at(0), (1.0, 0.0));
+      // The next song waits for the first quarter, then comes in and is up at three quarters.
+      expect(at(2000).$2, 0);
+      expect(at(4000).$2, closeTo(sin(pi / 4), 1e-9));
+      expect(at(6000).$2, closeTo(1, 1e-9));
+      expect(at(4000).$1, lessThan(at(2000).$1));
+      // The low end fades octave by octave; nothing jumps by more than about a decibel per step.
+      expect(AutomixCut(sweep: 0).reductionAt(60), 0);
+      expect(AutomixCut(sweep: 0.25).reductionAt(60), automixBassCutDb);
+      expect(AutomixCut(sweep: 0.25).reductionAt(910), 0);
+      expect(AutomixCut(sweep: 1).reductionAt(910), automixBassCutDb);
+      expect(AutomixCut(sweep: 1).reductionAt(14000), 0);
+      var previous = 0.0;
+      for (var i = 1; i <= 100; i++) {
+        final now = AutomixCut(sweep: i / 100).reductionAt(230);
+        expect((now - previous).abs(), lessThanOrEqualTo(1.6));
+        previous = now;
+      }
+      expect(AutomixCut(sweep: 0.5), AutomixCut(sweep: 0.501));
+      expect(AutomixCut().mpvCommands, [
+        ['af-command', 'automix', 'g', '0.0', 'bass'],
+        ['af-command', 'automix', 'f', '10', 'highpass'],
+      ]);
+      expect(AutomixCut(sweep: 1).mpvCommands.last[3], '2400');
       // Only the low end swaps; mids and highs stay with the volume curve (no sudden drop or jump).
       expect(AutomixCut.bassSwap.reductionAt(60), automixBassCutDb);
       expect(AutomixCut.bassSwap.reductionAt(230), 0);
       expect(AutomixCut.bassSwap.reductionAt(910), 0);
-      expect(AutomixCut.bassSwap.mpvFilter, 'lavfi=[bass=g=-15:f=150:w=0.6]');
+      expect(AutomixCut(bass: 0.4).mpvCommands.first[3], '-6.0');
     });
 
-    test('equal-power volumes', () {
+    test('blend volumes stay within about 1.5 dB whether the songs add up or not', () {
       final (start, _) = automixVolumes(
         elapsed: Duration.zero,
         duration: const Duration(seconds: 10),
@@ -431,7 +443,9 @@ void main() {
         outgoingTarget: 1,
         incomingTarget: 1,
       );
-      expect(out * out + inc * inc, closeTo(1, 1e-9));
+      // Beat-matched (adding amplitudes) and unrelated (adding power) both stay near the level of one song.
+      expect(20 * log(out + inc) / ln10, inInclusiveRange(0, 1.6));
+      expect(10 * log(out * out + inc * inc) / ln10, inInclusiveRange(-1.6, 0));
       final (end, last) = automixVolumes(
         elapsed: const Duration(seconds: 11),
         duration: const Duration(seconds: 10),

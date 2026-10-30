@@ -37,13 +37,21 @@ class MediaKitPlayer extends AudioPlayerPlatform {
     await setAudioFilter(filter);
   }
 
+  /// Whether the current media's URI contains [key].
+  bool plays(String key) => _currentMedia?.uri.contains(key) ?? false;
+
+  /// Runs an mpv command on this player (see [JustAudioMediaKit.sourceCommand]).
+  Future<void> command(List<String> command) async {
+    await ready();
+    if (!_released) await runCommand(_player, command);
+  }
+
   Future<void> setAudioFilter(String? filter) async {
     await ready();
     // media_kit uses the same property for tempo/pitch control. Keep it when
     // changing the equalizer, including when removing the equalizer filter.
     if (_pitch && (_player.state.rate != 1 || _player.state.pitch != 1)) {
-      final tempo =
-          'scaletempo:scale=${(_player.state.rate / _player.state.pitch).toStringAsFixed(8)}';
+      final tempo = 'scaletempo:scale=${(_player.state.rate / _player.state.pitch).toStringAsFixed(8)}';
       filter = filter == null || filter.isEmpty ? tempo : '$tempo,$filter';
     }
     if (!_released) await setProperty(_player, 'af', filter ?? '');
@@ -122,11 +130,8 @@ class MediaKitPlayer extends AudioPlayerPlatform {
               _loadCompleter?.complete(_duration);
             }
           }
-        } else if (_processingState != ProcessingStateMessage.completed ||
-            isBuffering) {
-          _processingState = isBuffering
-              ? ProcessingStateMessage.buffering
-              : ProcessingStateMessage.ready;
+        } else if (_processingState != ProcessingStateMessage.completed || isBuffering) {
+          _processingState = isBuffering ? ProcessingStateMessage.buffering : ProcessingStateMessage.ready;
           if (_duration == null) {
             _updateDuration(_player.state.duration);
           }
@@ -139,10 +144,7 @@ class MediaKitPlayer extends AudioPlayerPlatform {
         _bufferedPosition = buffer;
         // Detect ready for clipping audio source
         final start = _currentMedia?.start;
-        if (!_player.state.buffering &&
-            _mediaOpened &&
-            start != null &&
-            _bufferedPosition > start) {
+        if (!_player.state.buffering && _mediaOpened && start != null && _bufferedPosition > start) {
           _processingState = ProcessingStateMessage.ready;
           if (_loadCompleter?.isCompleted != true) {
             _loadCompleter?.complete(_duration);
@@ -188,8 +190,7 @@ class MediaKitPlayer extends AudioPlayerPlatform {
         _updatePlaybackEvent();
       }),
       _player.stream.playlistMode.listen((playlistMode) {
-        _dataController.add(
-            PlayerDataMessage(loopMode: _playlistModeToLoopMode(playlistMode)));
+        _dataController.add(PlayerDataMessage(loopMode: _playlistModeToLoopMode(playlistMode)));
       }),
       _player.stream.pitch.listen((pitch) {
         _dataController.add(PlayerDataMessage(pitch: pitch));
@@ -229,12 +230,10 @@ class MediaKitPlayer extends AudioPlayerPlatform {
   }
 
   @override
-  Stream<PlaybackEventMessage> get playbackEventMessageStream =>
-      _eventController.stream;
+  Stream<PlaybackEventMessage> get playbackEventMessageStream => _eventController.stream;
 
   @override
-  Stream<PlayerDataMessage> get playerDataMessageStream =>
-      _dataController.stream;
+  Stream<PlayerDataMessage> get playerDataMessageStream => _dataController.stream;
 
   /// Updates the playback event
   void _updatePlaybackEvent() {
@@ -267,16 +266,13 @@ class MediaKitPlayer extends AudioPlayerPlatform {
     _updatePlaybackEvent();
 
     if (request.audioSourceMessage is ConcatenatingAudioSourceMessage) {
-      final audioSource =
-          request.audioSourceMessage as ConcatenatingAudioSourceMessage;
-      final playable = Playlist(
-          audioSource.children.map(_convertAudioSourceIntoMediaKit).toList(),
-          index: _currentIndex);
+      final audioSource = request.audioSourceMessage as ConcatenatingAudioSourceMessage;
+      final playable =
+          Playlist(audioSource.children.map(_convertAudioSourceIntoMediaKit).toList(), index: _currentIndex);
 
       await _player.open(playable, play: _playing);
     } else {
-      final playable =
-          _convertAudioSourceIntoMediaKit(request.audioSourceMessage);
+      final playable = _convertAudioSourceIntoMediaKit(request.audioSourceMessage);
       _logger.finest('playable is ${playable.toString()}');
       await _player.open(playable, play: _playing);
     }
@@ -311,15 +307,15 @@ class MediaKitPlayer extends AudioPlayerPlatform {
 
   @override
   Future<SetVolumeResponse> setVolume(SetVolumeRequest request) {
-    return _player
-        .setVolume(request.volume * 100.0)
-        .then((value) => SetVolumeResponse());
+    return _player.setVolume(request.volume * 100.0).then((value) => SetVolumeResponse());
   }
 
   @override
   Future<SetSpeedResponse> setSpeed(SetSpeedRequest request) async {
     await _player.setRate(request.speed);
-    if (JustAudioMediaKit.hasFilters || _appliedFilter != null) {
+    // With pitch control media_kit sets the tempo through the filter chain and drops the other filters; without it,
+    // mpv changes the speed itself and the filters keep running untouched.
+    if (_pitch && (JustAudioMediaKit.hasFilters || _appliedFilter != null)) {
       await applyFilters(force: true);
     }
     return SetSpeedResponse();
@@ -341,14 +337,11 @@ class MediaKitPlayer extends AudioPlayerPlatform {
   }
 
   @override
-  Future<SetShuffleModeResponse> setShuffleMode(
-      SetShuffleModeRequest request) async {
+  Future<SetShuffleModeResponse> setShuffleMode(SetShuffleModeRequest request) async {
     bool shuffling = request.shuffleMode != ShuffleModeMessage.none;
     await _player.setShuffle(shuffling);
 
-    _dataController.add(PlayerDataMessage(
-        shuffleMode:
-            shuffling ? ShuffleModeMessage.all : ShuffleModeMessage.none));
+    _dataController.add(PlayerDataMessage(shuffleMode: shuffling ? ShuffleModeMessage.all : ShuffleModeMessage.none));
     return SetShuffleModeResponse();
   }
 
@@ -382,8 +375,7 @@ class MediaKitPlayer extends AudioPlayerPlatform {
   }
 
   @override
-  Future<ConcatenatingInsertAllResponse> concatenatingInsertAll(
-      ConcatenatingInsertAllRequest request) async {
+  Future<ConcatenatingInsertAllResponse> concatenatingInsertAll(ConcatenatingInsertAllRequest request) async {
     // _logger.fine('concatenatingInsertAll(${request.toMap()})');
     for (final source in request.children) {
       await _player.add(_convertAudioSourceIntoMediaKit(source));
@@ -401,8 +393,7 @@ class MediaKitPlayer extends AudioPlayerPlatform {
   }
 
   @override
-  Future<ConcatenatingRemoveRangeResponse> concatenatingRemoveRange(
-      ConcatenatingRemoveRangeRequest request) async {
+  Future<ConcatenatingRemoveRangeResponse> concatenatingRemoveRange(ConcatenatingRemoveRangeRequest request) async {
     for (var i = request.startIndex; i < request.endIndex; i++) {
       await _player.remove(request.startIndex);
     }
@@ -411,16 +402,13 @@ class MediaKitPlayer extends AudioPlayerPlatform {
   }
 
   @override
-  Future<ConcatenatingMoveResponse> concatenatingMove(
-      ConcatenatingMoveRequest request) {
+  Future<ConcatenatingMoveResponse> concatenatingMove(ConcatenatingMoveRequest request) {
     return _player
         .move(
             request.currentIndex,
             // not sure why, but apparently there's an underlying difference between just_audio's move implementation
             // and media_kit, so let's fix it
-            request.currentIndex > request.newIndex
-                ? request.newIndex
-                : request.newIndex + 1)
+            request.currentIndex > request.newIndex ? request.newIndex : request.newIndex + 1)
         .then((_) => ConcatenatingMoveResponse());
   }
 
@@ -453,12 +441,10 @@ class MediaKitPlayer extends AudioPlayerPlatform {
       //   );
 
       case final ClippingAudioSourceMessage clippingSource:
-        return Media(clippingSource.child.uri,
-            start: clippingSource.start, end: clippingSource.end);
+        return Media(clippingSource.child.uri, start: clippingSource.start, end: clippingSource.end);
 
       default:
-        throw UnsupportedError(
-            '${audioSource.runtimeType} is currently not supported');
+        throw UnsupportedError('${audioSource.runtimeType} is currently not supported');
     }
   }
 }

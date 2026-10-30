@@ -6,3 +6,8 @@ Future<void> setProperty(Player player, String key, dynamic value) async {
   if (player.platform is! NativePlayer) return;
   await (player.platform as NativePlayer).setProperty(key, value);
 }
+
+Future<void> runCommand(Player player, List<String> command) async {
+  if (player.platform is! NativePlayer) return;
+  await (player.platform as NativePlayer).command(command);
+}
