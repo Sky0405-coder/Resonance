@@ -118,12 +118,12 @@ Duration _seconds(double s) => Duration(microseconds: (s * 1e6).round());
 const automixMaxTempoChange = 0.16;
 const automixShareTempoChange = 0.04;
 
-/// The song without the bass also loses some of its vocal range, so two voices clash less: bands up to
-/// [automixBassCutoff] Hz drop by [automixBassCutDb], bands from 500 Hz to 4 kHz by [automixVocalCutDb].
-const automixBassCutoff = 250.0;
+/// The song without the bass loses only its low end (bands up to [automixBassCutoff] Hz drop by
+/// [automixBassCutDb]): the kick and bass line swap over, the rest of both songs stays as loud as the volume curve
+/// says, so the swap is not heard as one song suddenly getting quieter and the other louder.
+const automixBassCutoff = 150.0;
 const automixBassCutDb = -15.0;
-const automixVocalCutDb = -7.0;
-const automixBassFilter = 'lavfi=[bass=g=-15:f=180:w=0.6,equalizer=f=1500:t=o:w=2.5:g=-7]';
+const automixBassFilter = 'lavfi=[bass=g=-15:f=150:w=0.6]';
 
 /// Camelot codes that mix well: the same key, a neighbour on the wheel (±1, 12 wraps to 1), or the relative
 /// major/minor (same number, other letter).
@@ -172,7 +172,11 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds
     // A ratio of exactly 1 needs no tempo change but still starts on the beat.
     if ((ratio - 1).abs() <= automixMaxTempoChange) speed = ratio == 1 ? 1.0000001 : ratio;
     tempoMismatch = speed == 1;
-    if ((ratio - 1).abs() > automixShareTempoChange && speed != 1) {
+    // At double or half time the matched tempo can lie on the other side of the next song's own tempo (a 70 BPM
+    // song blends as 140 into a 130 BPM one): the current song then stays at its tempo instead of drifting away
+    // from the next one, only the next song adapts.
+    final away = (ratio - 1) * (outgoing.bpm! / incoming.bpm! - 1) < 0;
+    if ((ratio - 1).abs() > automixShareTempoChange && speed != 1 && !away) {
       outgoingSpeed = 1 / math.sqrt(ratio);
       speed = math.sqrt(ratio);
     }
@@ -266,24 +270,19 @@ AutomixCut filterOutCut(int step, {double? bpm}) => AutomixCut(
 
 /// How one player's sound is cut during an AutoMix transition.
 class AutomixCut {
-  const AutomixCut({this.lowDb = 0, this.lowUpTo = automixBassCutoff, this.vocalDb = 0, this.echoMs});
+  const AutomixCut({this.lowDb = 0, this.lowUpTo = automixBassCutoff, this.echoMs});
 
-  /// The blend's bass swap: no bass, less of the vocal range.
-  static const bassSwap = AutomixCut(lowDb: automixBassCutDb, vocalDb: automixVocalCutDb);
+  /// The blend's bass swap: no bass.
+  static const bassSwap = AutomixCut(lowDb: automixBassCutDb);
 
   final double lowDb;
   final double lowUpTo;
-  final double vocalDb;
 
   /// Desktop only: an echo of this delay (half a beat) as the song leaves.
   final int? echoMs;
 
   /// The reduction (dB) of an equalizer band at [frequency] Hz.
-  double reductionAt(double frequency) => frequency <= lowUpTo
-      ? lowDb
-      : frequency >= 500 && frequency <= 4000
-      ? vocalDb
-      : 0;
+  double reductionAt(double frequency) => frequency <= lowUpTo ? lowDb : 0;
 
   /// The same as an mpv filter (desktop).
   String get mpvFilter {

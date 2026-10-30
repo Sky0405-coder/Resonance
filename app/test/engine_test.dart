@@ -347,6 +347,21 @@ void main() {
       expect(112 * large.outgoingSpeed, closeTo(100 * large.speed, 1e-9));
     });
 
+    test('the current song never drifts away from the next one\'s own tempo', () {
+      // 70 BPM blends at double time (140) into 130: the current song must not speed up toward a slower song.
+      final half = automixPlan(points(bpm: 130), points(bpm: 70))!;
+      expect(half.outgoingSpeed, 1);
+      expect(half.speed, closeTo(130 / 140, 1e-9));
+      expect(half.beatMatched, isTrue);
+      // The other way round: a fast song after a slow one does not slow the current song down.
+      final faster = automixPlan(points(bpm: 70), points(bpm: 130))!;
+      expect(faster.outgoingSpeed, 1);
+      expect(faster.speed, closeTo(140 / 130, 1e-9));
+      // Without the octave the tempos still meet in the middle, toward the next song.
+      final slower = automixPlan(points(bpm: 112), points(bpm: 100))!;
+      expect(slower.outgoingSpeed, lessThan(1));
+    });
+
     test('camelot compatibility', () {
       expect(camelotCompatible('8A', '8A'), isTrue);
       expect(camelotCompatible('8A', '9A'), isTrue);
@@ -395,9 +410,11 @@ void main() {
       expect(filterOutCut(4).lowDb, -24);
       expect(filterOutCut(2, bpm: 120).echoMs, 250);
       expect(filterOutCut(3, bpm: 120).mpvFilter, 'lavfi=[highpass=f=1000:p=2,aecho=0.8:0.6:250:0.35]');
-      expect(AutomixCut.bassSwap.reductionAt(100), automixBassCutDb);
-      expect(AutomixCut.bassSwap.reductionAt(1000), automixVocalCutDb);
-      expect(AutomixCut.bassSwap.reductionAt(8000), 0);
+      // Only the low end swaps; mids and highs stay with the volume curve (no sudden drop or jump).
+      expect(AutomixCut.bassSwap.reductionAt(60), automixBassCutDb);
+      expect(AutomixCut.bassSwap.reductionAt(230), 0);
+      expect(AutomixCut.bassSwap.reductionAt(910), 0);
+      expect(AutomixCut.bassSwap.mpvFilter, 'lavfi=[bass=g=-15:f=150:w=0.6]');
     });
 
     test('equal-power volumes', () {
