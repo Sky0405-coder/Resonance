@@ -695,6 +695,69 @@ void main() {
     container.dispose();
   });
 
+  testWidgets('downloaded episodes show their release date and how far they were listened to, newest first', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    MediaDownload saved(String id, DateTime published, {double? position, bool completed = false}) => MediaDownload(
+      kind: 'episode',
+      id: id,
+      title: id,
+      subtitle: 'Podcast',
+      data: PodcastEpisode(
+        id: id,
+        podcastId: 'podcast',
+        title: id,
+        podcastTitle: 'Podcast',
+        publishedAt: published,
+        durationSeconds: 3600,
+      ).toJson(),
+      files: const [MediaFile(name: 'episode.mp3')],
+      addedAt: DateTime.utc(2026),
+      done: true,
+      position: position,
+      completed: completed,
+    );
+    // Downloaded oldest release last, so the list has to sort by date.
+    final older = saved('Older', DateTime(2026, 3, 2), position: 1800);
+    final newer = saved('Newer', DateTime(2026, 5, 4), completed: true, position: 0);
+    final middle = saved('Middle', DateTime(2026, 4, 3));
+    container.dispose();
+    container = ProviderContainer(
+      overrides: [
+        apiProvider.overrideWithValue(api),
+        prefsProvider.overrideWithValue(await SharedPreferences.getInstance()),
+        playerProvider.overrideWith(() => PlayerController(engine: engine)),
+        offlineProvider.overrideWith(_Offline.new),
+        sessionProvider.overrideWith(_OfflineSession.new),
+        connectProvider.overrideWith(_Connect.new),
+        mediaDownloadsProvider.overrideWith(
+          () => _Media(
+            MediaDownloadsState(
+              items: {newer.key: newer, middle.key: middle, older.key: older},
+              directory: '/data/media',
+            ),
+          ),
+        ),
+      ],
+    );
+    await page(tester, const PodcastsPage());
+    final tops = [
+      for (final t in ['Newer', 'Middle', 'Older']) tester.getTopLeft(find.text(t)).dy,
+    ];
+    expect(tops, [...tops]..sort());
+    expect(find.text('Mon, Mar 2, 2026'), findsOneWidget);
+    expect(find.text('30 min left'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('Played'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    container.dispose();
+  });
+
   testWidgets('in landscape the spoken-word player puts the cover next to the controls', (tester) async {
     tester.view.physicalSize = const Size(915, 412);
     tester.view.devicePixelRatio = 1;

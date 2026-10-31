@@ -440,7 +440,7 @@ class MediaDownloadsController extends Notifier<MediaDownloadsState> {
   Future<void> addAudiobook(String id) async {
     await load();
     final api = ref.read(apiProvider);
-    final j = Map<String, dynamic>.from(await api.absGet('items/$id', {'expanded': 1}));
+    final j = Map<String, dynamic>.from(await api.absGet('items/$id', {'expanded': 1, 'include': 'progress'}));
     final l10n = lookupAppLocalizations(ref.read(appLocaleProvider));
     final item = AbsItem.fromJson(j, l10n);
     final media = Map<String, dynamic>.from(j['media'] as Map);
@@ -462,6 +462,7 @@ class MediaDownloadsController extends Notifier<MediaDownloadsState> {
             'duration': media['duration'],
             'chapters': media['chapters'] ?? const [],
           },
+          'userMediaProgress': j['userMediaProgress'],
         },
         files: [
           for (final (i, t) in tracks.indexed)
