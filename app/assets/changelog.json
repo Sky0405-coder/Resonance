@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.6.23",
+    "date": "2026-10-31",
+    "de": [
+      "Die App merkt sich, was du zuletzt gehört hast: Nach einem Neustart sind Warteschlange, Song und Stelle wieder da (pausiert), auch auf einem anderen Gerät.",
+      "Das gilt auch für Podcast-Folgen und Hörbücher; Radiosender und Jams werden nicht wiederhergestellt."
+    ],
+    "en": [
+      "The app remembers what you listened to last: after a restart the queue, song and position are back (paused), on other devices too.",
+      "This also works for podcast episodes and audiobooks; radio stations and Jams are not restored."
+    ]
+  },
+  {
     "version": "1.6.22",
     "date": "2026-10-31",
     "de": [
