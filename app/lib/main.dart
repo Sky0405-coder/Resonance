@@ -41,6 +41,7 @@ Future<void> main() async {
   }
   final prefs = await SharedPreferences.getInstance();
   final androidTv = await detectAndroidTv();
+  final androidDesktop = await detectAndroidDesktop();
   if (isDesktop) {
     await initDesktopWindow(prefs);
     unawaited(registerAppImage());
@@ -50,6 +51,7 @@ Future<void> main() async {
       prefsProvider.overrideWithValue(prefs),
       whatsNewEnabledProvider.overrideWithValue(true),
       androidTvProvider.overrideWithValue(androidTv),
+      androidDesktopProvider.overrideWith(() => AndroidDesktop(androidDesktop)),
       audioHandlerProvider.overrideWithValue(null),
     ],
   );
@@ -88,6 +90,7 @@ Future<void> main() async {
       prefsProvider.overrideWithValue(prefs),
       whatsNewEnabledProvider.overrideWithValue(true),
       androidTvProvider.overrideWithValue(androidTv),
+      androidDesktopProvider.overrideWith(() => AndroidDesktop(androidDesktop)),
       audioHandlerProvider.overrideWith((ref) {
         ref.onDispose(handler.dispose);
         return handler;
@@ -95,6 +98,9 @@ Future<void> main() async {
     ]);
   }
 
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    container.read(androidDesktopProvider.notifier).listen();
+  }
   runApp(UncontrolledProviderScope(container: container, child: const ResonanceApp()));
 }
 
@@ -137,7 +143,8 @@ class _ResonanceAppState extends ConsumerState<ResonanceApp> {
         return ref.watch(tvModeProvider) ? TvCanvas(child: app) : app;
       },
       debugShowCheckedModeBanner: false,
-      theme: buildTheme(accent),
+      // Android on a desktop screen gets the desktop's scrollbars, denser layout and text selection.
+      theme: buildTheme(accent, desktop: ref.watch(androidDesktopProvider)),
       routerConfig: ref.watch(routerProvider),
     );
   }

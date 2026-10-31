@@ -370,7 +370,7 @@ class SettingsPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/spotify'),
           ),
-          if (isDesktop)
+          if (ref.watch(desktopUiProvider))
             ListTile(
               leading: const Icon(Icons.keyboard),
               title: Text(context.l10n.shortcutsTitle),

@@ -23,7 +23,7 @@ String toHexColor(Color c) =>
 /// Black or white text, whichever reads better on [c].
 Color onColor(Color c) => c.computeLuminance() > 0.3 ? Colors.black : Colors.white;
 
-ThemeData buildTheme(Color accent) {
+ThemeData buildTheme(Color accent, {bool desktop = false}) {
   final scheme = ColorScheme.fromSeed(
     seedColor: accent,
     brightness: Brightness.dark,
@@ -31,6 +31,7 @@ ThemeData buildTheme(Color accent) {
 
   return ThemeData(
     useMaterial3: true,
+    platform: desktop ? TargetPlatform.linux : null,
     brightness: Brightness.dark,
     colorScheme: scheme,
     scaffoldBackgroundColor: Palette.background,

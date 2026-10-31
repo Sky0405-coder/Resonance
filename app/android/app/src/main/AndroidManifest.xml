@@ -17,6 +17,9 @@
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Samsung DeX: keep running when the app moves to the desktop screen or its density changes. -->
+        <meta-data android:name="com.samsung.android.keepalive.density" android:value="true" />
+        <meta-data android:name="com.samsung.android.multidisplay.keep_process_alive" android:value="true" />
         <meta-data android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
         <meta-data android:name="com.google.android.gms.car.notification.SmallIcon"
@@ -38,6 +41,8 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Opening size of the window on desktop screens (DeX, Android desktop mode, Chromebooks). -->
+            <layout android:defaultWidth="1280dp" android:defaultHeight="800dp" android:gravity="center" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

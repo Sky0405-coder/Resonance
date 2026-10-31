@@ -1,14 +1,48 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 /// Linux and Windows apps (not the web build).
 bool get isDesktop =>
     !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows);
+
+/// Android on a desktop screen (Samsung DeX, Android's desktop mode, Chromebooks): behaves like the desktop app.
+final androidDesktopProvider = NotifierProvider<AndroidDesktop, bool>(AndroidDesktop.new);
+
+/// The desktop app, or Android on a desktop screen.
+final desktopUiProvider = Provider<bool>((ref) => isDesktop || ref.watch(androidDesktopProvider));
+
+const _device = MethodChannel('resonance/device');
+
+/// Resolved before runApp so the desktop look does not flip in after the first frame.
+Future<bool> detectAndroidDesktop() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+  try {
+    return await _device.invokeMethod<bool>('isDesktop') ?? false;
+  } on PlatformException {
+    return false;
+  } on MissingPluginException {
+    return false;
+  }
+}
+
+class AndroidDesktop extends Notifier<bool> {
+  AndroidDesktop([this._initial = false]);
+  final bool _initial;
+
+  @override
+  bool build() => _initial;
+
+  /// Follows DeX being switched on or off while the app runs.
+  void listen() => _device.setMethodCallHandler((call) async {
+    if (call.method == 'desktopMode') state = call.arguments == true;
+  });
+}
 
 const _boundsKey = 'window_bounds';
 const _maximizedKey = 'window_maximized';
