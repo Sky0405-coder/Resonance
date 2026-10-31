@@ -330,6 +330,25 @@ class PlayEventIn(BaseModel):
     context: str | None = Field(None, max_length=128)
 
 
+class PlaybackStateIn(BaseModel):
+    """The queue (track ids, current index and position) or the spoken-word item that was playing."""
+
+    kind: Literal["tracks", "episode", "audiobook"]
+    track_ids: list[uuid.UUID] = Field(default_factory=list, max_length=1000)
+    index: int = Field(0, ge=0)
+    position: float = Field(0, ge=0)
+    context: str | None = Field(None, max_length=128)
+    is_radio: bool = False
+    # Episode or Audiobookshelf item id.
+    item_id: str | None = Field(None, max_length=128)
+
+
+class PlaybackStateOut(PlaybackStateIn):
+    # The queue's songs that still exist, in order; index points into this list.
+    tracks: list[TrackOut] = Field(default_factory=list)
+    updated_at: datetime
+
+
 class HomeOut(BaseModel):
     recently_played: list[AlbumOut]
     recently_added: list[AlbumOut]

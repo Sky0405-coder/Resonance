@@ -1,5 +1,6 @@
 from app.models.books import Book, BookProgress, BookRequest
 from app.models.collection import (
+    PlaybackState,
     PlayEvent,
     Playlist,
     PlaylistEntry,
@@ -62,6 +63,7 @@ __all__ = [
     "Invite",
     "Job",
     "PlayEvent",
+    "PlaybackState",
     "Playlist",
     "PlaylistEntry",
     "PlaylistShare",

@@ -257,6 +257,26 @@ async def test_likes_playlists_and_home(client):
     assert home["playlists"][0]["name"] == "Roadtrip"
 
 
+async def test_last_playback_comes_back(client):
+    h = auth(state["user"])
+    a, b = state["tracks"]
+    assert (await client.get("/api/me/playback", headers=h)).json() is None
+    missing = "00000000-0000-0000-0000-000000000001"
+    body = {"kind": "tracks", "track_ids": [a, missing, b], "index": 2, "position": 42.5, "context": "album:x"}
+    assert (await client.put("/api/me/playback", json=body, headers=h)).status_code == 204
+    saved = (await client.get("/api/me/playback", headers=h)).json()
+    # The unknown song drops out and the index still points at b.
+    assert [t["id"] for t in saved["tracks"]] == [a, b] and saved["track_ids"] == [a, b]
+    assert saved["index"] == 1 and saved["position"] == 42.5 and saved["context"] == "album:x"
+    # Others have their own.
+    assert (await client.get("/api/me/playback", headers=auth(state["admin"]))).json() is None
+
+    episode = {"kind": "episode", "item_id": "ep-1"}
+    assert (await client.put("/api/me/playback", json=episode, headers=h)).status_code == 204
+    saved = (await client.get("/api/me/playback", headers=h)).json()
+    assert saved["kind"] == "episode" and saved["item_id"] == "ep-1" and saved["tracks"] == []
+
+
 async def test_last_admin_cannot_be_demoted(client):
     users = (await client.get("/api/admin/users", headers=auth(state["admin"]))).json()
     admin_id = next(u["id"] for u in users if u["username"] == "admin")

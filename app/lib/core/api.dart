@@ -288,6 +288,14 @@ class ApiClient {
   Future<void> setAlbumSaved(String albumId, bool saved) =>
       saved ? _put('/api/me/albums/$albumId') : _delete('/api/me/albums/$albumId');
 
+  /// What was playing last (see the player's playbackSnapshot), with the queue's songs; null when nothing was.
+  Future<Map<String, dynamic>?> lastPlayback() async {
+    final data = await _get('/api/me/playback');
+    return data == null ? null : Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<void> savePlayback(Map<String, dynamic> state) => _put('/api/me/playback', state);
+
   Future<void> reportPlay(String trackId, double seconds, {String? context}) =>
       _post('/api/me/plays', {'track_id': trackId, 'seconds_played': seconds, 'context': context});
 

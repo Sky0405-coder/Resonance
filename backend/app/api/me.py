@@ -4,11 +4,27 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert
 
 from app.deps import DB, CurrentUser
-from app.models import AuthSession, PlayEvent, SavedAlbum, Track, TrackLike
-from app.schemas import PlayEventIn, ProfilePatch, SessionOut, TrackOut, UserOut
+from app.models import (
+    AuthSession,
+    PlaybackState,
+    PlayEvent,
+    SavedAlbum,
+    Track,
+    TrackLike,
+)
+from app.schemas import (
+    PlaybackStateIn,
+    PlaybackStateOut,
+    PlayEventIn,
+    ProfilePatch,
+    SessionOut,
+    TrackOut,
+    UserOut,
+)
 from app.security import hash_password, verify_password
 from app.services import covers, mix_covers
 from app.services.views import track_options, tracks_out
@@ -139,3 +155,44 @@ async def report_play(body: PlayEventIn, user: CurrentUser, db: DB) -> None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Track not found")
     db.add(PlayEvent(user_id=user.id, track_id=body.track_id, seconds_played=body.seconds_played, context=body.context))
     await db.commit()
+
+
+# --- last playback ------------------------------------------------------------
+
+
+@router.put("/playback", status_code=status.HTTP_204_NO_CONTENT)
+async def save_playback(body: PlaybackStateIn, user: CurrentUser, db: DB) -> None:
+    state = body.model_dump(mode="json")
+    await db.execute(
+        insert(PlaybackState)
+        .values(user_id=user.id, state=state)
+        .on_conflict_do_update(index_elements=[PlaybackState.user_id], set_={"state": state, "updated_at": func.now()})
+    )
+    await db.commit()
+
+
+@router.get("/playback", response_model=PlaybackStateOut | None)
+async def last_playback(user: CurrentUser, db: DB) -> PlaybackStateOut | None:
+    row = await db.get(PlaybackState, user.id)
+    if row is None:
+        return None
+    try:
+        saved = PlaybackStateIn.model_validate(row.state)
+    except ValueError:
+        return None
+    out = PlaybackStateOut(**saved.model_dump(), updated_at=row.updated_at)
+    if saved.kind != "tracks":
+        return out
+    rows = await db.scalars(select(Track).where(Track.id.in_(saved.track_ids)).options(*track_options()))
+    by_id = {t.id: t for t in rows.unique()}
+    # Songs deleted since then drop out; the index follows the current song (or the next one still there).
+    kept = [i for i, track_id in enumerate(saved.track_ids) if track_id in by_id]
+    if not kept:
+        return None
+    index = next((n for n, i in enumerate(kept) if i >= saved.index), len(kept) - 1)
+    out.track_ids = [saved.track_ids[i] for i in kept]
+    out.tracks = await tracks_out(db, user, [by_id[saved.track_ids[i]] for i in kept])
+    if kept[index] != saved.index:
+        out.position = 0
+    out.index = index
+    return out

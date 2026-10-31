@@ -122,6 +122,16 @@ class PlayEvent(Base):
     context: Mapped[str | None] = mapped_column(String(128))
 
 
+class PlaybackState(Base):
+    """What the user played last (queue or spoken-word item) so the apps can bring it back after a restart."""
+
+    __tablename__ = "playback_states"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    state: Mapped[dict] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class RadioStationFavorite(Base):
     __tablename__ = "radio_station_favorites"
 

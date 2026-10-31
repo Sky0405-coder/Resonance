@@ -12,6 +12,15 @@ import 'package:resonance/player/engine.dart';
 import 'package:resonance/player/equalizer.dart';
 import 'package:resonance/player/player.dart';
 
+Map<String, dynamic> trackJson(String id) => {
+  'id': id,
+  'title': id,
+  'duration': 180,
+  'artist': {'id': 'artist', 'name': 'Artist'},
+  'artist_credit': 'Artist',
+  'album': {'id': 'album', 'name': 'Album'},
+};
+
 Track track(String id) => Track(
   id: id,
   title: id,
@@ -47,6 +56,14 @@ class _Api extends ApiClient {
     recommendationCalls.add((seeds: trackIds, excluded: excludeIds, limit: limit, response: response));
     return response.future;
   }
+
+  Map<String, dynamic>? lastSaved;
+  final saved = <Map<String, dynamic>>[];
+
+  @override
+  Future<Map<String, dynamic>?> lastPlayback() async => lastSaved;
+  @override
+  Future<void> savePlayback(Map<String, dynamic> state) async => saved.add(state);
 
   @override
   Future<PlaylistDetail> playlist(String id) async => throw ApiException('offline');
@@ -164,6 +181,21 @@ class _Engine implements PlaybackEngine {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Session extends SessionNotifier {
+  @override
+  SessionState build() => SessionState(
+    user: User(
+      id: 'user',
+      username: 'lisa',
+      displayName: 'Lisa',
+      role: 'user',
+      accentColor: '#1db954',
+      isDisabled: false,
+      createdAt: DateTime.utc(2026),
+    ),
+  );
 }
 
 Future<void> settle() async {
@@ -509,5 +541,67 @@ void main() {
       await player.playTracks(tracks, index: 0, context: context);
     }
     expect(api.keyCalls, isEmpty);
+  });
+
+  group('last playback', () {
+    late ProviderContainer remembering;
+    setUp(() {
+      PlayerController.rememberPlayback = true;
+      engine = _Engine();
+      api.lastSaved = {
+        'kind': 'tracks',
+        'tracks': [
+          for (final id in ['a', 'b', 'c']) trackJson(id),
+        ],
+        'index': 1,
+        'position': 42.5,
+        'context': 'album:x',
+        'is_radio': false,
+      };
+      remembering = ProviderContainer(
+        overrides: [
+          prefsProvider.overrideWithValue(prefs),
+          apiProvider.overrideWithValue(api),
+          sessionProvider.overrideWith(_Session.new),
+          downloadSummaryProvider.overrideWith((ref) async => const DownloadSummary()),
+          playerProvider.overrideWith(() => PlayerController(engine: engine)),
+        ],
+      );
+    });
+    tearDown(() {
+      PlayerController.rememberPlayback = false;
+      remembering.dispose();
+    });
+
+    test('comes back paused after a restart, at the song and position', () async {
+      remembering.read(playerProvider);
+      await settle();
+      final restored = remembering.read(playerProvider);
+      expect(restored.queue.map((t) => t.id), ['a', 'b', 'c']);
+      expect(restored.index, 1);
+      expect(restored.context, 'album:x');
+      expect(engine.position, const Duration(milliseconds: 42500));
+      expect(engine.playing, isFalse);
+      // Bringing it back does not send it straight back to the server.
+      expect(api.saved, isEmpty);
+    });
+
+    test('is saved when the song changes and when pausing', () async {
+      api.lastSaved = null;
+      final controller = remembering.read(playerProvider.notifier);
+      await settle();
+      await controller.playTracks([track('x'), track('y')], context: 'playlist:p');
+      expect(api.saved.last, {
+        'kind': 'tracks',
+        'track_ids': ['x', 'y'],
+        'index': 0,
+        'position': 0.0,
+        'context': 'playlist:p',
+        'is_radio': false,
+      });
+      engine.position = const Duration(seconds: 70);
+      await engine.pause();
+      expect(api.saved.last['position'], 70.0);
+    });
   });
 }

@@ -2,6 +2,7 @@ import '../l10n/locale.dart';
 import '../l10n/l10n.dart';
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -178,6 +179,14 @@ class PlayerController extends Notifier<PlayerView> {
   bool _switching = false;
   Future<void> _pendingSwitch = Future.value();
 
+  /// Remembers the last playback on the server and brings it back (paused) after a restart. Only the app turns this
+  /// on (main.dart); tests and fakes stay without the extra requests.
+  static bool rememberPlayback = false;
+  String? _restoredFor;
+  bool _restoring = false;
+  String? _savedPlayback;
+  DateTime _savedAt = DateTime.fromMillisecondsSinceEpoch(0);
+
   /// Set by the Jam controller while in a Jam: user actions go to the server instead of the engine.
   JamRouter? jam;
   ConnectRouter? connect;
@@ -299,7 +308,25 @@ class PlayerController extends Notifier<PlayerView> {
     listenSelf((previous, next) {
       if (previous?.context != next.context) radioFollow.contextChanged(next.context);
       if (previous?.station != next.station || previous?.playing != next.playing) _updateStationPolling();
+      if (rememberPlayback &&
+          (previous?.index != next.index ||
+              previous?.queue.length != next.queue.length ||
+              previous?.context != next.context ||
+              previous?.book?.itemId != next.book?.itemId ||
+              (previous?.playing ?? false) && !next.playing)) {
+        _savePlayback();
+      }
     });
+    if (rememberPlayback) {
+      ref.listen(sessionProvider.select((s) => (s.user?.id, s.offline)), (_, next) {
+        final (user, offline) = next;
+        if (user != null && !offline && _restoredFor != user) {
+          _restoredFor = user;
+          // After build: the listener first fires before the state exists.
+          Future.microtask(_restoreLastPlayback).ignore();
+        }
+      }, fireImmediately: true);
+    }
     ref.listen(downloadSummaryProvider, (_, next) {
       final summary = next.asData?.value;
       if (summary != null) radioFollow.downloadRunningChanged(summary.running);
@@ -526,7 +553,7 @@ class PlayerController extends Notifier<PlayerView> {
         if (!_switching && engine.playing) _syncBook().ignore();
       });
     }
-    if (play && !state.connectRemote) {
+    if (play && !_restoring && !state.connectRemote) {
       engine.play().catchError((Object error) {
         if (state.station != null) _stationError(error);
       });
@@ -1387,6 +1414,9 @@ class PlayerController extends Notifier<PlayerView> {
 
   void _trackListening(Duration pos) {
     if (_switching || state.connectRemote || state.station != null) return;
+    if (rememberPlayback && engine.playing && DateTime.now().difference(_savedAt) > const Duration(seconds: 30)) {
+      _savePlayback();
+    }
     final delta = (pos - _lastPos).inMilliseconds / 1000;
     // Ignore seeks (big jumps or backwards); faster playback still counts as real time listened.
     if (delta > 0 && delta < 2 * state.speed && engine.playing) {
@@ -1397,6 +1427,103 @@ class PlayerController extends Notifier<PlayerView> {
       }
     }
     _lastPos = pos;
+  }
+
+  /// What is playing, for the server: the queue with the current song and position, or the episode / audiobook
+  /// (those keep their own position). Nothing for radio stations, Jams and remote devices.
+  Map<String, dynamic>? playbackSnapshot() {
+    if (state.jamRemote || state.connectRemote || state.inJam || state.station != null) return null;
+    final book = state.book;
+    if (book != null) {
+      return book.episode != null
+          ? {'kind': 'episode', 'item_id': book.episode!.id}
+          : {'kind': 'audiobook', 'item_id': book.itemId};
+    }
+    final index = state.index;
+    if (state.queue.isEmpty || index == null || index >= state.queue.length) return null;
+    // The server keeps at most 1000 songs: a window around the current one.
+    const limit = 1000;
+    final start = state.queue.length <= limit ? 0 : (index - 100).clamp(0, state.queue.length - limit);
+    final context = state.context;
+    return {
+      'kind': 'tracks',
+      'track_ids': [for (final t in state.queue.skip(start).take(limit)) t.id],
+      'index': index - start,
+      'position': engine.position.inMilliseconds / 1000,
+      'context': context != null && context.length <= 128 ? context : null,
+      'is_radio': state.isRadio,
+    };
+  }
+
+  void _savePlayback() {
+    if (_restoring || ref.read(sessionProvider).offline) return;
+    final snapshot = playbackSnapshot();
+    if (snapshot == null) return;
+    final encoded = jsonEncode(snapshot);
+    _savedAt = DateTime.now();
+    if (encoded == _savedPlayback) return;
+    _savedPlayback = encoded;
+    _api.savePlayback(snapshot).catchError((Object error) {
+      _savedPlayback = null;
+      debugPrint('Saving the playback failed: $error');
+    });
+  }
+
+  /// Loads what was playing last (on this or another device), paused, unless something already plays.
+  Future<void> _restoreLastPlayback() async {
+    bool idle() =>
+        jam == null &&
+        connect == null &&
+        state.queue.isEmpty &&
+        state.book == null &&
+        state.station == null &&
+        !state.connectRemote &&
+        !state.jamRemote;
+    if (!idle()) return;
+    try {
+      final saved = await _api.lastPlayback();
+      if (saved == null || !idle()) return;
+      _restoring = true;
+      switch (saved['kind']) {
+        case 'tracks':
+          final tracks = [for (final t in saved['tracks'] as List) Track.fromJson(Map<String, dynamic>.from(t))];
+          if (tracks.isEmpty) return;
+          final index = (saved['index'] as int? ?? 0).clamp(0, tracks.length - 1);
+          final position = (saved['position'] as num? ?? 0).toDouble();
+          await _switch(() async {
+            if (!idle()) return;
+            final context = saved['context'] as String?;
+            final isRadio = saved['is_radio'] == true;
+            await _replacePlayback(
+              PlayerView(
+                queue: List.unmodifiable(tracks),
+                shuffle: state.shuffle,
+                smartShuffle: state.smartShuffle && supportsSmartShuffle(context, isRadio: isRadio),
+                isRadio: isRadio,
+                loop: state.loop,
+                context: context,
+                sleepAt: state.sleepAt,
+              ),
+              [for (final t in tracks) _source(t)],
+              index: index,
+              position: Duration(milliseconds: (position * 1000).round()),
+              play: false,
+            );
+            _unshuffled = [...tracks];
+            _contextTracks = [...tracks];
+          });
+        case 'episode':
+          await playEpisode(await _api.podcastEpisode(saved['item_id'] as String));
+        case 'audiobook':
+          final id = saved['item_id'] as String;
+          final j = Map<String, dynamic>.from(await _api.absGet('items/$id', {'expanded': 1, 'include': 'progress'}));
+          await playBook(AbsItem.fromJson(j, _l10n));
+      }
+    } catch (error) {
+      debugPrint('Restoring the last playback failed: $error');
+    } finally {
+      _restoring = false;
+    }
   }
 
   /// Report a play once at least 30 s or half of the track was listened to.

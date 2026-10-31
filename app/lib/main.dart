@@ -14,6 +14,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/desktop.dart';
+import 'player/player.dart';
 import 'core/changelog.dart';
 import 'core/session.dart';
 import 'integrations/discord_presence.dart';
@@ -40,6 +41,7 @@ Future<void> main() async {
     JustAudioMediaKit.ensureInitialized(linux: true, windows: true);
   }
   final prefs = await SharedPreferences.getInstance();
+  PlayerController.rememberPlayback = true;
   final androidTv = await detectAndroidTv();
   final androidDesktop = await detectAndroidDesktop();
   if (isDesktop) {
