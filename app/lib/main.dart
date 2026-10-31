@@ -14,6 +14,7 @@ import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/desktop.dart';
+import 'player/connect.dart';
 import 'player/player.dart';
 import 'core/changelog.dart';
 import 'core/session.dart';
@@ -44,6 +45,7 @@ Future<void> main() async {
   PlayerController.rememberPlayback = true;
   final androidTv = await detectAndroidTv();
   final androidDesktop = await detectAndroidDesktop();
+  await loadSystemDeviceName();
   if (isDesktop) {
     await initDesktopWindow(prefs);
     unawaited(registerAppImage());

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -96,16 +98,42 @@ class ConnectView {
   );
 }
 
-String get defaultConnectName => kIsWeb
-    ? 'Browser'
-    : switch (defaultTargetPlatform) {
-        TargetPlatform.android => 'Android',
-        TargetPlatform.iOS => 'iPhone',
-        TargetPlatform.linux => 'Linux-PC',
-        TargetPlatform.windows => 'Windows-PC',
-        TargetPlatform.macOS => 'Mac',
-        TargetPlatform.fuchsia => 'Fuchsia',
-      };
+/// The device's own name (phone name from Android's settings, the PC's host name); read once at startup.
+String? systemDeviceName;
+
+Future<void> loadSystemDeviceName() async {
+  if (kIsWeb) return;
+  try {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      systemDeviceName = await const MethodChannel('resonance/device').invokeMethod<String>('deviceName');
+    } else if (defaultTargetPlatform == TargetPlatform.linux) {
+      // The "pretty" name set in the system settings ("Kjells Laptop"), else the host name.
+      final info = File('/etc/machine-info');
+      final pretty = info.existsSync()
+          ? RegExp(r'^PRETTY_HOSTNAME="?([^"\n]*)"?$', multiLine: true).firstMatch(info.readAsStringSync())?.group(1)
+          : null;
+      systemDeviceName = pretty?.trim().isNotEmpty == true ? pretty!.trim() : Platform.localHostname;
+    } else if (defaultTargetPlatform == TargetPlatform.windows) {
+      systemDeviceName = Platform.localHostname;
+    }
+  } catch (error) {
+    debugPrint('Device name unavailable: $error');
+  }
+  if (systemDeviceName?.trim().isEmpty ?? false) systemDeviceName = null;
+}
+
+String get defaultConnectName =>
+    systemDeviceName ??
+    (kIsWeb
+        ? 'Browser'
+        : switch (defaultTargetPlatform) {
+            TargetPlatform.android => 'Android',
+            TargetPlatform.iOS => 'iPhone',
+            TargetPlatform.linux => 'Linux-PC',
+            TargetPlatform.windows => 'Windows-PC',
+            TargetPlatform.macOS => 'Mac',
+            TargetPlatform.fuchsia => 'Fuchsia',
+          });
 
 final connectSocketProvider = Provider<WebSocketChannel Function(Uri)>((ref) => WebSocketChannel.connect);
 

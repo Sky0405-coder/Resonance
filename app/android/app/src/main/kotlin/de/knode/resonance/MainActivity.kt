@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -20,6 +21,7 @@ class MainActivity : AudioServiceActivity() {
                 when (call.method) {
                     "isTv" -> result.success(packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK))
                     "isDesktop" -> result.success(desktopMode(resources.configuration))
+                    "deviceName" -> result.success(deviceName())
                     else -> result.notImplemented()
                 }
             }
@@ -31,6 +33,18 @@ class MainActivity : AudioServiceActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         device?.invokeMethod("desktopMode", desktopMode(newConfig))
+    }
+
+    /** The name the user gave the phone (Settings > About), else the model, e.g. "Galaxy S24 Ultra". */
+    private fun deviceName(): String {
+        val named = listOf(
+            Settings.Global.getString(contentResolver, "device_name"),
+            Settings.Secure.getString(contentResolver, "bluetooth_name"),
+        ).firstOrNull { !it.isNullOrBlank() }
+        if (named != null) return named
+        val model = Build.MODEL.orEmpty()
+        val maker = Build.MANUFACTURER.orEmpty().replaceFirstChar { it.uppercase() }
+        return if (model.startsWith(maker, ignoreCase = true)) model else "$maker $model".trim()
     }
 
     /** Samsung DeX, Android's desktop mode or a Chromebook: a big screen with mouse and keyboard. */
