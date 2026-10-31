@@ -1,5 +1,21 @@
 [
   {
+    "version": "1.6.22",
+    "date": "2026-10-31",
+    "de": [
+      "Weniger Knacken bei AutoMix am Handy: Equalizer und Tempo werden während und nach Überblendungen in deutlich weniger Schritten verstellt, bei gleichem Tempo gar nicht mehr.",
+      "Heruntergeladene Podcast-Folgen und Hörbücher zeigen, wie weit du schon gehört hast (Balken und Restzeit, oder „Gehört“).",
+      "Heruntergeladene Folgen zeigen ihr Erscheinungsdatum und stehen nach Datum sortiert, die neueste oben.",
+      "Samsung DeX und Android-Desktopmodus: Die App verhält sich wie die Desktop-App, mit Scrollbalken, kompakterem Layout, Tastenkürzel-Übersicht und einem großen Fenster beim Start."
+    ],
+    "en": [
+      "Less crackling with AutoMix on phones: the equalizer and tempo change in far fewer steps during and after transitions, and not at all when tempos match.",
+      "Downloaded podcast episodes and audiobooks show how far you have listened (bar and time left, or “Played”).",
+      "Downloaded episodes show their release date and are sorted by it, newest first.",
+      "Samsung DeX and Android desktop mode: the app behaves like the desktop app, with scrollbars, a denser layout, the shortcuts overview and a large window on launch."
+    ]
+  },
+  {
     "version": "1.6.21",
     "date": "2026-10-30",
     "de": [
