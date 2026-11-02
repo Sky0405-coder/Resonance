@@ -405,6 +405,8 @@ async def test_artist_fanart_fallback_and_exact_name(env, monkeypatch):
         if request.url.host == "webservice.fanart.tv":
             assert request.url.params["api_key"] == "test-fanart-key"
             return httpx.Response(200, json={"artistthumb": [{"url": "https://images.example/fanart"}]})
+        if request.url.host == "api.deezer.com":
+            return httpx.Response(200, json={"data": []})
         return httpx.Response(200, json={"artists": [{"strArtist": "Different Artist", "strBiographyEN": "Wrong"}]})
 
     monkeypatch.setattr(
@@ -413,13 +415,35 @@ async def test_artist_fanart_fallback_and_exact_name(env, monkeypatch):
     info = await artist_info.fetch("Artist", "test-mbid")
     assert info.image_url == "https://images.example/fanart" and info.bio_en is None
     assert (await artist_info.fetch("Artist")).image_url is None
-    assert len(seen) == 3
+    assert len(seen) == 5
 
 
-async def test_artist_loop_only_due_and_max_50(env, monkeypatch):
+async def test_artist_image_from_deezer_when_theaudiodb_has_none(env, monkeypatch):
+    def dispatch(request):
+        if request.url.host == "api.deezer.com":
+            assert request.url.params["q"] == "K/DA"
+            return httpx.Response(200, json={"data": [
+                {"name": "K/DA Tribute", "nb_fan": 9, "picture_xl": "https://cdn.example/images/artist/abc/1000.jpg"},
+                {"name": "k/da", "nb_fan": 5, "picture_xl": "https://cdn.example/images/artist//1000.jpg"},
+                {"name": "K/DA", "nb_fan": 7, "picture_xl": "https://cdn.example/images/artist/small/1000.jpg"},
+                {"name": "K/DA", "nb_fan": 254044, "picture_xl": "https://cdn.example/images/artist/kda/1000.jpg"},
+            ]})
+        # TheAudioDB knows the artist but has no picture of it.
+        return httpx.Response(200, json={"artists": [{"strArtist": "K/DA", "strBiographyEN": "Virtual group"}]})
+
+    monkeypatch.setattr(
+        artist_info, "_client_factory", lambda: httpx.AsyncClient(transport=httpx.MockTransport(dispatch))
+    )
+    info = await artist_info.fetch("K/DA")
+    # The exact name with the most fans; placeholders (no image id) and other names never.
+    assert info.image_url == "https://cdn.example/images/artist/kda/1000.jpg"
+    assert info.bio_en == "Virtual group"
+
+
+async def test_artist_loop_only_due_and_max_200(env, monkeypatch):
     now = datetime.now(UTC)
     async with SessionLocal() as db:
-        for index in range(55):
+        for index in range(205):
             db.add(Artist(name=f"Artist {index}", name_key=f"artist {index}", info_checked_at=None))
         db.add(Artist(name="Recent", name_key="recent", info_checked_at=now))
         await db.commit()
@@ -432,9 +456,9 @@ async def test_artist_loop_only_due_and_max_50(env, monkeypatch):
 
     monkeypatch.setattr(artist_info, "update_artist", update)
     await artist_info.run_once()
-    assert len(checked) == 50 and "Recent" not in checked
+    assert len(checked) == 200 and "Recent" not in checked
     await artist_info.run_once()
-    assert len(checked) == 55
+    assert len(checked) == 205
     async with SessionLocal() as db:
         artist = await db.scalar(select(Artist).where(Artist.name == "Recent"))
         artist.info_checked_at = now - timedelta(days=91)

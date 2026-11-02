@@ -1,4 +1,4 @@
-"""Artist biographies and cached images, refreshed at most 50 artists per hour."""
+"""Artist biographies and cached images, refreshed at most 200 artists per hour."""
 
 import asyncio
 import logging
@@ -57,6 +57,8 @@ async def fetch(artist_name: str, mbid: str | None = None) -> ArtistInfo:
                 )
         except (httpx.HTTPError, ValueError, TypeError):
             log.debug("TheAudioDB lookup failed")
+        if not info.image_url:
+            info.image_url = await _deezer_picture(client, artist_name)
         if not info.image_url and mbid:
             async with SessionLocal() as db:
                 key = (await load_config(db)).library.fanarttv_api_key
@@ -72,6 +74,24 @@ async def fetch(artist_name: str, mbid: str | None = None) -> ArtistInfo:
                 except (httpx.HTTPError, ValueError, TypeError):
                     log.debug("fanart.tv lookup failed")
     return info
+
+
+async def _deezer_picture(client: httpx.AsyncClient, artist_name: str) -> str | None:
+    """Deezer's photo of the artist with exactly this name (the most followed one)."""
+    try:
+        response = await client.get("https://api.deezer.com/search/artist", params={"q": artist_name, "limit": 10})
+        response.raise_for_status()
+        # Artists without a photo get a placeholder whose URL has no image id ("/images/artist//…").
+        matches = [
+            a for a in response.json().get("data") or []
+            if name_key(a.get("name", "")) == name_key(artist_name)
+            and "/artist//" not in (a.get("picture_xl") or "/artist//")
+        ]
+    except (httpx.HTTPError, ValueError, TypeError, AttributeError):
+        log.debug("Deezer artist lookup failed")
+        return None
+    best = max(matches, key=lambda a: a.get("nb_fan") or 0, default=None)
+    return _text(best.get("picture_xl")) if best else None
 
 
 def biography(artist: Artist, lang: str) -> str | None:
@@ -107,7 +127,7 @@ async def run_once() -> None:
                 Artist.info_checked_at.is_(None), Artist.info_checked_at < datetime.now(UTC) - timedelta(days=90)
             ))
             .order_by(Artist.info_checked_at.asc().nulls_first(), Artist.id)
-            .limit(50)
+            .limit(200)
         ))
     for id in ids:
         try:
