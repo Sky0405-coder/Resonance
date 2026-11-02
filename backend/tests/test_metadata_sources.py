@@ -441,10 +441,16 @@ async def test_artist_image_from_deezer_when_theaudiodb_has_none(env, monkeypatc
 
 
 async def test_artist_loop_only_due_and_max_200(env, monkeypatch):
+    monkeypatch.setattr(artist_info, "PAUSE", 0)
     now = datetime.now(UTC)
     async with SessionLocal() as db:
         for index in range(205):
             db.add(Artist(name=f"Artist {index}", name_key=f"artist {index}", info_checked_at=None))
+        # With an album of its own: checked first even though it was added last.
+        owner = Artist(name="Album Owner", name_key="album owner", info_checked_at=None)
+        db.add(owner)
+        await db.flush()
+        db.add(Album(title="Own", title_key="own", artist_id=owner.id))
         db.add(Artist(name="Recent", name_key="recent", info_checked_at=now))
         await db.commit()
     checked = []
@@ -455,10 +461,10 @@ async def test_artist_loop_only_due_and_max_200(env, monkeypatch):
         await db.commit()
 
     monkeypatch.setattr(artist_info, "update_artist", update)
-    await artist_info.run_once()
-    assert len(checked) == 200 and "Recent" not in checked
-    await artist_info.run_once()
-    assert len(checked) == 205
+    assert await artist_info.run_once() == 200
+    assert checked[0] == "Album Owner" and "Recent" not in checked
+    assert await artist_info.run_once() == 6
+    assert len(checked) == 206
     async with SessionLocal() as db:
         artist = await db.scalar(select(Artist).where(Artist.name == "Recent"))
         artist.info_checked_at = now - timedelta(days=91)

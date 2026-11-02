@@ -1,4 +1,4 @@
-"""Artist biographies and cached images, refreshed at most 200 artists per hour."""
+"""Artist biographies and cached images: a backlog is worked off in batches of 200, then checked hourly."""
 
 import asyncio
 import logging
@@ -6,17 +6,20 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import or_, select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import SessionLocal
-from app.models import Artist
+from app.models import Album, Artist
 from app.services import covers
 from app.services.matching import name_key
 from app.services.server_config import load_config
 
 log = logging.getLogger(__name__)
 _loop_task: asyncio.Task | None = None
+BATCH = 200
+# Between two artists: TheAudioDB's free key allows about 30 requests a minute.
+PAUSE = 2.0
 
 
 @dataclass
@@ -119,17 +122,21 @@ async def update_artist(db: AsyncSession, artist: Artist) -> None:
     await db.commit()
 
 
-async def run_once() -> None:
+async def run_once() -> int:
+    """Checks up to BATCH due artists, those with albums of their own first; returns how many."""
+    has_albums = exists().where(Album.artist_id == Artist.id)
     async with SessionLocal() as db:
         ids = list(await db.scalars(
             select(Artist.id)
             .where(or_(
                 Artist.info_checked_at.is_(None), Artist.info_checked_at < datetime.now(UTC) - timedelta(days=90)
             ))
-            .order_by(Artist.info_checked_at.asc().nulls_first(), Artist.id)
-            .limit(200)
+            .order_by(Artist.info_checked_at.asc().nulls_first(), has_albums.desc(), Artist.id)
+            .limit(BATCH)
         ))
-    for id in ids:
+    for n, id in enumerate(ids):
+        if n:
+            await asyncio.sleep(PAUSE)
         try:
             async with SessionLocal() as db:
                 artist = await db.get(Artist, id)
@@ -137,16 +144,19 @@ async def run_once() -> None:
                     await update_artist(db, artist)
         except Exception:
             log.exception("Artist info update failed for %s", id)
+    return len(ids)
 
 
 async def _loop() -> None:
     await asyncio.sleep(60)
     while True:
+        checked = 0
         try:
-            await run_once()
+            checked = await run_once()
         except Exception:
             log.exception("Artist info loop failed")
-        await asyncio.sleep(3600)
+        # A full batch means more are waiting (e.g. after an import): go on after a minute instead of an hour.
+        await asyncio.sleep(60 if checked >= BATCH else 3600)
 
 
 async def start() -> None:
