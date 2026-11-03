@@ -192,6 +192,13 @@ class PlayerController extends Notifier<PlayerView> {
   ConnectRouter? connect;
   Duration Function()? connectPosition;
   Duration Function()? _jamPosition;
+  int? _jamIndex;
+
+  /// How far ahead of the Jam a correcting seek aims: loading after a seek takes a moment, and without this the song
+  /// ends up just as far behind again. Learned from corrections that fell short.
+  Duration _jamLead = Duration.zero;
+  bool _jamCorrected = false;
+  int _jamDriftChecks = 0;
   int? _crossfadeBeforeJam;
   bool? _automixBeforeJam;
 
@@ -995,12 +1002,14 @@ class PlayerController extends Notifier<PlayerView> {
     required String context,
   }) => _switch(() async {
     _jamPosition = expected;
+    Duration target() => expected() + (playing ? _jamLead : Duration.zero);
     _crossfadeBeforeJam ??= engine.crossfadeSeconds;
     engine.crossfadeSeconds = 0;
     _automixBeforeJam ??= engine.automix;
     engine.automix = false;
     final queue = List<Track>.unmodifiable(tracks);
     final current = index >= 0 && index < queue.length ? index : null;
+    _jamIndex = current;
     if (!listen || current == null) {
       if (!state.jamRemote || state.playing) {
         await engine.finishFade();
@@ -1045,7 +1054,8 @@ class PlayerController extends Notifier<PlayerView> {
           PlayerView(queue: queue, context: context, speed: 1, sleepAt: state.sleepAt),
           [for (final t in queue) _source(t)],
           index: current,
-          position: expected(),
+          position: target(),
+          play: playing,
         );
         _unshuffled = [...queue];
         if (!playing) await engine.pause();
@@ -1056,10 +1066,12 @@ class PlayerController extends Notifier<PlayerView> {
       _resetRecommendations();
       state = _copy(context: context);
     }
+    // AutoMix may have left the song at a matched tempo; at any other speed it would run away from the Jam.
+    if (engine.speed != 1) await engine.setSpeed(1);
     if (engine.currentIndex != current) {
-      await engine.seek(expected(), index: current);
+      await engine.seek(target(), index: current);
     } else if (needsJamSeek(engine.position, expected())) {
-      await engine.seek(expected());
+      await engine.seek(target());
     }
     if (playing && !engine.playing) {
       engine.play().ignore();
@@ -1078,14 +1090,35 @@ class PlayerController extends Notifier<PlayerView> {
   Future<void> syncJam() => _switch(() async {
     final expected = _jamPosition;
     if (jam == null || expected == null || state.jamRemote || !engine.playing) return;
-    if (engine.processingState != ProcessingState.ready) return;
-    if (needsJamSeek(engine.position, expected())) await engine.seek(expected());
+    // Near the end of a song this device may already be on the next one while the Jam is not yet: positions of
+    // different songs must not be compared (that seeked the new song to the old one's end).
+    if (engine.processingState != ProcessingState.ready || engine.currentIndex != _jamIndex) return;
+    final drift = expected() - engine.position;
+    if (drift.abs() < const Duration(milliseconds: 500)) {
+      _jamCorrected = false;
+      _jamDriftChecks = 0;
+      return;
+    }
+    // Small drift must show twice (jitter in the reported position); large drift is corrected right away.
+    if (++_jamDriftChecks < 2 && drift.abs() < const Duration(seconds: 2)) return;
+    if (_jamCorrected) {
+      final lead = _jamLead + drift;
+      _jamLead = lead.isNegative
+          ? Duration.zero
+          : (lead > const Duration(seconds: 3) ? const Duration(seconds: 3) : lead);
+    }
+    _jamCorrected = true;
+    _jamDriftChecks = 0;
+    await engine.seek(expected() + _jamLead);
   });
 
   /// Back to normal playback after leaving a Jam (the Jam's songs stay loaded, paused).
   Future<void> leaveJam() => _switch(() async {
     jam = null;
     _jamPosition = null;
+    _jamIndex = null;
+    _jamCorrected = false;
+    _jamDriftChecks = 0;
     if (_crossfadeBeforeJam != null) engine.crossfadeSeconds = _crossfadeBeforeJam!;
     _crossfadeBeforeJam = null;
     if (_automixBeforeJam != null) engine.automix = _automixBeforeJam!;

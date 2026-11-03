@@ -126,6 +126,7 @@ class JamController extends Notifier<JamView?> implements JamRouter {
   StreamSubscription? _sub;
   Timer? _ping;
   Timer? _drift;
+  DateTime _lastPong = DateTime.now();
   Timer? _reconnect;
   int _attempt = 0;
   final List<int> _offsets = [];
@@ -217,7 +218,17 @@ class JamController extends Notifier<JamView?> implements JamRouter {
       cancelOnError: true,
     );
     _offsets.clear();
-    _ping = Timer.periodic(const Duration(seconds: 15), (_) => _sendPing());
+    _lastPong = DateTime.now();
+    _ping = Timer.periodic(const Duration(seconds: 15), (_) {
+      // A connection that silently died (phone network change, sleep) never reports itself closed: without this,
+      // the Jam's changes stopped arriving while the music kept playing.
+      if (DateTime.now().difference(_lastPong) > const Duration(seconds: 40)) {
+        _close();
+        _onClosed(null);
+        return;
+      }
+      _sendPing();
+    });
     _sendPing();
     _drift = Timer.periodic(const Duration(seconds: 5), (_) {
       final s = state;
@@ -245,6 +256,7 @@ class JamController extends Notifier<JamView?> implements JamRouter {
         state = s.copyWith(state: jam, connected: true);
         _apply(jam);
       case 'pong':
+        _lastPong = DateTime.now();
         final sent = message['t'];
         final server = message['server'];
         if (sent is int && server is int) {

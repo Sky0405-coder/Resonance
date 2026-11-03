@@ -115,6 +115,41 @@ void main() {
     expect(engine.position, const Duration(seconds: 50));
   });
 
+  test('no correction while this device is already on the next song and the Jam is not', () async {
+    await apply(const Duration(seconds: 42));
+    var expected = const Duration(seconds: 199);
+    player.jam = _Router();
+    await player.applyJam(tracks, 1, () => expected, true, listen: true, context: 'jam:123456');
+    // The song ended here a moment before the server noticed.
+    await engine.seek(const Duration(milliseconds: 300), index: 2);
+    expected = const Duration(milliseconds: 199900);
+    await player.syncJam();
+    expect(engine.currentIndex, 2);
+    expect(engine.position, const Duration(milliseconds: 300));
+  });
+
+  test('a correction that keeps falling short learns to aim further ahead', () async {
+    var expected = const Duration(seconds: 42);
+    player.jam = _Router();
+    await player.applyJam(tracks, 1, () => expected, true, listen: true, context: 'jam:123456');
+    expected = const Duration(seconds: 60);
+    await player.syncJam();
+    expect(engine.position, const Duration(seconds: 60));
+    // Loading after the seek cost 1.5 s: still behind by that much.
+    engine.position = const Duration(seconds: 70);
+    expected = const Duration(milliseconds: 71500);
+    await player.syncJam();
+    expect(engine.position, const Duration(seconds: 70), reason: 'small drift is confirmed by a second check');
+    await player.syncJam();
+    expect(engine.position, const Duration(seconds: 73));
+  });
+
+  test('a Jam plays at normal speed even if AutoMix had matched the tempo', () async {
+    await engine.setSpeed(1.04);
+    await apply(const Duration(seconds: 42));
+    expect(engine.speed, 1);
+  });
+
   test('seeking in a Jam moves the local song right away', () async {
     await apply(const Duration(seconds: 42));
     await player.seekInJam(const Duration(seconds: 120));
