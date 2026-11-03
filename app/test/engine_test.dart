@@ -179,7 +179,16 @@ void main() {
       double end = 210,
       double? vocalsIn,
       double? vocalsOut,
-    }) => MixPoints(bpm: bpm, mixIn: mixIn, mixOut: mixOut, end: end, vocalsIn: vocalsIn, vocalsOut: vocalsOut);
+      double? introEnd,
+    }) => MixPoints(
+      bpm: bpm,
+      mixIn: mixIn,
+      mixOut: mixOut,
+      end: end,
+      vocalsIn: vocalsIn,
+      vocalsOut: vocalsOut,
+      introEnd: introEnd,
+    );
 
     test('parses optional vocal bounds as doubles', () {
       final json = <String, dynamic>{'bpm': 120, 'mix_in': 0.5, 'mix_out': 200, 'end': 210};
@@ -212,61 +221,85 @@ void main() {
       expect(automixPlan(points(), points(bpm: 100))!.speed, 1);
     });
 
-    test('blends run about 32 beats, starting earlier by whole bars when the outro is shorter', () {
-      // 120 BPM: 32 beats are 16 s, one bar 2 s. The outro has 10 s, so the blend starts three bars earlier.
+    test('blends run 16 beats, the bass swapping halfway, half a phrase after the mix-out point', () {
+      // 120 BPM: 16 beats are 8 s, one bar 2 s.
       final plan = automixPlan(points(bpm: 120, mixOut: 200, end: 210), points(bpm: 120))!;
-      expect(plan.start, const Duration(seconds: 194));
-      expect(plan.duration, const Duration(seconds: 16));
+      expect(plan.start, const Duration(seconds: 200));
+      expect(plan.duration, const Duration(seconds: 8));
+      expect(plan.bassSwap, const Duration(seconds: 4));
+      expect(plan.intro, isFalse);
+      // A short outro: earlier by whole bars.
+      expect(automixPlan(points(bpm: 120, end: 205), points(bpm: 120))!.start, const Duration(seconds: 196));
+      // Slow songs take longer; without a tempo 10 s.
+      expect(automixPlan(points(bpm: 70, mixOut: 150), points(bpm: 70))!.duration, secs(16 * 60 / 70));
+      expect(automixPlan(points(mixOut: 150), points())!.duration, const Duration(seconds: 10));
+    });
+
+    test('the next song\'s intro plays under the current one and comes in fully at the bass swap', () {
+      // Eight bars of intro (16 s): the last four bars play under the current song, then the bass swaps.
+      final plan = automixPlan(points(bpm: 120), points(bpm: 120, mixIn: 0.5, introEnd: 16.5))!;
+      expect(plan.intro, isTrue);
+      expect(plan.incomingStart.inMicroseconds / 1e6, closeTo(8.5, 1e-4));
       expect(plan.bassSwap, const Duration(seconds: 8));
-      // Slow songs are capped at 20 s, fast ones last at least 6 s; without a tempo 12 s.
-      expect(automixPlan(points(bpm: 70, mixOut: 150), points(bpm: 70))!.duration, const Duration(seconds: 20));
-      expect(automixPlan(points(mixOut: 150), points())!.duration, const Duration(seconds: 12));
-      // A long outro is not used up entirely.
-      expect(
-        automixPlan(points(bpm: 120, mixOut: 100, end: 130), points(bpm: 120))!.duration,
-        const Duration(seconds: 16),
-      );
+      expect(plan.duration, const Duration(seconds: 12));
+      // The swap still lands half a phrase after the mix-out point.
+      expect(plan.start + plan.bassSwap, const Duration(seconds: 204));
+      // A two-bar intro plays whole.
+      final short = automixPlan(points(bpm: 120), points(bpm: 120, mixIn: 0.5, introEnd: 4.5))!;
+      expect(short.incomingStart.inMicroseconds / 1e6, closeTo(0.5, 1e-4));
+      expect((short.bassSwap, short.duration), (secs(4), secs(8)));
+      // No intro (full strength from the first beat): the default crossing.
+      final none = automixPlan(points(bpm: 120), points(bpm: 120, introEnd: 0.5))!;
+      expect((none.intro, none.incomingStart), (false, secs(0.5)));
+      // A slower next song is sped up: its intro is shorter in the current song's time.
+      final faster = automixPlan(points(bpm: 120), points(bpm: 115, mixIn: 0.5, introEnd: 0.5 + 32 * 60 / 115))!;
+      expect(faster.intro, isTrue);
+      expect(faster.bassSwap, const Duration(seconds: 8));
+      final incomingTime = (0.5 + 32 * 60 / 115) - faster.incomingStart.inMicroseconds / 1e6;
+      expect(incomingTime / faster.ratio, closeTo(8, 1e-3));
     });
 
     test('skips songs without a usable outro and never starts in the first half', () {
       expect(automixPlan(points(mixOut: 100, end: 101), points()), isNull);
       expect(automixPlan(points(mixOut: 0, end: 5), points()), isNull);
-      final early = automixPlan(points(bpm: 120, mixOut: 20, end: 30), points(bpm: 120))!;
-      expect(early.start, const Duration(seconds: 16));
-      expect(early.duration, const Duration(seconds: 14));
+      // Three bars earlier would be before the middle: it starts there and gets shorter.
+      final early = automixPlan(points(bpm: 120, mixOut: 12, end: 15), points(bpm: 120))!;
+      expect(early.start, const Duration(milliseconds: 7500));
+      expect(early.duration, const Duration(milliseconds: 7500));
       // A short outro: the blend reaches back into the song.
       final short = automixPlan(points(mixOut: 100, end: 102), points())!;
-      expect((short.start, short.duration), (const Duration(seconds: 90), const Duration(seconds: 12)));
+      expect((short.start, short.duration), (const Duration(seconds: 92), const Duration(seconds: 10)));
     });
 
     test('the crossfade setting asks for longer blends, up to 30 seconds', () {
       final plan = automixPlan(points(bpm: 120, mixOut: 200, end: 210), points(bpm: 120), minSeconds: 24)!;
       expect(plan.start, const Duration(seconds: 186));
       expect(plan.duration, const Duration(seconds: 24));
+      expect(plan.bassSwap, const Duration(seconds: 4));
       expect(
         automixPlan(points(mixOut: 100, end: 130), points(), minSeconds: 40)!.duration,
         const Duration(seconds: 30),
       );
-      expect(automixPlan(points(bpm: 120), points(bpm: 120), minSeconds: 5)!.duration, const Duration(seconds: 16));
+      expect(automixPlan(points(bpm: 120), points(bpm: 120), minSeconds: 5)!.duration, const Duration(seconds: 8));
     });
 
     test('the next voice comes in after the current one stopped, starting later by whole bars', () {
-      // The blend would start at 194 s: the current voice ends 9 s in, the next one starts 5 s in. Two bars later
-      // the voices follow each other and the bass swaps between them.
-      final plan = automixPlan(points(bpm: 120, vocalsOut: 203), points(bpm: 120, mixIn: 1, vocalsIn: 6))!;
-      expect(plan.start, const Duration(seconds: 198));
-      expect(plan.duration, const Duration(seconds: 12));
+      // The current voice ends 7 s in, the next one starts 5 s in: one bar later they follow each other and the
+      // bass swaps between them.
+      final plan = automixPlan(points(bpm: 120, vocalsOut: 207), points(bpm: 120, mixIn: 1, vocalsIn: 6))!;
+      expect(plan.start, const Duration(seconds: 202));
+      expect(plan.duration, const Duration(seconds: 8));
       expect(plan.bassSwap, const Duration(seconds: 5));
     });
 
-    test('voices that already follow each other keep the full blend and swap the bass between them', () {
+    test('voices that already follow each other keep the blend and swap the bass between them', () {
       final plan = automixPlan(points(bpm: 120, vocalsOut: 195), points(bpm: 120, vocalsIn: 14.5))!;
-      expect(plan.start, const Duration(seconds: 194));
-      expect(plan.duration, const Duration(seconds: 16));
-      expect(plan.bassSwap, const Duration(seconds: 8));
+      expect(plan.start, const Duration(seconds: 200));
+      expect(plan.duration, const Duration(seconds: 8));
+      expect(plan.bassSwap, const Duration(seconds: 4));
       final late = automixPlan(points(bpm: 120, vocalsOut: 205), points(bpm: 120, vocalsIn: 30))!;
-      // Not before the current voice has ended (11 s in).
-      expect(late.bassSwap, const Duration(seconds: 11));
+      // Not before the current voice has ended (5 s in).
+      expect(late.bassSwap, const Duration(seconds: 5));
     });
 
     test('when the voices cannot be separated the blend moves as late as the song allows', () {
@@ -279,14 +312,14 @@ void main() {
       expect(unknownTempo.duration, const Duration(seconds: 6));
     });
 
-    test('with only one voice known the other is assumed in the middle of the blend', () {
-      // The current voice ends 12 s into a 16 s blend: start four seconds later.
+    test('with only one voice known the other is assumed at the swap', () {
+      // The current voice ends 6 s into the blend, 2 s after the swap: start a bar later.
       final outgoing = automixPlan(points(bpm: 120, vocalsOut: 206), points(bpm: 120))!;
-      expect(outgoing.start, const Duration(seconds: 198));
-      expect(outgoing.duration, const Duration(seconds: 12));
+      expect(outgoing.start, const Duration(seconds: 202));
+      expect(outgoing.bassSwap, const Duration(seconds: 4));
       // The next voice right at the start is fine when nothing is known about the current one.
       final incoming = automixPlan(points(bpm: 120), points(bpm: 120, vocalsIn: 0.5))!;
-      expect(incoming.duration, const Duration(seconds: 16));
+      expect(incoming.duration, const Duration(seconds: 8));
       expect(incoming.bassSwap, const Duration(milliseconds: 500));
     });
 
@@ -308,10 +341,10 @@ void main() {
         'vocals_out': null,
       });
       final plan = automixPlan(outgoing, incoming)!;
-      expect(plan.start, const Duration(milliseconds: 194250));
+      expect(plan.start, const Duration(milliseconds: 200250));
       expect(plan.incomingStart, const Duration(milliseconds: 1500));
-      expect(plan.duration, const Duration(seconds: 16));
-      expect(plan.bassSwap, const Duration(seconds: 8));
+      expect(plan.duration, const Duration(seconds: 8));
+      expect(plan.bassSwap, const Duration(seconds: 4));
       expect(plan.filterOut, isFalse);
     });
 
@@ -324,12 +357,12 @@ void main() {
       expect(plan.bassSwap, Duration.zero);
     });
 
-    test('swaps the bass on a beat near the middle of the overlap', () {
+    test('swaps the bass on a beat in the middle of the blend', () {
       final plan = automixPlan(points(bpm: 124, mixOut: 200.25), points(bpm: 120, mixIn: 1.5))!;
       final beat = 60 / 124;
-      expect(plan.duration, secs(32 * beat));
-      expect(plan.bassSwap.inMicroseconds / 1e6, closeTo(16 * beat, 1e-3));
-      expect(automixPlan(points(mixOut: 100, end: 110), points())!.bassSwap, const Duration(seconds: 6));
+      expect(plan.duration, secs(16 * beat));
+      expect(plan.bassSwap.inMicroseconds / 1e6, closeTo(8 * beat, 1e-3));
+      expect(automixPlan(points(mixOut: 100, end: 110), points())!.bassSwap, const Duration(seconds: 5));
       // Up to 16 % tempo difference is matched.
       expect(automixPlan(points(bpm: 115), points(bpm: 100))!.beatMatched, isTrue);
       expect(automixPlan(points(bpm: 120), points(bpm: 100))!.beatMatched, isFalse);
@@ -378,22 +411,20 @@ void main() {
       expect(camelotCompatible('8A', '9B'), isFalse);
     });
 
-    test('clashing keys blend for half as long, clashing tempos filter out', () {
+    test('clashing keys blend for only two bars, clashing tempos filter out', () {
       MixPoints keyed({double? bpm, String? key}) =>
           MixPoints(bpm: bpm, mixIn: 0.5, mixOut: 190, end: 210, key: key, keyConfidence: 0.3);
       final clash = automixPlan(keyed(bpm: 120, key: '8A'), keyed(bpm: 121, key: '3B'))!;
       expect(clash.filterOut, isFalse);
       expect(clash.beatMatched, isTrue);
-      expect(clash.duration, const Duration(seconds: 8));
+      expect(clash.duration, const Duration(seconds: 4));
+      expect(clash.bassSwap, const Duration(seconds: 2));
       final tempo = automixPlan(keyed(bpm: 128), keyed(bpm: 100))!;
       expect((tempo.filterOut, tempo.beatMatched), (true, false));
       // Sixteen beats (7.5 s at 128 BPM), ending two seconds before the song does.
       expect(tempo.duration, const Duration(milliseconds: 7500));
       expect(tempo.start, const Duration(milliseconds: 200500));
-      expect(
-        automixPlan(keyed(bpm: 120, key: '8A'), keyed(bpm: 120, key: '9A'))!.duration,
-        const Duration(seconds: 16),
-      );
+      expect(automixPlan(keyed(bpm: 120, key: '8A'), keyed(bpm: 120, key: '9A'))!.duration, const Duration(seconds: 8));
       expect(automixPlan(keyed(), keyed())!.filterOut, isFalse);
     });
 
@@ -436,31 +467,57 @@ void main() {
       expect(AutomixCut(bass: 0.4).mpvCommands.first[3], '-6.0');
     });
 
-    test('blend volumes stay within about 1.5 dB whether the songs add up or not', () {
-      final (start, _) = automixVolumes(
-        elapsed: Duration.zero,
+    test('blend volumes without an intro cross at the swap and stay within about 1.5 dB', () {
+      (double, double) at(double seconds, {double incomingTarget = 1}) => automixVolumes(
+        elapsed: secs(seconds),
         duration: const Duration(seconds: 10),
+        swap: const Duration(seconds: 4),
         outgoingTarget: 1,
-        incomingTarget: 0.5,
+        incomingTarget: incomingTarget,
       );
-      expect(start, 1);
-      final (out, inc) = automixVolumes(
-        elapsed: const Duration(seconds: 5),
-        duration: const Duration(seconds: 10),
+      expect(at(0, incomingTarget: 0.5), (1.0, 0.0));
+      final (out, inc) = at(4);
+      expect(out, closeTo(inc, 1e-9));
+      // Beat-matched (adding amplitudes) and unrelated (adding power) both stay near the level of one song.
+      for (final t in [1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 9.0]) {
+        final (o, i) = at(t);
+        expect(20 * log(o + i) / ln10, inInclusiveRange(0, 1.6), reason: '$t s');
+        expect(10 * log(o * o + i * i) / ln10, inInclusiveRange(-1.6, 0), reason: '$t s');
+      }
+      expect(at(11, incomingTarget: 0.5), (0.0, 0.5));
+    });
+
+    test('with an intro the next song is fully in at the swap while the current one stays up, then goes', () {
+      (double, double) at(double seconds) => automixVolumes(
+        elapsed: secs(seconds),
+        duration: const Duration(seconds: 12),
+        swap: const Duration(seconds: 8),
+        intro: true,
         outgoingTarget: 1,
         incomingTarget: 1,
       );
-      // Beat-matched (adding amplitudes) and unrelated (adding power) both stay near the level of one song.
-      expect(20 * log(out + inc) / ln10, inInclusiveRange(0, 1.6));
-      expect(10 * log(out * out + inc * inc) / ln10, inInclusiveRange(-1.6, 0));
-      final (end, last) = automixVolumes(
-        elapsed: const Duration(seconds: 11),
-        duration: const Duration(seconds: 10),
-        outgoingTarget: 1,
-        incomingTarget: 0.5,
-      );
-      expect(end, closeTo(0, 1e-9));
-      expect(last, 0.5);
+      expect(at(0), (1.0, 0.0));
+      expect(at(4).$2, closeTo(sin(pi / 4), 1e-9));
+      expect(at(4).$1, greaterThan(0.95));
+      // -1.5 dB at the swap, the next song fully in.
+      expect(20 * log(at(8).$1) / ln10, closeTo(-1.5, 0.1));
+      expect(at(8).$2, 1);
+      // The current song eases off and its last 40 % fade out, without jumps.
+      var previous = at(8).$1;
+      for (var t = 8.05; t < 12; t += 0.05) {
+        final now = at(t).$1;
+        expect(now, lessThanOrEqualTo(previous + 1e-9));
+        expect(previous - now, lessThan(0.05));
+        previous = now;
+      }
+      expect(at(11.99).$1, lessThan(0.01));
+      expect(at(12), (0.0, 1.0));
+    });
+
+    test('reads where the intro ends', () {
+      final p = MixPoints.fromJson({'bpm': 120, 'mix_in': 1, 'mix_out': 200, 'end': 210, 'intro_end': 17});
+      expect(p.introEnd, 17.0);
+      expect(MixPoints.fromJson({'bpm': 120, 'mix_in': 1, 'mix_out': 200, 'end': 210}).introEnd, isNull);
     });
 
     test('reads server json', () {

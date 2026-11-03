@@ -452,7 +452,7 @@ async def get_mixpoint_keys(user: CurrentUser, db: DB, ids: str = Query(max_leng
         raise HTTPException(422, "Ungültige Song-ID") from e
     rows = {row.track_id: row for row in await db.scalars(
         select(TrackMixPoints).where(
-            TrackMixPoints.track_id.in_(track_ids), TrackMixPoints.version == mixpoints.VERSION
+            TrackMixPoints.track_id.in_(track_ids), TrackMixPoints.version >= mixpoints.KEYS_SINCE
         )
     )}
     return {

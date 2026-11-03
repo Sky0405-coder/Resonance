@@ -23,7 +23,9 @@ from app.services.transcode import resolve_path
 log = logging.getLogger(__name__)
 
 # Bump when the analysis changes so stored results get recomputed.
-VERSION = 3
+VERSION = 4
+# Tempo and key are the same since this version: older results still serve them while the songs are analyzed again.
+KEYS_SINCE = 3
 _RATE = 11025
 _HOP = 256  # ~23 ms per frame
 _FRAME = 1024
@@ -44,6 +46,10 @@ class MixPoints:
     end: float
     key: str | None = None
     key_confidence: float | None = None
+    # Where the intro ends and the song comes in fully (on a bar counted from mix_in): AutoMix lets the next song's
+    # intro play under the current one and swaps the bass right here. mix_in when the song starts at full strength,
+    # None without a tempo or when the intro is longer than 16 bars.
+    intro_end: float | None = None
     vocals_in: float | None = None
     vocals_out: float | None = None
 
@@ -203,6 +209,7 @@ def analyze(path: Path) -> MixPoints:
     fade = min(14.0, max(6.0, 16 * 60 / bpm)) if bpm else 8.0
     out = max(start, min(end, last_strong + 4) - fade)
     mix_in = start
+    intro_end = None
     if bpm:
         period = _RATE / _HOP * 60 / bpm
         span = int(8 * period)
@@ -222,6 +229,13 @@ def analyze(path: Path) -> MixPoints:
         boundary = mix_in + round((out - mix_in) / phrase) * phrase
         if boundary > mix_in and abs(boundary - out) <= 8 * beat and boundary <= end - 4:
             out = boundary
+        # The first time the song gets loud, rounded to whole bars; the level is smoothed over a second, so it
+        # reaches the threshold around the moment itself.
+        bar = 4 * beat
+        if len(strong):
+            bars = round((float(seconds[strong[0]]) - mix_in) / bar)
+            if 0 <= bars <= 16:
+                intro_end = mix_in + bars * bar
     key, confidence = _key(samples)
     return MixPoints(
         bpm=round(float(bpm), 2) if bpm else None,
@@ -230,6 +244,7 @@ def analyze(path: Path) -> MixPoints:
         end=round(float(end), 3),
         key=key,
         key_confidence=confidence,
+        intro_end=round(float(intro_end), 3) if intro_end is not None else None,
     )
 
 
@@ -273,7 +288,7 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
         row = stored.get(id)
         if row is not None and row.version == VERSION and row.mtime == track.mtime:
             result[id] = None if row.failed else MixPoints(
-                row.bpm, row.mix_in, row.mix_out, row.end, row.key, row.key_confidence
+                row.bpm, row.mix_in, row.mix_out, row.end, row.key, row.key_confidence, row.intro_end
             )
             continue
         points = await analyze_async(resolve_path(track.path))
@@ -288,6 +303,7 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
             "end": points.end if points else None,
             "key": points.key if points else None,
             "key_confidence": points.key_confidence if points else None,
+            "intro_end": points.intro_end if points else None,
         }
         await db.execute(
             insert(TrackMixPoints)

@@ -133,6 +133,7 @@ class TrackMixPoints(Base):
     mix_in: Mapped[float | None] = mapped_column(Float)
     mix_out: Mapped[float | None] = mapped_column(Float)
     end: Mapped[float | None] = mapped_column(Float)
+    intro_end: Mapped[float | None] = mapped_column(Float)
     analyzed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

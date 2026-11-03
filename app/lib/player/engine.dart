@@ -52,9 +52,13 @@ class MixPoints {
     this.keyConfidence,
     this.vocalsIn,
     this.vocalsOut,
+    this.introEnd,
   });
   final double? bpm;
   final double mixIn;
+
+  /// Where the intro ends and the song comes in fully (song time, on a bar); [mixIn] when it starts at full strength.
+  final double? introEnd;
   final double mixOut;
   final double end;
 
@@ -76,6 +80,7 @@ class MixPoints {
     keyConfidence: (j['key_confidence'] as num?)?.toDouble(),
     vocalsIn: (j['vocals_in'] as num?)?.toDouble(),
     vocalsOut: (j['vocals_out'] as num?)?.toDouble(),
+    introEnd: (j['intro_end'] as num?)?.toDouble(),
   );
 }
 
@@ -91,6 +96,7 @@ class AutomixPlan {
     required this.bassSwap,
     this.outgoingSpeed = 1,
     this.filterOut = false,
+    this.intro = false,
   });
   final Duration start;
   final Duration incomingStart;
@@ -107,6 +113,10 @@ class AutomixPlan {
   /// Songs that do not go together (tempo too far apart or clashing keys) do not blend: the current song is
   /// filtered away from the bass up, with an echo on the beat on the desktop, while the next one comes in quickly.
   final bool filterOut;
+
+  /// The next song starts with its (quieter) intro, which ends at [bassSwap]: it can come in fully while the current
+  /// song stays up. Without one both songs cross over around the swap.
+  final bool intro;
 
   bool get beatMatched => speed != 1;
 
@@ -148,11 +158,18 @@ bool camelotCompatible(String a, String b) {
 Duration _filterOutDuration(double? bpm) =>
     _seconds((bpm != null && bpm > 0 ? 16 * 60 / bpm : 8.0).clamp(6.0, 12.0).toDouble());
 
-/// A blend runs for about [automixBlendBeats] beats (16 s at 120 BPM), between [automixMinSeconds] and
-/// [automixMaxSeconds]; with clashing keys only half as long, so the harmonies rub briefly.
-const automixBlendBeats = 32;
+/// A blend has two halves, like a DJ's: the next song's intro comes in under the current one for up to
+/// [automixMaxLeadBeats] beats, the bass swaps the moment the next song comes in fully, and the current one thins
+/// out and is gone after [automixMinTailBeats] to [automixMaxTailBeats] beats. Songs without an intro come in over
+/// [automixDefaultLeadBeats] beats from their first beat; with clashing keys both halves last only a bar.
+const automixMaxLeadBeats = 16;
+const automixDefaultLeadBeats = 8;
+const automixMinTailBeats = 4;
+const automixMaxTailBeats = 8;
 const automixMinSeconds = 6.0;
-const automixMaxSeconds = 20.0;
+
+/// How far the current song thins out after the swap (desktop): its high-pass rises to about 600 Hz.
+const automixTailSweep = 0.75;
 
 /// Tempos within 16 % (also at double or half time) are matched and blended; tempos further apart filter the current
 /// song out. The blend starts at the analyzed mix-out point, earlier by whole bars when the outro is shorter than
@@ -205,27 +222,40 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds
       filterOut: true,
     );
   }
-  var target = (beat == null ? 12.0 : automixBlendBeats * beat).clamp(automixMinSeconds, automixMaxSeconds).toDouble();
-  if (keysClash) target = math.max(automixMinSeconds, target / 2);
-  target = math.max(target, math.min(minSeconds, 30).toDouble());
-  final latest = outgoing.end - math.min(automixMinSeconds, overlap);
-  var start = outgoing.mixOut;
-  var duration = math.min(overlap, target);
-  if (target > overlap) {
-    // Start earlier by whole bars, but not before the middle of the song.
-    var earlier = toBars(target - overlap);
-    final room = start - outgoing.end / 2;
-    if (earlier > room) earlier = bar == null ? math.max(0.0, room) : math.max(0.0, (room / bar).floor() * bar);
-    start -= earlier;
-    duration = math.min(target, overlap + earlier);
+  double beats(int count, double seconds) => beat == null ? seconds : count * beat;
+  final ratio = speed / outgoingSpeed;
+  // The next song's intro (its song time) plays under the current song, ending where the bass swaps.
+  final intro = incoming.introEnd == null ? null : incoming.introEnd! - incoming.mixIn;
+  final shortest = keysClash ? beats(4, 3) : beats(automixMaxLeadBeats, 10);
+  final fromIntro = intro != null && intro / ratio >= beats(4, 2) - 0.05;
+  var leadIn = fromIntro ? math.min(intro / ratio, shortest) : math.min(beats(automixDefaultLeadBeats, 5), shortest);
+  // Beat-matched, the intro's beats are the current song's beats: whole ones.
+  if (beat != null) leadIn = math.max(1, (leadIn / beat).round()) * beat;
+  var tail = keysClash
+      ? beats(4, 3)
+      : leadIn.clamp(beats(automixMinTailBeats, 3), beats(automixMaxTailBeats, 5)).toDouble();
+  // The crossfade setting asks for longer transitions: the current song takes longer to go.
+  final wanted = math.min(minSeconds, 30).toDouble();
+  if (leadIn + tail < wanted) tail = wanted - leadIn;
+  var duration = leadIn + tail;
+  // The bass swaps half a phrase after the analyzed mix-out point (a phrase start), earlier by whole bars when the
+  // song would end before the blend does, but the blend never starts in the first half of the song.
+  var start = outgoing.mixOut + beats(automixDefaultLeadBeats, 5) - leadIn;
+  if (start + duration > outgoing.end) start -= toBars(start + duration - outgoing.end);
+  if (start < outgoing.end / 2) {
+    start = math.min(outgoing.mixOut, outgoing.end / 2);
+    duration = math.min(duration, outgoing.end - start);
+    leadIn = math.min(leadIn, duration / 2);
   }
+  final incomingStart = fromIntro ? incoming.introEnd! - leadIn * ratio : incoming.mixIn;
+  final latest = outgoing.end - math.min(automixMinSeconds, overlap);
   // Seconds into the blend at which the current song stops singing and the next one starts.
   final voiceEnds = outgoing.vocalsOut == null ? null : outgoing.vocalsOut! - start;
-  final voiceStarts = incoming.vocalsIn == null ? null : (incoming.vocalsIn! - incoming.mixIn) / speed;
+  final voiceStarts = incoming.vocalsIn == null ? null : (incoming.vocalsIn! - incomingStart) / ratio;
   // Both voices known: the next voice must not start before the current one ends. Otherwise the unknown side is
-  // assumed to be in the middle of the blend.
+  // assumed to be at the swap.
   final ends = voiceEnds ?? (voiceStarts == null ? null : 0.0);
-  final starts = voiceStarts ?? (voiceEnds == null ? null : duration / 2);
+  final starts = voiceStarts ?? (voiceEnds == null ? null : leadIn);
   // Between these, neither song sings: the bass swaps there.
   (double, double)? quiet;
   if (ends != null && starts != null) {
@@ -240,17 +270,18 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds
     }
     if (ends - later <= starts + 0.01) quiet = (math.max(0.0, ends - later), math.min(starts, duration));
   }
-  var swap = quiet == null ? duration / 2 : (duration / 2).clamp(quiet.$1, math.max(quiet.$1, quiet.$2)).toDouble();
+  var swap = quiet == null ? leadIn : leadIn.clamp(quiet.$1, math.max(quiet.$1, quiet.$2)).toDouble();
   if (beat != null) {
     swap = ((swap / beat).round() * beat).clamp(beat, math.max(beat, duration - beat)).toDouble();
   }
   return AutomixPlan(
     start: _seconds(start),
-    incomingStart: _seconds(incoming.mixIn),
+    incomingStart: _seconds(incomingStart),
     duration: _seconds(duration),
     speed: speed,
     outgoingSpeed: outgoingSpeed,
     bassSwap: _seconds(swap),
+    intro: fromIntro && (swap - leadIn).abs() < 0.05,
   );
 }
 
@@ -306,19 +337,40 @@ class AutomixCut {
   int get hashCode => Object.hash(bass, sweep);
 }
 
-/// Between equal power and linear: two beat-matched songs partly add up (their kicks fall together), so equal power
-/// would swell by up to 3 dB in the middle; this curve stays within about 1.5 dB either way.
+/// Blend volumes around the bass swap ([swap]).
+///
+/// With an [intro] (quieter by the analysis' definition) the next song comes in fully until the swap while the
+/// current one stays up, easing off a little; afterwards the current one goes, the last 40 % quickly.
+///
+/// Without one both songs are loud: they cross over between equal power and linear, with the crossing at the swap.
+/// Two beat-matched songs partly add up (their kicks fall together), so equal power would swell by up to 3 dB; this
+/// curve stays within about 1.5 dB either way.
 (double, double) automixVolumes({
   required Duration elapsed,
   required Duration duration,
+  required Duration swap,
+  bool intro = false,
   required double outgoingTarget,
   required double incomingTarget,
 }) {
-  final t = duration == Duration.zero ? 1.0 : (elapsed.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0);
-  return (
-    outgoingTarget * math.pow(math.cos(t * math.pi / 2), 1.5).toDouble(),
-    incomingTarget * math.pow(math.sin(t * math.pi / 2), 1.5).toDouble(),
-  );
+  final t = elapsed.inMicroseconds / 1e6;
+  final total = duration.inMicroseconds / 1e6;
+  if (total <= 0 || t >= total) return (0, incomingTarget);
+  final s = (swap.inMicroseconds / 1e6).clamp(0.0, total);
+  final tail = total - s;
+  if (!intro) {
+    // 0 to 0.5 until the swap, 0.5 to 1 after it.
+    final u = t < s ? 0.5 * t / s : 0.5 + 0.5 * (t - s) / tail;
+    return (
+      outgoingTarget * math.pow(math.cos(u * math.pi / 2), 1.5).toDouble(),
+      incomingTarget * math.pow(math.sin(u * math.pi / 2), 1.5).toDouble(),
+    );
+  }
+  final rise = s <= 0 ? 1.0 : (t / s).clamp(0.0, 1.0);
+  // -1.5 dB at the swap, -5 dB when the last 40 % start, then gone.
+  final p = tail <= 0 ? 1.0 : ((t - s) / tail).clamp(0.0, 1.0);
+  final outgoing = (1 - 0.16 * rise * rise) * (p < 0.6 ? 1 - 0.55 * p : 0.67 * math.cos((p - 0.6) / 0.4 * math.pi / 2));
+  return (outgoingTarget * outgoing, incomingTarget * math.sin(rise * math.pi / 2));
 }
 
 List<T> shuffleQueue<T>(List<T> queue, int currentIndex, {math.Random? random}) {
@@ -743,9 +795,18 @@ class PlaybackEngine {
         final sweep = seconds / (fade.duration.inMicroseconds / 1e6 * 0.8);
         _setCut(fade.outgoing, fade.outgoingIndex, AutomixCut(sweep: sweep), force: resend).ignore();
       } else {
-        // The bass swaps over one beat around the swap point.
-        final swap = (seconds - plan.bassSwap.inMicroseconds / 1e6) / beat + 0.5;
-        _setCut(fade.outgoing, fade.outgoingIndex, AutomixCut(bass: swap), force: resend).ignore();
+        // The bass swaps over one beat around the swap point; on the desktop the current song then also thins out
+        // from the bass up (Android's equalizer would click at every step, so it only swaps the bass there).
+        final swapAt = plan.bassSwap.inMicroseconds / 1e6;
+        final swap = (seconds - swapAt) / beat + 0.5;
+        final tail = fade.duration.inMicroseconds / 1e6 - swapAt;
+        final thin = _desktop && tail > 0 ? ((seconds - swapAt) / tail).clamp(0.0, 1.0) * automixTailSweep : 0.0;
+        _setCut(
+          fade.outgoing,
+          fade.outgoingIndex,
+          AutomixCut(bass: swap, sweep: thin),
+          force: resend,
+        ).ignore();
         _setCut(fade.incoming, fade.index, AutomixCut(bass: 1 - swap), force: resend).ignore();
       }
       _applyAutomixVolumes(fade).ignore();
@@ -763,12 +824,22 @@ class PlaybackEngine {
   }
 
   Future<void> _applyAutomixVolumes(_Fade fade) async {
-    final (outgoing, incoming) = (fade.plan!.filterOut ? filterOutVolumes : automixVolumes)(
-      elapsed: fade.clock.elapsed,
-      duration: fade.duration,
-      outgoingTarget: _targetVolume,
-      incomingTarget: _incomingTarget(fade),
-    );
+    final plan = fade.plan!;
+    final (outgoing, incoming) = plan.filterOut
+        ? filterOutVolumes(
+            elapsed: fade.clock.elapsed,
+            duration: fade.duration,
+            outgoingTarget: _targetVolume,
+            incomingTarget: _incomingTarget(fade),
+          )
+        : automixVolumes(
+            elapsed: fade.clock.elapsed,
+            duration: fade.duration,
+            swap: plan.bassSwap,
+            intro: plan.intro,
+            outgoingTarget: _targetVolume,
+            incomingTarget: _incomingTarget(fade),
+          );
     await Future.wait([fade.outgoing.setVolume(outgoing), fade.incoming.setVolume(incoming)]);
   }
 

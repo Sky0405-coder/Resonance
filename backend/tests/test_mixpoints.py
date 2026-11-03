@@ -78,6 +78,26 @@ def test_analyze_finds_tempo_and_beat_aligned_points(tmp_path: Path, bpm: float)
     assert min(phrase, 1 - phrase) < 0.02
 
 
+def test_analyze_finds_where_a_quiet_intro_ends(tmp_path: Path) -> None:
+    bpm, bars = 120.0, 8
+    path = beat_track(tmp_path / "intro.wav", bpm=bpm, seconds=90, lead=1.0)
+    # The first eight bars at a quarter of the level (an intro), then the full song.
+    with wave.open(str(path)) as source:
+        audio = np.frombuffer(source.readframes(source.getnframes()), "<i2").astype(np.float64)
+    intro = int((1.0 + bars * 4 * 60 / bpm) * RATE)
+    audio[:intro] *= 0.25
+    with wave.open(str(path), "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(RATE)
+        out.writeframes(audio.astype("<i2").tobytes())
+    points = mixpoints.analyze(path)
+    assert points.intro_end == pytest.approx(points.mix_in + bars * 4 * 60 / bpm, abs=0.1)
+    # A song that starts at full strength has no intro to play under the previous one.
+    full = mixpoints.analyze(beat_track(tmp_path / "full.wav", bpm=bpm, seconds=60, lead=1.0))
+    assert full.intro_end == pytest.approx(full.mix_in)
+
+
 def test_analyze_short_or_silent_file(tmp_path: Path) -> None:
     path = tmp_path / "short.wav"
     with wave.open(str(path), "wb") as out:
@@ -359,12 +379,21 @@ async def test_keys_api_reads_stored_keys_without_analysis(env, monkeypatch: pyt
             track_id=track_id, version=mixpoints.VERSION, mtime=0, bpm=120,
             mix_in=0, mix_out=30, end=40, key="8A", key_confidence=0.2,
         ))
+        # An older analysis (before the songs are analyzed again) still knows tempo and key.
+        db.add(TrackMixPoints(
+            track_id=missing_id, version=mixpoints.KEYS_SINCE, mtime=0, bpm=90,
+            mix_in=0, mix_out=30, end=40, key="3B", key_confidence=0.2,
+        ))
         await db.commit()
     response = await client.get(
         "/api/mixpoints/keys", params={"ids": f"{track_id},{missing_id},{unknown}"}, headers=headers
     )
     assert response.status_code == 200, response.text
-    assert response.json() == {str(track_id): {"key": "8A", "bpm": 120.0}, str(missing_id): None, str(unknown): None}
+    assert response.json() == {
+        str(track_id): {"key": "8A", "bpm": 120.0},
+        str(missing_id): {"key": "3B", "bpm": 90.0},
+        str(unknown): None,
+    }
     full = ",".join(str(uuid.uuid4()) for _ in range(500))
     assert (await client.get("/api/mixpoints/keys", params={"ids": full}, headers=headers)).status_code == 200
     for ids in ("nope", f"{track_id},bad", "", full + f",{uuid.uuid4()}", ",".join([track_id.hex] * 501)):
