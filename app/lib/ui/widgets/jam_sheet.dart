@@ -197,8 +197,8 @@ class _JamPanel extends ConsumerWidget {
                   if (ok != true) return;
                 }
                 if (!context.mounted) return;
+                // The panel closes itself once the Jam is gone; popping here as well closed the page beneath it.
                 await _run(context, ctrl.leave);
-                if (context.mounted) Navigator.pop(context);
               },
             ),
           ],

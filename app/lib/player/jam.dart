@@ -125,6 +125,7 @@ class JamController extends Notifier<JamView?> implements JamRouter {
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
   Timer? _ping;
+  Timer? _drift;
   Timer? _reconnect;
   int _attempt = 0;
   final List<int> _offsets = [];
@@ -218,6 +219,10 @@ class JamController extends Notifier<JamView?> implements JamRouter {
     _offsets.clear();
     _ping = Timer.periodic(const Duration(seconds: 15), (_) => _sendPing());
     _sendPing();
+    _drift = Timer.periodic(const Duration(seconds: 5), (_) {
+      final s = state;
+      if (s != null && s.listenHere && s.connected && s.state.playing) _player.syncJam().ignore();
+    });
   }
 
   void _sendPing() {
@@ -306,6 +311,8 @@ class JamController extends Notifier<JamView?> implements JamRouter {
   void _close() {
     _ping?.cancel();
     _ping = null;
+    _drift?.cancel();
+    _drift = null;
     _reconnect?.cancel();
     _reconnect = null;
     _sub?.cancel();
@@ -388,7 +395,11 @@ class JamController extends Notifier<JamView?> implements JamRouter {
   Future<void> previous() async => _send('previous');
 
   @override
-  Future<void> seek(Duration position) async => _send('seek', {'position_ms': position.inMilliseconds});
+  Future<void> seek(Duration position) async {
+    _send('seek', {'position_ms': position.inMilliseconds});
+    final s = state;
+    if (s != null && s.connected && s.canControl && s.listenHere) await _player.seekInJam(position);
+  }
 
   @override
   bool get playing => state?.state.playing ?? false;

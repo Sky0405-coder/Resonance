@@ -1019,14 +1019,13 @@ class PlayerController extends Notifier<PlayerView> {
       );
       return;
     }
+    // Starting a Jam (or joining one that plays the same songs) keeps the running song instead of reloading it.
     final sameQueue =
-        state.context == context &&
         !state.jamRemote &&
         state.queue.length == queue.length &&
         Iterable.generate(queue.length).every((i) => state.queue[i].id == queue[i].id);
     if (!sameQueue) {
       final keepCurrent =
-          state.context == context &&
           !state.jamRemote &&
           state.current != null &&
           state.current!.id == queue[current].id &&
@@ -1037,7 +1036,7 @@ class PlayerController extends Notifier<PlayerView> {
         try {
           await engine.setSources([for (final t in queue) _source(t)], initialIndex: current, preserveCurrent: true);
           _unshuffled = [...queue];
-          state = _copy(queue: queue, index: current);
+          state = _copy(queue: queue, index: current, context: context);
         } finally {
           _switching = false;
         }
@@ -1053,6 +1052,10 @@ class PlayerController extends Notifier<PlayerView> {
         return;
       }
     }
+    if (state.context != context) {
+      _resetRecommendations();
+      state = _copy(context: context);
+    }
     if (engine.currentIndex != current) {
       await engine.seek(expected(), index: current);
     } else if (needsJamSeek(engine.position, expected())) {
@@ -1063,6 +1066,20 @@ class PlayerController extends Notifier<PlayerView> {
     } else if (!playing && engine.playing) {
       await engine.pause();
     }
+  });
+
+  /// Seeks right away when a Jam member seeks, so the slider does not jump back until the server answers.
+  Future<void> seekInJam(Duration position) async {
+    if (jam == null || state.jamRemote || _switching) return;
+    await engine.seek(position);
+  }
+
+  /// Corrects drift that builds up between Jam updates (slow loading, a stalled stream).
+  Future<void> syncJam() => _switch(() async {
+    final expected = _jamPosition;
+    if (jam == null || expected == null || state.jamRemote || !engine.playing) return;
+    if (engine.processingState != ProcessingState.ready) return;
+    if (needsJamSeek(engine.position, expected())) await engine.seek(expected());
   });
 
   /// Back to normal playback after leaving a Jam (the Jam's songs stay loaded, paused).
