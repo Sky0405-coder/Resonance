@@ -36,6 +36,7 @@ import '../tv/tv_ambient.dart';
 import '../tv/tv_focusable.dart';
 import '../widgets/update.dart';
 import '../widgets/track_list.dart';
+import '../../player/transitions.dart';
 
 const _kNormalize = 'normalize_volume';
 
@@ -304,6 +305,12 @@ class SettingsPage extends ConsumerWidget {
                 setState(() {});
               },
             ),
+          ),
+          SwitchListTile(
+            title: Text(context.l10n.settingsTransitionEditor),
+            subtitle: Text(context.l10n.settingsTransitionEditorHint),
+            value: ref.watch(transitionEditorProvider),
+            onChanged: ref.read(transitionEditorProvider.notifier).set,
           ),
           SwitchListTile(
             title: Text(context.l10n.settingsVisualizer),

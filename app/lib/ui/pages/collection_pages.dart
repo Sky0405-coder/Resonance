@@ -19,6 +19,7 @@ import 'admin/metadata_editor.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import '../widgets/track_list.dart';
+import '../../player/transitions.dart';
 
 /// Whether [contextId] is what's currently playing (for the play/pause toggle).
 bool _isPlayingContext(WidgetRef ref, String contextId) =>
@@ -402,6 +403,7 @@ class PlaylistPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final value = ref.watch(playlistDetailProvider(id));
     final userId = ref.watch(sessionProvider.select((s) => s.user?.id));
+    final editor = ref.watch(transitionEditorProvider);
     final ctx = 'playlist:$id';
     final playing = _isPlayingContext(ref, ctx);
     return Scaffold(
@@ -415,6 +417,12 @@ class PlaylistPage extends ConsumerWidget {
           builder: (d) {
             final tracks = [for (final e in d.entries) e.track];
             final actions = ref.read(libraryActionsProvider);
+            // Transition editor: the transitions between the songs, with tempo and key (not for radios and mixes,
+            // whose songs change).
+            final transitions = editor && d.playlist.kind == 'user' && tracks.length > 1;
+            final mixKeys = transitions
+                ? ref.watch(playlistMixKeysProvider(tracks.map((t) => t.id).toSet().join(','))).value
+                : null;
             return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -582,8 +590,10 @@ class PlaylistPage extends ConsumerWidget {
                     itemCount: d.entries.length,
                     itemBuilder: (_, i) {
                       final e = d.entries[i];
-                      return TrackRow(
-                        key: ValueKey(e.entryId),
+                      final info = mixKeys?[e.track.id];
+                      final row = TrackRow(
+                        key: transitions ? null : ValueKey(e.entryId),
+                        mixInfo: info == null ? null : MixInfo(bpm: info.bpm, musicalKey: info.key),
                         track: e.track,
                         number: e.rank,
                         addedBy: d.playlist.collaborative ? e.addedBy?.name : null,
@@ -596,6 +606,20 @@ class PlaylistPage extends ConsumerWidget {
                               Icons.remove_circle_outline,
                               () => actions.removeFromPlaylist(id, e.entryId),
                             ),
+                        ],
+                      );
+                      if (!transitions || i == d.entries.length - 1) return row;
+                      return Column(
+                        key: ValueKey(e.entryId),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          row,
+                          TransitionChip(
+                            playlistId: id,
+                            from: e.track,
+                            to: d.entries[i + 1].track,
+                            canEdit: d.editable,
+                          ),
                         ],
                       );
                     },

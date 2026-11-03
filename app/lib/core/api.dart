@@ -1,4 +1,4 @@
-import '../player/engine.dart' show MixPoints;
+import '../player/engine.dart' show CustomTransition, MixPoints;
 
 import 'dart:typed_data';
 
@@ -553,6 +553,20 @@ class ApiClient {
     final j = await _get('/api/mixpoints', {'ids': ids.join(',')}) as Map<String, dynamic>;
     return {for (final e in j.entries) e.key: e.value == null ? null : MixPoints.fromJson(e.value)};
   }
+
+  /// Transitions made in the transition editor for a playlist, by "fromId>toId".
+  Future<Map<String, CustomTransition>> transitions(String playlistId) async => {
+    for (final t in await _get('/api/playlists/$playlistId/transitions'))
+      '${t['from_track_id']}>${t['to_track_id']}': ?CustomTransition.fromJson(Map<String, dynamic>.from(t)),
+  };
+
+  Future<void> saveTransition(String playlistId, String fromId, String toId, CustomTransition transition) => _put(
+    '/api/playlists/$playlistId/transitions',
+    {'from_track_id': fromId, 'to_track_id': toId, ...transition.toJson()},
+  );
+
+  Future<void> resetTransition(String playlistId, String fromId, String toId) =>
+      _delete('/api/playlists/$playlistId/transitions?from_track_id=$fromId&to_track_id=$toId');
 
   Future<({int total, int analyzed, int failed})> mixAnalysisStatus() async {
     final j = await _get('/api/mixpoints/status');

@@ -514,6 +514,61 @@ void main() {
       expect(at(12), (0.0, 1.0));
     });
 
+    test('a saved transition keeps its own start, entry point, length and sound, beat-matched', () {
+      const saved = CustomTransition(style: TransitionStyle.fadeIn, bars: 4, start: 180, incomingStart: 12.5);
+      final plan = customAutomixPlan(points(bpm: 124), points(bpm: 120), saved);
+      final beat = 60 / 124;
+      expect(plan.start, secs(180));
+      expect(plan.incomingStart, secs(12.5));
+      expect(plan.duration, secs(16 * beat));
+      expect(plan.bassSwap.inMicroseconds / 1e6, closeTo(8 * beat, 1e-3));
+      expect((plan.intro, plan.fadeOut, plan.filterOut), (true, false, false));
+      expect(plan.speed, closeTo(124 / 120, 1e-9));
+      // The other presets, and a transition that would run past the end of the song.
+      final fadeOut = customAutomixPlan(
+        points(bpm: 120),
+        points(bpm: 120),
+        saved.copyWith(style: TransitionStyle.fadeOut),
+      );
+      expect((fadeOut.fadeOut, fadeOut.intro), (true, false));
+      final filter = customAutomixPlan(
+        points(bpm: 120),
+        points(bpm: 120),
+        saved.copyWith(style: TransitionStyle.filter),
+      );
+      expect((filter.filterOut, filter.bassSwap), (true, Duration.zero));
+      final late = customAutomixPlan(points(bpm: 120), points(bpm: 120), saved.copyWith(start: 205, bars: 8));
+      expect(late.duration, secs(5));
+    });
+
+    test('saved transitions round-trip as json and start from the automatic plan', () {
+      const saved = CustomTransition(style: TransitionStyle.fadeOut, bars: 8, start: 190.5, incomingStart: 3);
+      expect(CustomTransition.fromJson(saved.toJson()), saved);
+      expect(saved.toJson()['style'], 'fade_out');
+      expect(CustomTransition.fromJson({...saved.toJson(), 'style': 'unknown'}), isNull);
+      final auto = automixPlan(points(bpm: 120), points(bpm: 120, mixIn: 0.5, introEnd: 16.5))!;
+      final edited = CustomTransition.fromPlan(auto, 120);
+      expect(edited.style, TransitionStyle.fadeIn);
+      // 12 s at 120 BPM are six bars: the nearest choice.
+      expect(edited.bars, anyOf(4, 8));
+      expect(edited.start, closeTo(auto.start.inMicroseconds / 1e6, 1e-6));
+    });
+
+    test('fade-out volumes: the current song fades all along, the next one comes in after the swap', () {
+      (double, double) at(double s) => fadeOutVolumes(
+        elapsed: secs(s),
+        duration: const Duration(seconds: 8),
+        swap: const Duration(seconds: 4),
+        outgoingTarget: 1,
+        incomingTarget: 1,
+      );
+      expect(at(0), (1.0, 0.0));
+      expect(at(4).$1, closeTo(cos(pi / 4), 1e-9));
+      expect(at(4).$2, 0);
+      expect(at(6).$2, closeTo(sin(pi / 4), 1e-9));
+      expect(at(8), (0.0, 1.0));
+    });
+
     test('reads where the intro ends', () {
       final p = MixPoints.fromJson({'bpm': 120, 'mix_in': 1, 'mix_out': 200, 'end': 210, 'intro_end': 17});
       expect(p.introEnd, 17.0);

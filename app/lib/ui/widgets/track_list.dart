@@ -32,6 +32,7 @@ class TrackRow extends ConsumerStatefulWidget {
     this.smart = false,
     this.extraActions = const [],
     this.addedBy,
+    this.mixInfo,
   });
 
   final Track track;
@@ -44,6 +45,9 @@ class TrackRow extends ConsumerStatefulWidget {
 
   /// Collaborative playlists: who added the song, shown after the artist.
   final String? addedBy;
+
+  /// Tempo and key (transition editor), shown before the like button.
+  final Widget? mixInfo;
 
   @override
   ConsumerState<TrackRow> createState() => _TrackRowState();
@@ -158,6 +162,7 @@ class _TrackRowState extends ConsumerState<TrackRow> {
                     flex: 3,
                     child: Text(t.album.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: muted),
                   ),
+                if (widget.mixInfo != null) ...[widget.mixInfo!, const SizedBox(width: 8)],
                 if (wide || t.liked)
                   IconButton(
                     tooltip: t.liked ? context.l10n.playerRemoveLiked : context.l10n.playerAddLiked,

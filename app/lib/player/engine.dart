@@ -97,6 +97,7 @@ class AutomixPlan {
     this.outgoingSpeed = 1,
     this.filterOut = false,
     this.intro = false,
+    this.fadeOut = false,
   });
   final Duration start;
   final Duration incomingStart;
@@ -117,6 +118,9 @@ class AutomixPlan {
   /// The next song starts with its (quieter) intro, which ends at [bassSwap]: it can come in fully while the current
   /// song stays up. Without one both songs cross over around the swap.
   final bool intro;
+
+  /// Saved "fade out" transitions: the current song fades over the whole time, the next one comes in after the swap.
+  final bool fadeOut;
 
   bool get beatMatched => speed != 1;
 
@@ -177,11 +181,9 @@ const automixTailSweep = 0.75;
 ///
 /// Vocals (from the server's song analysis or synced lyrics) are handed over: the next song's voice comes in only
 /// after the current one has stopped singing, and the bass swaps at that moment.
-AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds = 0}) {
-  final overlap = outgoing.end - outgoing.mixOut;
-  if (outgoing.mixOut <= 0 || overlap < 2) return null;
-  final (keyOut, keyIn) = (outgoing.reliableKey, incoming.reliableKey);
-  final keysClash = keyOut != null && keyIn != null && !camelotCompatible(keyOut, keyIn);
+/// The players' speeds while two songs overlap: the next one's ([speed]) and the current one's, and whether the
+/// tempos are too far apart to match (both then stay at 1).
+(double speed, double outgoingSpeed, bool mismatch) automixSpeeds(MixPoints outgoing, MixPoints incoming) {
   var tempoMismatch = false;
   var speed = 1.0;
   var outgoingSpeed = 1.0;
@@ -205,6 +207,15 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds
       speed = math.sqrt(ratio);
     }
   }
+  return (speed, outgoingSpeed, tempoMismatch);
+}
+
+AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds = 0}) {
+  final overlap = outgoing.end - outgoing.mixOut;
+  if (outgoing.mixOut <= 0 || overlap < 2) return null;
+  final (keyOut, keyIn) = (outgoing.reliableKey, incoming.reliableKey);
+  final keysClash = keyOut != null && keyIn != null && !camelotCompatible(keyOut, keyIn);
+  final (speed, outgoingSpeed, tempoMismatch) = automixSpeeds(outgoing, incoming);
   final bpm = outgoing.bpm != null && outgoing.bpm! > 0 ? outgoing.bpm : null;
   final beat = bpm == null ? null : 60 / bpm;
   final bar = beat == null ? null : 4 * beat;
@@ -284,6 +295,148 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds
     intro: fromIntro && (swap - leadIn).abs() < 0.05,
   );
 }
+
+/// The presets of a saved transition (the transition editor).
+enum TransitionStyle {
+  crossfade('crossfade'),
+  fadeIn('fade_in'),
+  fadeOut('fade_out'),
+  filter('filter');
+
+  const TransitionStyle(this.json);
+  final String json;
+
+  static TransitionStyle? fromJson(Object? value) => values.where((s) => s.json == value).firstOrNull;
+}
+
+/// A transition saved for two songs in a playlist: where in the current song it starts, where the next one comes
+/// in (song times in seconds), its length in bars and how it sounds.
+class CustomTransition {
+  const CustomTransition({required this.style, required this.bars, required this.start, required this.incomingStart});
+  final TransitionStyle style;
+  final int bars;
+  final double start;
+  final double incomingStart;
+
+  static const barChoices = [1, 2, 4, 8, 16];
+
+  static CustomTransition? fromJson(Map<String, dynamic> j) {
+    final style = TransitionStyle.fromJson(j['style']);
+    if (style == null) return null;
+    return CustomTransition(
+      style: style,
+      bars: (j['bars'] as num).toInt(),
+      start: (j['start'] as num).toDouble(),
+      incomingStart: (j['incoming_start'] as num).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'style': style.json, 'bars': bars, 'start': start, 'incoming_start': incomingStart};
+
+  /// The automatic transition as a starting point for editing.
+  static CustomTransition fromPlan(AutomixPlan plan, double? bpm) {
+    final bar = 4 * 60 / (bpm != null && bpm > 0 ? bpm : 120);
+    final bars = plan.duration.inMicroseconds / 1e6 / bar;
+    return CustomTransition(
+      style: plan.filterOut
+          ? TransitionStyle.filter
+          : plan.intro
+          ? TransitionStyle.fadeIn
+          : plan.fadeOut
+          ? TransitionStyle.fadeOut
+          : TransitionStyle.crossfade,
+      bars: barChoices.reduce((a, b) => (a - bars).abs() <= (b - bars).abs() ? a : b),
+      start: plan.start.inMicroseconds / 1e6,
+      incomingStart: plan.incomingStart.inMicroseconds / 1e6,
+    );
+  }
+
+  CustomTransition copyWith({TransitionStyle? style, int? bars, double? start, double? incomingStart}) =>
+      CustomTransition(
+        style: style ?? this.style,
+        bars: bars ?? this.bars,
+        start: start ?? this.start,
+        incomingStart: incomingStart ?? this.incomingStart,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is CustomTransition &&
+      other.style == style &&
+      other.bars == bars &&
+      other.start == start &&
+      other.incomingStart == incomingStart;
+
+  @override
+  int get hashCode => Object.hash(style, bars, start, incomingStart);
+}
+
+/// The plan of a saved transition: its own start, entry point, length and sound, beat-matched like AutoMix.
+AutomixPlan customAutomixPlan(MixPoints outgoing, MixPoints incoming, CustomTransition transition) {
+  final (speed, outgoingSpeed, _) = automixSpeeds(outgoing, incoming);
+  final beat = outgoing.bpm != null && outgoing.bpm! > 0 ? 60 / outgoing.bpm! : 0.5;
+  final start = transition.start.clamp(0.0, math.max(0.0, outgoing.end - 1)).toDouble();
+  final duration = math.min(transition.bars * 4 * beat, math.max(1.0, outgoing.end - start));
+  final filter = transition.style == TransitionStyle.filter;
+  final swap = filter ? 0.0 : math.max(beat, (duration / 2 / beat).round() * beat).clamp(0.0, duration).toDouble();
+  return AutomixPlan(
+    start: _seconds(start),
+    incomingStart: _seconds(math.max(0.0, transition.incomingStart)),
+    duration: _seconds(duration),
+    speed: speed,
+    outgoingSpeed: outgoingSpeed,
+    bassSwap: _seconds(swap),
+    filterOut: filter,
+    intro: transition.style == TransitionStyle.fadeIn,
+    fadeOut: transition.style == TransitionStyle.fadeOut,
+  );
+}
+
+/// "Fade out" volumes: the current song fades over the whole time, the next one comes in after the swap.
+(double, double) fadeOutVolumes({
+  required Duration elapsed,
+  required Duration duration,
+  required Duration swap,
+  required double outgoingTarget,
+  required double incomingTarget,
+}) {
+  final total = duration.inMicroseconds / 1e6;
+  final t = elapsed.inMicroseconds / 1e6;
+  if (total <= 0 || t >= total) return (0, incomingTarget);
+  final s = (swap.inMicroseconds / 1e6).clamp(0.0, total);
+  final rise = total - s <= 0 ? 1.0 : ((t - s) / (total - s)).clamp(0.0, 1.0);
+  return (outgoingTarget * math.cos(t / total * math.pi / 2), incomingTarget * math.sin(rise * math.pi / 2));
+}
+
+/// The volumes of [plan] [elapsed] into it.
+(double, double) planVolumes(
+  AutomixPlan plan, {
+  required Duration elapsed,
+  required double outgoingTarget,
+  required double incomingTarget,
+}) => plan.filterOut
+    ? filterOutVolumes(
+        elapsed: elapsed,
+        duration: plan.duration,
+        outgoingTarget: outgoingTarget,
+        incomingTarget: incomingTarget,
+      )
+    : plan.fadeOut
+    ? fadeOutVolumes(
+        elapsed: elapsed,
+        duration: plan.duration,
+        swap: plan.bassSwap,
+        outgoingTarget: outgoingTarget,
+        incomingTarget: incomingTarget,
+      )
+    : automixVolumes(
+        elapsed: elapsed,
+        duration: plan.duration,
+        swap: plan.bassSwap,
+        intro: plan.intro,
+        outgoingTarget: outgoingTarget,
+        incomingTarget: incomingTarget,
+      );
 
 /// Filter-out volumes: the current song fades over the whole time while its low end is swept away; the next one
 /// comes in from a quarter on, once the current beat is thinning out, and is up at three quarters.
@@ -573,6 +726,9 @@ class PlaybackEngine {
   bool _automix = false;
   MixPoints? Function(int index)? mixPointsForIndex;
 
+  /// A transition saved for the songs at these two queue indices (playlists), used instead of AutoMix's own.
+  AutomixPlan? Function(int index, int next)? customPlanForIndex;
+
   /// Identifies a queue item's media (a part of its URI, e.g. the song id) for per-song desktop filters.
   String? Function(int index)? sourceKeyForIndex;
 
@@ -733,7 +889,7 @@ class PlaybackEngine {
     final outgoing = points(index);
     final incoming = points(next);
     if (outgoing == null || incoming == null || !playing) return false;
-    final plan = automixPlan(outgoing, incoming, minSeconds: crossfadeSeconds);
+    final plan = customPlanForIndex?.call(index, next) ?? automixPlan(outgoing, incoming, minSeconds: crossfadeSeconds);
     if (plan == null) return false;
     final ahead = plan.start - const Duration(seconds: 8);
     if (position < ahead) return true;
@@ -824,22 +980,12 @@ class PlaybackEngine {
   }
 
   Future<void> _applyAutomixVolumes(_Fade fade) async {
-    final plan = fade.plan!;
-    final (outgoing, incoming) = plan.filterOut
-        ? filterOutVolumes(
-            elapsed: fade.clock.elapsed,
-            duration: fade.duration,
-            outgoingTarget: _targetVolume,
-            incomingTarget: _incomingTarget(fade),
-          )
-        : automixVolumes(
-            elapsed: fade.clock.elapsed,
-            duration: fade.duration,
-            swap: plan.bassSwap,
-            intro: plan.intro,
-            outgoingTarget: _targetVolume,
-            incomingTarget: _incomingTarget(fade),
-          );
+    final (outgoing, incoming) = planVolumes(
+      fade.plan!,
+      elapsed: fade.clock.elapsed,
+      outgoingTarget: _targetVolume,
+      incomingTarget: _incomingTarget(fade),
+    );
     await Future.wait([fade.outgoing.setVolume(outgoing), fade.incoming.setVolume(incoming)]);
   }
 

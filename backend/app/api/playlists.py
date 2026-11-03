@@ -13,6 +13,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import joinedload
 
 from app.deps import DB, CurrentUser
@@ -22,6 +23,7 @@ from app.models import (
     Playlist,
     PlaylistEntry,
     PlaylistShare,
+    PlaylistTransition,
     RadioPending,
     Track,
     User,
@@ -36,6 +38,8 @@ from app.schemas import (
     PlaylistOut,
     PlaylistPatch,
     PlaylistSharesIn,
+    TransitionIn,
+    TransitionOut,
 )
 from app.services import covers, mix_covers
 from app.services.views import can_edit, playlists_out, tracks_out
@@ -368,4 +372,56 @@ async def remove_entry(playlist_id: uuid.UUID, entry_id: uuid.UUID, user: Curren
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Entry not found")
     await db.delete(entry)
     playlist.updated_at = func.now()
+    await db.commit()
+
+
+@router.get("/{playlist_id}/transitions", response_model=list[TransitionOut])
+async def list_transitions(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> list[TransitionOut]:
+    """Transitions made in the transition editor; songs without one blend with AutoMix's own."""
+    await _get_visible(db, user, playlist_id)
+    rows = await db.scalars(select(PlaylistTransition).where(PlaylistTransition.playlist_id == playlist_id))
+    return [TransitionOut.model_validate(row, from_attributes=True) for row in rows]
+
+
+@router.put("/{playlist_id}/transitions", response_model=TransitionOut)
+async def save_transition(playlist_id: uuid.UUID, body: TransitionIn, user: CurrentUser, db: DB) -> TransitionOut:
+    await _get_editable(db, user, playlist_id)
+    pair = {body.from_track_id, body.to_track_id}
+    if len(set(await db.scalars(select(Track.id).where(Track.id.in_(pair))))) != len(pair):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown track id")
+    values = {
+        **body.model_dump(exclude={"from_track_id", "to_track_id"}),
+        "updated_by_id": user.id,
+        "updated_at": func.now(),
+    }
+    key = [PlaylistTransition.playlist_id, PlaylistTransition.from_track_id, PlaylistTransition.to_track_id]
+    await db.execute(
+        insert(PlaylistTransition)
+        .values(playlist_id=playlist_id, from_track_id=body.from_track_id, to_track_id=body.to_track_id, **values)
+        .on_conflict_do_update(index_elements=key, set_=values)
+    )
+    await db.commit()
+    row = await db.scalar(
+        select(PlaylistTransition).where(
+            PlaylistTransition.playlist_id == playlist_id,
+            PlaylistTransition.from_track_id == body.from_track_id,
+            PlaylistTransition.to_track_id == body.to_track_id,
+        )
+    )
+    return TransitionOut.model_validate(row, from_attributes=True)
+
+
+@router.delete("/{playlist_id}/transitions", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_transition(
+    playlist_id: uuid.UUID, user: CurrentUser, db: DB, from_track_id: uuid.UUID, to_track_id: uuid.UUID
+) -> None:
+    """Back to AutoMix's own transition."""
+    await _get_editable(db, user, playlist_id)
+    await db.execute(
+        delete(PlaylistTransition).where(
+            PlaylistTransition.playlist_id == playlist_id,
+            PlaylistTransition.from_track_id == from_track_id,
+            PlaylistTransition.to_track_id == to_track_id,
+        )
+    )
     await db.commit()

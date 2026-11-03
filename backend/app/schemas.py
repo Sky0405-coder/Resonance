@@ -320,6 +320,19 @@ class PlaylistDetail(PlaylistOut):
     editable: bool = False
 
 
+class TransitionIn(BaseModel):
+    from_track_id: uuid.UUID
+    to_track_id: uuid.UUID
+    style: Literal["crossfade", "fade_in", "fade_out", "filter"]
+    bars: Literal[1, 2, 4, 8, 16]
+    start: float = Field(ge=0, le=36000)
+    incoming_start: float = Field(ge=0, le=36000)
+
+
+class TransitionOut(TransitionIn):
+    updated_at: datetime
+
+
 class AddTracksIn(BaseModel):
     track_ids: list[uuid.UUID] = Field(min_length=1, max_length=1000)
     # Insert before this entry; append when omitted.

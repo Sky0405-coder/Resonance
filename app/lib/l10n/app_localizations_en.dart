@@ -3203,4 +3203,89 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mediaKindEbook => 'Ebook';
+
+  @override
+  String get settingsTransitionEditor => 'Transition editor (beta)';
+
+  @override
+  String get settingsTransitionEditorHint =>
+      'Shows the transitions between songs in playlists, with BPM and key, and lets you shape them yourself.';
+
+  @override
+  String get transitionAuto => 'Automatic';
+
+  @override
+  String get transitionCrossfade => 'Crossfade';
+
+  @override
+  String get transitionFadeIn => 'Fade in';
+
+  @override
+  String get transitionFadeOut => 'Fade out';
+
+  @override
+  String get transitionFilter => 'Filter';
+
+  @override
+  String transitionBars(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count bars', one: '1 bar');
+    return '$_temp0';
+  }
+
+  @override
+  String get transitionPresets => 'Presets';
+
+  @override
+  String get transitionVolume => 'Volume';
+
+  @override
+  String get transitionEq => 'EQ';
+
+  @override
+  String get transitionVolumeAuto => 'Suited to the songs';
+
+  @override
+  String get transitionVolumeCrossfade => 'Even crossfade';
+
+  @override
+  String get transitionVolumeFadeIn => 'Fade in, then cut out';
+
+  @override
+  String get transitionVolumeFadeOut => 'Fade out, then fade in';
+
+  @override
+  String get transitionVolumeFilter => 'Filter out, quick fade in';
+
+  @override
+  String get transitionEqSwap => 'Bass swap halfway';
+
+  @override
+  String get transitionEqSweep => 'Filter away from the bass up';
+
+  @override
+  String get transitionReset => 'Reset to automatic';
+
+  @override
+  String get transitionPreview => 'Preview';
+
+  @override
+  String get transitionStopPreview => 'Stop preview';
+
+  @override
+  String get transitionNeedsAutomix => 'Transitions and previews need AutoMix. Turn it on in the settings.';
+
+  @override
+  String get transitionSaved => 'Transition saved';
+
+  @override
+  String get transitionNotAnalyzed => 'These songs are not analyzed yet. Try again in a moment.';
+
+  @override
+  String get transitionDragHint => 'Drag a lane to move the start or the entry point.';
+
+  @override
+  String get transitionViewOnly => 'Only people who can edit the playlist can change transitions.';
+
+  @override
+  String get transitionEdit => 'Edit transition';
 }

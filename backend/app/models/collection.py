@@ -91,6 +91,28 @@ class PlaylistShare(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class PlaylistTransition(Base):
+    """A transition made in the transition editor for one song following another in a playlist."""
+
+    __tablename__ = "playlist_transitions"
+    __table_args__ = (UniqueConstraint("playlist_id", "from_track_id", "to_track_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    playlist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("playlists.id", ondelete="CASCADE"), index=True)
+    from_track_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    to_track_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"))
+    # "crossfade", "fade_in", "fade_out" or "filter"
+    style: Mapped[str] = mapped_column(String(16))
+    bars: Mapped[int]
+    # Song times in seconds: where the transition starts in the current song, where the next one comes in.
+    start: Mapped[float] = mapped_column(Float)
+    incoming_start: Mapped[float] = mapped_column(Float)
+    updated_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class TrackLike(Base):
     __tablename__ = "track_likes"
     __table_args__ = (UniqueConstraint("user_id", "track_id"),)

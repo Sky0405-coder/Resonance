@@ -3182,4 +3182,90 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get mediaKindEbook => 'E-Book';
+
+  @override
+  String get settingsTransitionEditor => 'Übergangs-Editor (Beta)';
+
+  @override
+  String get settingsTransitionEditorHint =>
+      'Zeigt in Playlists die Übergänge zwischen den Songs mit BPM und Tonart, und du kannst sie selbst einstellen.';
+
+  @override
+  String get transitionAuto => 'Automatisch';
+
+  @override
+  String get transitionCrossfade => 'Überblenden';
+
+  @override
+  String get transitionFadeIn => 'Einblenden';
+
+  @override
+  String get transitionFadeOut => 'Ausblenden';
+
+  @override
+  String get transitionFilter => 'Filter';
+
+  @override
+  String transitionBars(int count) {
+    String _temp0 = intl.Intl.pluralLogic(count, locale: localeName, other: '$count Takte', one: '1 Takt');
+    return '$_temp0';
+  }
+
+  @override
+  String get transitionPresets => 'Voreinstellungen';
+
+  @override
+  String get transitionVolume => 'Lautstärke';
+
+  @override
+  String get transitionEq => 'EQ';
+
+  @override
+  String get transitionVolumeAuto => 'Passend zu den Songs';
+
+  @override
+  String get transitionVolumeCrossfade => 'Gleichmäßig überblenden';
+
+  @override
+  String get transitionVolumeFadeIn => 'Einblenden und hart ausblenden';
+
+  @override
+  String get transitionVolumeFadeOut => 'Ausblenden, dann einblenden';
+
+  @override
+  String get transitionVolumeFilter => 'Wegfiltern und schnell einblenden';
+
+  @override
+  String get transitionEqSwap => 'Basswechsel in Übergangsmitte';
+
+  @override
+  String get transitionEqSweep => 'Vom Bass aufwärts wegfiltern';
+
+  @override
+  String get transitionReset => 'Auf Automatisch zurücksetzen';
+
+  @override
+  String get transitionPreview => 'Probehören';
+
+  @override
+  String get transitionStopPreview => 'Probehören beenden';
+
+  @override
+  String get transitionNeedsAutomix =>
+      'Übergänge und Probehören brauchen AutoMix. Schalte es in den Einstellungen ein.';
+
+  @override
+  String get transitionSaved => 'Übergang gespeichert';
+
+  @override
+  String get transitionNotAnalyzed => 'Die Songs sind noch nicht analysiert. Versuch es gleich noch einmal.';
+
+  @override
+  String get transitionDragHint => 'Ziehe eine Spur, um Start oder Einsatz zu verschieben.';
+
+  @override
+  String get transitionViewOnly => 'Nur wer die Playlist bearbeiten darf, kann Übergänge ändern.';
+
+  @override
+  String get transitionEdit => 'Übergang bearbeiten';
 }

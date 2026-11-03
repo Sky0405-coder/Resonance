@@ -94,6 +94,8 @@ class _Engine implements PlaybackEngine {
   @override
   MixPoints? Function(int)? mixPointsForIndex;
   @override
+  AutomixPlan? Function(int, int)? customPlanForIndex;
+  @override
   String? Function(int index)? sourceKeyForIndex;
   @override
   Future<void> setEqualizer(EqualizerSettings settings) async {}

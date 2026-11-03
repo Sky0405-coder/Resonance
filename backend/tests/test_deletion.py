@@ -542,6 +542,38 @@ async def test_collaborative_playlist_lets_shared_users_edit_songs_only(env: Sim
     assert (await env.client.get(url, headers=b_headers)).json()["editable"] is False
 
 
+async def test_transitions_are_saved_per_pair_by_editors_and_reset(env: SimpleNamespace) -> None:
+    rows = await library(env)
+    playlist_id = await create_playlist(env)
+    url = f"/api/playlists/{playlist_id}/transitions"
+    b_headers, c_headers = auth(env.b["token"]), auth(env.c["token"])
+    first, second = (str(track) for track in rows.tracks[:2])
+    body = {"from_track_id": first, "to_track_id": second, "style": "fade_in", "bars": 4, "start": 180.5,
+            "incoming_start": 12.25}
+    response = await env.client.put(url, json=body, headers=env.headers)
+    assert response.status_code == 200, response.text
+    assert {k: response.json()[k] for k in body} == body
+    # Saving again replaces it.
+    response = await env.client.put(url, json={**body, "style": "crossfade", "bars": 8}, headers=env.headers)
+    assert (response.json()["style"], response.json()["bars"]) == ("crossfade", 8)
+    listed = (await env.client.get(url, headers=env.headers)).json()
+    assert [(t["from_track_id"], t["style"]) for t in listed] == [(first, "crossfade")]
+    for bad in [{"style": "spin"}, {"bars": 3}, {"start": -1}, {"to_track_id": str(uuid.uuid4())}]:
+        assert (await env.client.put(url, json={**body, **bad}, headers=env.headers)).status_code in (400, 422)
+    # Shared for listening: visible, not editable; with others it is not even visible.
+    await env.client.put(f"/api/playlists/{playlist_id}/shares", json={"user_ids": [env.b["user"]["id"]]},
+                         headers=env.headers)
+    assert len((await env.client.get(url, headers=b_headers)).json()) == 1
+    assert (await env.client.put(url, json=body, headers=b_headers)).status_code == 403
+    assert (await env.client.get(url, headers=c_headers)).status_code == 404
+    # Collaborators may edit transitions too.
+    await env.client.patch(f"/api/playlists/{playlist_id}", json={"collaborative": True}, headers=env.headers)
+    assert (await env.client.put(url, json=body, headers=b_headers)).status_code == 200
+    params = {"from_track_id": first, "to_track_id": second}
+    assert (await env.client.delete(url, params=params, headers=b_headers)).status_code == 204
+    assert (await env.client.get(url, headers=env.headers)).json() == []
+
+
 async def test_playlist_shares_sort_deduplicate_and_hide_from_public_view(env: SimpleNamespace) -> None:
     playlist_id = await create_playlist(env, is_public=True)
     url = f"/api/playlists/{playlist_id}"

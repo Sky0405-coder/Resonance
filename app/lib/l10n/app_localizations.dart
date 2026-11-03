@@ -5671,6 +5671,168 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'E-Book'**
   String get mediaKindEbook;
+
+  /// No description provided for @settingsTransitionEditor.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergangs-Editor (Beta)'**
+  String get settingsTransitionEditor;
+
+  /// No description provided for @settingsTransitionEditorHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeigt in Playlists die Übergänge zwischen den Songs mit BPM und Tonart, und du kannst sie selbst einstellen.'**
+  String get settingsTransitionEditorHint;
+
+  /// No description provided for @transitionAuto.
+  ///
+  /// In de, this message translates to:
+  /// **'Automatisch'**
+  String get transitionAuto;
+
+  /// No description provided for @transitionCrossfade.
+  ///
+  /// In de, this message translates to:
+  /// **'Überblenden'**
+  String get transitionCrossfade;
+
+  /// No description provided for @transitionFadeIn.
+  ///
+  /// In de, this message translates to:
+  /// **'Einblenden'**
+  String get transitionFadeIn;
+
+  /// No description provided for @transitionFadeOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausblenden'**
+  String get transitionFadeOut;
+
+  /// No description provided for @transitionFilter.
+  ///
+  /// In de, this message translates to:
+  /// **'Filter'**
+  String get transitionFilter;
+
+  /// No description provided for @transitionBars.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =1{1 Takt} other{{count} Takte}}'**
+  String transitionBars(int count);
+
+  /// No description provided for @transitionPresets.
+  ///
+  /// In de, this message translates to:
+  /// **'Voreinstellungen'**
+  String get transitionPresets;
+
+  /// No description provided for @transitionVolume.
+  ///
+  /// In de, this message translates to:
+  /// **'Lautstärke'**
+  String get transitionVolume;
+
+  /// No description provided for @transitionEq.
+  ///
+  /// In de, this message translates to:
+  /// **'EQ'**
+  String get transitionEq;
+
+  /// No description provided for @transitionVolumeAuto.
+  ///
+  /// In de, this message translates to:
+  /// **'Passend zu den Songs'**
+  String get transitionVolumeAuto;
+
+  /// No description provided for @transitionVolumeCrossfade.
+  ///
+  /// In de, this message translates to:
+  /// **'Gleichmäßig überblenden'**
+  String get transitionVolumeCrossfade;
+
+  /// No description provided for @transitionVolumeFadeIn.
+  ///
+  /// In de, this message translates to:
+  /// **'Einblenden und hart ausblenden'**
+  String get transitionVolumeFadeIn;
+
+  /// No description provided for @transitionVolumeFadeOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausblenden, dann einblenden'**
+  String get transitionVolumeFadeOut;
+
+  /// No description provided for @transitionVolumeFilter.
+  ///
+  /// In de, this message translates to:
+  /// **'Wegfiltern und schnell einblenden'**
+  String get transitionVolumeFilter;
+
+  /// No description provided for @transitionEqSwap.
+  ///
+  /// In de, this message translates to:
+  /// **'Basswechsel in Übergangsmitte'**
+  String get transitionEqSwap;
+
+  /// No description provided for @transitionEqSweep.
+  ///
+  /// In de, this message translates to:
+  /// **'Vom Bass aufwärts wegfiltern'**
+  String get transitionEqSweep;
+
+  /// No description provided for @transitionReset.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf Automatisch zurücksetzen'**
+  String get transitionReset;
+
+  /// No description provided for @transitionPreview.
+  ///
+  /// In de, this message translates to:
+  /// **'Probehören'**
+  String get transitionPreview;
+
+  /// No description provided for @transitionStopPreview.
+  ///
+  /// In de, this message translates to:
+  /// **'Probehören beenden'**
+  String get transitionStopPreview;
+
+  /// No description provided for @transitionNeedsAutomix.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergänge und Probehören brauchen AutoMix. Schalte es in den Einstellungen ein.'**
+  String get transitionNeedsAutomix;
+
+  /// No description provided for @transitionSaved.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergang gespeichert'**
+  String get transitionSaved;
+
+  /// No description provided for @transitionNotAnalyzed.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Songs sind noch nicht analysiert. Versuch es gleich noch einmal.'**
+  String get transitionNotAnalyzed;
+
+  /// No description provided for @transitionDragHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Ziehe eine Spur, um Start oder Einsatz zu verschieben.'**
+  String get transitionDragHint;
+
+  /// No description provided for @transitionViewOnly.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur wer die Playlist bearbeiten darf, kann Übergänge ändern.'**
+  String get transitionViewOnly;
+
+  /// No description provided for @transitionEdit.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergang bearbeiten'**
+  String get transitionEdit;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

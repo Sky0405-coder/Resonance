@@ -239,6 +239,7 @@ class PlayerController extends Notifier<PlayerView> {
       _equalizerDebounce = Timer(const Duration(milliseconds: 80), () => engine.setEqualizer(settings).ignore());
     });
     engine.mixPointsForIndex = _mixPointsFor;
+    engine.customPlanForIndex = _customPlanFor;
     // Stream URLs and offline files both contain the song id.
     engine.sourceKeyForIndex = (index) => index < state.queue.length ? state.queue[index].id : null;
     autoplay = prefs.getBool(_autoplayKey) ?? true;
@@ -1408,6 +1409,81 @@ class PlayerController extends Notifier<PlayerView> {
     engine.automix = enabled;
     if (!enabled) engine.finishFade().ignore();
   }
+
+  // --- transition editor ---------------------------------------------------------------------------------------
+
+  final _transitions = <String, CustomTransition>{};
+  String? _transitionsPlaylist;
+  bool _transitionsLoading = false;
+  (String, String, CustomTransition)? _previewTransition;
+
+  /// A transition saved for these two songs in the playing playlist (loaded the first time it is asked for).
+  AutomixPlan? _customPlanFor(int index, int next) {
+    if (index >= state.queue.length || next >= state.queue.length) return null;
+    final (from, to) = (state.queue[index].id, state.queue[next].id);
+    final preview = _previewTransition;
+    CustomTransition? transition;
+    if (preview != null && preview.$1 == from && preview.$2 == to) {
+      transition = preview.$3;
+    } else {
+      final context = state.context;
+      if (context == null || !context.startsWith('playlist:')) return null;
+      final playlistId = context.substring('playlist:'.length);
+      if (_transitionsPlaylist != playlistId) {
+        _loadTransitions(playlistId).ignore();
+        return null;
+      }
+      transition = _transitions['$from>$to'];
+    }
+    if (transition == null) return null;
+    final (a, b) = (_mixPointsFor(index), _mixPointsFor(next));
+    return a == null || b == null ? null : customAutomixPlan(a, b, transition);
+  }
+
+  Future<void> _loadTransitions(String playlistId) async {
+    if (_transitionsLoading) return;
+    _transitionsLoading = true;
+    try {
+      final loaded = await _api.transitions(playlistId);
+      _transitions
+        ..clear()
+        ..addAll(loaded);
+      _transitionsPlaylist = playlistId;
+    } catch (_) {
+      // Offline or an older server: AutoMix's own transitions.
+      _transitions.clear();
+      _transitionsPlaylist = playlistId;
+    } finally {
+      _transitionsLoading = false;
+    }
+  }
+
+  /// After the editor saved or reset a transition: load the playlist's transitions again when next needed.
+  void transitionsChanged() => _transitionsPlaylist = null;
+
+  /// Plays the two songs from a few seconds before [transition] (unsaved edits included).
+  Future<void> previewTransition(Track from, Track to, CustomTransition transition, {required String context}) {
+    if (jam != null || connect != null) return Future.value();
+    return _switch(() async {
+      _previewTransition = (from.id, to.id, transition);
+      final queue = List<Track>.unmodifiable([from, to]);
+      await _replacePlayback(
+        PlayerView(queue: queue, context: context, sleepAt: state.sleepAt),
+        [for (final t in queue) _source(t)],
+        index: 0,
+        position: Duration(milliseconds: (math.max(0.0, transition.start - 4) * 1000).round()),
+      );
+      _unshuffled = [...queue];
+      _contextTracks = [...queue];
+    });
+  }
+
+  /// Updates the transition a running preview uses.
+  void updatePreview(Track from, Track to, CustomTransition transition) {
+    if (_previewTransition != null) _previewTransition = (from.id, to.id, transition);
+  }
+
+  void endPreview() => _previewTransition = null;
 
   MixPoints? _mixPointsFor(int index) {
     if (index >= state.queue.length) return null;
