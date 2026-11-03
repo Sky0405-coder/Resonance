@@ -1,5 +1,27 @@
 [
   {
+    "version": "1.7.0",
+    "date": "2026-11-03",
+    "de": [
+      "AutoMix klingt wie ein DJ-Set: Das Intro des nächsten Songs läuft unter dem aktuellen mit, der Bass wechselt genau dann, wenn der neue Song voll einsetzt, und der alte geht danach schnell raus. Übergänge sind nur noch halb so lang.",
+      "Neu: Übergangs-Editor (Beta, in den Einstellungen einschalten). Playlists zeigen BPM, Tonart und die Übergänge zwischen den Songs; du kannst sie mit Wellenform, Voreinstellungen, Länge in Takten und Probehören selbst gestalten.",
+      "Gemeinsame Playlists: Wer eine Playlist mit anderen teilt, kann sie gemeinsam bearbeiten lassen. Bei jedem Song steht, wer ihn hinzugefügt hat.",
+      "Wische einen Song nach rechts, um ihn zur Warteschlange hinzuzufügen.",
+      "Lieblingssongs zeigen ihre Gesamtdauer.",
+      "Jam: Geräte bleiben besser synchron, auch beim Songwechsel und nach Verbindungsabbrüchen; bei AutoMix-Tempo läuft nichts mehr davon.",
+      "TV-App: Beim Einrichten ist keine Server-Adresse mehr vorausgefüllt."
+    ],
+    "en": [
+      "AutoMix sounds like a DJ set: the next song's intro plays under the current one, the bass swaps exactly when the new song comes in fully, and the old one leaves quickly. Transitions are half as long.",
+      "New: transition editor (beta, turn it on in the settings). Playlists show BPM, key and the transitions between songs; shape them yourself with waveforms, presets, a length in bars and previews.",
+      "Collaborative playlists: share a playlist and let others edit it too. Every song shows who added it.",
+      "Swipe a song to the right to add it to the queue.",
+      "Liked songs show their total length.",
+      "Jam: devices stay in sync better, also when songs change and after lost connections; nothing runs away at an AutoMix tempo any more.",
+      "TV app: no server address is prefilled when setting it up."
+    ]
+  },
+  {
     "version": "1.6.24",
     "date": "2026-11-03",
     "de": [
