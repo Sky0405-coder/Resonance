@@ -1,5 +1,27 @@
 [
   {
+    "version": "1.6.24",
+    "date": "2026-11-03",
+    "de": [
+      "„Abspielen auf“ zeigt den echten Gerätenamen (Name des Handys bzw. des PCs) statt nur „Android“ oder „Linux-PC“.",
+      "„Abspielen auf“: Wenn du ein Gerät auswählst, startet die Musik dort sofort.",
+      "„Abspielen auf“: Übernimmst du die Wiedergabe auf dieses Gerät, verschwindet der Song nicht mehr aus der Anzeige.",
+      "Jam: Beim Starten läuft der aktuelle Song weiter, statt neu anzufangen, und alle Geräte bleiben laufend synchron.",
+      "Jam: Spulen reagiert sofort, ohne zurückzuspringen.",
+      "Jam: Beim Beenden schließt sich nur noch das Jam-Fenster, nicht mehr auch der Player.",
+      "Mehr Künstler haben ihr eigenes Bild statt eines Album-Covers."
+    ],
+    "en": [
+      "“Play on” shows the real device name (the phone's or PC's name) instead of just “Android” or “Linux-PC”.",
+      "“Play on”: picking a device starts the music there right away.",
+      "“Play on”: taking playback over to this device no longer makes the song disappear from the display.",
+      "Jam: starting one keeps the current song playing instead of restarting it, and all devices stay in sync.",
+      "Jam: seeking responds immediately without snapping back.",
+      "Jam: ending it only closes the Jam panel, no longer the player too.",
+      "More artists have their own picture instead of an album cover."
+    ]
+  },
+  {
     "version": "1.6.23",
     "date": "2026-10-31",
     "de": [
