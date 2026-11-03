@@ -246,10 +246,8 @@ class _Sidebar extends ConsumerWidget {
                     tooltip: context.l10n.libraryCreatePlaylist,
                     icon: const Icon(Icons.add, color: Palette.textMuted),
                     onPressed: () async {
-                      final name = await promptText(context, context.l10n.libraryNewPlaylist, context.l10n.commonName);
-                      if (name == null || name.isEmpty) return;
-                      final p = await ref.read(libraryActionsProvider).createPlaylist(name);
-                      if (context.mounted) context.go('/playlist/${p.id}');
+                      final p = await createPlaylistInteractive(context, ref);
+                      if (p != null && context.mounted) context.go('/playlist/${p.id}');
                     },
                   ),
                 ),
@@ -265,17 +263,19 @@ class _Sidebar extends ConsumerWidget {
                         onTap: () => context.go('/liked'),
                       ),
                       // Only the user's own and shared playlists; mixes and radios live on the home page.
-                      ...?playlists.value?.where((p) => !p.isMix && !p.isRadio).map(
-                        (p) => _SidebarItem(
-                          image: PlaylistCover(playlistId: p.id, coverKey: p.coverKey, albumIds: p.coverAlbumIds),
-                          title: p.name,
-                          subtitle: p.owner.id == userId
-                              ? context.l10n.commonPlaylist
-                              : context.l10n.libraryPlaylistBy((p.owner.name).toString()),
-                          active: location == '/playlist/${p.id}',
-                          onTap: () => context.go('/playlist/${p.id}'),
-                        ),
-                      ),
+                      ...?playlists.value
+                          ?.where((p) => !p.isMix && !p.isRadio)
+                          .map(
+                            (p) => _SidebarItem(
+                              image: PlaylistCover(playlistId: p.id, coverKey: p.coverKey, albumIds: p.coverAlbumIds),
+                              title: p.name,
+                              subtitle: p.owner.id == userId
+                                  ? context.l10n.commonPlaylist
+                                  : context.l10n.libraryPlaylistBy((p.owner.name).toString()),
+                              active: location == '/playlist/${p.id}',
+                              onTap: () => context.go('/playlist/${p.id}'),
+                            ),
+                          ),
                     ],
                   ),
                 ),

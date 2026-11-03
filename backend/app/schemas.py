@@ -253,12 +253,14 @@ class PlaylistIn(BaseModel):
     name: str = Field(min_length=1, max_length=256)
     description: str | None = Field(None, max_length=4000)
     is_public: bool = False
+    collaborative: bool = False
 
 
 class PlaylistPatch(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=256)
     description: str | None = Field(None, max_length=4000)
     is_public: bool | None = None
+    collaborative: bool | None = None
 
 
 class PlaylistSharesIn(BaseModel):
@@ -274,6 +276,9 @@ class PlaylistOut(ORM):
     mix_key: str | None = None
     owner: ArtistRef  # {id, name} of the owning user
     shared_with: list[ArtistRef] = []
+    collaborative: bool = False
+    # The viewer may add, move and remove songs (owner, or a user it is shared with when collaborative).
+    can_edit: bool = False
     track_count: int = 0
     duration: float = 0
     # Up to 4 album ids for a mosaic cover.
@@ -303,6 +308,8 @@ class MixesOut(BaseModel):
 class PlaylistEntryOut(BaseModel):
     entry_id: uuid.UUID
     added_at: datetime
+    # Collaborative playlists: who added the song.
+    added_by: ArtistRef | None = None
     track: TrackOut
     # Chart playlists: the song's place in the charts (songs still downloading leave gaps).
     rank: int | None = None

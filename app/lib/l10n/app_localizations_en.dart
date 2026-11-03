@@ -80,6 +80,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get libraryNewPlaylist => 'New playlist';
 
   @override
+  String get playlistCollaborative => 'Collaborative playlist';
+
+  @override
+  String get playlistCollaborativeHint => 'Everyone you share it with can add, move and remove songs.';
+
+  @override
+  String playlistAddedBy(String name) {
+    return 'by $name';
+  }
+
+  @override
   String get commonName => 'Name';
 
   @override

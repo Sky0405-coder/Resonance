@@ -224,6 +224,24 @@ abstract class AppLocalizations {
   /// **'Neue Playlist'**
   String get libraryNewPlaylist;
 
+  /// No description provided for @playlistCollaborative.
+  ///
+  /// In de, this message translates to:
+  /// **'Gemeinsame Playlist'**
+  String get playlistCollaborative;
+
+  /// No description provided for @playlistCollaborativeHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle, mit denen du sie teilst, können Songs hinzufügen, verschieben und entfernen.'**
+  String get playlistCollaborativeHint;
+
+  /// No description provided for @playlistAddedBy.
+  ///
+  /// In de, this message translates to:
+  /// **'von {name}'**
+  String playlistAddedBy(String name);
+
   /// No description provided for @commonName.
   ///
   /// In de, this message translates to:

@@ -28,6 +28,7 @@ from app.models import (
 )
 from app.schemas import (
     AddTracksIn,
+    ArtistRef,
     MoveEntryIn,
     PlaylistDetail,
     PlaylistEntryOut,
@@ -37,7 +38,7 @@ from app.schemas import (
     PlaylistSharesIn,
 )
 from app.services import covers, mix_covers
-from app.services.views import playlists_out, tracks_out
+from app.services.views import can_edit, playlists_out, tracks_out
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 
@@ -64,6 +65,19 @@ async def _get_visible(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
 async def _get_owned(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
     playlist = await _get_visible(db, user, playlist_id)
     if playlist.owner_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Nicht deine Playlist")
+    return playlist
+
+
+async def _get_editable(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
+    """For changing the songs: the owner, or a user a collaborative playlist is shared with."""
+    playlist = await _get_visible(db, user, playlist_id)
+    if playlist.owner_id == user.id:
+        return playlist
+    shared = await db.scalar(
+        select(PlaylistShare.id).where(PlaylistShare.playlist_id == playlist_id, PlaylistShare.user_id == user.id)
+    )
+    if not can_edit(playlist, user.id, shared is not None):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Nicht deine Playlist")
     return playlist
 
@@ -136,18 +150,28 @@ async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB, reques
         (await playlists_out(db, [playlist], user.id, language(request)))[0].model_dump()
     )
     chart = (playlist.mix_key or "").startswith(("chart:", "editorial:"))
+    adders = {e.added_by_id for e in entries if e.added_by_id is not None} if playlist.collaborative else set()
+    names: dict[uuid.UUID, str] = {}
+    if adders:
+        names = dict((await db.execute(select(User.id, User.display_name).where(User.id.in_(adders)))).all())
     detail.entries = [
-        PlaylistEntryOut(entry_id=e.id, added_at=e.added_at, track=t, rank=round(e.position) if chart else None)
+        PlaylistEntryOut(
+            entry_id=e.id,
+            added_at=e.added_at,
+            added_by=ArtistRef(id=e.added_by_id, name=names[e.added_by_id]) if e.added_by_id in names else None,
+            track=t,
+            rank=round(e.position) if chart else None,
+        )
         for e, t in zip(entries, tracks, strict=True)
     ]
-    detail.editable = playlist.owner_id == user.id and playlist.kind != "mix"
+    detail.editable = detail.can_edit
     return detail
 
 
 @router.patch("/{playlist_id}", response_model=PlaylistOut)
 async def update_playlist(playlist_id: uuid.UUID, body: PlaylistPatch, user: CurrentUser, db: DB) -> PlaylistOut:
     playlist = await _get_owned(db, user, playlist_id)
-    if playlist.kind != "user" and body.is_public is True:
+    if playlist.kind != "user" and (body.is_public is True or body.collaborative is True):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Radios und Mixe können nicht geteilt werden")
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(playlist, key, value)
@@ -304,7 +328,7 @@ async def keep_radio(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> Playl
 
 @router.post("/{playlist_id}/tracks", status_code=status.HTTP_204_NO_CONTENT)
 async def add_tracks(playlist_id: uuid.UUID, body: AddTracksIn, user: CurrentUser, db: DB) -> None:
-    playlist = await _get_owned(db, user, playlist_id)
+    playlist = await _get_editable(db, user, playlist_id)
     if playlist.kind == "mix":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mixe werden automatisch erstellt")
     tracks = {t.id: t for t in await db.scalars(select(Track).where(Track.id.in_(body.track_ids)))}
@@ -312,7 +336,7 @@ async def add_tracks(playlist_id: uuid.UUID, body: AddTracksIn, user: CurrentUse
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown track id")
     positions = await _position_before(db, playlist_id, body.before_entry_id, len(body.track_ids))
     for track_id, pos in zip(body.track_ids, positions, strict=True):
-        db.add(PlaylistEntry(playlist_id=playlist_id, track_id=track_id, position=pos))
+        db.add(PlaylistEntry(playlist_id=playlist_id, track_id=track_id, position=pos, added_by_id=user.id))
         if playlist.kind == "user":
             tracks[track_id].is_temporary = False
     playlist.updated_at = func.now()
@@ -321,7 +345,7 @@ async def add_tracks(playlist_id: uuid.UUID, body: AddTracksIn, user: CurrentUse
 
 @router.post("/{playlist_id}/move", status_code=status.HTTP_204_NO_CONTENT)
 async def move_entry(playlist_id: uuid.UUID, body: MoveEntryIn, user: CurrentUser, db: DB) -> None:
-    playlist = await _get_owned(db, user, playlist_id)
+    playlist = await _get_editable(db, user, playlist_id)
     if playlist.kind == "mix":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mixe werden automatisch erstellt")
     entry = await db.get(PlaylistEntry, body.entry_id)
@@ -336,7 +360,7 @@ async def move_entry(playlist_id: uuid.UUID, body: MoveEntryIn, user: CurrentUse
 
 @router.delete("/{playlist_id}/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_entry(playlist_id: uuid.UUID, entry_id: uuid.UUID, user: CurrentUser, db: DB) -> None:
-    playlist = await _get_owned(db, user, playlist_id)
+    playlist = await _get_editable(db, user, playlist_id)
     if playlist.kind == "mix":
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mixe werden automatisch erstellt")
     entry = await db.get(PlaylistEntry, entry_id)

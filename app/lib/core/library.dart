@@ -9,15 +9,16 @@ import 'models.dart';
 import 'session.dart';
 
 /// Generated playlists; null when unavailable (offline, server error) – home simply hides them then.
-final mixesProvider = FutureProvider.autoDispose<
-  (List<Playlist>, List<Playlist>, Playlist?, List<Playlist>, List<Playlist>)?
->((ref) async {
-  try {
-    return await ref.watch(apiProvider).mixes();
-  } catch (_) {
-    return null;
-  }
-});
+final mixesProvider =
+    FutureProvider.autoDispose<(List<Playlist>, List<Playlist>, Playlist?, List<Playlist>, List<Playlist>)?>((
+      ref,
+    ) async {
+      try {
+        return await ref.watch(apiProvider).mixes();
+      } catch (_) {
+        return null;
+      }
+    });
 
 final homeProvider = FutureProvider.autoDispose<Home>((ref) => ref.watch(apiProvider).home());
 
@@ -147,8 +148,8 @@ class LibraryActions {
     ref.invalidate(savedAlbumsProvider);
   }
 
-  Future<Playlist> createPlaylist(String name) async {
-    final p = await ref.read(apiProvider).createPlaylist(name);
+  Future<Playlist> createPlaylist(String name, {bool collaborative = false}) async {
+    final p = await ref.read(apiProvider).createPlaylist(name, collaborative: collaborative);
     ref.invalidate(playlistsProvider);
     return p;
   }

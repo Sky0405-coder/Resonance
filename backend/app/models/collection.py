@@ -39,6 +39,8 @@ class Playlist(Base):
     cover_file: Mapped[str | None] = mapped_column(String(64))
     cover_key: Mapped[str | None] = mapped_column(String(64))
     is_public: Mapped[bool] = mapped_column(default=False)
+    # Users it is shared with may add, move and remove songs (renaming, sharing and deleting stay with the owner).
+    collaborative: Mapped[bool] = mapped_column(default=False, server_default="false")
     kind: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
     radio_seed: Mapped[str | None] = mapped_column(String(64))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -73,6 +75,7 @@ class PlaylistEntry(Base):
     # Fractional positions allow inserts/moves without renumbering the whole list.
     position: Mapped[float] = mapped_column(Float)
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    added_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
     playlist: Mapped[Playlist] = relationship(back_populates="entries")
     track: Mapped[Track] = relationship()

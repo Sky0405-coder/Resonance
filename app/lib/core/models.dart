@@ -257,12 +257,20 @@ class Playlist {
     this.sharedWith = const [],
     this.kind = 'user',
     this.mixKey,
+    this.collaborative = false,
+    this.canEdit = false,
   });
 
   final String id;
   final String name;
   final String? description;
   final bool isPublic;
+
+  /// Users it is shared with may add, move and remove songs.
+  final bool collaborative;
+
+  /// This user may add, move and remove songs (owner, or collaborator).
+  final bool canEdit;
   final NamedRef owner;
   final int trackCount;
   final double duration;
@@ -290,13 +298,18 @@ class Playlist {
     sharedWith: [for (final u in j['shared_with'] ?? const []) NamedRef.fromJson(u)],
     kind: j['kind'] ?? 'user',
     mixKey: j['mix_key'],
+    collaborative: j['collaborative'] ?? false,
+    canEdit: j['can_edit'] ?? false,
   );
 }
 
 class PlaylistEntry {
-  const PlaylistEntry(this.entryId, this.track, {this.rank});
+  const PlaylistEntry(this.entryId, this.track, {this.rank, this.addedBy});
   final String entryId;
   final Track track;
+
+  /// Collaborative playlists: who added the song.
+  final NamedRef? addedBy;
 
   /// Place in the charts (chart playlists only).
   final int? rank;
@@ -309,7 +322,13 @@ class PlaylistDetail {
   final bool editable;
 
   factory PlaylistDetail.fromJson(Map<String, dynamic> j) => PlaylistDetail(Playlist.fromJson(j), [
-    for (final e in j['entries']) PlaylistEntry(e['entry_id'], Track.fromJson(e['track']), rank: e['rank']),
+    for (final e in j['entries'])
+      PlaylistEntry(
+        e['entry_id'],
+        Track.fromJson(e['track']),
+        rank: e['rank'],
+        addedBy: e['added_by'] == null ? null : NamedRef.fromJson(e['added_by']),
+      ),
   ], j['editable'] ?? false);
 }
 

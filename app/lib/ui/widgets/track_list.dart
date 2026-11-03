@@ -31,6 +31,7 @@ class TrackRow extends ConsumerStatefulWidget {
     this.showAlbum = true,
     this.smart = false,
     this.extraActions = const [],
+    this.addedBy,
   });
 
   final Track track;
@@ -40,6 +41,9 @@ class TrackRow extends ConsumerStatefulWidget {
   final bool showAlbum;
   final bool smart;
   final List<TrackAction> extraActions;
+
+  /// Collaborative playlists: who added the song, shown after the artist.
+  final String? addedBy;
 
   @override
   ConsumerState<TrackRow> createState() => _TrackRowState();
@@ -136,7 +140,9 @@ class _TrackRowState extends ConsumerState<TrackRow> {
                           ],
                           Expanded(
                             child: Text(
-                              t.artistCredit,
+                              widget.addedBy == null
+                                  ? t.artistCredit
+                                  : '${t.artistCredit} · ${context.l10n.playlistAddedBy(widget.addedBy!)}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: muted?.copyWith(fontSize: 13),
@@ -350,16 +356,13 @@ Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String>
             title: Text(context.l10n.libraryNewPlaylist),
             onTap: () async {
               Navigator.pop(sheet);
-              final name = await promptText(context, context.l10n.libraryNewPlaylist, context.l10n.commonName);
-              if (name == null || name.isEmpty) return;
-              final p = await actions.createPlaylist(name);
+              final p = await createPlaylistInteractive(context, ref);
+              if (p == null) return;
               await actions.addToPlaylist(p.id, trackIds);
               if (context.mounted) showInfo(context, context.l10n.libraryAddedToPlaylist((p.name).toString()));
             },
           ),
-          for (final p in playlists.where(
-            (p) => p.owner.id == ref.read(currentUserIdProvider) && !p.isRadio && !p.isMix,
-          ))
+          for (final p in playlists.where((p) => p.canEdit && !p.isRadio && !p.isMix))
             ListTile(
               leading: SizedBox(
                 width: 40,
@@ -381,6 +384,57 @@ Future<void> showAddToPlaylist(BuildContext context, WidgetRef ref, List<String>
       ),
     ),
   );
+}
+
+/// Asks for the name (and whether others may edit it), creates the playlist and, for a collaborative one, lets the
+/// owner pick who it is shared with right away.
+Future<Playlist?> createPlaylistInteractive(BuildContext context, WidgetRef ref) async {
+  final controller = TextEditingController();
+  var collaborative = false;
+  final name = await showDialog<String>(
+    context: context,
+    builder: (dialog) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(context.l10n.libraryNewPlaylist),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(labelText: context.l10n.commonName),
+              onSubmitted: (v) => Navigator.pop(dialog, v.trim()),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.l10n.playlistCollaborative),
+              subtitle: Text(context.l10n.playlistCollaborativeHint),
+              value: collaborative,
+              onChanged: (v) => setState(() => collaborative = v),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog), child: Text(context.l10n.commonCancel)),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, controller.text.trim()),
+            child: Text(context.l10n.commonSave),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (name == null || name.isEmpty || !context.mounted) return null;
+  final Playlist playlist;
+  try {
+    playlist = await ref.read(libraryActionsProvider).createPlaylist(name, collaborative: collaborative);
+  } catch (e) {
+    if (context.mounted) showError(context, e);
+    return null;
+  }
+  if (collaborative && context.mounted) await showShareWithUsers(context, ref, playlist);
+  return playlist;
 }
 
 Future<String?> promptText(BuildContext context, String title, String label, {String? initial}) {
@@ -464,6 +518,7 @@ Future<void> showShareWithUsers(BuildContext context, WidgetRef ref, Playlist pl
   }
   if (!context.mounted) return;
   final selected = {for (final u in playlist.sharedWith) u.id};
+  var collaborative = playlist.collaborative;
   final result = await showDialog<Set<String>>(
     context: context,
     builder: (dialog) => StatefulBuilder(
@@ -477,6 +532,13 @@ Future<void> showShareWithUsers(BuildContext context, WidgetRef ref, Playlist pl
               : ListView(
                   shrinkWrap: true,
                   children: [
+                    SwitchListTile(
+                      title: Text(context.l10n.playlistCollaborative),
+                      subtitle: Text(context.l10n.playlistCollaborativeHint),
+                      value: collaborative,
+                      onChanged: (v) => setState(() => collaborative = v),
+                    ),
+                    const Divider(),
                     for (final u in users)
                       CheckboxListTile(
                         title: Text(u.name),
@@ -499,6 +561,9 @@ Future<void> showShareWithUsers(BuildContext context, WidgetRef ref, Playlist pl
   if (result == null) return;
   try {
     await api.setPlaylistShares(playlist.id, result.toList());
+    if (collaborative != playlist.collaborative) {
+      await api.updatePlaylist(playlist.id, {'collaborative': collaborative});
+    }
   } catch (e) {
     if (context.mounted) showError(context, e);
     return;

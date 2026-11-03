@@ -329,8 +329,10 @@ class ApiClient {
 
   Future<PlaylistDetail> playlist(String id) async => PlaylistDetail.fromJson(await _get('/api/playlists/$id'));
 
-  Future<Playlist> createPlaylist(String name, {String? description}) async =>
-      Playlist.fromJson(await _post('/api/playlists', {'name': name, 'description': description}));
+  Future<Playlist> createPlaylist(String name, {String? description, bool collaborative = false}) async =>
+      Playlist.fromJson(
+        await _post('/api/playlists', {'name': name, 'description': description, 'collaborative': collaborative}),
+      );
 
   Future<void> updatePlaylist(String id, Map<String, dynamic> patch) => _patch('/api/playlists/$id', patch);
 

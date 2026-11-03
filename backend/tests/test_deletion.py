@@ -504,6 +504,44 @@ async def test_playlist_sharing_stays_owner_only(env: SimpleNamespace) -> None:
     assert response.status_code == 404
 
 
+async def test_collaborative_playlist_lets_shared_users_edit_songs_only(env: SimpleNamespace) -> None:
+    rows = await library(env)
+    playlist_id = await create_playlist(env)
+    url = f"/api/playlists/{playlist_id}"
+    b_headers, c_headers = auth(env.b["token"]), auth(env.c["token"])
+    await env.client.put(f"{url}/shares", json={"user_ids": [env.b["user"]["id"]]}, headers=env.headers)
+    response = await env.client.patch(url, json={"collaborative": True}, headers=env.headers)
+    assert response.status_code == 200 and response.json()["collaborative"] is True
+    listed = (await env.client.get("/api/playlists", headers=b_headers)).json()
+    assert next(item for item in listed if item["id"] == playlist_id)["can_edit"] is True
+    await env.client.post(f"{url}/tracks", json={"track_ids": [str(rows.tracks[0])]}, headers=env.headers)
+    response = await env.client.post(f"{url}/tracks", json={"track_ids": [str(rows.tracks[1])]}, headers=b_headers)
+    assert response.status_code == 204, response.text
+    detail = (await env.client.get(url, headers=b_headers)).json()
+    assert detail["editable"] is True and detail["can_edit"] is True
+    assert [e["added_by"]["id"] for e in detail["entries"]] == [env.admin["user"]["id"], env.b["user"]["id"]]
+    first, second = (e["entry_id"] for e in detail["entries"])
+    move = {"entry_id": second, "before_entry_id": first}
+    response = await env.client.post(f"{url}/move", json=move, headers=b_headers)
+    assert response.status_code == 204
+    assert (await env.client.delete(f"{url}/entries/{first}", headers=b_headers)).status_code == 204
+    # Renaming, sharing and deleting stay with the owner; users it is not shared with cannot edit at all.
+    for method, target, body in [
+        ("PATCH", url, {"name": "Changed"}),
+        ("PUT", f"{url}/shares", {"user_ids": []}),
+        ("DELETE", url, None),
+    ]:
+        response = await env.client.request(method, target, json=body, headers=b_headers)
+        assert response.status_code == 403, (method, target)
+    response = await env.client.post(f"{url}/tracks", json={"track_ids": [str(rows.tracks[0])]}, headers=c_headers)
+    assert response.status_code == 404
+    # Switched off again: back to listening only.
+    await env.client.patch(url, json={"collaborative": False}, headers=env.headers)
+    response = await env.client.post(f"{url}/tracks", json={"track_ids": [str(rows.tracks[0])]}, headers=b_headers)
+    assert response.status_code == 403
+    assert (await env.client.get(url, headers=b_headers)).json()["editable"] is False
+
+
 async def test_playlist_shares_sort_deduplicate_and_hide_from_public_view(env: SimpleNamespace) -> None:
     playlist_id = await create_playlist(env, is_public=True)
     url = f"/api/playlists/{playlist_id}"

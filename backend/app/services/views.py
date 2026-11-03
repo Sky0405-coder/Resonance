@@ -101,6 +101,14 @@ async def artists_out(db: AsyncSession, artists: Sequence[Artist], lang: str = "
     return out
 
 
+def can_edit(playlist: Playlist, user_id: uuid.UUID, shared: bool) -> bool:
+    """Who may add, move and remove songs: the owner (not for generated mixes), or a user a collaborative playlist
+    is shared with."""
+    if playlist.kind == "mix":
+        return False
+    return playlist.owner_id == user_id or (playlist.collaborative and playlist.kind == "user" and shared)
+
+
 async def playlists_out(
     db: AsyncSession, playlists: Sequence[Playlist], user_id: uuid.UUID, lang: str = "de"
 ) -> list[PlaylistOut]:
@@ -139,6 +147,13 @@ async def playlists_out(
         shared_with.setdefault(playlist_id, []).append(ArtistRef(id=shared_user_id, name=name))
     for shares in shared_with.values():
         shares.sort(key=lambda share: share.name.casefold())
+    shared_to_me = set(
+        await db.scalars(
+            select(PlaylistShare.playlist_id).where(
+                PlaylistShare.user_id == user_id, PlaylistShare.playlist_id.in_(ids)
+            )
+        )
+    )
     out = []
     for p in playlists:
         owner = owners[p.owner_id]
@@ -155,6 +170,8 @@ async def playlists_out(
                 mix_key=p.mix_key,
                 owner=ArtistRef(id=owner.id, name=owner.display_name),
                 shared_with=shared_with.get(p.id, []),
+                collaborative=p.collaborative,
+                can_edit=can_edit(p, user_id, p.id in shared_to_me),
                 track_count=count,
                 duration=duration,
                 cover_album_ids=covers.get(p.id, []),

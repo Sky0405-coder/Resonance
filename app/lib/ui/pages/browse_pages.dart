@@ -217,10 +217,8 @@ class LibraryPage extends ConsumerWidget {
               tooltip: context.l10n.libraryCreatePlaylist,
               icon: const Icon(Icons.add),
               onPressed: () async {
-                final name = await promptText(context, context.l10n.libraryNewPlaylist, context.l10n.commonName);
-                if (name == null || name.isEmpty) return;
-                final p = await ref.read(libraryActionsProvider).createPlaylist(name);
-                if (context.mounted) context.push('/playlist/${p.id}');
+                final p = await createPlaylistInteractive(context, ref);
+                if (p != null && context.mounted) context.push('/playlist/${p.id}');
               },
             ),
           ],

@@ -431,6 +431,8 @@ class PlaylistPage extends ConsumerWidget {
                         ? context.l10n.radioKind
                         : d.playlist.isMix
                         ? context.l10n.mixKind
+                        : d.playlist.collaborative
+                        ? context.l10n.playlistCollaborative
                         : d.playlist.isPublic
                         ? context.l10n.libraryPublicPlaylist
                         : context.l10n.commonPlaylist,
@@ -452,7 +454,8 @@ class PlaylistPage extends ConsumerWidget {
                     canShuffle: tracks.isNotEmpty,
                     children: [
                       OfflineDownloadButton(kind: 'playlist', id: id),
-                      if (d.editable)
+                      // Renaming, sharing, cover and deleting stay with the owner (collaborators only edit songs).
+                      if (d.playlist.owner.id == userId && !d.playlist.isMix)
                         IconButton(
                           iconSize: 28,
                           color: Palette.textMuted,
@@ -583,6 +586,7 @@ class PlaylistPage extends ConsumerWidget {
                         key: ValueKey(e.entryId),
                         track: e.track,
                         number: e.rank,
+                        addedBy: d.playlist.collaborative ? e.addedBy?.name : null,
                         onPlay: () =>
                             playMusic(context, ref, tracks, index: i, contextId: ctx, isRadio: d.playlist.isRadio),
                         extraActions: [
