@@ -145,9 +145,12 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
   Timer? _ticker;
   Timer? _publishTimer;
   Timer? _transferTimeout;
+  Timer? _claimTimeout;
   int _attempt = 0;
   int _generation = 0;
   bool _executing = false;
+  // Playback was just taken over here; until the server confirms, the old device's last state must not replace it.
+  bool _claiming = false;
   String? _pendingTarget;
   DateTime? _lastSent;
   Duration? _lastPosition;
@@ -295,6 +298,29 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
     _channel = null;
     _pendingTarget = null;
     _transferTimeout?.cancel();
+    _endClaim();
+  }
+
+  void _endClaim() {
+    _claiming = false;
+    _claimTimeout?.cancel();
+  }
+
+  /// Shows this device as the active one right away, before the server's device list catches up.
+  void _claim() {
+    _claiming = true;
+    _claimTimeout?.cancel();
+    _claimTimeout = Timer(const Duration(seconds: 10), () {
+      _claiming = false;
+      _applyRemote();
+    });
+    state = state.copyWith(
+      devices: [
+        for (final d in state.devices)
+          ConnectDevice(id: d.id, name: d.name, kind: d.kind, active: d.id == state.deviceId),
+      ],
+    );
+    _send({'type': 'activate'});
   }
 
   void _send(Map<String, dynamic> message) => _channel?.sink.add(jsonEncode(message));
@@ -316,6 +342,7 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
                 if (state.states[d.id] != null) d.id: state.states[d.id]!,
             },
           );
+          if (state.active?.id == state.deviceId) _endClaim();
           if (state.active?.id == _pendingTarget) {
             _pendingTarget = null;
             _transferTimeout?.cancel();
@@ -352,7 +379,7 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
   }
 
   void _applyRemote() {
-    if (_inJam || _executing) return;
+    if (_inJam || _executing || _claiming) return;
     final active = state.active;
     if (active == null || active.id == state.deviceId) {
       _player.clearConnectRemote();
@@ -424,7 +451,7 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
             command['shuffle'] == true,
             _loop(command['repeat']),
           );
-          if (!_inJam) _send({'type': 'activate'});
+          if (!_inJam) _claim();
         case 'play':
           _player.play().ignore();
         case 'pause':
@@ -512,7 +539,8 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
       messages.add(_l10n.connectUnavailable);
       return;
     }
-    final transfer = snapshot.transfer();
+    // Picking a device means listening there now, even if playback was paused.
+    final transfer = {...snapshot.transfer(), 'playing': true};
     if (target == state.deviceId) {
       if (remote) _sendCommand(active.id, {'type': 'pause'});
       await execute(transfer);

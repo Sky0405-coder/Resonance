@@ -338,6 +338,46 @@ void main() {
     expect(container.read(playerProvider).connectRemote, isFalse);
   });
 
+  test('taking over here keeps the song shown while the old device still reports and the server catches up', () async {
+    await remote(playing: false);
+    await connect.transferTo('local');
+    expect(engine.playing, isTrue);
+    expect(container.read(remoteDeviceProvider), isNull);
+    // The paused phone reports once more and an older device list arrives before the server saw "activate".
+    socket.receive({'type': 'state', 'device': 'remote', 'state': playback(playing: false)});
+    socket.receive({
+      'type': 'devices',
+      'devices': [
+        {'id': 'local', 'name': 'My PC', 'kind': 'desktop', 'active': false},
+        {'id': 'remote', 'name': 'Living room', 'kind': 'tv', 'active': true},
+      ],
+    });
+    await settle();
+    expect(container.read(playerProvider).connectRemote, isFalse);
+    expect(container.read(playerProvider).current!.id, 'two');
+    socket.receive({
+      'type': 'devices',
+      'devices': [
+        {'id': 'local', 'name': 'My PC', 'kind': 'desktop', 'active': true},
+        {'id': 'remote', 'name': 'Living room', 'kind': 'tv', 'active': false},
+      ],
+    });
+    await settle();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(container.read(playerProvider).current!.id, 'two');
+    expect(engine.playing, isTrue);
+    final published = socket.sink.sent.lastWhere((m) => m['type'] == 'state')['state'];
+    expect(published['track']['id'], 'two');
+    expect(published['playing'], isTrue);
+  });
+
+  test('sending to another device starts playback there even when paused here', () async {
+    await player.loadConnect([makeTrack('one')], 0, Duration.zero, false, false, LoopMode.off);
+    await connect.transferTo('remote');
+    final transfer = socket.sink.sent.lastWhere((m) => m['type'] == 'command')['command'];
+    expect(transfer['playing'], isTrue);
+  });
+
   test('disconnecting or going offline clears remote mode without resuming local audio', () async {
     await remote();
     final old = socket;
