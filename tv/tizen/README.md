@@ -125,7 +125,7 @@ Bei Signaturfehlern DUID, Samsung-Distributor-Zertifikat und Profilzuordnung pr�
   Dunkel, optional dynamische Coverfarbe). Änderungen gelten sofort.
 - Im Songtext blättern Hoch/Runter; synchronisierte Texte folgen der Audioposition.
 
-Beim ersten Start Server-Adresse (Vorgabe `https://resonance.k-node.de`), Benutzername
+Beim ersten Start Server-Adresse (z. B. `https://musik.example.com`), Benutzername
 und Passwort eingeben. Server und Sitzungstoken liegen in `localStorage`, das Passwort
 wird nicht gespeichert. Ein Serverwechsel meldet ab. Die Einstellungen bieten Abmelden.
 Die Zusatzberechtigung `tv.inputdevice` ist für die registrierten Medientasten nötig;

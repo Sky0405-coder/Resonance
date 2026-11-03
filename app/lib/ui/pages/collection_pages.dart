@@ -631,7 +631,10 @@ class LikedPage extends ConsumerWidget {
                   image: const LikedCover(),
                   kind: context.l10n.commonPlaylist,
                   title: context.l10n.libraryLikedSongs,
-                  meta: Text(songs(context.l10n, tracks.length)),
+                  meta: Text(
+                    '${songs(context.l10n, tracks.length)}'
+                    '${tracks.isEmpty ? '' : ', ${formatLongDuration(context.l10n, tracks.fold(0.0, (sum, t) => sum + t.duration))}'}',
+                  ),
                 ),
               ),
               SliverToBoxAdapter(

@@ -1,5 +1,6 @@
 import { t } from '../i18n.js';
 import { el, button, heading, row, image } from '../ui.js';
+import { SERVER_EXAMPLE } from '../api.js';
 export function loginView(ctx) {
   const root = el('section', 'login-page');
   const brand = el('div', 'login-brand'); brand.appendChild(image('icon.png', 'login-logo'));
@@ -12,6 +13,7 @@ export function loginView(ctx) {
     const input = el('input'); input.name = name; input.autocomplete = 'off';
     input.type = name === 'password' ? 'password' : 'text';
     input.value = name === 'server' ? ctx.api.server : '';
+    if (name === 'server') input.placeholder = SERVER_EXAMPLE;
     input.readOnly = typeof tizen !== 'undefined';
     input.dataset.focusable = ''; input.dataset.focusId = 'login-' + name;
     input.addEventListener('click', () => ctx.app.textKeyboard(input, true));

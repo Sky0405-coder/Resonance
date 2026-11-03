@@ -894,6 +894,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerAddToQueue => 'Add to queue';
 
   @override
+  String playerQueuedTrack(String title) {
+    return '“$title” added to queue';
+  }
+
+  @override
   String get playerGoToAlbum => 'Go to album';
 
   @override

@@ -98,7 +98,7 @@ class LibraryConfig(BaseModel):
 class AudiobookshelfConfig(BaseModel):
     # Show the "Hörbücher" tab and allow users to link their Audiobookshelf account.
     enabled: bool = False
-    # Base URL of the Audiobookshelf server as reachable from the Resonance server, e.g. https://audio.k-node.de
+    # Base URL of the Audiobookshelf server as reachable from the Resonance server, e.g. https://audiobooks.example.com
     url: str = ""
 
     @field_validator("url")

@@ -511,6 +511,8 @@
   "playerAddLiked": "Zu Lieblingssongs hinzufügen",
   "playerPlayNext": "Als Nächstes spielen",
   "playerAddToQueue": "Zur Warteschlange hinzufügen",
+  "playerQueuedTrack": "„{title}“ in der Warteschlange",
+  "@playerQueuedTrack": {"placeholders": {"title": {"type": "String"}}},
   "playerGoToAlbum": "Zum Album",
   "playerGoToArtist": "Zum Künstler",
   "editorCorrectMetadata": "Metadaten korrigieren",

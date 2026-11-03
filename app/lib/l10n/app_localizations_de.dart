@@ -884,6 +884,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get playerAddToQueue => 'Zur Warteschlange hinzufügen';
 
   @override
+  String playerQueuedTrack(String title) {
+    return '„$title“ in der Warteschlange';
+  }
+
+  @override
   String get playerGoToAlbum => 'Zum Album';
 
   @override

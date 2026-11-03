@@ -8,7 +8,7 @@ user-facing texts, existing style, `ruff format --line-length 120` on new/rewrit
 network – use `httpx.MockTransport`). Run tests against the database `app_test` only.
 
 ## Context
-The user already runs Audiobookshelf (ABS) 2.34 at e.g. `https://audio.k-node.de`. The Resonance client
+The user already runs Audiobookshelf (ABS) 2.34 at e.g. `https://audiobooks.example.com`. The Resonance client
 gets an "Hörbücher" tab. Every Resonance user links their *own* ABS account once (ABS username +
 password); the Resonance server stores that user's ABS refresh token and proxies the ABS REST API so the
 client never needs CORS, ABS credentials or ABS tokens. The client talks to ABS's normal API shape through
@@ -32,7 +32,7 @@ ABS 2.34 auth facts (verified in its source, `server/Auth.js`, `server/auth/Toke
 class AudiobookshelfConfig(BaseModel):
     # Show the "Hörbücher" tab and allow users to link their Audiobookshelf account.
     enabled: bool = False
-    # Base URL of the Audiobookshelf server as reachable from the Resonance server, e.g. https://audio.k-node.de
+    # Base URL of the Audiobookshelf server as reachable from the Resonance server, e.g. https://audiobooks.example.com
     url: str = ""
 ```
 `url` is stored with trailing `/` stripped; non-empty values must start with `http://` or `https://`

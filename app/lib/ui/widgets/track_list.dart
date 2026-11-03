@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../l10n/l10n.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -98,7 +99,7 @@ class _TrackRowState extends ConsumerState<TrackRow> {
       leading = SizedBox(width: 44, child: CoverImage(albumId: t.album.id, size: 64));
     }
 
-    return Opacity(
+    final row = Opacity(
       opacity: offline && !downloaded ? 0.4 : 1,
       child: MouseRegion(
         onEnter: (_) => setState(() => _hover = true),
@@ -171,6 +172,43 @@ class _TrackRowState extends ConsumerState<TrackRow> {
           ),
         ),
       ),
+    );
+    if (wide) return row;
+    return QueueSwipe(track: t, child: row);
+  }
+}
+
+/// Swiping a song to the right adds it to the queue (touch layouts); the row springs back.
+class QueueSwipe extends ConsumerWidget {
+  const QueueSwipe({super.key, required this.track, required this.child});
+  final Track track;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Dismissible(
+      key: const ValueKey('queue-swipe'),
+      direction: DismissDirection.startToEnd,
+      dismissThresholds: const {DismissDirection.startToEnd: 0.25},
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
+        decoration: BoxDecoration(color: accent.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(4)),
+        child: Icon(
+          Icons.queue_music,
+          color: ThemeData.estimateBrightnessForColor(accent) == Brightness.dark ? Colors.white : Colors.black,
+        ),
+      ),
+      confirmDismiss: (_) async {
+        HapticFeedback.mediumImpact();
+        ref.read(playerProvider.notifier).addToQueue(track).catchError((Object e) {
+          if (context.mounted) showError(context, e);
+        });
+        showInfo(context, context.l10n.playerQueuedTrack(track.title));
+        return false;
+      },
+      child: child,
     );
   }
 }

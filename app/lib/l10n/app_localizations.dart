@@ -1646,6 +1646,12 @@ abstract class AppLocalizations {
   /// **'Zur Warteschlange hinzufügen'**
   String get playerAddToQueue;
 
+  /// No description provided for @playerQueuedTrack.
+  ///
+  /// In de, this message translates to:
+  /// **'„{title}“ in der Warteschlange'**
+  String playerQueuedTrack(String title);
+
   /// No description provided for @playerGoToAlbum.
   ///
   /// In de, this message translates to:

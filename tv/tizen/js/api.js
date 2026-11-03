@@ -12,7 +12,8 @@ export function detectCodecs(audio) {
 export function streamFormat(codec, supported) {
   return Object.prototype.hasOwnProperty.call(codecMimes, codec) && supported[codec] ? 'raw' : 'mp3';
 }
-export const DEFAULT_SERVER = 'https://resonance.k-node.de';
+export const DEFAULT_SERVER = '';
+export const SERVER_EXAMPLE = 'https://musik.example.com';
 export function normalizeServer(value) {
   let url;
   try { url = new URL(value.trim()); } catch (_) { throw new Error(t('invalidServer')); }
@@ -32,7 +33,8 @@ export class Api {
     this.onUnauthorized = null;
   }
   save(server, token) {
-    this.server = normalizeServer(server);
+    // Logging out before any server was set keeps the field empty.
+    this.server = server ? normalizeServer(server) : '';
     this.token = token || '';
     try {
       localStorage.setItem('resonance.server', this.server);

@@ -266,6 +266,7 @@
   "playerAddLiked": "Add to Liked Songs",
   "playerPlayNext": "Play next",
   "playerAddToQueue": "Add to queue",
+  "playerQueuedTrack": "“{title}” added to queue",
   "playerGoToAlbum": "Go to album",
   "playerGoToArtist": "Go to artist",
   "editorCorrectMetadata": "Edit metadata",
