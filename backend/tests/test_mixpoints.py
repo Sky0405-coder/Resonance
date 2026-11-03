@@ -86,6 +86,9 @@ def test_analyze_finds_where_a_quiet_intro_ends(tmp_path: Path) -> None:
         audio = np.frombuffer(source.readframes(source.getnframes()), "<i2").astype(np.float64)
     intro = int((1.0 + bars * 4 * 60 / bpm) * RATE)
     audio[:intro] *= 0.25
+    # One loud hit in the intro (a cymbal, a shout) does not end it.
+    hit = int(1.5 * RATE)
+    audio[hit : hit + RATE // 4] = 0.9 * 32767 * np.sin(2 * np.pi * 80 * np.arange(RATE // 4) / RATE)
     with wave.open(str(path), "wb") as out:
         out.setnchannels(1)
         out.setsampwidth(2)

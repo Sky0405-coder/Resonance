@@ -23,7 +23,7 @@ from app.services.transcode import resolve_path
 log = logging.getLogger(__name__)
 
 # Bump when the analysis changes so stored results get recomputed.
-VERSION = 4
+VERSION = 5
 # Tempo and key are the same since this version: older results still serve them while the songs are analyzed again.
 KEYS_SINCE = 3
 _RATE = 11025
@@ -179,6 +179,38 @@ def _beat_near(onset: np.ndarray, period: float, center: int, span: int) -> floa
     return beat + round((center - beat) / period) * period
 
 
+def _band_level(magnitude: np.ndarray, low: float, high: float) -> np.ndarray:
+    """Level (dB) of each frame between two frequencies."""
+    freqs = np.fft.rfftfreq(_FRAME, 1 / _RATE)
+    band = magnitude[:, (freqs > low) & (freqs < high)].astype(np.float64)
+    return 20 * np.log10(np.sqrt(np.mean(band**2, axis=1)) + 1e-9)
+
+
+def _intro_end(
+    level: np.ndarray, bass: np.ndarray, seconds: np.ndarray, mix_in: float, bar: float
+) -> float | None:
+    """Where the song comes in fully, like a DJ counts it: the first 4-bar phrase from mix_in in which both the level
+    and the bass (kick and bass line) are within 6 dB of the song's loud bars in most bars. Up to 16 bars; a single
+    loud hit in a quiet intro does not count, and intros longer than that are left alone (None)."""
+    bars = np.floor((seconds - mix_in) / bar).astype(int)
+    valid = bars >= 0
+    count = int(bars[valid].max()) + 1 if valid.any() else 0
+    if count < 8:
+        return None
+    # Mean level and bass per bar (dB), compared with the song's loud bars.
+    per_bar = np.bincount(bars[valid], minlength=count)
+    levels = np.bincount(bars[valid], weights=level[valid], minlength=count) / np.maximum(per_bar, 1)
+    basses = np.bincount(bars[valid], weights=bass[valid], minlength=count) / np.maximum(per_bar, 1)
+    loud, bass_loud = np.percentile(levels, 80), np.percentile(basses, 80)
+    for phrase in range(0, 17, 4):
+        if phrase + 4 > count:
+            return None
+        full = np.median(levels[phrase : phrase + 4]) >= loud - 6
+        if full and np.median(basses[phrase : phrase + 4]) >= bass_loud - 6:
+            return mix_in + phrase * bar
+    return None
+
+
 def analyze(path: Path) -> MixPoints:
     samples = _decode(path)
     duration = len(samples) / _RATE
@@ -229,13 +261,7 @@ def analyze(path: Path) -> MixPoints:
         boundary = mix_in + round((out - mix_in) / phrase) * phrase
         if boundary > mix_in and abs(boundary - out) <= 8 * beat and boundary <= end - 4:
             out = boundary
-        # The first time the song gets loud, rounded to whole bars; the level is smoothed over a second, so it
-        # reaches the threshold around the moment itself.
-        bar = 4 * beat
-        if len(strong):
-            bars = round((float(seconds[strong[0]]) - mix_in) / bar)
-            if 0 <= bars <= 16:
-                intro_end = mix_in + bars * bar
+        intro_end = _intro_end(level, _band_level(magnitude, 30, 150), seconds, mix_in, 4 * beat)
     key, confidence = _key(samples)
     return MixPoints(
         bpm=round(float(bpm), 2) if bpm else None,
