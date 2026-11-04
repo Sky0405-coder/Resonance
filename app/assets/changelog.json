@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.7.1",
+    "date": "2026-11-04",
+    "de": [
+      "Übergangs-Editor: Playlists haben jetzt einen Mix-Knopf (Regler-Symbol). Erst wenn du ihn einschaltest, zeigt die Playlist BPM, Tonart und die Übergänge zum Bearbeiten.",
+      "Der Mix-Modus gilt pro Playlist und bleibt gespeichert; gespeicherte Übergänge werden immer gespielt."
+    ],
+    "en": [
+      "Transition editor: playlists now have a mix button (slider icon). Only after switching it on does the playlist show BPM, key and the transitions to edit.",
+      "Mix mode is per playlist and remembered; saved transitions always play."
+    ]
+  },
+  {
     "version": "1.7.0",
     "date": "2026-11-03",
     "de": [
