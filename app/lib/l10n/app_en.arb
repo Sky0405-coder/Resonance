@@ -1167,5 +1167,18 @@
   "transitionViewOnly": "Only people who can edit the playlist can change transitions.",
   "transitionEdit": "Edit transition",
   "transitionMixOn": "Mix",
-  "transitionMixOff": "Stop mixing"
+  "transitionMixOff": "Stop mixing",
+  "playlistRecommended": "Recommended songs",
+  "playlistRecommendedFromPlaylist": "Based on the songs in this playlist",
+  "playlistRecommendedFromLikes": "Based on your liked songs",
+  "playlistNoRecommendations": "No recommendations right now.",
+  "playlistRefreshRecommendations": "New suggestions",
+  "playlistSearchSongs": "Search for songs",
+  "playlistFindSomething": "Let's find something for your playlist",
+  "playlistSearchHint": "Search songs",
+  "playlistSearchEmpty": "Search for songs to add them to the playlist straight away.",
+  "playlistSearchNothing": "Nothing found for “{query}”",
+  "playlistAddSong": "Add to playlist",
+  "playlistAdded": "Added",
+  "playlistAddedTo": "Added “{title}”"
 }

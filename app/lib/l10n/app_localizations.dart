@@ -5845,6 +5845,84 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Mixen beenden'**
   String get transitionMixOff;
+
+  /// No description provided for @playlistRecommended.
+  ///
+  /// In de, this message translates to:
+  /// **'Empfohlene Songs'**
+  String get playlistRecommended;
+
+  /// No description provided for @playlistRecommendedFromPlaylist.
+  ///
+  /// In de, this message translates to:
+  /// **'Basierend auf den Songs in dieser Playlist'**
+  String get playlistRecommendedFromPlaylist;
+
+  /// No description provided for @playlistRecommendedFromLikes.
+  ///
+  /// In de, this message translates to:
+  /// **'Basierend auf deinen Lieblingssongs'**
+  String get playlistRecommendedFromLikes;
+
+  /// No description provided for @playlistNoRecommendations.
+  ///
+  /// In de, this message translates to:
+  /// **'Gerade keine Empfehlungen.'**
+  String get playlistNoRecommendations;
+
+  /// No description provided for @playlistRefreshRecommendations.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Vorschläge'**
+  String get playlistRefreshRecommendations;
+
+  /// No description provided for @playlistSearchSongs.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach Songs suchen'**
+  String get playlistSearchSongs;
+
+  /// No description provided for @playlistFindSomething.
+  ///
+  /// In de, this message translates to:
+  /// **'Lass uns etwas für deine Playlist finden'**
+  String get playlistFindSomething;
+
+  /// No description provided for @playlistSearchHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Songs suchen'**
+  String get playlistSearchHint;
+
+  /// No description provided for @playlistSearchEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Suche nach Songs, um sie direkt zur Playlist hinzuzufügen.'**
+  String get playlistSearchEmpty;
+
+  /// No description provided for @playlistSearchNothing.
+  ///
+  /// In de, this message translates to:
+  /// **'Nichts gefunden für „{query}“'**
+  String playlistSearchNothing(Object query);
+
+  /// No description provided for @playlistAddSong.
+  ///
+  /// In de, this message translates to:
+  /// **'Zur Playlist hinzufügen'**
+  String get playlistAddSong;
+
+  /// No description provided for @playlistAdded.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinzugefügt'**
+  String get playlistAdded;
+
+  /// No description provided for @playlistAddedTo.
+  ///
+  /// In de, this message translates to:
+  /// **'„{title}“ hinzugefügt'**
+  String playlistAddedTo(Object title);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

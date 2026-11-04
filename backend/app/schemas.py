@@ -180,7 +180,8 @@ class LyricsOut(BaseModel):
 
 
 class RecommendationsIn(BaseModel):
-    track_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
+    # Empty: suggestions for a new playlist, based on the user's latest likes.
+    track_ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
     limit: int = Field(20, ge=1, le=100)
     exclude_ids: list[uuid.UUID] = Field(default_factory=list, max_length=2000)
 

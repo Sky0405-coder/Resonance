@@ -44,6 +44,17 @@ async def recommend(
     db: AsyncSession, user: User, track_ids: list[uuid.UUID], limit: int, exclude_ids: list[uuid.UUID]
 ) -> list[Track]:
     library = list(await db.scalars(select(Track).options(*track_options()).order_by(Track.id)))
+    # Without seeds (a new, empty playlist), the user's latest likes stand in; those may be suggested too.
+    from_likes = not track_ids
+    if from_likes:
+        track_ids = list(
+            await db.scalars(
+                select(TrackLike.track_id)
+                .where(TrackLike.user_id == user.id)
+                .order_by(TrackLike.created_at.desc(), TrackLike.id)
+                .limit(25)
+            )
+        )
     seed_ids = set(track_ids)
     seeds: dict[str, list[Track]] = defaultdict(list)
     genres: Counter[str] = Counter()
@@ -56,7 +67,7 @@ async def recommend(
     for key in seed_artists:
         related.update(await _related(key, seeds[key]))
     shared_genres = {key for key, count in genres.items() if count >= 2}
-    excluded = seed_ids | set(exclude_ids)
+    excluded = set(exclude_ids) if from_likes else seed_ids | set(exclude_ids)
     available = [track for track in library if track.id not in excluded]
     rng = random.Random(f"{user.id}:{','.join(sorted(map(str, seed_ids)))}:{date.today()}")
     weighted = []

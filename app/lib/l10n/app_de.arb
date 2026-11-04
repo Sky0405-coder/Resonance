@@ -1851,5 +1851,18 @@
   "transitionViewOnly": "Nur wer die Playlist bearbeiten darf, kann Übergänge ändern.",
   "transitionEdit": "Übergang bearbeiten",
   "transitionMixOn": "Mixen",
-  "transitionMixOff": "Mixen beenden"
+  "transitionMixOff": "Mixen beenden",
+  "playlistRecommended": "Empfohlene Songs",
+  "playlistRecommendedFromPlaylist": "Basierend auf den Songs in dieser Playlist",
+  "playlistRecommendedFromLikes": "Basierend auf deinen Lieblingssongs",
+  "playlistNoRecommendations": "Gerade keine Empfehlungen.",
+  "playlistRefreshRecommendations": "Neue Vorschläge",
+  "playlistSearchSongs": "Nach Songs suchen",
+  "playlistFindSomething": "Lass uns etwas für deine Playlist finden",
+  "playlistSearchHint": "Songs suchen",
+  "playlistSearchEmpty": "Suche nach Songs, um sie direkt zur Playlist hinzuzufügen.",
+  "playlistSearchNothing": "Nichts gefunden für „{query}“",
+  "playlistAddSong": "Zur Playlist hinzufügen",
+  "playlistAdded": "Hinzugefügt",
+  "playlistAddedTo": "„{title}“ hinzugefügt"
 }

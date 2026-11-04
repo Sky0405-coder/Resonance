@@ -19,6 +19,7 @@ import 'admin/metadata_editor.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import '../widgets/track_list.dart';
+import 'playlist_add_page.dart';
 import '../../player/transitions.dart';
 
 /// Whether [contextId] is what's currently playing (for the play/pause toggle).
@@ -422,6 +423,8 @@ class PlaylistPage extends ConsumerWidget {
             // between the songs with tempo and key (not for radios and mixes, whose songs change).
             final mixable = editor && d.playlist.kind == 'user' && tracks.length > 1;
             final transitions = mixable && mixing;
+            // Own and collaborative playlists suggest songs to add and offer a search for more.
+            final addable = d.editable && d.playlist.kind == 'user';
             final mixKeys = transitions
                 ? ref.watch(playlistMixKeysProvider(tracks.map((t) => t.id).toSet().join(','))).value
                 : null;
@@ -464,6 +467,14 @@ class PlaylistPage extends ConsumerWidget {
                     canShuffle: tracks.isNotEmpty,
                     children: [
                       OfflineDownloadButton(kind: 'playlist', id: id),
+                      if (addable)
+                        IconButton(
+                          iconSize: 28,
+                          color: Palette.textMuted,
+                          tooltip: context.l10n.playlistSearchSongs,
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: () => context.push('/playlist/$id/add'),
+                        ),
                       if (mixable) MixModeButton(playlistId: id),
                       // Renaming, sharing, cover and deleting stay with the owner (collaborators only edit songs).
                       if (d.playlist.owner.id == userId && !d.playlist.isMix)
@@ -576,7 +587,28 @@ class PlaylistPage extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (tracks.isEmpty)
+                if (tracks.isEmpty && addable)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(32, 24, 32, 8),
+                      child: Column(
+                        children: [
+                          Text(
+                            context.l10n.playlistFindSomething,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: () => context.push('/playlist/$id/add'),
+                            icon: const Icon(Icons.search),
+                            label: Text(context.l10n.playlistSearchSongs),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (tracks.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.all(32),
@@ -628,6 +660,15 @@ class PlaylistPage extends ConsumerWidget {
                     },
                   ),
                 ),
+                if (addable)
+                  SliverToBoxAdapter(
+                    // Keyed by the playlist only: adding a song must not reload (and reshuffle) the suggestions.
+                    child: PlaylistSuggestions(
+                      key: ValueKey('suggestions:$id'),
+                      playlistId: id,
+                      trackIds: [for (final t in tracks) t.id],
+                    ),
+                  ),
                 const SliverToBoxAdapter(child: SizedBox(height: kBottomInset)),
               ],
             );

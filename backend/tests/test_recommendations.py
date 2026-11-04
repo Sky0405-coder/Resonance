@@ -157,8 +157,28 @@ async def test_auth_and_validation(env):
     valid = {"track_ids": [str(uuid.uuid4())]}
     assert (await env.client.post("/api/recommendations", json=valid)).status_code == 401
     for patch in (
-        {"track_ids": []}, {"track_ids": valid["track_ids"] * 501}, {"track_ids": ["bad"]},
+        {"track_ids": valid["track_ids"] * 501}, {"track_ids": ["bad"]},
         {"limit": 0}, {"limit": 101}, {"exclude_ids": valid["track_ids"] * 2001},
     ):
         response = await env.client.post("/api/recommendations", json={**valid, **patch}, headers=env.headers)
         assert response.status_code == 422
+
+
+async def test_without_seeds_the_latest_likes_stand_in(env, monkeypatch):
+    class FixedRandom(random.Random):
+        def random(self):
+            return 0.5
+
+    monkeypatch.setattr(recommendations.random, "Random", FixedRandom)
+    async with SessionLocal() as db:
+        liked = await library_track(db, "Liked", artist_name="Favourite", isrc="LIKED")
+        same_artist = await library_track(db, "Same artist", artist_name="Favourite")
+        related = await library_track(db, "Related", artist_name="Related")
+        await library_track(db, "Unrelated", artist_name="Elsewhere")
+        db.add(TrackLike(user_id=env.user_id, track_id=liked.id))
+        await db.commit()
+    result = await request(env, [], limit=3)
+    assert [row["id"] for row in result][:1] == [str(related.id)]
+    assert {row["id"] for row in result[1:]} == {str(liked.id), str(same_artist.id)}
+    excluded = await request(env, [], limit=3, exclude_ids=[str(liked.id)])
+    assert str(liked.id) not in {row["id"] for row in excluded}

@@ -3294,4 +3294,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transitionMixOff => 'Stop mixing';
+
+  @override
+  String get playlistRecommended => 'Recommended songs';
+
+  @override
+  String get playlistRecommendedFromPlaylist => 'Based on the songs in this playlist';
+
+  @override
+  String get playlistRecommendedFromLikes => 'Based on your liked songs';
+
+  @override
+  String get playlistNoRecommendations => 'No recommendations right now.';
+
+  @override
+  String get playlistRefreshRecommendations => 'New suggestions';
+
+  @override
+  String get playlistSearchSongs => 'Search for songs';
+
+  @override
+  String get playlistFindSomething => 'Let\'s find something for your playlist';
+
+  @override
+  String get playlistSearchHint => 'Search songs';
+
+  @override
+  String get playlistSearchEmpty => 'Search for songs to add them to the playlist straight away.';
+
+  @override
+  String playlistSearchNothing(Object query) {
+    return 'Nothing found for “$query”';
+  }
+
+  @override
+  String get playlistAddSong => 'Add to playlist';
+
+  @override
+  String get playlistAdded => 'Added';
+
+  @override
+  String playlistAddedTo(Object title) {
+    return 'Added “$title”';
+  }
 }
