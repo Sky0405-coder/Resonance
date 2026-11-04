@@ -404,6 +404,7 @@ class PlaylistPage extends ConsumerWidget {
     final value = ref.watch(playlistDetailProvider(id));
     final userId = ref.watch(sessionProvider.select((s) => s.user?.id));
     final editor = ref.watch(transitionEditorProvider);
+    final mixing = ref.watch(mixModeProvider.select((ids) => ids.contains(id)));
     final ctx = 'playlist:$id';
     final playing = _isPlayingContext(ref, ctx);
     return Scaffold(
@@ -417,9 +418,10 @@ class PlaylistPage extends ConsumerWidget {
           builder: (d) {
             final tracks = [for (final e in d.entries) e.track];
             final actions = ref.read(libraryActionsProvider);
-            // Transition editor: the transitions between the songs, with tempo and key (not for radios and mixes,
-            // whose songs change).
-            final transitions = editor && d.playlist.kind == 'user' && tracks.length > 1;
+            // Transition editor: the slider button switches the playlist to mixing, which shows the transitions
+            // between the songs with tempo and key (not for radios and mixes, whose songs change).
+            final mixable = editor && d.playlist.kind == 'user' && tracks.length > 1;
+            final transitions = mixable && mixing;
             final mixKeys = transitions
                 ? ref.watch(playlistMixKeysProvider(tracks.map((t) => t.id).toSet().join(','))).value
                 : null;
@@ -462,6 +464,7 @@ class PlaylistPage extends ConsumerWidget {
                     canShuffle: tracks.isNotEmpty,
                     children: [
                       OfflineDownloadButton(kind: 'playlist', id: id),
+                      if (mixable) MixModeButton(playlistId: id),
                       // Renaming, sharing, cover and deleting stay with the owner (collaborators only edit songs).
                       if (d.playlist.owner.id == userId && !d.playlist.isMix)
                         IconButton(

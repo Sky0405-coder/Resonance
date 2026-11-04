@@ -1823,7 +1823,7 @@
   "mediaKindEpisode": "Podcast-Folge",
   "mediaKindEbook": "E-Book",
   "settingsTransitionEditor": "Übergangs-Editor (Beta)",
-  "settingsTransitionEditorHint": "Zeigt in Playlists die Übergänge zwischen den Songs mit BPM und Tonart, und du kannst sie selbst einstellen.",
+  "settingsTransitionEditorHint": "Playlists bekommen einen Mix-Knopf. Damit siehst du die Übergänge zwischen den Songs mit BPM und Tonart und kannst sie selbst einstellen.",
   "transitionAuto": "Automatisch",
   "transitionCrossfade": "Überblenden",
   "transitionFadeIn": "Einblenden",
@@ -1849,5 +1849,7 @@
   "transitionNotAnalyzed": "Die Songs sind noch nicht analysiert. Versuch es gleich noch einmal.",
   "transitionDragHint": "Ziehe eine Spur, um Start oder Einsatz zu verschieben.",
   "transitionViewOnly": "Nur wer die Playlist bearbeiten darf, kann Übergänge ändern.",
-  "transitionEdit": "Übergang bearbeiten"
+  "transitionEdit": "Übergang bearbeiten",
+  "transitionMixOn": "Mixen",
+  "transitionMixOff": "Mixen beenden"
 }

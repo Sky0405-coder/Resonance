@@ -22,6 +22,42 @@ class TransitionEditorSetting extends Notifier<bool> {
 
 final transitionEditorProvider = NotifierProvider<TransitionEditorSetting, bool>(TransitionEditorSetting.new);
 
+/// The playlists switched to mixing (the slider button in their action bar): only these show their transitions.
+class MixModePlaylists extends Notifier<Set<String>> {
+  static const key = 'transition_editor_playlists';
+
+  @override
+  Set<String> build() => {...?ref.read(prefsProvider).getStringList(key)};
+
+  void toggle(String playlistId) {
+    state = state.contains(playlistId) ? ({...state}..remove(playlistId)) : {...state, playlistId};
+    ref.read(prefsProvider).setStringList(key, state.toList()).ignore();
+  }
+}
+
+final mixModeProvider = NotifierProvider<MixModePlaylists, Set<String>>(MixModePlaylists.new);
+
+/// The slider button that switches a playlist to mixing: its transitions appear between the songs.
+class MixModeButton extends ConsumerWidget {
+  const MixModeButton({super.key, required this.playlistId});
+  final String playlistId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(mixModeProvider.select((ids) => ids.contains(playlistId)));
+    final accent = Theme.of(context).colorScheme.primary;
+    return IconButton(
+      iconSize: 26,
+      tooltip: on ? context.l10n.transitionMixOff : context.l10n.transitionMixOn,
+      isSelected: on,
+      color: on ? accent : Colors.white70,
+      style: on ? IconButton.styleFrom(backgroundColor: accent.withValues(alpha: 0.18)) : null,
+      icon: const Icon(Icons.tune),
+      onPressed: () => ref.read(mixModeProvider.notifier).toggle(playlistId),
+    );
+  }
+}
+
 /// Transitions saved for a playlist, by "fromId>toId".
 final playlistTransitionsProvider = FutureProvider.autoDispose.family<Map<String, CustomTransition>, String>(
   (ref, playlistId) => ref.read(apiProvider).transitions(playlistId),

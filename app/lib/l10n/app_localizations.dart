@@ -5681,7 +5681,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsTransitionEditorHint.
   ///
   /// In de, this message translates to:
-  /// **'Zeigt in Playlists die Übergänge zwischen den Songs mit BPM und Tonart, und du kannst sie selbst einstellen.'**
+  /// **'Playlists bekommen einen Mix-Knopf. Damit siehst du die Übergänge zwischen den Songs mit BPM und Tonart und kannst sie selbst einstellen.'**
   String get settingsTransitionEditorHint;
 
   /// No description provided for @transitionAuto.
@@ -5833,6 +5833,18 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Übergang bearbeiten'**
   String get transitionEdit;
+
+  /// No description provided for @transitionMixOn.
+  ///
+  /// In de, this message translates to:
+  /// **'Mixen'**
+  String get transitionMixOn;
+
+  /// No description provided for @transitionMixOff.
+  ///
+  /// In de, this message translates to:
+  /// **'Mixen beenden'**
+  String get transitionMixOff;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

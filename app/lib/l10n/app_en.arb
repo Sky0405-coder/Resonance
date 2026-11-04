@@ -1140,7 +1140,7 @@
   "mediaKindEpisode": "Podcast episode",
   "mediaKindEbook": "Ebook",
   "settingsTransitionEditor": "Transition editor (beta)",
-  "settingsTransitionEditorHint": "Shows the transitions between songs in playlists, with BPM and key, and lets you shape them yourself.",
+  "settingsTransitionEditorHint": "Playlists get a mix button that shows the transitions between their songs, with BPM and key, and lets you shape them yourself.",
   "transitionAuto": "Automatic",
   "transitionCrossfade": "Crossfade",
   "transitionFadeIn": "Fade in",
@@ -1165,5 +1165,7 @@
   "transitionNotAnalyzed": "These songs are not analyzed yet. Try again in a moment.",
   "transitionDragHint": "Drag a lane to move the start or the entry point.",
   "transitionViewOnly": "Only people who can edit the playlist can change transitions.",
-  "transitionEdit": "Edit transition"
+  "transitionEdit": "Edit transition",
+  "transitionMixOn": "Mix",
+  "transitionMixOff": "Stop mixing"
 }

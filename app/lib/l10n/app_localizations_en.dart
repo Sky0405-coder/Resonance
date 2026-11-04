@@ -3209,7 +3209,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTransitionEditorHint =>
-      'Shows the transitions between songs in playlists, with BPM and key, and lets you shape them yourself.';
+      'Playlists get a mix button that shows the transitions between their songs, with BPM and key, and lets you shape them yourself.';
 
   @override
   String get transitionAuto => 'Automatic';
@@ -3288,4 +3288,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transitionEdit => 'Edit transition';
+
+  @override
+  String get transitionMixOn => 'Mix';
+
+  @override
+  String get transitionMixOff => 'Stop mixing';
 }

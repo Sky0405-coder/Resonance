@@ -3188,7 +3188,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsTransitionEditorHint =>
-      'Zeigt in Playlists die Übergänge zwischen den Songs mit BPM und Tonart, und du kannst sie selbst einstellen.';
+      'Playlists bekommen einen Mix-Knopf. Damit siehst du die Übergänge zwischen den Songs mit BPM und Tonart und kannst sie selbst einstellen.';
 
   @override
   String get transitionAuto => 'Automatisch';
@@ -3268,4 +3268,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get transitionEdit => 'Übergang bearbeiten';
+
+  @override
+  String get transitionMixOn => 'Mixen';
+
+  @override
+  String get transitionMixOff => 'Mixen beenden';
 }
