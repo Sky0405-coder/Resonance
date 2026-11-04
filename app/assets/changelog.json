@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.7.2",
+    "date": "2026-11-04",
+    "de": [
+      "Playlists schlagen unten passende Songs vor, die du mit einem Tipp hinzufügst; „Neue Vorschläge“ holt andere. Leere Playlists bekommen Vorschläge aus deinen Lieblingssongs.",
+      "Songs direkt in eine Playlist suchen: Neue Playlists starten mit einem Such-Knopf, und jede eigene Playlist hat dafür einen Knopf in der Leiste."
+    ],
+    "en": [
+      "Playlists suggest fitting songs at the bottom, added with one tap; \u201cNew suggestions\u201d fetches others. Empty playlists get suggestions from your liked songs.",
+      "Search songs straight into a playlist: new playlists start with a search button, and every own playlist has one in its action bar."
+    ]
+  },
+  {
     "version": "1.7.1",
     "date": "2026-11-04",
     "de": [
