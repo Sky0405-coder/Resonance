@@ -182,3 +182,25 @@ async def test_stem_endpoint_separates_the_start_once_and_serves_it(env, monkeyp
     assert response.headers["content-type"] == "audio/ogg"
     assert (await client.get(f"/api/tracks/{missing_id}/stems/intro", headers=headers)).status_code == 404
     assert (await client.post("/api/tracks/00000000-0000-0000-0000-000000000000/stems", headers=headers)).status_code == 404
+
+
+async def test_failed_stem_is_reported_and_not_retried_at_once(env, monkeypatch, runtime):  # noqa: F811
+    client, headers, track_id, missing_id = env
+    calls = []
+
+    class BrokenWorker(FakeWorker):
+        async def instrumental(self, path: Path, length: float, out: Path) -> None:
+            calls.append(path)
+            raise ValueError("CalledProcessError: ffmpeg")
+
+    monkeypatch.setattr(vocals, "_worker", BrokenWorker())
+    monkeypatch.setattr(vocals, "_stem_errors", {})
+    monkeypatch.setattr(vocals, "installed", lambda: True)
+    await enable()
+    url = f"/api/tracks/{track_id}/stems"
+    assert (await client.post(url, headers=headers)).json()["state"] == "pending"
+    for task in list(vocals._stem_tasks):
+        await task
+    result = (await client.post(url, headers=headers)).json()
+    assert result["state"] == "failed" and "ffmpeg" in result["error"]
+    assert len(calls) == 1

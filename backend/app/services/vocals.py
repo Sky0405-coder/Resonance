@@ -232,6 +232,8 @@ STEM_SECONDS = 90.0
 _STEM_DAYS = 30
 _stems_pending: set[uuid.UUID] = set()
 _stem_tasks: set[asyncio.Task] = set()
+# Why separating a song failed, and when: it is not tried again for an hour.
+_stem_errors: dict[uuid.UUID, tuple[float, str]] = {}
 
 
 def stem_path(track: Track) -> Path:
@@ -246,13 +248,20 @@ def _clean_stems(directory: Path) -> None:
             path.unlink(missing_ok=True)
 
 
+def stem_error(track_id: uuid.UUID) -> str | None:
+    failed = _stem_errors.get(track_id)
+    return failed[1] if failed and time.monotonic() - failed[0] < 3600 else None
+
+
 async def request_stem(db: AsyncSession, track: Track) -> str:
-    """ready | pending | unavailable: starts separating the song's start when the song analysis is on."""
+    """ready | pending | failed | unavailable: starts separating the song's start when the song analysis is on."""
     path = stem_path(track)
     if path.exists():
         return "ready"
     if track.id in _stems_pending:
         return "pending"
+    if stem_error(track.id) is not None:
+        return "failed"
     if not (await load_config(db)).library.vocal_analysis or not installed() or not track.duration:
         return "unavailable"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -266,7 +275,8 @@ async def request_stem(db: AsyncSession, track: Track) -> str:
             await _worker.instrumental(source, length, partial)
             partial.replace(path)
         except (ValueError, RuntimeError, OSError, TimeoutError) as e:
-            log.info("Instrumental stem failed for %s: %s", track.id, e)
+            log.warning("Instrumental stem failed for %s: %s", track.id, e)
+            _stem_errors[track.id] = (time.monotonic(), str(e)[:500])
             partial.unlink(missing_ok=True)
         finally:
             _stems_pending.discard(track.id)

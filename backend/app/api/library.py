@@ -486,7 +486,11 @@ async def prepare_stem(id: uuid.UUID, user: CurrentUser, db: DB) -> dict:
     track = await db.get(Track, id)
     if track is None:
         raise HTTPException(404, "Nicht gefunden")
-    return {"state": await vocals.request_stem(db, track), "seconds": min(vocals.STEM_SECONDS, track.duration or 0)}
+    state = await vocals.request_stem(db, track)
+    result = {"state": state, "seconds": min(vocals.STEM_SECONDS, track.duration or 0)}
+    if state == "failed" and user.is_admin:
+        result["error"] = vocals.stem_error(id)
+    return result
 
 
 @router.get("/tracks/{id}/stems/intro")
