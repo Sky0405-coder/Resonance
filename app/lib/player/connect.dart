@@ -19,14 +19,29 @@ import 'jam.dart';
 import 'player.dart';
 
 class ConnectDevice {
-  const ConnectDevice({required this.id, required this.name, required this.kind, this.active = false});
+  const ConnectDevice({
+    required this.id,
+    required this.name,
+    required this.kind,
+    this.active = false,
+    this.online = true,
+  });
   final String id;
   final String name;
   final String kind;
   final bool active;
 
-  factory ConnectDevice.fromJson(Map<String, dynamic> j) =>
-      ConnectDevice(id: j['id'], name: j['name'], kind: j['kind'], active: j['active'] == true);
+  /// False for the playing device after its connection dropped (a phone whose screen is off): its last playback stays
+  /// shown, and controlling it continues here.
+  final bool online;
+
+  factory ConnectDevice.fromJson(Map<String, dynamic> j) => ConnectDevice(
+    id: j['id'],
+    name: j['name'],
+    kind: j['kind'],
+    active: j['active'] == true,
+    online: j['online'] != false,
+  );
 }
 
 class ConnectPlayback {
@@ -317,7 +332,7 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
     state = state.copyWith(
       devices: [
         for (final d in state.devices)
-          ConnectDevice(id: d.id, name: d.name, kind: d.kind, active: d.id == state.deviceId),
+          ConnectDevice(id: d.id, name: d.name, kind: d.kind, active: d.id == state.deviceId, online: d.online),
       ],
     );
     _send({'type': 'activate'});
@@ -541,11 +556,12 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
     }
     // Picking a device means listening there now, even if playback was paused.
     final transfer = {...snapshot.transfer(), 'playing': true};
+    final pauseRemote = remote && active.online;
     if (target == state.deviceId) {
-      if (remote) _sendCommand(active.id, {'type': 'pause'});
+      if (pauseRemote) _sendCommand(active.id, {'type': 'pause'});
       await execute(transfer);
     } else {
-      if (remote) _sendCommand(active.id, {'type': 'pause'});
+      if (pauseRemote) _sendCommand(active.id, {'type': 'pause'});
       _pendingTarget = target;
       _transferTimeout?.cancel();
       _transferTimeout = Timer(const Duration(seconds: 30), () {
@@ -561,7 +577,23 @@ class ConnectController extends Notifier<ConnectView> implements ConnectRouter {
   Future<void> command(String name, [Map<String, dynamic> args = const {}]) async {
     final target = state.active;
     if (_inJam || target == null || target.id == state.deviceId || !state.connected) return;
+    if (!target.online) return _takeOver(target, name, args);
     _sendCommand(target.id, {'type': name, ...args});
+  }
+
+  /// The playing device is unreachable: its last playback continues here, then [name] runs on it.
+  Future<void> _takeOver(ConnectDevice device, String name, Map<String, dynamic> args) async {
+    if (name == 'transfer') {
+      await execute({'type': 'transfer', ...args});
+      return;
+    }
+    final snapshot = state.states[device.id];
+    if (snapshot == null || snapshot.queue.isEmpty) {
+      messages.add(_l10n.connectUnavailable);
+      return;
+    }
+    await execute({...snapshot.transfer(), 'playing': name == 'play'});
+    if (name != 'play' && name != 'pause') await execute({'type': name, ...args});
   }
 
   @override

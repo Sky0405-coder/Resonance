@@ -81,7 +81,9 @@ class DevicesSheet extends ConsumerWidget {
                 selectedColor: Theme.of(context).colorScheme.primary,
                 leading: Icon(deviceKindIcon(device.kind)),
                 title: Text(device.id == view.deviceId ? context.l10n.connectThisDevice : device.name),
-                subtitle: device.id == view.deviceId ? Text(device.name) : null,
+                subtitle: device.id == view.deviceId
+                    ? Text(device.name)
+                    : (device.online ? null : Text(context.l10n.connectOffline)),
                 trailing: device.active ? const Icon(Icons.equalizer) : null,
                 onTap: () async {
                   try {
@@ -112,7 +114,7 @@ class ConnectBanner extends ConsumerWidget {
       color: accent,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: Text(
-        context.l10n.connectPlayingOn(device.name),
+        device.online ? context.l10n.connectPlayingOn(device.name) : context.l10n.connectAway(device.name),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(

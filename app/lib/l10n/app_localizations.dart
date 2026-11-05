@@ -5630,6 +5630,18 @@ abstract class AppLocalizations {
   /// **'Wiedergabe auf {device}'**
   String connectPlayingOn(String device);
 
+  /// No description provided for @connectAway.
+  ///
+  /// In de, this message translates to:
+  /// **'{device} ist nicht verbunden · Play setzt hier fort'**
+  String connectAway(String device);
+
+  /// No description provided for @connectOffline.
+  ///
+  /// In de, this message translates to:
+  /// **'Nicht verbunden'**
+  String get connectOffline;
+
   /// No description provided for @connectJamHint.
   ///
   /// In de, this message translates to:

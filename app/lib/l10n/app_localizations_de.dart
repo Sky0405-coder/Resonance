@@ -3161,6 +3161,14 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String connectAway(String device) {
+    return '$device ist nicht verbunden · Play setzt hier fort';
+  }
+
+  @override
+  String get connectOffline => 'Nicht verbunden';
+
+  @override
   String get connectJamHint => 'Während eines Jams ist kein Gerätewechsel möglich.';
 
   @override

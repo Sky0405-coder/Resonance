@@ -1814,6 +1814,15 @@
       }
     }
   },
+  "connectAway": "{device} ist nicht verbunden · Play setzt hier fort",
+  "@connectAway": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "connectOffline": "Nicht verbunden",
   "connectJamHint": "Während eines Jams ist kein Gerätewechsel möglich.",
   "connectMusicOnly": "Nur Musik kann übertragen werden. Hörbücher, Podcasts und Radio bleiben auf diesem Gerät.",
   "connectUnavailable": "Gerät nicht verfügbar. Prüfe deine Verbindung.",

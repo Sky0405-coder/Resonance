@@ -1132,6 +1132,15 @@
       }
     }
   },
+  "connectAway": "{device} is not connected · Play continues here",
+  "@connectAway": {
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
+  },
+  "connectOffline": "Not connected",
   "connectJamHint": "Device transfer is unavailable during a Jam.",
   "connectMusicOnly": "Only music tracks can be transferred. Books, podcasts and radio stay on this device.",
   "connectUnavailable": "Device unavailable. Check your connection.",

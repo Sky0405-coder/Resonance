@@ -298,6 +298,28 @@ void main() {
     expect(container.read(playerProvider).current!.title, 'Remote song');
   });
 
+  test('a playing device that lost its connection stays shown and play continues its song here', () async {
+    socket.receive({'type': 'state', 'device': 'remote', 'state': playback(playing: false)});
+    socket.receive({
+      'type': 'devices',
+      'devices': [
+        {'id': 'local', 'name': 'My PC', 'kind': 'desktop', 'active': false},
+        {'id': 'remote', 'name': 'Phone', 'kind': 'phone', 'active': true, 'online': false},
+      ],
+    });
+    await settle();
+    expect(container.read(remoteDeviceProvider)!.online, isFalse);
+    expect(container.read(playerProvider).current!.title, 'Remote song');
+    player.togglePlay();
+    await settle();
+    expect(socket.sink.sent.where((m) => m['type'] == 'command'), isEmpty);
+    expect(container.read(playerProvider).connectRemote, isFalse);
+    expect(engine.currentIndex, 1);
+    expect(engine.position.inMilliseconds, greaterThanOrEqualTo(10000));
+    expect(engine.playing, isTrue);
+    expect(socket.sink.sent, contains(equals({'type': 'activate'})));
+  });
+
   test('transfer away pauses locally and carries the music queue and position', () async {
     await player.loadConnect(
       [makeTrack('one'), makeTrack('two')],

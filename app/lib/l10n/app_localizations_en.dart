@@ -3183,6 +3183,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String connectAway(String device) {
+    return '$device is not connected · Play continues here';
+  }
+
+  @override
+  String get connectOffline => 'Not connected';
+
+  @override
   String get connectJamHint => 'Device transfer is unavailable during a Jam.';
 
   @override
