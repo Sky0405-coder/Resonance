@@ -6,6 +6,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 
 import 'equalizer.dart';
+import 'mix_fx.dart';
+import 'mix_lanes.dart';
 
 typedef SourceFactory = AudioSource Function();
 
@@ -98,6 +100,8 @@ class AutomixPlan {
     this.filterOut = false,
     this.intro = false,
     this.fadeOut = false,
+    this.lanes,
+    this.bars = 4,
   });
   final Duration start;
   final Duration incomingStart;
@@ -122,6 +126,10 @@ class AutomixPlan {
   /// Saved "fade out" transitions: the current song fades over the whole time, the next one comes in after the swap.
   final bool fadeOut;
 
+  /// A transition made in the editor's lanes (volume, EQ, filter, effect, loop); [bars] long.
+  final MixLanes? lanes;
+  final int bars;
+
   bool get beatMatched => speed != 1;
 
   /// Whether the next song's tempo actually changes (equal tempos are beat-matched without a speed change, which
@@ -143,8 +151,9 @@ const automixBassCutoff = 150.0;
 const automixBassCutDb = -15.0;
 
 /// The filter AutoMix keeps in every desktop player while it is on, neutral outside transitions. A transition only
-/// changes its values (mpv `af-command`, see [AutomixCut.mpvCommands]): a new filter chain would interrupt the sound.
-const automixMpvFilter = '@automix:lavfi=[bass=g=0:f=150:w=0.6,highpass=f=10:p=2]';
+/// changes its values (mpv `af-command`, see [AutomixCut.mpvCommands] and [mpvFxCommands]): a new filter chain
+/// would interrupt the sound. It also carries the transition editor's effects.
+const automixMpvFilter = mixMpvFilter;
 
 /// Camelot codes that mix well: the same key, a neighbour on the wheel (±1, 12 wraps to 1), or the relative
 /// major/minor (same number, other letter).
@@ -312,11 +321,20 @@ enum TransitionStyle {
 /// A transition saved for two songs in a playlist: where in the current song it starts, where the next one comes
 /// in (song times in seconds), its length in bars and how it sounds.
 class CustomTransition {
-  const CustomTransition({required this.style, required this.bars, required this.start, required this.incomingStart});
+  const CustomTransition({
+    required this.style,
+    required this.bars,
+    required this.start,
+    required this.incomingStart,
+    this.lanes,
+  });
   final TransitionStyle style;
   final int bars;
   final double start;
   final double incomingStart;
+
+  /// The editor's lanes; transitions saved before them (or by older apps) only have a [style].
+  final MixLanes? lanes;
 
   static const barChoices = [1, 2, 4, 8, 16];
 
@@ -328,10 +346,37 @@ class CustomTransition {
       bars: (j['bars'] as num).toInt(),
       start: (j['start'] as num).toDouble(),
       incomingStart: (j['incoming_start'] as num).toDouble(),
+      lanes: MixLanes.fromJson(j['lanes']),
     );
   }
 
-  Map<String, dynamic> toJson() => {'style': style.json, 'bars': bars, 'start': start, 'incoming_start': incomingStart};
+  Map<String, dynamic> toJson() => {
+    'style': style.json,
+    'bars': bars,
+    'start': start,
+    'incoming_start': incomingStart,
+    if (lanes != null) 'lanes': lanes!.toJson(),
+  };
+
+  /// The lanes this transition plays with: its own, or those of its (older) style.
+  MixLanes get effectiveLanes => lanes ?? lanesForStyle(style);
+
+  /// The lanes closest to a style (older transitions, and what older apps are told).
+  static MixLanes lanesForStyle(TransitionStyle style) => switch (style) {
+    TransitionStyle.crossfade => const MixLanes(),
+    TransitionStyle.fadeIn => const MixLanes(volume: VolumeLane.fadeInHardOut),
+    TransitionStyle.fadeOut => const MixLanes(volume: VolumeLane.fadeInOut, eq: EqLane.bassFadeOut),
+    TransitionStyle.filter => const MixLanes(volume: VolumeLane.crossfade, filter: FilterLane.highpassOut),
+  };
+
+  /// The style older apps play these lanes as.
+  static TransitionStyle styleForLanes(MixLanes lanes) => lanes.filter == FilterLane.highpassOut
+      ? TransitionStyle.filter
+      : switch (lanes.volume) {
+          VolumeLane.fadeInHardOut || VolumeLane.fadeInCutBar || VolumeLane.overlapCutBar => TransitionStyle.fadeIn,
+          VolumeLane.fadeInOut || VolumeLane.hardInFadeOut || VolumeLane.fadeInQuickOut => TransitionStyle.fadeOut,
+          _ => TransitionStyle.crossfade,
+        };
 
   /// The automatic transition as a starting point for editing.
   static CustomTransition fromPlan(AutomixPlan plan, double? bpm) {
@@ -351,13 +396,19 @@ class CustomTransition {
     );
   }
 
-  CustomTransition copyWith({TransitionStyle? style, int? bars, double? start, double? incomingStart}) =>
-      CustomTransition(
-        style: style ?? this.style,
-        bars: bars ?? this.bars,
-        start: start ?? this.start,
-        incomingStart: incomingStart ?? this.incomingStart,
-      );
+  CustomTransition copyWith({
+    TransitionStyle? style,
+    int? bars,
+    double? start,
+    double? incomingStart,
+    MixLanes? lanes,
+  }) => CustomTransition(
+    style: lanes != null ? styleForLanes(lanes) : style ?? this.style,
+    bars: bars ?? this.bars,
+    start: start ?? this.start,
+    incomingStart: incomingStart ?? this.incomingStart,
+    lanes: lanes ?? (style != null ? null : this.lanes),
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -365,18 +416,33 @@ class CustomTransition {
       other.style == style &&
       other.bars == bars &&
       other.start == start &&
-      other.incomingStart == incomingStart;
+      other.incomingStart == incomingStart &&
+      other.lanes == lanes;
 
   @override
-  int get hashCode => Object.hash(style, bars, start, incomingStart);
+  int get hashCode => Object.hash(style, bars, start, incomingStart, lanes);
 }
 
 /// The plan of a saved transition: its own start, entry point, length and sound, beat-matched like AutoMix.
 AutomixPlan customAutomixPlan(MixPoints outgoing, MixPoints incoming, CustomTransition transition) {
-  final (speed, outgoingSpeed, _) = automixSpeeds(outgoing, incoming);
+  final lanes = transition.lanes;
+  var (speed, outgoingSpeed, _) = automixSpeeds(outgoing, incoming);
+  if (lanes != null && !lanes.beatmatch) (speed, outgoingSpeed) = (1.0, 1.0);
   final beat = outgoing.bpm != null && outgoing.bpm! > 0 ? 60 / outgoing.bpm! : 0.5;
   final start = transition.start.clamp(0.0, math.max(0.0, outgoing.end - 1)).toDouble();
   final duration = math.min(transition.bars * 4 * beat, math.max(1.0, outgoing.end - start));
+  if (lanes != null) {
+    return AutomixPlan(
+      start: _seconds(start),
+      incomingStart: _seconds(math.max(0.0, transition.incomingStart)),
+      duration: _seconds(duration),
+      speed: speed,
+      outgoingSpeed: outgoingSpeed,
+      bassSwap: _seconds(duration / 2),
+      lanes: lanes,
+      bars: transition.bars,
+    );
+  }
   final filter = transition.style == TransitionStyle.filter;
   final swap = filter ? 0.0 : math.max(beat, (duration / 2 / beat).round() * beat).clamp(0.0, duration).toDouble();
   return AutomixPlan(
@@ -414,7 +480,9 @@ AutomixPlan customAutomixPlan(MixPoints outgoing, MixPoints incoming, CustomTran
   required Duration elapsed,
   required double outgoingTarget,
   required double incomingTarget,
-}) => plan.filterOut
+}) => plan.lanes != null
+    ? _laneVolumes(plan, elapsed, outgoingTarget, incomingTarget)
+    : plan.filterOut
     ? filterOutVolumes(
         elapsed: elapsed,
         duration: plan.duration,
@@ -437,6 +505,13 @@ AutomixPlan customAutomixPlan(MixPoints outgoing, MixPoints incoming, CustomTran
         outgoingTarget: outgoingTarget,
         incomingTarget: incomingTarget,
       );
+
+(double, double) _laneVolumes(AutomixPlan plan, Duration elapsed, double outgoingTarget, double incomingTarget) {
+  final total = plan.duration.inMicroseconds;
+  final u = total <= 0 ? 1.0 : elapsed.inMicroseconds / total;
+  final (out, inc) = laneStates(plan.lanes!, u, plan.bars);
+  return (outgoingTarget * out.dry, incomingTarget * inc.dry);
+}
 
 /// Filter-out volumes: the current song fades over the whole time while its low end is swept away; the next one
 /// comes in from a quarter on, once the current beat is thinning out, and is up at three quarters.
@@ -479,8 +554,8 @@ class AutomixCut {
 
   /// The same on the desktop: the values of [automixMpvFilter]'s bass shelf and high-pass (10 Hz is neutral).
   List<List<String>> get mpvCommands => [
-    ['af-command', 'automix', 'g', (bass == 0 ? 0.0 : automixBassCutDb * bass).toStringAsFixed(1), 'bass'],
-    ['af-command', 'automix', 'f', (10 * math.pow(240, sweep)).toStringAsFixed(0), 'highpass'],
+    ['af-command', 'automix', 'g', (bass == 0 ? 0.0 : automixBassCutDb * bass).toStringAsFixed(1), 'bass@lo'],
+    ['af-command', 'automix', 'f', (10 * math.pow(240, sweep)).toStringAsFixed(0), 'highpass@hp'],
   ];
 
   @override
@@ -608,6 +683,11 @@ class _Fade {
   Timer? startTimer;
   bool get started => clock.isRunning || clock.elapsed > Duration.zero;
   final corrected = <int>{};
+
+  /// The editor's lanes play through the players' mix effects (otherwise only their volumes are followed).
+  bool laneFx = false;
+  FxState? lastOut;
+  FxState? lastIn;
 }
 
 /// Two independent playlists built from factories; only the active player drives the UI.
@@ -675,6 +755,11 @@ class PlaybackEngine {
   }
 
   late final List<AudioPlayer> _players;
+
+  static final _android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  /// Whether the Android players have the mix processor (unknown until the first lanes transition).
+  bool? _androidFx;
 
   /// AutoMix cuts per player and (desktop) the source key each was sent to.
   final _bassCut = <AutomixCut?>[null, null];
@@ -910,7 +995,11 @@ class PlaybackEngine {
       await fade.incoming.seek(fade.plan!.incomingStart, index: fade.index);
       if (fade.plan!.changesTempo) await fade.incoming.setSpeed(_speed * fade.plan!.speed);
       // The next song comes in without its bass; the bass swaps over halfway (see [_startAutomix]).
-      if (!fade.plan!.filterOut) await _setCut(fade.incoming, fade.index, AutomixCut.bassSwap, force: true);
+      if (fade.plan!.lanes != null) {
+        await _prepareLanes(fade);
+      } else if (!fade.plan!.filterOut) {
+        await _setCut(fade.incoming, fade.index, AutomixCut.bassSwap, force: true);
+      }
       if (_disposed || currentIndex != index || _fade != fade) {
         if (_fade == fade) _fade = null;
         return;
@@ -930,6 +1019,8 @@ class PlaybackEngine {
 
   void _startAutomix(_Fade fade) {
     final plan = fade.plan!;
+    // Android lanes: the processors follow the volume curves; the players stay at their volumes.
+    if (fade.laneFx && !_desktop) fade.incoming.setVolume(_incomingTarget(fade)).ignore();
     fade.incoming.play().ignore();
     fade.clock.start();
     automixing.value = true;
@@ -946,7 +1037,9 @@ class PlaybackEngine {
       // Desktop filters can start over when a song's audio starts; the values are sent again now and then.
       final resend = tick++ % 5 == 0;
       final seconds = elapsed.inMicroseconds / 1e6;
-      if (plan.filterOut) {
+      if (plan.lanes != null) {
+        _tickLanes(fade, resend: resend);
+      } else if (plan.filterOut) {
         // The low end is swept away over the first 80 %.
         final sweep = seconds / (fade.duration.inMicroseconds / 1e6 * 0.8);
         _setCut(fade.outgoing, fade.outgoingIndex, AutomixCut(sweep: sweep), force: resend).ignore();
@@ -965,7 +1058,7 @@ class PlaybackEngine {
         ).ignore();
         _setCut(fade.incoming, fade.index, AutomixCut(bass: 1 - swap), force: resend).ignore();
       }
-      _applyAutomixVolumes(fade).ignore();
+      if (!fade.laneFx || _desktop) _applyAutomixVolumes(fade).ignore();
       // Starting playback takes a moment; while the next song is still quiet, line its beats up once (a later
       // seek would be audible as a hiccup).
       if (!plan.beatMatched) return;
@@ -980,6 +1073,22 @@ class PlaybackEngine {
   }
 
   Future<void> _applyAutomixVolumes(_Fade fade) async {
+    final plan = fade.plan!;
+    if (fade.laneFx && plan.lanes != null) {
+      if (!_desktop) {
+        await Future.wait([fade.outgoing.setVolume(_targetVolume), fade.incoming.setVolume(_incomingTarget(fade))]);
+        return;
+      }
+      // Desktop: the players' volumes follow the volume curve, the chain adds the effects' gate.
+      final total = plan.duration.inMicroseconds;
+      final u = total <= 0 ? 1.0 : fade.clock.elapsed.inMicroseconds / total;
+      final (out, inc) = laneStates(plan.lanes!, u, plan.bars);
+      await Future.wait([
+        fade.outgoing.setVolume(_targetVolume * out.level),
+        fade.incoming.setVolume(_incomingTarget(fade) * inc.level),
+      ]);
+      return;
+    }
     final (outgoing, incoming) = planVolumes(
       fade.plan!,
       elapsed: fade.clock.elapsed,
@@ -1117,6 +1226,7 @@ class PlaybackEngine {
       _speedRamp?.cancel();
       await fade.outgoing.setSpeed(_speed);
       await _clearBassCuts();
+      await _clearLanes(fade);
       return;
     }
     _editing = true;
@@ -1139,6 +1249,134 @@ class PlaybackEngine {
     await fade.outgoing.stop();
     await fade.outgoing.setSpeed(_speed);
     await _clearBassCuts();
+    await _clearLanes(fade);
+  }
+
+  /// Sends the lanes' effects to both players ahead of a transition: Android gets the whole automation now (keyed
+  /// by song time), the desktop chains their starting values (and the outgoing song its loop).
+  Future<void> _prepareLanes(_Fade fade) async {
+    final plan = fade.plan!;
+    final lanes = plan.lanes!;
+    if (!lanes.usesEffects && lanes.eq == EqLane.none) {
+      // Volumes alone need no effects.
+      fade.laneFx = false;
+      return;
+    }
+    final outgoingIndex = fade.outgoingIndex;
+    final bpm = outgoingIndex == null ? null : mixPointsForIndex?.call(outgoingIndex)?.bpm;
+    final beat = bpm != null && bpm > 0 ? 60 / bpm : 0.5;
+    final duration = plan.duration.inMicroseconds / 1e6;
+    final outRate = _speed * plan.outgoingSpeed;
+    final inRate = _speed * plan.speed;
+    final (out0, in0) = laneStates(lanes, 0, plan.bars);
+    if (_desktop) {
+      final outKey = outgoingIndex == null ? null : sourceKeyForIndex?.call(outgoingIndex);
+      final inKey = sourceKeyForIndex?.call(fade.index);
+      if (outKey == null || inKey == null) return;
+      fade.laneFx = true;
+      _cutKeys[_players.indexOf(fade.outgoing)] = outKey;
+      _cutKeys[_players.indexOf(fade.incoming)] = inKey;
+      for (final command in [
+        ...mpvFxCommands(out0, null, echoFeedback: lanes.effect.echoFeedback),
+        if (lanes.effect.echo) ...mpvEchoDelayCommands(lanes.effect.echoBeats * beat / outRate),
+      ]) {
+        JustAudioMediaKit.sourceCommand(outKey, command);
+      }
+      for (final command in mpvFxCommands(in0, null)) {
+        JustAudioMediaKit.sourceCommand(inKey, command);
+      }
+      fade.lastOut = out0;
+      fade.lastIn = in0;
+      // The loop: mpv jumps back by its length whenever it reaches the middle.
+      final loop = fittingLoopBeats(lanes, plan.bars);
+      if (loop > 0) {
+        final middle = plan.start.inMicroseconds / 1e6 + duration / 2 * outRate;
+        JustAudioMediaKit.sourceCommand(outKey, ['set', 'ab-loop-a', (middle - loop * beat).toStringAsFixed(3)]);
+        JustAudioMediaKit.sourceCommand(outKey, ['set', 'ab-loop-b', middle.toStringAsFixed(3)]);
+      }
+      return;
+    }
+    if (!_android || _androidFx == false) return;
+    MixAutomation automation(bool outgoing) => buildAutomation(
+      lanes: lanes,
+      bars: plan.bars,
+      outgoing: outgoing,
+      duration: duration,
+      songStart: (outgoing ? plan.start : plan.incomingStart).inMicroseconds / 1e6,
+      rate: outgoing ? outRate : inRate,
+      beat: beat,
+    );
+    final outAutomation = automation(true), inAutomation = automation(false);
+    final sent = await Future.wait([
+      AndroidMixFx.set(fade.outgoing, outAutomation.shifted(await _positionCorrection(fade.outgoing))),
+      AndroidMixFx.set(fade.incoming, inAutomation),
+    ]);
+    _androidFx = sent.every((ok) => ok);
+    fade.laneFx = _androidFx!;
+    if (!fade.laneFx) await Future.wait([AndroidMixFx.clear(fade.outgoing), AndroidMixFx.clear(fade.incoming)]);
+  }
+
+  /// Song time the processor of [player] is ahead of what is heard should be a fraction of a second; a mapping gone
+  /// wrong (far off) is corrected by assuming a quarter second.
+  Future<int> _positionCorrection(AudioPlayer player) async {
+    final processed = await AndroidMixFx.position(player);
+    if (processed == null) return 0;
+    final ahead = processed - player.position;
+    if (ahead > const Duration(milliseconds: -500) && ahead < const Duration(seconds: 3)) return 0;
+    return (ahead - const Duration(milliseconds: 250)).inMicroseconds;
+  }
+
+  /// Desktop: moves both chains along the lanes (the Android processors follow their automation by themselves).
+  void _tickLanes(_Fade fade, {bool resend = false}) {
+    if (!fade.laneFx || !_desktop) return;
+    final plan = fade.plan!;
+    final total = plan.duration.inMicroseconds;
+    final u = total <= 0 ? 1.0 : fade.clock.elapsed.inMicroseconds / total;
+    final (out, inc) = laneStates(plan.lanes!, u, plan.bars);
+    final outKey = fade.outgoingIndex == null ? null : sourceKeyForIndex?.call(fade.outgoingIndex!);
+    final inKey = sourceKeyForIndex?.call(fade.index);
+    final effect = plan.lanes!.effect;
+    if (outKey != null) {
+      final bpm = mixPointsForIndex?.call(fade.outgoingIndex!)?.bpm;
+      final beat = bpm != null && bpm > 0 ? 60 / bpm : 0.5;
+      for (final command in [
+        ...mpvFxCommands(out, resend ? null : fade.lastOut, echoFeedback: effect.echoFeedback),
+        // A chain that started over has lost its echo delays.
+        if (resend && effect.echo) ...mpvEchoDelayCommands(effect.echoBeats * beat / (_speed * plan.outgoingSpeed)),
+      ]) {
+        JustAudioMediaKit.sourceCommand(outKey, command);
+      }
+    }
+    if (inKey != null) {
+      for (final command in mpvFxCommands(inc, resend ? null : fade.lastIn)) {
+        JustAudioMediaKit.sourceCommand(inKey, command);
+      }
+    }
+    fade.lastOut = out;
+    fade.lastIn = inc;
+  }
+
+  /// Takes the lanes' effects off both players.
+  Future<void> _clearLanes(_Fade fade) async {
+    if (!fade.laneFx) return;
+    fade.laneFx = false;
+    if (_desktop) {
+      final keys = [
+        if (fade.outgoingIndex != null) sourceKeyForIndex?.call(fade.outgoingIndex!),
+        sourceKeyForIndex?.call(fade.index),
+      ];
+      for (final key in keys.nonNulls) {
+        for (final command in [
+          ...mpvFxCommands(FxState.neutral, null),
+          ['set', 'ab-loop-a', 'no'],
+          ['set', 'ab-loop-b', 'no'],
+        ]) {
+          JustAudioMediaKit.sourceCommand(key, command);
+        }
+      }
+      return;
+    }
+    await Future.wait([AndroidMixFx.clear(fade.outgoing), AndroidMixFx.clear(fade.incoming)]);
   }
 
   Future<void> play() async {

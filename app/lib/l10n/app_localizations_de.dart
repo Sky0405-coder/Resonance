@@ -3317,4 +3317,148 @@ class AppLocalizationsDe extends AppLocalizations {
   String playlistAddedTo(Object title) {
     return '„$title“ hinzugefügt';
   }
+
+  @override
+  String get transitionCustom => 'Benutzerdefiniert';
+
+  @override
+  String get transitionNone => 'Keine';
+
+  @override
+  String get transitionFilterLane => 'Filter';
+
+  @override
+  String get transitionEffects => 'Effekte';
+
+  @override
+  String get transitionLooping => 'Looping';
+
+  @override
+  String get transitionBeatmatching => 'Beatmatching';
+
+  @override
+  String get transitionBeatmatchingHint => 'Gleicht das Tempo der Songs an, damit die Beats übereinander liegen.';
+
+  @override
+  String get transitionEchoOut => 'Echo-Ausstieg';
+
+  @override
+  String get transitionLoopOut => 'Loop-Ausstieg';
+
+  @override
+  String get transitionCut => 'Harter Schnitt';
+
+  @override
+  String get volumeSmooth => 'Nahtlos überblenden';
+
+  @override
+  String get volumeOverlap => 'Überlappung';
+
+  @override
+  String get volumeFadeInOut => 'Einblenden und ausblenden';
+
+  @override
+  String get volumeHardInFadeOut => 'Hart einblenden und ausblenden';
+
+  @override
+  String get volumeFadeInHardOut => 'Einblenden und hart ausblenden';
+
+  @override
+  String get volumeCenterCut => 'Zentraler Schnitt';
+
+  @override
+  String get volumeCrossfade => 'Überblenden';
+
+  @override
+  String get volumeFadeInQuickOut => 'Einblenden und schnell ausblenden';
+
+  @override
+  String get volumeFadeInCutBar => 'Einblenden, hart ausblenden, 1 Takt verbleibend';
+
+  @override
+  String get volumeOverlapCutBar => 'Überlappung, hart ausblenden, 1 Takt verbleibend';
+
+  @override
+  String get eqSwapMiddle => 'Basswechsel in Übergangsmitte';
+
+  @override
+  String get eqSwapEnd => 'Basswechsel am Übergangsende';
+
+  @override
+  String get eqSwapStart => 'Basswechsel am Übergangsstart';
+
+  @override
+  String get eqThreeBand => '3-Frequenz-Überblendung';
+
+  @override
+  String get eqQuickBassCut => 'Schnelle Bassabsenkung';
+
+  @override
+  String get eqLongBassCut => 'Lange Bassabsenkung';
+
+  @override
+  String get eqBassFadeOut => 'Bass ausblenden';
+
+  @override
+  String get filterLowpassOut => 'Tiefpassfilter ausgehend';
+
+  @override
+  String get filterLowpassIn => 'Tiefpassfilter eingehend';
+
+  @override
+  String get filterLowpassInOut => 'Tiefpassfilter eingehend und ausgehend';
+
+  @override
+  String get filterLowpassInHighpassOut => 'Tiefpass eingehend, Hochpass ausgehend';
+
+  @override
+  String get filterHighpassOut => 'Hochpassfilter ausgehend';
+
+  @override
+  String get filterHighpassIn => 'Hochpassfilter eingehend';
+
+  @override
+  String get filterHighpassInOut => 'Hochpassfilter eingehend und ausgehend';
+
+  @override
+  String get filterHighpassInLowpassOut => 'Hochpass eingehend, Tiefpass ausgehend';
+
+  @override
+  String get filterHighpassHalf => 'Sanfter Hochpassfilter ausgehend';
+
+  @override
+  String get filterNoiseEnd => 'Rauschen am Übergangsende';
+
+  @override
+  String get effectReverbMiddle => 'Hall, Song endet in der Mitte';
+
+  @override
+  String get effectReverbCut => 'Hall, Schnitt am Übergangsende';
+
+  @override
+  String get effectReverbTail => 'Hall klingt bis zum Übergangsende aus';
+
+  @override
+  String effectEchoCut(Object beat) {
+    return 'Echo pro $beat Beat, Schnitt am Übergangsende';
+  }
+
+  @override
+  String effectEchoTail(Object beat) {
+    return 'Echo pro $beat Beat klingt bis zum Übergangsende aus';
+  }
+
+  @override
+  String effectDelayCut(Object beat) {
+    return 'Verzögerung pro $beat Beat, Schnitt am Übergangsende';
+  }
+
+  @override
+  String loopBeats(int count) {
+    return '$count-Beat-Loop';
+  }
+
+  @override
+  String get transitionFxUnavailable =>
+      'Effekte, Filter und Loops gehen auf diesem Gerät nicht; du hörst nur die Lautstärke.';
 }

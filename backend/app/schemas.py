@@ -321,13 +321,37 @@ class PlaylistDetail(PlaylistOut):
     editable: bool = False
 
 
+class TransitionLanes(BaseModel):
+    """The transition editor's lanes; the app knows what each one sounds like."""
+
+    volume: Literal[
+        "smooth", "overlap", "fade_in_out", "hard_in_fade_out", "fade_in_hard_out", "center_cut", "crossfade",
+        "fade_in_quick_out", "fade_in_cut_bar", "overlap_cut_bar",
+    ] = "smooth"
+    eq: Literal[
+        "swap_middle", "swap_end", "swap_start", "three_band", "quick_bass_cut", "long_bass_cut", "bass_fade_out", "none"
+    ] = "swap_middle"
+    filter: Literal[
+        "none", "lowpass_out", "lowpass_in", "lowpass_in_out", "lowpass_in_highpass_out", "highpass_out", "highpass_in",
+        "highpass_in_out", "highpass_in_lowpass_out", "highpass_half", "noise_end",
+    ] = "none"
+    effect: Literal[
+        "none", "reverb_middle", "reverb_cut", "reverb_tail", "echo_half_cut", "echo_half_tail", "echo_3q_cut",
+        "echo_3q_tail", "echo_beat_cut", "echo_beat_tail", "delay_half_cut", "delay_3q_cut",
+    ] = "none"
+    loop: Literal[0, 1, 2, 4, 8, 16] = 0
+    beatmatch: bool = True
+
+
 class TransitionIn(BaseModel):
     from_track_id: uuid.UUID
     to_track_id: uuid.UUID
+    # What older apps play; newer ones use the lanes.
     style: Literal["crossfade", "fade_in", "fade_out", "filter"]
     bars: Literal[1, 2, 4, 8, 16]
     start: float = Field(ge=0, le=36000)
     incoming_start: float = Field(ge=0, le=36000)
+    lanes: TransitionLanes | None = None
 
 
 class TransitionOut(TransitionIn):

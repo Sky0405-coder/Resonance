@@ -10,6 +10,7 @@ import 'package:resonance/core/session.dart';
 import 'package:resonance/l10n/l10n.dart';
 import 'package:resonance/player/engine.dart';
 import 'package:resonance/player/jam.dart';
+import 'package:resonance/player/mix_lanes.dart';
 import 'package:resonance/player/player.dart';
 import 'package:resonance/player/spectrum.dart';
 import 'package:resonance/ui/pages/transition_editor_page.dart';
@@ -127,7 +128,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('picking a preset and a length saves a transition for the pair; automatic resets it', (tester) async {
+  testWidgets('a preset, a length and a lane choice save a transition for the pair; automatic resets it', (
+    tester,
+  ) async {
     final scope = (await tester.runAsync(container))!;
     await open(tester, scope);
     expect(find.text('Song one'), findsOneWidget);
@@ -138,22 +141,49 @@ void main() {
     await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Fade out'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'Fade out'));
     await tester.pumpAndSettle();
-    expect(find.text('Fade out, then fade in'), findsOneWidget);
+    expect(find.text('Fade in and out'), findsOneWidget);
+    expect(find.text('Bass fade-out'), findsOneWidget);
     await tester.tap(find.text('4 bars'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('8 bars').last);
     await tester.pumpAndSettle();
+    // A lane of its own: an echo that rings out; the preset no longer matches, so the transition is custom.
+    await tester.ensureVisible(find.text('Effects'));
+    await tester.tap(find.text('Effects'));
+    await tester.pumpAndSettle();
+    final echo = find.text('Echo every ¾ beat rings out until the end');
+    await tester.scrollUntilVisible(
+      echo,
+      80,
+      scrollable: find.descendant(of: find.byType(BottomSheet), matching: find.byType(Scrollable)),
+    );
+    await tester.ensureVisible(echo);
+    await tester.pumpAndSettle();
+    await tester.tap(echo);
+    await tester.pumpAndSettle();
+    Navigator.of(tester.element(echo.last)).pop();
+    await tester.pumpAndSettle();
+    // Back up to the presets.
+    await tester.drag(find.byType(ListView).first, const Offset(0, 2000));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChoiceChip, 'Custom'), findsOneWidget);
     await tester.tap(save);
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
     await tester.pumpAndSettle();
     expect(api.calls, ['save p one>two']);
     final transition = api.saved['one>two']!;
-    expect((transition.style, transition.bars), (TransitionStyle.fadeOut, 8));
+    expect(transition.bars, 8);
+    expect(
+      transition.lanes,
+      const MixLanes(volume: VolumeLane.fadeInOut, eq: EqLane.bassFadeOut, effect: EffectLane.echoThreeQuarterTail),
+    );
+    // Older apps play it as the closest style.
+    expect(transition.style, TransitionStyle.fadeOut);
     // The automatic plan's start, on the beat grid.
     expect(transition.start, 200);
 
     await open(tester, scope);
-    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Fade out')).selected, isTrue);
+    expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Custom')).selected, isTrue);
     await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Automatic'));
     await tester.tap(find.widgetWithText(ChoiceChip, 'Automatic'));
     await tester.pumpAndSettle();

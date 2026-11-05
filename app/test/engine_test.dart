@@ -456,8 +456,8 @@ void main() {
       }
       expect(AutomixCut(sweep: 0.5), AutomixCut(sweep: 0.501));
       expect(AutomixCut().mpvCommands, [
-        ['af-command', 'automix', 'g', '0.0', 'bass'],
-        ['af-command', 'automix', 'f', '10', 'highpass'],
+        ['af-command', 'automix', 'g', '0.0', 'bass@lo'],
+        ['af-command', 'automix', 'f', '10', 'highpass@hp'],
       ]);
       expect(AutomixCut(sweep: 1).mpvCommands.last[3], '2400');
       // Only the low end swaps; mids and highs stay with the volume curve (no sudden drop or jump).

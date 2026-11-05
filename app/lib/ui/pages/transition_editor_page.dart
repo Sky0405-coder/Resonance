@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,7 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../l10n/l10n.dart';
 import '../../player/engine.dart';
+import '../../player/mix_lanes.dart';
 import '../../player/player.dart';
 import '../../player/spectrum.dart';
 import '../../player/transitions.dart';
@@ -18,6 +20,9 @@ const _lowColor = Color(0xFFD9822B);
 const _highColor = Color(0xFF2F49D1);
 const _volumeColor = Color(0xFF4FC3F7);
 const _bassColor = Color(0xFFFFCA28);
+const _filterColor = Color(0xFFF48FB1);
+const _effectColor = Color(0xFFE0E0E0);
+const _loopColor = Color(0xFFFF9800);
 
 /// Shapes the transition from one song of a playlist to the next: preset, length in bars, where it starts in the
 /// current song and where the next one comes in. Shown over both songs' spectra with the volume and bass curves.
@@ -216,7 +221,25 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
   Widget _editor(BuildContext context, MixPoints out, MixPoints inc) {
     final plan = _plan(out, inc);
     final edit = _editable(out, inc);
-    final style = _draft?.style;
+    final lanes = edit.effectiveLanes;
+    final l10n = context.l10n;
+    final presets = transitionPresets(l10n);
+    // Which chip is lit: automatic, a preset with exactly these lanes, or "custom".
+    final preset = _draft == null ? null : presets.where((p) => p.$2 == lanes).firstOrNull;
+    final custom = _draft != null && preset == null;
+
+    void setLanes(MixLanes value) => _update(edit.copyWith(lanes: value));
+
+    Widget chip(String label, bool selected, VoidCallback? onSelected, {Widget? avatar}) => Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        avatar: avatar,
+        label: Text(label),
+        selected: selected,
+        onSelected: !widget.canEdit || onSelected == null ? null : (_) => onSelected(),
+      ),
+    );
+
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
@@ -229,7 +252,7 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
         Row(
           children: [
             const Expanded(child: Divider(indent: 16, endIndent: 12)),
-            Text(context.l10n.transitionPresets, style: const TextStyle(color: Palette.textMuted)),
+            Text(l10n.transitionPresets, style: const TextStyle(color: Palette.textMuted)),
             const Expanded(child: Divider(indent: 12, endIndent: 16)),
           ],
         ),
@@ -238,47 +261,161 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              for (final option in <TransitionStyle?>[null, ...TransitionStyle.values])
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    avatar: option == null ? const Icon(Icons.auto_awesome, size: 18) : null,
-                    label: Text(transitionStyleLabel(context.l10n, option)),
-                    selected: style == option,
-                    onSelected: !widget.canEdit
-                        ? null
-                        : (_) => _update(option == null ? null : edit.copyWith(style: option)),
-                  ),
-                ),
+              chip(
+                l10n.transitionAuto,
+                _draft == null,
+                () => _update(null),
+                avatar: const Icon(Icons.auto_awesome, size: 18),
+              ),
+              if (custom) chip(l10n.transitionCustom, true, null),
+              for (final (name, value) in presets) chip(name, preset?.$2 == value, () => setLanes(value)),
             ],
           ),
         ),
-        _Description(
+        _LaneRow(
           color: _volumeColor,
-          label: context.l10n.transitionVolume,
-          value: switch (style) {
-            null => context.l10n.transitionVolumeAuto,
-            TransitionStyle.crossfade => context.l10n.transitionVolumeCrossfade,
-            TransitionStyle.fadeIn => context.l10n.transitionVolumeFadeIn,
-            TransitionStyle.fadeOut => context.l10n.transitionVolumeFadeOut,
-            TransitionStyle.filter => context.l10n.transitionVolumeFilter,
-          },
+          label: l10n.transitionVolume,
+          value: volumeLaneLabel(l10n, lanes.volume),
+          onTap: !widget.canEdit
+              ? null
+              : () => _pick(
+                  l10n.transitionVolume,
+                  _volumeColor,
+                  [for (final v in VolumeLane.values) (volumeLaneLabel(l10n, v), v)],
+                  lanes.volume,
+                  (v) => setLanes(lanes.copyWith(volume: v)),
+                ),
         ),
-        _Description(
+        _LaneRow(
           color: _bassColor,
-          label: context.l10n.transitionEq,
-          value: plan.filterOut ? context.l10n.transitionEqSweep : context.l10n.transitionEqSwap,
+          label: l10n.transitionEq,
+          value: eqLaneLabel(l10n, lanes.eq),
+          onTap: !widget.canEdit
+              ? null
+              : () => _pick(
+                  l10n.transitionEq,
+                  _bassColor,
+                  [for (final v in EqLane.values) (eqLaneLabel(l10n, v), v)],
+                  lanes.eq,
+                  (v) => setLanes(lanes.copyWith(eq: v)),
+                ),
         ),
+        _LaneRow(
+          color: _filterColor,
+          label: l10n.transitionFilterLane,
+          value: filterLaneLabel(l10n, lanes.filter),
+          onTap: !widget.canEdit
+              ? null
+              : () => _pick(
+                  l10n.transitionFilterLane,
+                  _filterColor,
+                  [for (final v in FilterLane.values) (filterLaneLabel(l10n, v), v)],
+                  lanes.filter,
+                  (v) => setLanes(lanes.copyWith(filter: v)),
+                ),
+        ),
+        _LaneRow(
+          color: _effectColor,
+          label: l10n.transitionEffects,
+          value: effectLaneLabel(l10n, lanes.effect),
+          onTap: !widget.canEdit
+              ? null
+              : () => _pick(
+                  l10n.transitionEffects,
+                  _effectColor,
+                  [for (final v in EffectLane.values) (effectLaneLabel(l10n, v), v)],
+                  lanes.effect,
+                  (v) => setLanes(lanes.copyWith(effect: v)),
+                ),
+        ),
+        _LaneRow(
+          color: _loopColor,
+          label: l10n.transitionLooping,
+          value: loopLabel(l10n, lanes.loopBeats),
+          onTap: !widget.canEdit
+              ? null
+              : () => _pick(
+                  l10n.transitionLooping,
+                  _loopColor,
+                  [for (final v in MixLanes.loopChoices) (loopLabel(l10n, v), v)],
+                  lanes.loopBeats,
+                  (v) => setLanes(lanes.copyWith(loopBeats: v)),
+                ),
+        ),
+        SwitchListTile(
+          title: Text(l10n.transitionBeatmatching),
+          subtitle: Text(l10n.transitionBeatmatchingHint, style: const TextStyle(color: Palette.textMuted)),
+          value: lanes.beatmatch,
+          onChanged: !widget.canEdit ? null : (v) => setLanes(lanes.copyWith(beatmatch: v)),
+        ),
+        if (kIsWeb && lanes.usesEffects)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: Text(l10n.transitionFxUnavailable, style: const TextStyle(color: Palette.textMuted, fontSize: 13)),
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Text(
-            widget.canEdit ? context.l10n.transitionDragHint : context.l10n.transitionViewOnly,
+            widget.canEdit ? l10n.transitionDragHint : l10n.transitionViewOnly,
             style: const TextStyle(color: Palette.textMuted, fontSize: 13),
           ),
         ),
       ],
     );
   }
+
+  /// A lane's choices in a sheet; the chosen one is ticked and changing it plays into the preview.
+  Future<void> _pick<T>(String title, Color color, List<(String, T)> options, T current, void Function(T) onPick) =>
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: const Color(0xFF282828),
+        showDragHandle: true,
+        builder: (sheet) {
+          var selected = current;
+          return StatefulBuilder(
+            builder: (context, setSheet) => ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                    child: Row(
+                      children: [
+                        Container(width: 4, height: 22, color: color),
+                        const SizedBox(width: 12),
+                        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, indent: 24, endIndent: 24),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final (label, value) in options)
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                            title: Text(label),
+                            trailing: value == selected
+                                ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                                : null,
+                            onTap: () {
+                              setSheet(() => selected = value);
+                              onPick(value);
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
 
   Widget _waveforms(
     BuildContext context,
@@ -424,24 +561,35 @@ class _TrackHeader extends StatelessWidget {
   );
 }
 
-class _Description extends StatelessWidget {
-  const _Description({required this.color, required this.label, required this.value});
+class _LaneRow extends StatelessWidget {
+  const _LaneRow({required this.color, required this.label, required this.value, this.onTap});
   final Color color;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-    child: Row(
-      children: [
-        Container(width: 3, height: 20, color: color),
-        const SizedBox(width: 10),
-        SizedBox(width: 110, child: Text(label, style: const TextStyle(fontSize: 15))),
-        Expanded(
-          child: Text(value, style: const TextStyle(color: Palette.textMuted)),
-        ),
-      ],
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(width: 3, height: 20, color: color),
+          const SizedBox(width: 10),
+          SizedBox(width: 110, child: Text(label, style: const TextStyle(fontSize: 15))),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Palette.textMuted),
+            ),
+          ),
+          if (onTap != null) const Icon(Icons.expand_more, color: Palette.textMuted, size: 20),
+        ],
+      ),
     ),
   );
 }
@@ -525,36 +673,84 @@ class _TransitionPainter extends CustomPainter {
     wave(outgoing, 0, (s) => s, (s) => s <= end);
     wave(incoming, lane, (s) => incomingStart + (s - _start) * plan.ratio, (s) => s >= _start);
 
-    // Curves inside the box: volume from the plan, bass swapping (or swept away) at the swap.
+    // The loop: the beats the current song repeats, from the middle on.
+    final lanes = plan.lanes;
+    final loopBeats = lanes == null ? 0 : fittingLoopBeats(lanes, plan.bars);
+    if (loopBeats > 0) {
+      final middle = _start + _duration / 2;
+      final loopPaint = Paint()..color = _loopColor.withValues(alpha: 0.22);
+      canvas.drawRect(Rect.fromLTRB(x(middle - loopBeats * outBeat), 0, x(middle), lane), loopPaint);
+      canvas.drawRect(
+        Rect.fromLTRB(x(middle), lane - 6, boxRight, lane),
+        Paint()..color = _loopColor.withValues(alpha: 0.8),
+      );
+    }
+
+    // Curves inside the box: volume, bass (or the EQ bands) and filters, from the lanes or AutoMix's plan.
     final swap = plan.bassSwap.inMicroseconds / 1e6;
-    final outVolume = Path(), inVolume = Path(), outBass = Path(), inBass = Path();
-    const steps = 80;
+    final paths = {
+      for (final key in ['outVolume', 'inVolume', 'outBass', 'inBass', 'outMid', 'inMid', 'outFilter', 'inFilter'])
+        key: Path(),
+    };
+    final showMids = lanes?.eq == EqLane.threeBand;
+    final showFilter = lanes != null && lanes.filter != FilterLane.none;
+    double filterValue(FxState state) {
+      // Neutral in the middle of the lane; a high-pass rises, a low-pass sinks, noise rises.
+      final hp = math.log(state.highpass / mixHighpassOff) / math.log(2400 / mixHighpassOff);
+      final lp = math.log(mixLowpassOff / state.lowpass) / math.log(mixLowpassOff / 250);
+      return (0.5 + 0.5 * hp - 0.5 * lp + 0.5 * state.noise).clamp(0.0, 1.0);
+    }
+
+    const steps = 120;
     for (var i = 0; i <= steps; i++) {
       final t = _duration * i / steps;
-      final (vo, vi) = planVolumes(
-        plan,
-        elapsed: Duration(microseconds: (t * 1e6).round()),
-        outgoingTarget: 1,
-        incomingTarget: 1,
-      );
-      final bassOut = plan.filterOut ? (1 - t / (_duration * 0.8)).clamp(0.0, 1.0) : (t < swap ? 1.0 : 0.0);
-      final bassIn = plan.filterOut ? 1.0 : (t < swap ? 0.0 : 1.0);
+      double vo, vi, bassOut, bassIn, midOut = 1, midIn = 1, filterOut = 0.5, filterIn = 0.5;
+      if (lanes != null) {
+        final (o, n) = laneStates(lanes, i / steps, plan.bars);
+        (vo, vi) = (o.dry, n.dry);
+        (bassOut, bassIn) = (1 - o.low / mixCutDb, 1 - n.low / mixCutDb);
+        (midOut, midIn) = (1 - o.mid / mixCutDb, 1 - n.mid / mixCutDb);
+        (filterOut, filterIn) = (filterValue(o), filterValue(n));
+      } else {
+        (vo, vi) = planVolumes(
+          plan,
+          elapsed: Duration(microseconds: (t * 1e6).round()),
+          outgoingTarget: 1,
+          incomingTarget: 1,
+        );
+        bassOut = plan.filterOut ? (1 - t / (_duration * 0.8)).clamp(0.0, 1.0) : (t < swap ? 1.0 : 0.0);
+        bassIn = plan.filterOut ? 1.0 : (t < swap ? 0.0 : 1.0);
+      }
       final px = x(_start + t);
       double y(double top, double value) => top + 10 + (1 - value) * (lane - 20);
-      void point(Path path, double top, double value) =>
-          i == 0 ? path.moveTo(px, y(top, value)) : path.lineTo(px, y(top, value));
-      point(outVolume, 0, vo);
-      point(inVolume, lane, vi);
-      point(outBass, 0, bassOut);
-      point(inBass, lane, bassIn);
+      void point(String key, double top, double value) =>
+          i == 0 ? paths[key]!.moveTo(px, y(top, value)) : paths[key]!.lineTo(px, y(top, value));
+      point('outVolume', 0, vo);
+      point('inVolume', lane, vi);
+      point('outBass', 0, bassOut);
+      point('inBass', lane, bassIn);
+      point('outMid', 0, midOut);
+      point('inMid', lane, midIn);
+      point('outFilter', 0, filterOut);
+      point('inFilter', lane, filterIn);
     }
     final stroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
-    canvas.drawPath(outBass, stroke..color = _bassColor);
-    canvas.drawPath(inBass, stroke..color = _bassColor);
-    canvas.drawPath(outVolume, stroke..color = _volumeColor);
-    canvas.drawPath(inVolume, stroke..color = _volumeColor);
+    if (lanes == null || lanes.eq != EqLane.none) {
+      canvas.drawPath(paths['outBass']!, stroke..color = _bassColor);
+      canvas.drawPath(paths['inBass']!, stroke..color = _bassColor);
+    }
+    if (showMids) {
+      canvas.drawPath(paths['outMid']!, stroke..color = _bassColor.withValues(alpha: 0.5));
+      canvas.drawPath(paths['inMid']!, stroke..color = _bassColor.withValues(alpha: 0.5));
+    }
+    if (showFilter) {
+      canvas.drawPath(paths['outFilter']!, stroke..color = _filterColor);
+      canvas.drawPath(paths['inFilter']!, stroke..color = _filterColor);
+    }
+    canvas.drawPath(paths['outVolume']!, stroke..color = _volumeColor);
+    canvas.drawPath(paths['inVolume']!, stroke..color = _volumeColor);
 
     if (playhead != null) {
       final px = x(playhead!);

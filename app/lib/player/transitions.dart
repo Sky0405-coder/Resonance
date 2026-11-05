@@ -6,6 +6,7 @@ import '../core/session.dart';
 import '../l10n/l10n.dart';
 import '../ui/pages/transition_editor_page.dart';
 import 'engine.dart';
+import 'mix_lanes.dart';
 
 /// The transition editor is optional (off by default): on, playlists show the transitions between their songs.
 class TransitionEditorSetting extends Notifier<bool> {
@@ -78,6 +79,79 @@ String transitionStyleLabel(AppLocalizations l10n, TransitionStyle? style) => sw
   TransitionStyle.fadeOut => l10n.transitionFadeOut,
   TransitionStyle.filter => l10n.transitionFilter,
 };
+
+String volumeLaneLabel(AppLocalizations l10n, VolumeLane lane) => switch (lane) {
+  VolumeLane.smooth => l10n.volumeSmooth,
+  VolumeLane.overlap => l10n.volumeOverlap,
+  VolumeLane.fadeInOut => l10n.volumeFadeInOut,
+  VolumeLane.hardInFadeOut => l10n.volumeHardInFadeOut,
+  VolumeLane.fadeInHardOut => l10n.volumeFadeInHardOut,
+  VolumeLane.centerCut => l10n.volumeCenterCut,
+  VolumeLane.crossfade => l10n.volumeCrossfade,
+  VolumeLane.fadeInQuickOut => l10n.volumeFadeInQuickOut,
+  VolumeLane.fadeInCutBar => l10n.volumeFadeInCutBar,
+  VolumeLane.overlapCutBar => l10n.volumeOverlapCutBar,
+};
+
+String eqLaneLabel(AppLocalizations l10n, EqLane lane) => switch (lane) {
+  EqLane.swapMiddle => l10n.eqSwapMiddle,
+  EqLane.swapEnd => l10n.eqSwapEnd,
+  EqLane.swapStart => l10n.eqSwapStart,
+  EqLane.threeBand => l10n.eqThreeBand,
+  EqLane.quickBassCut => l10n.eqQuickBassCut,
+  EqLane.longBassCut => l10n.eqLongBassCut,
+  EqLane.bassFadeOut => l10n.eqBassFadeOut,
+  EqLane.none => l10n.transitionNone,
+};
+
+String filterLaneLabel(AppLocalizations l10n, FilterLane lane) => switch (lane) {
+  FilterLane.none => l10n.transitionNone,
+  FilterLane.lowpassOut => l10n.filterLowpassOut,
+  FilterLane.lowpassIn => l10n.filterLowpassIn,
+  FilterLane.lowpassInOut => l10n.filterLowpassInOut,
+  FilterLane.lowpassInHighpassOut => l10n.filterLowpassInHighpassOut,
+  FilterLane.highpassOut => l10n.filterHighpassOut,
+  FilterLane.highpassIn => l10n.filterHighpassIn,
+  FilterLane.highpassInOut => l10n.filterHighpassInOut,
+  FilterLane.highpassInLowpassOut => l10n.filterHighpassInLowpassOut,
+  FilterLane.highpassHalf => l10n.filterHighpassHalf,
+  FilterLane.noiseEnd => l10n.filterNoiseEnd,
+};
+
+String effectLaneLabel(AppLocalizations l10n, EffectLane lane) {
+  final beat = switch (lane.echoBeats) {
+    0.5 => '½',
+    0.75 => '¾',
+    _ => '1',
+  };
+  return switch (lane) {
+    EffectLane.none => l10n.transitionNone,
+    EffectLane.reverbMiddle => l10n.effectReverbMiddle,
+    EffectLane.reverbCut => l10n.effectReverbCut,
+    EffectLane.reverbTail => l10n.effectReverbTail,
+    EffectLane.delayHalfCut || EffectLane.delayThreeQuarterCut => l10n.effectDelayCut(beat),
+    _ => lane.tail ? l10n.effectEchoTail(beat) : l10n.effectEchoCut(beat),
+  };
+}
+
+String loopLabel(AppLocalizations l10n, int beats) => beats == 0 ? l10n.transitionNone : l10n.loopBeats(beats);
+
+/// The editor's presets: a name and the lanes it sets.
+List<(String, MixLanes)> transitionPresets(AppLocalizations l10n) => [
+  (l10n.transitionCrossfade, const MixLanes()),
+  (l10n.transitionFadeIn, const MixLanes(volume: VolumeLane.fadeInHardOut)),
+  (l10n.transitionFadeOut, const MixLanes(volume: VolumeLane.fadeInOut, eq: EqLane.bassFadeOut)),
+  (
+    l10n.transitionFilter,
+    const MixLanes(volume: VolumeLane.crossfade, filter: FilterLane.highpassOut, effect: EffectLane.echoHalfCut),
+  ),
+  (
+    l10n.transitionEchoOut,
+    const MixLanes(volume: VolumeLane.fadeInHardOut, effect: EffectLane.echoBeatTail, filter: FilterLane.lowpassOut),
+  ),
+  (l10n.transitionLoopOut, const MixLanes(volume: VolumeLane.fadeInCutBar, eq: EqLane.quickBassCut, loopBeats: 4)),
+  (l10n.transitionCut, const MixLanes(volume: VolumeLane.centerCut)),
+];
 
 /// The Camelot wheel's colours: neighbouring keys (which mix well) get neighbouring hues.
 Color camelotColor(String key) {
@@ -159,8 +233,7 @@ class TransitionChip extends ConsumerWidget {
                     Text(
                       saved == null
                           ? context.l10n.transitionAuto
-                          : '${transitionStyleLabel(context.l10n, saved.style)} · '
-                                '${context.l10n.transitionBars(saved.bars)}',
+                          : '${_presetName(context.l10n, saved)} · ${context.l10n.transitionBars(saved.bars)}',
                       style: const TextStyle(fontSize: 13),
                     ),
                     const SizedBox(width: 4),
@@ -174,4 +247,10 @@ class TransitionChip extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _presetName(AppLocalizations l10n, CustomTransition transition) {
+  final lanes = transition.lanes;
+  if (lanes == null) return transitionStyleLabel(l10n, transition.style);
+  return transitionPresets(l10n).where((p) => p.$2 == lanes).firstOrNull?.$1 ?? l10n.transitionCustom;
 }

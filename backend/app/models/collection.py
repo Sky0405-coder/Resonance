@@ -107,6 +107,8 @@ class PlaylistTransition(Base):
     # Song times in seconds: where the transition starts in the current song, where the next one comes in.
     start: Mapped[float] = mapped_column(Float)
     incoming_start: Mapped[float] = mapped_column(Float)
+    # The editor's lanes ({"volume", "eq", "filter", "effect", "loop", "beatmatch"}); older ones only have a style.
+    lanes: Mapped[dict | None] = mapped_column(JSONB)
     updated_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

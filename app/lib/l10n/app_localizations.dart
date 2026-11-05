@@ -5923,6 +5923,276 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'„{title}“ hinzugefügt'**
   String playlistAddedTo(Object title);
+
+  /// No description provided for @transitionCustom.
+  ///
+  /// In de, this message translates to:
+  /// **'Benutzerdefiniert'**
+  String get transitionCustom;
+
+  /// No description provided for @transitionNone.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine'**
+  String get transitionNone;
+
+  /// No description provided for @transitionFilterLane.
+  ///
+  /// In de, this message translates to:
+  /// **'Filter'**
+  String get transitionFilterLane;
+
+  /// No description provided for @transitionEffects.
+  ///
+  /// In de, this message translates to:
+  /// **'Effekte'**
+  String get transitionEffects;
+
+  /// No description provided for @transitionLooping.
+  ///
+  /// In de, this message translates to:
+  /// **'Looping'**
+  String get transitionLooping;
+
+  /// No description provided for @transitionBeatmatching.
+  ///
+  /// In de, this message translates to:
+  /// **'Beatmatching'**
+  String get transitionBeatmatching;
+
+  /// No description provided for @transitionBeatmatchingHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Gleicht das Tempo der Songs an, damit die Beats übereinander liegen.'**
+  String get transitionBeatmatchingHint;
+
+  /// No description provided for @transitionEchoOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Echo-Ausstieg'**
+  String get transitionEchoOut;
+
+  /// No description provided for @transitionLoopOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Loop-Ausstieg'**
+  String get transitionLoopOut;
+
+  /// No description provided for @transitionCut.
+  ///
+  /// In de, this message translates to:
+  /// **'Harter Schnitt'**
+  String get transitionCut;
+
+  /// No description provided for @volumeSmooth.
+  ///
+  /// In de, this message translates to:
+  /// **'Nahtlos überblenden'**
+  String get volumeSmooth;
+
+  /// No description provided for @volumeOverlap.
+  ///
+  /// In de, this message translates to:
+  /// **'Überlappung'**
+  String get volumeOverlap;
+
+  /// No description provided for @volumeFadeInOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Einblenden und ausblenden'**
+  String get volumeFadeInOut;
+
+  /// No description provided for @volumeHardInFadeOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Hart einblenden und ausblenden'**
+  String get volumeHardInFadeOut;
+
+  /// No description provided for @volumeFadeInHardOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Einblenden und hart ausblenden'**
+  String get volumeFadeInHardOut;
+
+  /// No description provided for @volumeCenterCut.
+  ///
+  /// In de, this message translates to:
+  /// **'Zentraler Schnitt'**
+  String get volumeCenterCut;
+
+  /// No description provided for @volumeCrossfade.
+  ///
+  /// In de, this message translates to:
+  /// **'Überblenden'**
+  String get volumeCrossfade;
+
+  /// No description provided for @volumeFadeInQuickOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Einblenden und schnell ausblenden'**
+  String get volumeFadeInQuickOut;
+
+  /// No description provided for @volumeFadeInCutBar.
+  ///
+  /// In de, this message translates to:
+  /// **'Einblenden, hart ausblenden, 1 Takt verbleibend'**
+  String get volumeFadeInCutBar;
+
+  /// No description provided for @volumeOverlapCutBar.
+  ///
+  /// In de, this message translates to:
+  /// **'Überlappung, hart ausblenden, 1 Takt verbleibend'**
+  String get volumeOverlapCutBar;
+
+  /// No description provided for @eqSwapMiddle.
+  ///
+  /// In de, this message translates to:
+  /// **'Basswechsel in Übergangsmitte'**
+  String get eqSwapMiddle;
+
+  /// No description provided for @eqSwapEnd.
+  ///
+  /// In de, this message translates to:
+  /// **'Basswechsel am Übergangsende'**
+  String get eqSwapEnd;
+
+  /// No description provided for @eqSwapStart.
+  ///
+  /// In de, this message translates to:
+  /// **'Basswechsel am Übergangsstart'**
+  String get eqSwapStart;
+
+  /// No description provided for @eqThreeBand.
+  ///
+  /// In de, this message translates to:
+  /// **'3-Frequenz-Überblendung'**
+  String get eqThreeBand;
+
+  /// No description provided for @eqQuickBassCut.
+  ///
+  /// In de, this message translates to:
+  /// **'Schnelle Bassabsenkung'**
+  String get eqQuickBassCut;
+
+  /// No description provided for @eqLongBassCut.
+  ///
+  /// In de, this message translates to:
+  /// **'Lange Bassabsenkung'**
+  String get eqLongBassCut;
+
+  /// No description provided for @eqBassFadeOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Bass ausblenden'**
+  String get eqBassFadeOut;
+
+  /// No description provided for @filterLowpassOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Tiefpassfilter ausgehend'**
+  String get filterLowpassOut;
+
+  /// No description provided for @filterLowpassIn.
+  ///
+  /// In de, this message translates to:
+  /// **'Tiefpassfilter eingehend'**
+  String get filterLowpassIn;
+
+  /// No description provided for @filterLowpassInOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Tiefpassfilter eingehend und ausgehend'**
+  String get filterLowpassInOut;
+
+  /// No description provided for @filterLowpassInHighpassOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Tiefpass eingehend, Hochpass ausgehend'**
+  String get filterLowpassInHighpassOut;
+
+  /// No description provided for @filterHighpassOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Hochpassfilter ausgehend'**
+  String get filterHighpassOut;
+
+  /// No description provided for @filterHighpassIn.
+  ///
+  /// In de, this message translates to:
+  /// **'Hochpassfilter eingehend'**
+  String get filterHighpassIn;
+
+  /// No description provided for @filterHighpassInOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Hochpassfilter eingehend und ausgehend'**
+  String get filterHighpassInOut;
+
+  /// No description provided for @filterHighpassInLowpassOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Hochpass eingehend, Tiefpass ausgehend'**
+  String get filterHighpassInLowpassOut;
+
+  /// No description provided for @filterHighpassHalf.
+  ///
+  /// In de, this message translates to:
+  /// **'Sanfter Hochpassfilter ausgehend'**
+  String get filterHighpassHalf;
+
+  /// No description provided for @filterNoiseEnd.
+  ///
+  /// In de, this message translates to:
+  /// **'Rauschen am Übergangsende'**
+  String get filterNoiseEnd;
+
+  /// No description provided for @effectReverbMiddle.
+  ///
+  /// In de, this message translates to:
+  /// **'Hall, Song endet in der Mitte'**
+  String get effectReverbMiddle;
+
+  /// No description provided for @effectReverbCut.
+  ///
+  /// In de, this message translates to:
+  /// **'Hall, Schnitt am Übergangsende'**
+  String get effectReverbCut;
+
+  /// No description provided for @effectReverbTail.
+  ///
+  /// In de, this message translates to:
+  /// **'Hall klingt bis zum Übergangsende aus'**
+  String get effectReverbTail;
+
+  /// No description provided for @effectEchoCut.
+  ///
+  /// In de, this message translates to:
+  /// **'Echo pro {beat} Beat, Schnitt am Übergangsende'**
+  String effectEchoCut(Object beat);
+
+  /// No description provided for @effectEchoTail.
+  ///
+  /// In de, this message translates to:
+  /// **'Echo pro {beat} Beat klingt bis zum Übergangsende aus'**
+  String effectEchoTail(Object beat);
+
+  /// No description provided for @effectDelayCut.
+  ///
+  /// In de, this message translates to:
+  /// **'Verzögerung pro {beat} Beat, Schnitt am Übergangsende'**
+  String effectDelayCut(Object beat);
+
+  /// No description provided for @loopBeats.
+  ///
+  /// In de, this message translates to:
+  /// **'{count}-Beat-Loop'**
+  String loopBeats(int count);
+
+  /// No description provided for @transitionFxUnavailable.
+  ///
+  /// In de, this message translates to:
+  /// **'Effekte, Filter und Loops gehen auf diesem Gerät nicht; du hörst nur die Lautstärke.'**
+  String get transitionFxUnavailable;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

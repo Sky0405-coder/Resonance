@@ -3337,4 +3337,148 @@ class AppLocalizationsEn extends AppLocalizations {
   String playlistAddedTo(Object title) {
     return 'Added “$title”';
   }
+
+  @override
+  String get transitionCustom => 'Custom';
+
+  @override
+  String get transitionNone => 'None';
+
+  @override
+  String get transitionFilterLane => 'Filter';
+
+  @override
+  String get transitionEffects => 'Effects';
+
+  @override
+  String get transitionLooping => 'Looping';
+
+  @override
+  String get transitionBeatmatching => 'Beatmatching';
+
+  @override
+  String get transitionBeatmatchingHint => 'Matches the songs\' tempos so their beats line up.';
+
+  @override
+  String get transitionEchoOut => 'Echo out';
+
+  @override
+  String get transitionLoopOut => 'Loop out';
+
+  @override
+  String get transitionCut => 'Hard cut';
+
+  @override
+  String get volumeSmooth => 'Seamless crossfade';
+
+  @override
+  String get volumeOverlap => 'Overlap';
+
+  @override
+  String get volumeFadeInOut => 'Fade in and out';
+
+  @override
+  String get volumeHardInFadeOut => 'Cut in, fade out';
+
+  @override
+  String get volumeFadeInHardOut => 'Fade in, cut out';
+
+  @override
+  String get volumeCenterCut => 'Center cut';
+
+  @override
+  String get volumeCrossfade => 'Crossfade';
+
+  @override
+  String get volumeFadeInQuickOut => 'Fade in, quick fade out';
+
+  @override
+  String get volumeFadeInCutBar => 'Fade in, cut out with 1 bar left';
+
+  @override
+  String get volumeOverlapCutBar => 'Overlap, cut out with 1 bar left';
+
+  @override
+  String get eqSwapMiddle => 'Bass swap in the middle';
+
+  @override
+  String get eqSwapEnd => 'Bass swap at the end';
+
+  @override
+  String get eqSwapStart => 'Bass swap at the start';
+
+  @override
+  String get eqThreeBand => 'Three-band crossfade';
+
+  @override
+  String get eqQuickBassCut => 'Quick bass cut';
+
+  @override
+  String get eqLongBassCut => 'Long bass cut';
+
+  @override
+  String get eqBassFadeOut => 'Bass fade-out';
+
+  @override
+  String get filterLowpassOut => 'Low-pass on the outgoing song';
+
+  @override
+  String get filterLowpassIn => 'Low-pass on the incoming song';
+
+  @override
+  String get filterLowpassInOut => 'Low-pass in and out';
+
+  @override
+  String get filterLowpassInHighpassOut => 'Low-pass in, high-pass out';
+
+  @override
+  String get filterHighpassOut => 'High-pass on the outgoing song';
+
+  @override
+  String get filterHighpassIn => 'High-pass on the incoming song';
+
+  @override
+  String get filterHighpassInOut => 'High-pass in and out';
+
+  @override
+  String get filterHighpassInLowpassOut => 'High-pass in, low-pass out';
+
+  @override
+  String get filterHighpassHalf => 'Gentle high-pass on the outgoing song';
+
+  @override
+  String get filterNoiseEnd => 'Noise riser at the end';
+
+  @override
+  String get effectReverbMiddle => 'Reverb, song ends in the middle';
+
+  @override
+  String get effectReverbCut => 'Reverb, cut at the end';
+
+  @override
+  String get effectReverbTail => 'Reverb rings out until the end';
+
+  @override
+  String effectEchoCut(Object beat) {
+    return 'Echo every $beat beat, cut at the end';
+  }
+
+  @override
+  String effectEchoTail(Object beat) {
+    return 'Echo every $beat beat rings out until the end';
+  }
+
+  @override
+  String effectDelayCut(Object beat) {
+    return 'Delay of $beat beat, cut at the end';
+  }
+
+  @override
+  String loopBeats(int count) {
+    return '$count-beat loop';
+  }
+
+  @override
+  String get transitionFxUnavailable =>
+      'Effects, filters and loops don\'t work on this device; you only hear the volumes.';
 }

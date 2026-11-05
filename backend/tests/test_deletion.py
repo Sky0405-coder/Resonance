@@ -558,6 +558,20 @@ async def test_transitions_are_saved_per_pair_by_editors_and_reset(env: SimpleNa
     assert (response.json()["style"], response.json()["bars"]) == ("crossfade", 8)
     listed = (await env.client.get(url, headers=env.headers)).json()
     assert [(t["from_track_id"], t["style"]) for t in listed] == [(first, "crossfade")]
+    assert response.json()["lanes"] is None
+    # The editor's lanes travel along; missing ones take their defaults, unknown values are refused.
+    lanes = {"volume": "center_cut", "eq": "three_band", "filter": "noise_end", "effect": "echo_3q_tail", "loop": 4,
+             "beatmatch": False}
+    response = await env.client.put(url, json={**body, "lanes": lanes}, headers=env.headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["lanes"] == lanes
+    response = await env.client.put(url, json={**body, "lanes": {"effect": "reverb_tail"}}, headers=env.headers)
+    assert response.json()["lanes"]["volume"] == "smooth" and response.json()["lanes"]["effect"] == "reverb_tail"
+    for bad_lanes in [{"volume": "spin"}, {"loop": 3}, {"filter": "bandpass"}]:
+        response = await env.client.put(url, json={**body, "lanes": bad_lanes}, headers=env.headers)
+        assert response.status_code == 422
+    response = await env.client.put(url, json={**body, "style": "crossfade", "bars": 8}, headers=env.headers)
+    assert response.json()["lanes"] is None
     for bad in [{"style": "spin"}, {"bars": 3}, {"start": -1}, {"to_track_id": str(uuid.uuid4())}]:
         assert (await env.client.put(url, json={**body, **bad}, headers=env.headers)).status_code in (400, 422)
     # Shared for listening: visible, not editable; with others it is not even visible.
