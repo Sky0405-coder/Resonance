@@ -171,7 +171,7 @@ async def test_blend_mixes_both_tastes_for_both_users_until_one_leaves(env: Simp
 
 
 def test_taste_match_is_symmetric_and_ignores_unshared_artists() -> None:
-    artist = lambda name: SimpleNamespace(name=name)  # noqa: E731
+    artist = lambda name: SimpleNamespace(name=name)
     a_ids, b_ids = [uuid.uuid4() for _ in range(3)], [uuid.uuid4() for _ in range(3)]
     a = SimpleNamespace(
         artists=dict(zip(a_ids, map(artist, ["X", "Y", "Z"]), strict=True)), artist_scores=dict.fromkeys(a_ids, 4)
@@ -303,6 +303,7 @@ async def test_credits_from_tags_and_musicbrainz_are_cached(env: SimpleNamespace
             "relations": [
                 {"target-type": "artist", "type": "producer", "artist": {"name": "prod person"}, "attributes": []},
                 {"target-type": "artist", "type": "mix", "artist": {"name": "Mixer"}, "attributes": []},
+                {"target-type": "artist", "type": "engineer", "artist": {"name": "Helper"}, "attributes": ["assistant"]},
                 {"target-type": "artist", "type": "instrument", "artist": {"name": "Guitarist"},
                  "attributes": ["guitar"]},
                 {"target-type": "artist", "type": "vocal", "artist": {"name": "Singer"}, "attributes": []},
@@ -325,7 +326,7 @@ async def test_credits_from_tags_and_musicbrainz_are_cached(env: SimpleNamespace
     response = await env.client.get(f"/api/tracks/{track_id}/credits", headers=env.headers)
     assert response.status_code == 200, response.text
     data = response.json()
-    people = lambda section: {item["name"]: item["roles"] for item in data[section]}  # noqa: E731
+    people = lambda section: {item["name"]: item["roles"] for item in data[section]}
     assert people("performers") == {
         "Main Act": ["artist"], "Guest One": ["featured"], "Guest Two": ["featured"],
         "Guitarist": ["guitar"], "Singer": ["vocals"],
@@ -333,7 +334,7 @@ async def test_credits_from_tags_and_musicbrainz_are_cached(env: SimpleNamespace
     assert people("writers") == {"Writer One": ["composer", "lyricist"], "Writer Two": ["composer"],
                                  "Lyric Person": ["lyricist"]}
     assert people("producers") == {"Prod Person": ["producer"]}
-    assert people("engineers") == {"Mixer": ["mix"]}
+    assert people("engineers") == {"Mixer": ["mix"], "Helper": ["assistant engineer"]}
     assert data["label"] == "Tag Label"
     assert data["copyright"] == "2026 Tag Label"
     assert data["sources"] == ["tags", "musicbrainz"]

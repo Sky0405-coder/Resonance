@@ -19,7 +19,7 @@ from app.services.musicbrainz import MusicBrainzError, mb
 from app.services.tags import _FEAT
 
 log = logging.getLogger(__name__)
-VERSION = 1
+VERSION = 2
 # Roles by section; anything else a musician played (instruments, vocals) counts as performing.
 WRITING = ("composer", "lyricist", "writer", "arranger", "librettist")
 PRODUCING = ("producer", "co-producer", "executive producer")
@@ -136,7 +136,11 @@ def _relation_people(relations: list[dict]) -> list[tuple[str, str]]:
         elif kind == "producer" and "executive" in attributes:
             people.append((name, "executive producer"))
         elif kind in ("engineer", "audio", "sound") and attributes:
-            people.extend((name, attribute.lower()) for attribute in attributes)
+            # "assistant", "mix", "recording", …: the kind of engineering (an assistant is an assistant engineer).
+            people.extend(
+                (name, role if role in ENGINEERING else f"{role} engineer")
+                for role in (attribute.lower() for attribute in attributes)
+            )
         elif kind:
             people.append((name, kind.replace("mix-dj", "mix")))
     return people
