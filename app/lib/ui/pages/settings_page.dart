@@ -312,6 +312,18 @@ class SettingsPage extends ConsumerWidget {
               },
             ),
           ),
+          if (isDesktop)
+            StatefulBuilder(
+              builder: (context, setState) => SwitchListTile(
+                title: Text(context.l10n.settingsKeyShift),
+                subtitle: Text(context.l10n.settingsKeyShiftHint),
+                value: ref.read(playerProvider.notifier).engine.keyShift,
+                onChanged: (v) {
+                  ref.read(playerProvider.notifier).setKeyShift(v);
+                  setState(() {});
+                },
+              ),
+            ),
           SwitchListTile(
             title: Text(context.l10n.settingsTransitionEditor),
             subtitle: Text(context.l10n.settingsTransitionEditorHint),

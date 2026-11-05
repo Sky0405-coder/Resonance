@@ -6,6 +6,7 @@ import 'package:resonance/player/mix_lanes.dart';
 const _points = MixPoints(bpm: 120, mixIn: 0.5, mixOut: 200, end: 210);
 
 void main() {
+  desktopEffectTests();
   test('every lane ends with the next song as it is and starts with the current one untouched', () {
     for (final volume in VolumeLane.values) {
       for (final eq in EqLane.values) {
@@ -163,5 +164,43 @@ void main() {
     expect(mpvEchoDelayCommands(0.375).map((c) => c[3]), ['375', '750', '1125']);
     expect(mixMpvFilter, contains('bass@lo'));
     expect(mixMpvFilter, contains('highpass@hp'));
+  });
+}
+
+void desktopEffectTests() {
+  test('key shift finds the smallest fitting semitone shift on the Camelot wheel', () {
+    expect(shiftCamelot('8B', 1), '3B', reason: 'C major a semitone up is C# major');
+    expect(shiftCamelot('8A', -1), '1A');
+    expect(keyShiftSemitones('8A', '9A'), 0, reason: 'already fits');
+    expect(keyShiftSemitones('8A', '3A'), -1);
+    expect(keyShiftSemitones('8A', '1A'), 1);
+    expect(keyShiftSemitones(null, '3A'), 0);
+    expect(keyShiftSemitones('8A', '5B'), 0, reason: 'another series: no small shift fits');
+    expect(keyShiftSemitones('8A', '11A'), -2);
+  });
+
+  test('beat roll halves from one beat to a sixteenth after the middle', () {
+    expect(beatRollBeats(0.4, 4), isNull);
+    expect(beatRollBeats(0.5, 4), 1);
+    expect(beatRollBeats(0.5 + 1 / 16, 4), 0.5);
+    expect(beatRollBeats(0.5 + 3 / 16, 4), 0.125);
+    expect(beatRollBeats(0.99, 4), 0.0625);
+    expect(beatRollBeats(1, 4), isNull);
+  });
+
+  test('flanger and gate lanes drive their desktop filters', () {
+    const flanger = MixLanes(effect: EffectLane.flanger);
+    final (start, _) = laneStates(flanger, 0, 4);
+    final (middle, incoming) = laneStates(flanger, 0.5, 4);
+    expect(start.flanger, 0);
+    expect(middle.flanger, 1);
+    expect(incoming.flanger, 0);
+    final commands = mpvFxCommands(middle, start).map((c) => c[4]).toList();
+    expect(commands, containsAll(['volume@flw', 'volume@dry']));
+    final (gated, _) = laneStates(const MixLanes(effect: EffectLane.gate), 0.6, 4);
+    expect(gated.gate, 1);
+    expect(mpvGateCommand(beat: 0.5, downbeat: 1.2)[3], 'if(lt(mod(t-1.200,0.2500),0.1250),1,0.05)');
+    expect(mpvGateCommand()[3], '1');
+    expect(EffectLane.beatRoll.desktopOnly && !EffectLane.reverbCut.desktopOnly, isTrue);
   });
 }

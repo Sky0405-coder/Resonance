@@ -242,6 +242,7 @@ class PlayerController extends Notifier<PlayerView> {
     engine.crossfadeSeconds = (prefs.getInt('crossfade_seconds') ?? 0).clamp(0, 20);
     engine.targetVolumeForIndex = (index) => userVolume.value * _gainForTrack(state.queue[index]);
     engine.automix = prefs.getBool('automix') ?? false;
+    engine.keyShift = prefs.getBool('automix_key_shift') ?? true;
     engine.setEqualizer(ref.read(equalizerProvider)).ignore();
     ref.listen(equalizerProvider, (_, settings) {
       _equalizerDebounce?.cancel();
@@ -1516,6 +1517,12 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   bool get automix => _automixBeforeJam ?? engine.automix;
+
+  /// Desktop: pitch a next song in a clashing key to fit (AutoMix).
+  void setKeyShift(bool enabled) {
+    ref.read(prefsProvider).setBool('automix_key_shift', enabled);
+    engine.keyShift = enabled;
+  }
 
   void setAutomix(bool enabled) {
     ref.read(prefsProvider).setBool('automix', enabled);

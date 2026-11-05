@@ -2374,6 +2374,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet. Der Crossfade-Regler legt die Mindestlänge der Übergänge fest.';
 
   @override
+  String get settingsKeyShift => 'Tonart angleichen';
+
+  @override
+  String get settingsKeyShiftHint =>
+      'AutoMix verschiebt den nächsten Song um bis zu zwei Halbtöne, wenn die Tonarten nicht zusammenpassen (nur PC)';
+
+  @override
   String get equalizerTitle => 'Equalizer';
 
   @override
@@ -3544,6 +3551,18 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get filterNoiseEnd => 'Rauschen am Übergangsende';
+
+  @override
+  String get effectFlanger => 'Flanger (nur PC)';
+
+  @override
+  String get effectPhaser => 'Phaser (nur PC)';
+
+  @override
+  String get effectGate => 'Gater auf Achteln (nur PC)';
+
+  @override
+  String get effectBeatRoll => 'Beat-Roll: 1 → 1/16 Schlag (nur PC)';
 
   @override
   String get effectReverbMiddle => 'Hall, Song endet in der Mitte';

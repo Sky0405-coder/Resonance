@@ -131,17 +131,34 @@ class AndroidMixFx {
   }
 }
 
-/// The desktop filter chain: three EQ bands, high- and low-pass, then the dry sound beside an echo (three taps on
-/// the beat), a reverb and a noise riser. Every value is changed live with `af-command` ([mpvFxCommands]).
+/// The desktop filter chain: three EQ bands, high- and low-pass, the eighth-note gate, then the dry sound beside a
+/// flanger, a phaser, an echo (three taps on the beat), a reverb and a noise riser. Every value is changed live with
+/// `af-command` ([mpvFxCommands]); the gate gets an expression on the song's beat grid ([mpvGateCommand]).
 const mixMpvFilter =
     '@automix:lavfi=[bass@lo=g=0:f=150:w=0.6,equalizer@mid=f=1000:t=o:w=2:g=0,treble@hi=g=0:f=4000:w=0.6,'
-    'highpass@hp=f=10:p=2,lowpass@lp=f=20000:p=2,asplit=2[dry][wet];[dry]volume@dry=1[d];'
+    'highpass@hp=f=10:p=2,lowpass@lp=f=20000:p=2,volume@gate=1:eval=frame,asplit=4[dry][wet][fl][ph];'
+    '[dry]volume@dry=1[d];'
+    '[fl]flanger=delay=1:depth=5:regen=60:width=70:speed=0.25,volume@flw=0[f];'
+    '[ph]aphaser=in_gain=0.5:out_gain=0.8:delay=3:decay=0.5:speed=0.5:type=t,volume@phw=0[p];'
     '[wet]volume@fx=0,asplit=4[e1][e2][e3][r];'
     '[e1]adelay@t1=delays=500:all=1,volume@g1=0[o1];[e2]adelay@t2=delays=1000:all=1,volume@g2=0[o2];'
     '[e3]adelay@t3=delays=1500:all=1,volume@g3=0[o3];'
     '[r]aecho=0.8:0.9:23|37|53|71|97|131:0.5|0.45|0.4|0.35|0.3|0.25,lowpass=f=5000,volume@rv=0[rr];'
     'anoisesrc=c=pink:a=0.5,highpass=f=300,volume@noise=0[n];'
-    '[d][o1][o2][o3][rr][n]amix=inputs=6:normalize=0:duration=first]';
+    '[d][f][p][o1][o2][o3][rr][n]amix=inputs=8:normalize=0:duration=first]';
+
+/// The gate's volume: on for the first half of every eighth note counted from [downbeat] (song seconds; mpv's
+/// filters see song time), almost silent for the second half; [beat] in song seconds. Off: a plain 1.
+List<String> mpvGateCommand({double? beat, double downbeat = 0}) => [
+  'af-command',
+  'automix',
+  'volume',
+  beat == null
+      ? '1'
+      : 'if(lt(mod(t-${downbeat.toStringAsFixed(3)},${(beat / 2).toStringAsFixed(4)}),'
+            '${(beat / 4).toStringAsFixed(4)}),1,0.05)',
+  'volume@gate',
+];
 
 List<String> _command(String target, String name, double value, [int digits = 3]) => [
   'af-command',
@@ -173,7 +190,23 @@ List<List<String>> mpvFxCommands(FxState state, FxState? previous, {double echoF
   add(state.high, previous?.high, _command('treble@hi', 'g', state.high, 1));
   add(state.highpass, previous?.highpass, _command('highpass@hp', 'f', state.highpass, 0));
   add(state.lowpass, previous?.lowpass, _command('lowpass@lp', 'f', state.lowpass, 0));
-  add(gate, prevGate, _command('volume@dry', 'volume', gate));
+  // The flanger and the phaser take over from the dry sound as they come in.
+  double through(FxState s, double g) => g * (1 - s.flanger - s.phaser).clamp(0.0, 1.0);
+  add(
+    through(state, gate),
+    prevGate == null ? null : through(previous!, prevGate),
+    _command('volume@dry', 'volume', through(state, gate)),
+  );
+  add(
+    gate * state.flanger,
+    prevGate == null ? null : prevGate * previous!.flanger,
+    _command('volume@flw', 'volume', gate * state.flanger),
+  );
+  add(
+    gate * state.phaser,
+    prevGate == null ? null : prevGate * previous!.phaser,
+    _command('volume@phw', 'volume', gate * state.phaser),
+  );
   add(feed, prevFeed, _command('volume@fx', 'volume', feed));
   for (final (i, target) in ['volume@g1', 'volume@g2', 'volume@g3'].indexed) {
     double tap(FxState s) => s.echo * _pow(echoFeedback, i);

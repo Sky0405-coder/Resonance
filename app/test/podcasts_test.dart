@@ -218,6 +218,8 @@ class _Engine implements PlaybackEngine {
   @override
   bool automix = false;
   @override
+  bool keyShift = true;
+  @override
   double speed = 1;
   @override
   double Function(int)? targetVolumeForIndex;

@@ -92,6 +92,8 @@ class _Engine implements PlaybackEngine {
   @override
   bool automix = false;
   @override
+  bool keyShift = true;
+  @override
   MixPoints? Function(int)? mixPointsForIndex;
   @override
   AutomixPlan? Function(int, int)? customPlanForIndex;

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/desktop.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
@@ -323,7 +324,11 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
               : () => _pick(
                   l10n.transitionEffects,
                   _effectColor,
-                  [for (final v in EffectLane.values) (effectLaneLabel(l10n, v), v)],
+                  [
+                    for (final v in EffectLane.values)
+                      // Flanger, phaser, gate and beat roll exist only in the desktop players.
+                      if (!v.desktopOnly || isDesktop || lanes.effect == v) (effectLaneLabel(l10n, v), v),
+                  ],
                   lanes.effect,
                   (v) => setLanes(lanes.copyWith(effect: v)),
                 ),

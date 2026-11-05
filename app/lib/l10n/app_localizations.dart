@@ -4190,6 +4190,18 @@ abstract class AppLocalizations {
   /// **'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet. Der Crossfade-Regler legt die Mindestlänge der Übergänge fest.'**
   String get settingsAutomixHint;
 
+  /// No description provided for @settingsKeyShift.
+  ///
+  /// In de, this message translates to:
+  /// **'Tonart angleichen'**
+  String get settingsKeyShift;
+
+  /// No description provided for @settingsKeyShiftHint.
+  ///
+  /// In de, this message translates to:
+  /// **'AutoMix verschiebt den nächsten Song um bis zu zwei Halbtöne, wenn die Tonarten nicht zusammenpassen (nur PC)'**
+  String get settingsKeyShiftHint;
+
   /// No description provided for @equalizerTitle.
   ///
   /// In de, this message translates to:
@@ -6343,6 +6355,30 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Rauschen am Übergangsende'**
   String get filterNoiseEnd;
+
+  /// No description provided for @effectFlanger.
+  ///
+  /// In de, this message translates to:
+  /// **'Flanger (nur PC)'**
+  String get effectFlanger;
+
+  /// No description provided for @effectPhaser.
+  ///
+  /// In de, this message translates to:
+  /// **'Phaser (nur PC)'**
+  String get effectPhaser;
+
+  /// No description provided for @effectGate.
+  ///
+  /// In de, this message translates to:
+  /// **'Gater auf Achteln (nur PC)'**
+  String get effectGate;
+
+  /// No description provided for @effectBeatRoll.
+  ///
+  /// In de, this message translates to:
+  /// **'Beat-Roll: 1 → 1/16 Schlag (nur PC)'**
+  String get effectBeatRoll;
 
   /// No description provided for @effectReverbMiddle.
   ///

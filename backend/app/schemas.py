@@ -419,7 +419,8 @@ class TransitionLanes(BaseModel):
     ] = "none"
     effect: Literal[
         "none", "reverb_middle", "reverb_cut", "reverb_tail", "echo_half_cut", "echo_half_tail", "echo_3q_cut",
-        "echo_3q_tail", "echo_beat_cut", "echo_beat_tail", "delay_half_cut", "delay_3q_cut",
+        "echo_3q_tail", "echo_beat_cut", "echo_beat_tail", "delay_half_cut", "delay_3q_cut", "flanger", "phaser", "gate",
+        "beat_roll",
     ] = "none"
     loop: Literal[0, 1, 2, 4, 8, 16] = 0
     beatmatch: bool = True

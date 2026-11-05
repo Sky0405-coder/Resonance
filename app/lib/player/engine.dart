@@ -82,6 +82,21 @@ class MixPoints {
   /// 0 (calm) to 1 (peak time).
   final double? energy;
 
+  MixPoints withKey(String key) => MixPoints(
+    bpm: bpm,
+    mixIn: mixIn,
+    mixOut: mixOut,
+    end: end,
+    key: key,
+    keyConfidence: keyConfidence,
+    vocalsIn: vocalsIn,
+    vocalsOut: vocalsOut,
+    introEnd: introEnd,
+    downbeat: downbeat,
+    phrases: phrases,
+    energy: energy,
+  );
+
   /// The key only when the analysis was reasonably sure (a wrong key would cause needless filter-outs).
   String? get reliableKey => (keyConfidence ?? 0) >= 0.1 ? key : null;
 
@@ -180,6 +195,24 @@ bool camelotCompatible(String a, String b) {
   if (ma[2] != mb[2]) return na == nb;
   final distance = (na - nb).abs() % 12;
   return distance <= 1 || distance == 11;
+}
+
+/// [code] (Camelot) moved by [semitones]: a semitone up is seven steps around the wheel.
+String shiftCamelot(String code, int semitones) {
+  final match = RegExp(r'^(1[0-2]|[1-9])([AB])$').firstMatch(code);
+  if (match == null) return code;
+  final number = (int.parse(match[1]!) - 1 + 7 * semitones) % 12 + 1;
+  return '$number${match[2]}';
+}
+
+/// Desktop key shift: the fewest semitones (up to two, up first) that make [incoming] fit [outgoing]; 0 when they
+/// already fit, a key is unknown, or no small shift helps.
+int keyShiftSemitones(String? outgoing, String? incoming) {
+  if (outgoing == null || incoming == null || camelotCompatible(outgoing, incoming)) return 0;
+  for (final shift in const [1, -1, 2, -2]) {
+    if (camelotCompatible(outgoing, shiftCamelot(incoming, shift))) return shift;
+  }
+  return 0;
 }
 
 /// The filter-out transition (tempos too far apart): about sixteen beats, between 6 and 12 seconds.
@@ -717,6 +750,10 @@ class _Fade {
   bool laneFx = false;
   FxState? lastOut;
   FxState? lastIn;
+  double? lastRoll;
+
+  /// Desktop: semitones the next song is pitched by to fit the current one's key.
+  int keyShift = 0;
 }
 
 /// Two independent playlists built from factories; only the active player drives the UI.
@@ -793,6 +830,11 @@ class PlaybackEngine {
   /// AutoMix cuts per player and (desktop) the source key each was sent to.
   final _bassCut = <AutomixCut?>[null, null];
   final _cutKeys = <String?>[null, null];
+  // Desktop: the source each player pitched for a key shift (see [_setKeyShift]).
+  final _keyShifted = <String?>[null, null];
+
+  /// Desktop: a next song in a clashing key is pitched by up to two semitones to fit (AutoMix).
+  bool keyShift = true;
   static final _desktop =
       !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows);
   late final List<AndroidEqualizer> _equalizers;
@@ -961,6 +1003,7 @@ class PlaybackEngine {
   }
 
   void _emitCurrent() {
+    _dropStaleKeyShifts();
     _indices.add(currentIndex);
     _states.add(_active.playerState);
     _positions.add(position);
@@ -1001,14 +1044,17 @@ class PlaybackEngine {
     final next = (index + 1) % _sources.length;
     // Looked up early in the song so the analysis can arrive in time.
     final outgoing = points(index);
-    final incoming = points(next);
+    var incoming = points(next);
     if (outgoing == null || incoming == null || !playing) return false;
+    // Desktop: a next song in a clashing key is pitched to fit, so it can blend as long as a fitting one.
+    final shift = _desktop && keyShift ? keyShiftSemitones(outgoing.reliableKey, incoming.reliableKey) : 0;
+    if (shift != 0) incoming = incoming.withKey(shiftCamelot(incoming.key!, shift));
     final plan = customPlanForIndex?.call(index, next) ?? automixPlan(outgoing, incoming, minSeconds: crossfadeSeconds);
     if (plan == null) return false;
     final ahead = plan.start - const Duration(seconds: 8);
     if (position < ahead) return true;
     if (position >= plan.start + const Duration(seconds: 1)) return false;
-    final fade = _Fade(_active, _inactive, next, plan.duration, plan: plan);
+    final fade = _Fade(_active, _inactive, next, plan.duration, plan: plan)..keyShift = shift;
     _fade = fade;
     fade.ready = _prepareAutomix(fade);
     return true;
@@ -1023,6 +1069,7 @@ class PlaybackEngine {
       await _applyEqualizer();
       await fade.incoming.seek(fade.plan!.incomingStart, index: fade.index);
       if (fade.plan!.changesTempo) await fade.incoming.setSpeed(_speed * fade.plan!.speed);
+      _setKeyShift(fade.incoming, fade.index, fade.keyShift);
       // The next song comes in without its bass; the bass swaps over halfway (see [_startAutomix]).
       if (fade.plan!.lanes != null) {
         await _prepareLanes(fade);
@@ -1366,8 +1413,37 @@ class PlaybackEngine {
     final inKey = sourceKeyForIndex?.call(fade.index);
     final effect = plan.lanes!.effect;
     if (outKey != null) {
-      final bpm = mixPointsForIndex?.call(fade.outgoingIndex!)?.bpm;
+      final points = mixPointsForIndex?.call(fade.outgoingIndex!);
+      final bpm = points?.bpm;
       final beat = bpm != null && bpm > 0 ? 60 / bpm : 0.5;
+      // The gate chops on the song's own eighth notes (mpv's filters run on song time).
+      if (resend || (fade.lastOut?.gate ?? 0) != out.gate) {
+        JustAudioMediaKit.sourceCommand(
+          outKey,
+          mpvGateCommand(beat: out.gate > 0 ? beat : null, downbeat: points?.downbeat ?? points?.mixIn ?? 0),
+        );
+      }
+      // The beat roll: the loop before the middle halves every beat.
+      if (effect == EffectLane.beatRoll) {
+        // Set half a beat early: mpv only loops when it reaches the loop's end.
+        final roll = beatRollBeats(u + 0.5 / (plan.bars * 4), plan.bars);
+        if (roll != fade.lastRoll) {
+          fade.lastRoll = roll;
+          final middle = plan.start.inMicroseconds / 1e6 + total / 2e6 * _speed * plan.outgoingSpeed;
+          for (final command
+              in roll == null
+                  ? [
+                      ['set', 'ab-loop-a', 'no'],
+                      ['set', 'ab-loop-b', 'no'],
+                    ]
+                  : [
+                      ['set', 'ab-loop-a', (middle - roll * beat).toStringAsFixed(3)],
+                      ['set', 'ab-loop-b', middle.toStringAsFixed(3)],
+                    ]) {
+            JustAudioMediaKit.sourceCommand(outKey, command);
+          }
+        }
+      }
       for (final command in [
         ...mpvFxCommands(out, resend ? null : fade.lastOut, echoFeedback: effect.echoFeedback),
         // A chain that started over has lost its echo delays.
@@ -1385,6 +1461,36 @@ class PlaybackEngine {
     fade.lastIn = inc;
   }
 
+  /// Desktop: pitches the song at [index] on [player] by [semitones] (mpv's rubberband filter, kept for the rest of
+  /// the song like a DJ would), or takes an earlier shift off that player.
+  void _setKeyShift(AudioPlayer player, int index, int semitones) {
+    if (!_desktop) return;
+    final slot = _players.indexOf(player);
+    final key = sourceKeyForIndex?.call(index);
+    final shifted = _keyShifted[slot];
+    if (shifted != null) {
+      JustAudioMediaKit.sourceCommand(shifted, ['af', 'remove', '@keyshift']);
+      _keyShifted[slot] = null;
+    }
+    if (semitones == 0 || key == null) return;
+    final scale = math.pow(2, semitones / 12).toStringAsFixed(5);
+    JustAudioMediaKit.sourceCommand(key, ['af', 'add', '@keyshift:rubberband=pitch-scale=$scale']);
+    _keyShifted[slot] = key;
+  }
+
+  /// A shifted song that is no longer playing on its player (skipped, or the queue moved on) loses its shift.
+  void _dropStaleKeyShifts() {
+    for (final (slot, player) in _players.indexed) {
+      final shifted = _keyShifted[slot];
+      if (shifted == null) continue;
+      final index = player.currentIndex;
+      if (index == null || sourceKeyForIndex?.call(index) != shifted || player == _inactive && _fade == null) {
+        JustAudioMediaKit.sourceCommand(shifted, ['af', 'remove', '@keyshift']);
+        _keyShifted[slot] = null;
+      }
+    }
+  }
+
   /// Takes the lanes' effects off both players.
   Future<void> _clearLanes(_Fade fade) async {
     if (!fade.laneFx) return;
@@ -1397,6 +1503,7 @@ class PlaybackEngine {
       for (final key in keys.nonNulls) {
         for (final command in [
           ...mpvFxCommands(FxState.neutral, null),
+          mpvGateCommand(),
           ['set', 'ab-loop-a', 'no'],
           ['set', 'ab-loop-b', 'no'],
         ]) {

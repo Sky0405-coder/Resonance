@@ -2398,6 +2398,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade. The crossfade slider sets the minimum length of the transitions.';
 
   @override
+  String get settingsKeyShift => 'Match keys';
+
+  @override
+  String get settingsKeyShiftHint =>
+      'AutoMix shifts the next song by up to two semitones when the keys clash (PC only)';
+
+  @override
   String get equalizerTitle => 'Equalizer';
 
   @override
@@ -3564,6 +3571,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get filterNoiseEnd => 'Noise riser at the end';
+
+  @override
+  String get effectFlanger => 'Flanger (PC only)';
+
+  @override
+  String get effectPhaser => 'Phaser (PC only)';
+
+  @override
+  String get effectGate => 'Gate on eighth notes (PC only)';
+
+  @override
+  String get effectBeatRoll => 'Beat roll: 1 → 1/16 beat (PC only)';
 
   @override
   String get effectReverbMiddle => 'Reverb, song ends in the middle';

@@ -130,6 +130,10 @@ String effectLaneLabel(AppLocalizations l10n, EffectLane lane) {
     EffectLane.reverbCut => l10n.effectReverbCut,
     EffectLane.reverbTail => l10n.effectReverbTail,
     EffectLane.delayHalfCut || EffectLane.delayThreeQuarterCut => l10n.effectDelayCut(beat),
+    EffectLane.flanger => l10n.effectFlanger,
+    EffectLane.phaser => l10n.effectPhaser,
+    EffectLane.gate => l10n.effectGate,
+    EffectLane.beatRoll => l10n.effectBeatRoll,
     _ => lane.tail ? l10n.effectEchoTail(beat) : l10n.effectEchoCut(beat),
   };
 }

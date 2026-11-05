@@ -66,7 +66,13 @@ enum EffectLane {
   echoBeatCut('echo_beat_cut', 1, 0.5),
   echoBeatTail('echo_beat_tail', 1, 0.5),
   delayHalfCut('delay_half_cut', 0.5, 0),
-  delayThreeQuarterCut('delay_3q_cut', 0.75, 0);
+  delayThreeQuarterCut('delay_3q_cut', 0.75, 0),
+  // Desktop only (mpv's filters): a jet sweep, a phase sweep, the sound chopped on eighth notes, and the last beat
+  // repeating ever faster (a beat roll: 1, ½, ¼, ⅛, 1/16 beat).
+  flanger('flanger', 0, 0),
+  phaser('phaser', 0, 0),
+  gate('gate', 0, 0),
+  beatRoll('beat_roll', 0, 0);
 
   const EffectLane(this.json, this.echoBeats, this.echoFeedback);
   final String json;
@@ -76,6 +82,9 @@ enum EffectLane {
   final double echoFeedback;
 
   bool get reverb => this == reverbMiddle || this == reverbCut || this == reverbTail;
+
+  /// Only the desktop players have these (Android plays the transition without the effect).
+  bool get desktopOnly => this == flanger || this == phaser || this == gate || this == beatRoll;
   bool get echo => echoBeats > 0;
 
   /// The current song stops before the end and only the effect rings on.
@@ -182,6 +191,9 @@ class FxState {
     this.echo = 0,
     this.reverb = 0,
     this.noise = 0,
+    this.flanger = 0,
+    this.phaser = 0,
+    this.gate = 0,
   });
 
   /// The volume curve; [dry] is it times the effect's gate (a "tail" effect stops the song but not its echo).
@@ -196,6 +208,12 @@ class FxState {
   final double echo;
   final double reverb;
   final double noise;
+
+  /// Desktop only: how much of the song goes through the flanger or phaser instead of straight on, and whether
+  /// the eighth-note gate is on (0 or 1).
+  final double flanger;
+  final double phaser;
+  final double gate;
 
   static const neutral = FxState();
 
@@ -308,11 +326,17 @@ double _sweep(double a, double b, double t) => a * math.pow(b / a, _clamp01(t)).
   // Effects on the outgoing song: fed from the middle (reverb into the middle for [reverbMiddle]); "tail" ones stop
   // the song a bar early (the middle for [reverbMiddle]) and let the effect ring on.
   final effect = lanes.effect;
-  var feed = 0.0, dryGate = 1.0, echo = 0.0, reverb = 0.0;
+  var feed = 0.0, dryGate = 1.0, echo = 0.0, reverb = 0.0, flanger = 0.0, phaser = 0.0, gate = 0.0;
   if (effect == EffectLane.reverbMiddle) {
     feed = u < m ? 1 : 0;
     dryGate = u < m ? 1 : 0;
     reverb = _smooth(_ramp(u, 0, m));
+  } else if (effect.desktopOnly) {
+    // Swept in toward the middle, on until the song is gone; the gate and the roll from the middle.
+    final sweep = _smooth(_ramp(u, 0.25, m));
+    if (effect == EffectLane.flanger) flanger = sweep;
+    if (effect == EffectLane.phaser) phaser = sweep;
+    if (effect == EffectLane.gate) gate = u >= m && u < 1 ? 1 : 0;
   } else if (effect != EffectLane.none) {
     final stop = effect.tail ? 1 - bar : 1.0;
     feed = u >= m && u < stop ? 1 : 0;
@@ -333,6 +357,9 @@ double _sweep(double a, double b, double t) => a * math.pow(b / a, _clamp01(t)).
     echo: echo,
     reverb: reverb,
     noise: noise,
+    flanger: flanger,
+    phaser: phaser,
+    gate: gate,
   );
   final incoming = FxState(
     level: vi,
@@ -344,6 +371,14 @@ double _sweep(double a, double b, double t) => a * math.pow(b / a, _clamp01(t)).
     lowpass: lpIn,
   );
   return (out, incoming);
+}
+
+/// Beat roll: the length (beats) of the loop the current song repeats [u] into a transition of [bars] bars, null
+/// before the middle. It halves every beat, from one beat down to a sixteenth.
+double? beatRollBeats(double u, int bars) {
+  if (u < 0.5 || u >= 1) return null;
+  final beatsIn = ((u - 0.5) * bars * 4).floor();
+  return 1 / math.pow(2, math.min(4, beatsIn));
 }
 
 /// The beats the current song loops at the middle, so the loop fits into the first half.
