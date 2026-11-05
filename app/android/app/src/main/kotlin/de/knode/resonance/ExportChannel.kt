@@ -28,9 +28,10 @@ object ExportChannel {
                     val folder = call.argument<String>("folder")!!
                     val name = call.argument<String>("name")!!
                     val mime = call.argument<String>("mime")!!
+                    val replace = call.argument<Boolean>("replace") ?: false
                     Thread {
                         try {
-                            val saved = save(context, path, folder, name, mime)
+                            val saved = save(context, path, folder, name, mime, replace)
                             main.post { result.success(saved) }
                         } catch (e: Exception) {
                             main.post { result.error("export", e.message, null) }
@@ -42,19 +43,26 @@ object ExportChannel {
         }
     }
 
-    /** Returns false when a file of that name is already there. */
-    private fun save(context: Context, path: String, folder: String, name: String, mime: String): Boolean {
+    /** Returns false when a file of that name is already there (with [replace], it is replaced instead). */
+    private fun save(
+        context: Context,
+        path: String,
+        folder: String,
+        name: String,
+        mime: String,
+        replace: Boolean,
+    ): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) error("Android 10 or newer needed")
         val resolver = context.contentResolver
         val relative = "${Environment.DIRECTORY_MUSIC}/Resonance/$folder/"
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        resolver.query(
-            collection,
-            arrayOf(MediaStore.Audio.Media._ID),
-            "${MediaStore.Audio.Media.RELATIVE_PATH} = ? AND ${MediaStore.Audio.Media.DISPLAY_NAME} = ?",
-            arrayOf(relative, name),
-            null,
-        )?.use { if (it.count > 0) return false }
+        val existing = "${MediaStore.Audio.Media.RELATIVE_PATH} = ? AND ${MediaStore.Audio.Media.DISPLAY_NAME} = ?"
+        if (replace) {
+            resolver.delete(collection, existing, arrayOf(relative, name))
+        } else {
+            resolver.query(collection, arrayOf(MediaStore.Audio.Media._ID), existing, arrayOf(relative, name), null)
+                ?.use { if (it.count > 0) return false }
+        }
         val values = ContentValues().apply {
             put(MediaStore.Audio.Media.DISPLAY_NAME, name)
             put(MediaStore.Audio.Media.MIME_TYPE, mime)

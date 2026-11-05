@@ -1041,6 +1041,28 @@ class AppLocalizationsDe extends AppLocalizations {
   String get commonClose => 'Schließen';
 
   @override
+  String get mixExport => 'Mix als MP3 exportieren';
+
+  @override
+  String mixExportRendering(int percent) {
+    return 'Der Server mischt die Übergänge … $percent %';
+  }
+
+  @override
+  String get mixExportBackground => 'Im Hintergrund weiter';
+
+  @override
+  String get mixExportFailed => 'Der Mix konnte nicht erstellt werden';
+
+  @override
+  String get mixExportSaving => 'Mix wird gespeichert …';
+
+  @override
+  String mixExportSaved(String target) {
+    return 'Mix gespeichert: $target';
+  }
+
+  @override
   String updateAvailableTitle(String version) {
     return 'Neue App-Version $version verfügbar';
   }

@@ -44,7 +44,7 @@ from app.schemas import (
     TransitionIn,
     TransitionOut,
 )
-from app.services import covers, dj_set, mix_covers, mixpoints
+from app.services import covers, dj_set, mix_covers, mix_render, mixpoints
 from app.services.views import can_edit, playlists_out, tracks_out
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
@@ -411,6 +411,37 @@ async def dj_set_order(playlist_id: uuid.UUID, body: SetOrderIn, user: CurrentUs
             row.energy if row else None,
         ))
     await _reorder(db, playlist, [t.id for t in dj_set.order(tracks, body.arc)])
+
+
+def _render_out(state: mix_render.Status) -> dict:
+    return {"state": state.state, "progress": state.progress, "error": state.error}
+
+
+@router.post("/{playlist_id}/render")
+async def render_mix(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> dict:
+    """Starts rendering the playlist as one MP3 mix with AutoMix's transitions (or finds it ready)."""
+    await _get_visible(db, user, playlist_id)
+    return _render_out(await mix_render.start(db, playlist_id))
+
+
+@router.get("/{playlist_id}/render")
+async def render_status(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> dict:
+    await _get_visible(db, user, playlist_id)
+    state = mix_render.status(playlist_id)
+    if state.state == "done" and not mix_render.ready(playlist_id, await mix_render.current_key(db, playlist_id)):
+        # The playlist changed since: render again.
+        return _render_out(mix_render.Status())
+    return _render_out(state)
+
+
+@router.get("/{playlist_id}/render/file")
+async def render_file(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> FileResponse:
+    playlist = await _get_visible(db, user, playlist_id)
+    if not mix_render.ready(playlist_id, await mix_render.current_key(db, playlist_id)):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Nicht gefunden")
+    return FileResponse(
+        mix_render.file_for(playlist_id), media_type="audio/mpeg", filename=f"{playlist.name} (Mix).mp3"
+    )
 
 
 @router.delete("/{playlist_id}/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)

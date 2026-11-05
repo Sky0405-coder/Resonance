@@ -55,6 +55,15 @@ List<ExportItem> exportItems(OfflineState offline, {Iterable<String>? collection
 /// Android: into Music/Resonance via MediaStore. Desktop: into a folder the user picked ([target]).
 bool get exportNeedsFolder => !Platform.isAndroid;
 
+/// Android: one file into Music/Resonance/[folder], replacing an older one of the same name.
+Future<void> exportFile(String path, String folder, String name) => _channel.invokeMethod<bool>('save', {
+  'path': path,
+  'folder': folder,
+  'name': name,
+  'mime': audioMime(name),
+  'replace': true,
+});
+
 Future<bool> exportSupported() async =>
     !Platform.isAndroid || (await _channel.invokeMethod<bool>('supported') ?? false);
 

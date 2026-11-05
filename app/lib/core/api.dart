@@ -423,6 +423,18 @@ class ApiClient {
   /// Orders the playlist like a DJ set; [arc] is peak, rise, down or flow.
   Future<void> djSetOrder(String id, String arc) => _post('/api/playlists/$id/set-order', {'arc': arc});
 
+  /// Starts rendering the playlist as one MP3 mix (or finds it ready): state idle|running|done|failed and progress.
+  Future<({String state, double progress})> renderMix(String id) async =>
+      _renderState(await _post('/api/playlists/$id/render'));
+
+  Future<({String state, double progress})> renderMixStatus(String id) async =>
+      _renderState(await _get('/api/playlists/$id/render'));
+
+  ({String state, double progress}) _renderState(dynamic j) =>
+      (state: j['state'] as String, progress: (j['progress'] as num).toDouble());
+
+  String renderedMixUrl(String id) => '$baseUrl/api/playlists/$id/render/file';
+
   // --- catalog & requests ---------------------------------------------------
 
   Future<CatalogSearch> catalogSearch(String q, {int limit = 10}) async =>

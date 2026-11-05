@@ -611,6 +611,14 @@
     }
   },
   "commonClose": "Schließen",
+  "mixExport": "Mix als MP3 exportieren",
+  "mixExportRendering": "Der Server mischt die Übergänge … {percent} %",
+  "@mixExportRendering": {"placeholders": {"percent": {"type": "int"}}},
+  "mixExportBackground": "Im Hintergrund weiter",
+  "mixExportFailed": "Der Mix konnte nicht erstellt werden",
+  "mixExportSaving": "Mix wird gespeichert …",
+  "mixExportSaved": "Mix gespeichert: {target}",
+  "@mixExportSaved": {"placeholders": {"target": {"type": "String"}}},
   "updateAvailableTitle": "Neue App-Version {version} verfügbar",
   "@updateAvailableTitle": {
     "placeholders": {

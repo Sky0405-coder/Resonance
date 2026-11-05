@@ -1916,6 +1916,42 @@ abstract class AppLocalizations {
   /// **'Schließen'**
   String get commonClose;
 
+  /// No description provided for @mixExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Mix als MP3 exportieren'**
+  String get mixExport;
+
+  /// No description provided for @mixExportRendering.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Server mischt die Übergänge … {percent} %'**
+  String mixExportRendering(int percent);
+
+  /// No description provided for @mixExportBackground.
+  ///
+  /// In de, this message translates to:
+  /// **'Im Hintergrund weiter'**
+  String get mixExportBackground;
+
+  /// No description provided for @mixExportFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Mix konnte nicht erstellt werden'**
+  String get mixExportFailed;
+
+  /// No description provided for @mixExportSaving.
+  ///
+  /// In de, this message translates to:
+  /// **'Mix wird gespeichert …'**
+  String get mixExportSaving;
+
+  /// No description provided for @mixExportSaved.
+  ///
+  /// In de, this message translates to:
+  /// **'Mix gespeichert: {target}'**
+  String mixExportSaved(String target);
+
   /// No description provided for @updateAvailableTitle.
   ///
   /// In de, this message translates to:
