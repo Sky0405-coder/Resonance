@@ -69,6 +69,22 @@ jobs:
       - name: Build
         working-directory: app
         run: flutter build windows --release
+      # media_kit's Windows libmpv is an audio-only build without ffmpeg's audio filters (no AutoMix chain, no
+      # equalizer bands, no rubberband): with AutoMix on, mpv refused the chain and played nothing. The full mpv
+      # build has them all. The tested build first; shinchiro keeps about 40 days, then the newest one.
+      - name: Full libmpv
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $repo = "shinchiro/mpv-winbuild-cmake"
+          gh release download 20261105 -R $repo -p "mpv-dev-x86_64-2*.7z" -D libmpv
+          if ($LASTEXITCODE) { gh release download -R $repo -p "mpv-dev-x86_64-2*.7z" -D libmpv }
+          if ($LASTEXITCODE) { exit 1 }
+          7z x -y -olibmpv (Get-ChildItem libmpv\*.7z | Select-Object -First 1).FullName libmpv-2.dll
+          if ($LASTEXITCODE) { exit 1 }
+          Copy-Item libmpv\libmpv-2.dll app\build\windows\x64\runner\Release\libmpv-2.dll -Force
+          (Get-Item app\build\windows\x64\runner\Release\libmpv-2.dll).Length
       - name: Package and upload
         shell: pwsh
         env:

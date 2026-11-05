@@ -765,6 +765,20 @@ class PlaybackEngine {
       for (var i = 0; i < 2; i++)
         AudioPlayer(audioPipeline: android ? AudioPipeline(androidAudioEffects: [_equalizers[i]]) : null),
     ];
+    // Desktop: a libmpv without the filters (it refused the chain and played nothing) — the plugin has switched the
+    // filters off; load the song again where it was so it plays without them.
+    if (_desktop) {
+      _subs.add(
+        JustAudioMediaKit.filterFailures.listen((_) async {
+          filtersUnavailable.value = true;
+          final index = currentIndex;
+          if (_sources.isEmpty || index == null) return;
+          final wasPlaying = playing;
+          await setSources([..._sources], initialIndex: index, initialPosition: position);
+          if (wasPlaying) await _active.play();
+        }),
+      );
+    }
     for (final player in _players) {
       _forward(player, player.playerStateStream, _states);
       _subs.add(
@@ -832,6 +846,10 @@ class PlaybackEngine {
   final _cutKeys = <String?>[null, null];
   // Desktop: the source each player pitched for a key shift (see [_setKeyShift]).
   final _keyShifted = <String?>[null, null];
+
+  /// Desktop: the player's libmpv cannot run the audio filters (AutoMix's sound effects, the equalizer); playback
+  /// goes on without them.
+  final filtersUnavailable = ValueNotifier(false);
 
   /// Desktop: a next song in a clashing key is pitched by up to two semitones to fit (AutoMix).
   bool keyShift = true;

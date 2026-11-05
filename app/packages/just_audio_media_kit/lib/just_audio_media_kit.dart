@@ -75,10 +75,34 @@ class JustAudioMediaKit extends JustAudioPlatform {
     }
   }
 
-  static bool get hasFilters => audioFilter != null || _sourceFilters.isNotEmpty;
+  static bool get hasFilters => !filtersFailed && (audioFilter != null || _sourceFilters.isNotEmpty);
+
+  /// Set once mpv could not build a filter chain (a libmpv without those filters): from then on no filters are
+  /// applied, so playback works without them instead of staying silent.
+  static bool filtersFailed = false;
+  static final _filterFailures = StreamController<String>.broadcast();
+
+  /// mpv's message each time a filter chain failed and the filters were switched off.
+  static Stream<String> get filterFailures => _filterFailures.stream;
+
+  static void reportFilterFailure(String message) {
+    if (filtersFailed) return;
+    filtersFailed = true;
+    _logger.warning('Audio filters switched off: $message');
+    _applyFilters();
+    _filterFailures.add(message);
+  }
+
+  /// Whether an mpv log line says the audio filter chain could not be built.
+  static bool isFilterFailure(String text) =>
+      text.contains('No such filter') ||
+      text.contains("Creating filter 'lavfi' failed") ||
+      text.contains('Audio filter initialized failed') ||
+      text.contains('parsing the filter graph failed');
 
   /// The combined filter for a player playing [uri].
   static String? filterFor(String? uri) {
+    if (filtersFailed) return null;
     final parts = [
       if (audioFilter != null && audioFilter!.isNotEmpty) audioFilter!,
       if (uri != null)

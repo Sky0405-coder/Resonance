@@ -201,6 +201,7 @@ class MediaKitPlayer extends AudioPlayerPlatform {
       _player.stream.log.listen((event) {
         // ignore: avoid_print
         print("MPV: [${event.level}] ${event.prefix}: ${event.text}");
+        if (JustAudioMediaKit.isFilterFailure(event.text)) JustAudioMediaKit.reportFilterFailure(event.text);
       }),
     ];
   }
