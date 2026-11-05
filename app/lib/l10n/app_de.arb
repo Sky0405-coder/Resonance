@@ -1946,6 +1946,8 @@
   "effectPhaser": "Phaser (nur PC)",
   "effectGate": "Gater auf Achteln (nur PC)",
   "effectBeatRoll": "Beat-Roll: 1 → 1/16 Schlag (nur PC)",
+  "transitionZoomIn": "Heranzoomen",
+  "transitionZoomOut": "Herauszoomen",
   "effectReverbMiddle": "Hall, Song endet in der Mitte",
   "effectReverbCut": "Hall, Schnitt am Übergangsende",
   "effectReverbTail": "Hall klingt bis zum Übergangsende aus",

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,8 +18,6 @@ import '../../player/transitions.dart';
 import '../widgets/common.dart';
 
 /// Colours of the editor, as in DJ software: low end orange, the rest blue, volume and bass curves on top.
-const _lowColor = Color(0xFFD9822B);
-const _highColor = Color(0xFF2F49D1);
 const _volumeColor = Color(0xFF4FC3F7);
 const _bassColor = Color(0xFFFFCA28);
 const _filterColor = Color(0xFFF48FB1);
@@ -59,6 +58,8 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
 
   /// The visible stretch of the current song (seconds), kept still while a lane is dragged.
   (double, double)? _frozenWindow;
+  // How far the waveforms are zoomed in around the transition (mouse wheel or the buttons).
+  double _zoom = 1;
   double _dragSeconds = 0;
 
   late final PlayerController _player = ref.read(playerProvider.notifier);
@@ -434,7 +435,9 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
     final start = plan.start.inMicroseconds / 1e6;
     final duration = plan.duration.inMicroseconds / 1e6;
     final bar = 4 * _beat(out);
-    final window = _frozenWindow ?? (start - 2 * bar, start + duration + 2 * bar);
+    final center = start + duration / 2;
+    final half = (duration / 2 + 2 * bar) / _zoom;
+    final window = _frozenWindow ?? (center - half, center + half);
     final pixelsPerSecond = width / (window.$2 - window.$1);
     final position = ref.watch(positionProvider).value;
     final player = ref.watch(playerProvider);
@@ -479,54 +482,83 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
       child: const SizedBox(height: height / 2, width: double.infinity),
     );
 
+    void zoom(double factor) => setState(() => _zoom = (_zoom * factor).clamp(1.0, 8.0));
+
     return SizedBox(
       height: height,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _TransitionPainter(
-                plan: plan,
-                window: window,
-                outgoing: _outSpectrum,
-                incoming: _inSpectrum,
-                outBeat: _beat(out),
-                outFirstBeat: out.mixIn,
-                playhead: playhead,
-              ),
-            ),
-          ),
-          Column(children: [lane(outgoing: true), lane(outgoing: false)]),
-          Center(
-            child: IconButton.filled(
-              tooltip: _previewing ? context.l10n.transitionStopPreview : context.l10n.transitionPreview,
-              style: IconButton.styleFrom(backgroundColor: Colors.white24, foregroundColor: Colors.white),
-              icon: Icon(_previewing ? Icons.stop : Icons.play_arrow),
-              onPressed: () => _togglePreview(out, inc),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: PopupMenuButton<int>(
-              enabled: widget.canEdit,
-              initialValue: edit.bars,
-              onSelected: (bars) => _update(edit.copyWith(bars: bars)),
-              itemBuilder: (_) => [
-                for (final bars in CustomTransition.barChoices)
-                  PopupMenuItem(value: bars, child: Text(context.l10n.transitionBars(bars))),
-              ],
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(16)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [Text(context.l10n.transitionBars(edit.bars)), const Icon(Icons.expand_more, size: 18)],
+      child: Listener(
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) zoom(event.scrollDelta.dy < 0 ? 1.25 : 0.8);
+        },
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _TransitionPainter(
+                  plan: plan,
+                  window: window,
+                  outgoing: _outSpectrum,
+                  incoming: _inSpectrum,
+                  outBeat: _beat(out),
+                  outFirstBeat: out.downbeat ?? out.mixIn,
+                  outPhrases: out.phrases ?? const [],
+                  inPhrases: inc.phrases ?? const [],
+                  playhead: playhead,
                 ),
               ),
             ),
-          ),
-        ],
+            Column(children: [lane(outgoing: true), lane(outgoing: false)]),
+            Center(
+              child: IconButton.filled(
+                tooltip: _previewing ? context.l10n.transitionStopPreview : context.l10n.transitionPreview,
+                style: IconButton.styleFrom(backgroundColor: Colors.white24, foregroundColor: Colors.white),
+                icon: Icon(_previewing ? Icons.stop : Icons.play_arrow),
+                onPressed: () => _togglePreview(out, inc),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: PopupMenuButton<int>(
+                enabled: widget.canEdit,
+                initialValue: edit.bars,
+                onSelected: (bars) => _update(edit.copyWith(bars: bars)),
+                itemBuilder: (_) => [
+                  for (final bars in CustomTransition.barChoices)
+                    PopupMenuItem(value: bars, child: Text(context.l10n.transitionBars(bars))),
+                ],
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [Text(context.l10n.transitionBars(edit.bars)), const Icon(Icons.expand_more, size: 18)],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Row(
+                children: [
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: context.l10n.transitionZoomOut,
+                    onPressed: _zoom > 1 ? () => zoom(0.8) : null,
+                    icon: const Icon(Icons.zoom_out, size: 20),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: context.l10n.transitionZoomIn,
+                    onPressed: _zoom < 8 ? () => zoom(1.25) : null,
+                    icon: const Icon(Icons.zoom_in, size: 20),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -610,6 +642,8 @@ class _TransitionPainter extends CustomPainter {
     required this.outBeat,
     required this.outFirstBeat,
     required this.playhead,
+    this.outPhrases = const [],
+    this.inPhrases = const [],
   });
   final AutomixPlan plan;
   final (double, double) window;
@@ -618,6 +652,10 @@ class _TransitionPainter extends CustomPainter {
   final double outBeat;
   final double outFirstBeat;
   final double? playhead;
+
+  /// Section starts (song times) of both songs, marked on their lanes.
+  final List<double> outPhrases;
+  final List<double> inPhrases;
 
   double get _start => plan.start.inMicroseconds / 1e6;
   double get _duration => plan.duration.inMicroseconds / 1e6;
@@ -642,34 +680,65 @@ class _TransitionPainter extends CustomPainter {
       canvas.drawLine(Offset(px, 0), Offset(px, size.height), grid);
     }
 
-    final levels = List<double>.filled(24, 0);
+    final levels = List<double>.filled(64, 0);
+    // Like rekordbox's RGB waveform: bass red, mids green, highs blue, mixed per column; the height is the loudest.
     void wave(Spectrum? spectrum, double top, double Function(double outSeconds) songTime, bool Function(double) live) {
       if (spectrum == null) return;
       final center = top + lane / 2;
-      final low = Paint()..strokeWidth = 2;
-      final high = Paint()..strokeWidth = 2;
-      for (var px = 0.0; px < size.width; px += 3) {
+      final bands = math.min(spectrum.bands, levels.length);
+      final group = [
+        for (var i = 0; i < bands; i++)
+          switch (Spectrum.bandFrequency(i, bands)) {
+            < 250 => 0,
+            < 2500 => 1,
+            _ => 2,
+          },
+      ];
+      final counts = [0, 0, 0];
+      for (final g in group) {
+        counts[g]++;
+      }
+      final line = Paint()..strokeWidth = 2;
+      for (var px = 0.0; px < size.width; px += 2) {
         final seconds = window.$1 + px / pixelsPerSecond;
         final t = songTime(seconds);
         if (t < 0) continue;
         spectrum.levelsAt(Duration(microseconds: (t * 1e6).round()), levels);
-        final bands = math.min(spectrum.bands, levels.length);
-        var lowSum = 0.0, highSum = 0.0;
+        final sums = [0.0, 0.0, 0.0];
         for (var i = 0; i < bands; i++) {
-          if (i < bands / 4) {
-            lowSum += levels[i];
-          } else {
-            highSum += levels[i];
-          }
+          sums[group[i]] += levels[i];
         }
-        final lowLevel = lowSum / (bands / 4), highLevel = highSum / (bands * 3 / 4);
-        final alpha = live(seconds) ? 1.0 : 0.3;
-        high.color = _highColor.withValues(alpha: alpha);
-        low.color = _lowColor.withValues(alpha: alpha);
-        // The low end inside the rest, so both stay visible (as in DJ software).
-        final h = math.max(highLevel, lowLevel * 0.8) * lane * 0.42, l = lowLevel * lane * 0.3;
-        canvas.drawLine(Offset(px, center - h), Offset(px, center + h), high);
-        canvas.drawLine(Offset(px, center - l), Offset(px, center + l), low);
+        final rgb = [for (var g = 0; g < 3; g++) counts[g] == 0 ? 0.0 : sums[g] / counts[g]];
+        final peak = rgb.reduce(math.max);
+        if (peak <= 0.01) continue;
+        line.color = Color.fromRGBO(
+          (255 * rgb[0] / peak).round(),
+          (255 * rgb[1] / peak).round(),
+          (255 * rgb[2] / peak).round(),
+          live(seconds) ? 1 : 0.3,
+        );
+        final h = peak * lane * 0.42;
+        canvas.drawLine(Offset(px, center - h), Offset(px, center + h), line);
+      }
+    }
+
+    // Section starts: a bright line with a small flag on the song's lane.
+    void phrases(List<double> times, double top, double Function(double songTime) editorTime) {
+      final paint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.55)
+        ..strokeWidth = 1.5;
+      for (final time in times) {
+        final px = x(editorTime(time));
+        if (px < 0 || px > size.width) continue;
+        canvas.drawLine(Offset(px, top), Offset(px, top + lane), paint);
+        canvas.drawPath(
+          Path()
+            ..moveTo(px, top)
+            ..lineTo(px + 7, top + 4)
+            ..lineTo(px, top + 8)
+            ..close(),
+          paint,
+        );
       }
     }
 
@@ -677,6 +746,8 @@ class _TransitionPainter extends CustomPainter {
     final incomingStart = plan.incomingStart.inMicroseconds / 1e6;
     wave(outgoing, 0, (s) => s, (s) => s <= end);
     wave(incoming, lane, (s) => incomingStart + (s - _start) * plan.ratio, (s) => s >= _start);
+    phrases(outPhrases, 0, (t) => t);
+    phrases(inPhrases, lane, (t) => _start + (t - incomingStart) / plan.ratio);
 
     // The loop: the beats the current song repeats, from the middle on.
     final lanes = plan.lanes;
@@ -775,5 +846,7 @@ class _TransitionPainter extends CustomPainter {
       old.window != window ||
       old.outgoing != outgoing ||
       old.incoming != incoming ||
-      old.playhead != playhead;
+      old.playhead != playhead ||
+      old.outPhrases != outPhrases ||
+      old.inPhrases != inPhrases;
 }

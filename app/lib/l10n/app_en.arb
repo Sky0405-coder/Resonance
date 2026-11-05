@@ -1257,6 +1257,8 @@
   "effectPhaser": "Phaser (PC only)",
   "effectGate": "Gate on eighth notes (PC only)",
   "effectBeatRoll": "Beat roll: 1 → 1/16 beat (PC only)",
+  "transitionZoomIn": "Zoom in",
+  "transitionZoomOut": "Zoom out",
   "effectReverbMiddle": "Reverb, song ends in the middle",
   "effectReverbCut": "Reverb, cut at the end",
   "effectReverbTail": "Reverb rings out until the end",

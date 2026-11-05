@@ -3585,6 +3585,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get effectBeatRoll => 'Beat roll: 1 → 1/16 beat (PC only)';
 
   @override
+  String get transitionZoomIn => 'Zoom in';
+
+  @override
+  String get transitionZoomOut => 'Zoom out';
+
+  @override
   String get effectReverbMiddle => 'Reverb, song ends in the middle';
 
   @override

@@ -3565,6 +3565,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get effectBeatRoll => 'Beat-Roll: 1 → 1/16 Schlag (nur PC)';
 
   @override
+  String get transitionZoomIn => 'Heranzoomen';
+
+  @override
+  String get transitionZoomOut => 'Herauszoomen';
+
+  @override
   String get effectReverbMiddle => 'Hall, Song endet in der Mitte';
 
   @override

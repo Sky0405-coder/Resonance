@@ -6380,6 +6380,18 @@ abstract class AppLocalizations {
   /// **'Beat-Roll: 1 → 1/16 Schlag (nur PC)'**
   String get effectBeatRoll;
 
+  /// No description provided for @transitionZoomIn.
+  ///
+  /// In de, this message translates to:
+  /// **'Heranzoomen'**
+  String get transitionZoomIn;
+
+  /// No description provided for @transitionZoomOut.
+  ///
+  /// In de, this message translates to:
+  /// **'Herauszoomen'**
+  String get transitionZoomOut;
+
   /// No description provided for @effectReverbMiddle.
   ///
   /// In de, this message translates to:
