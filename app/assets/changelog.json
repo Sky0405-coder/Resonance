@@ -1,5 +1,21 @@
 [
   {
+    "version": "1.7.5",
+    "date": "2026-11-05",
+    "de": [
+      "Windows: Die Wiedergabe funktioniert jetzt – die App bringt eine vollständige Audio-Bibliothek mit, damit AutoMix, EQ und Effekte laufen. Fehlt doch einmal ein Effekt, spielt der Song ohne ihn weiter, statt stumm zu bleiben.",
+      "DJ-Pult deutlich einfacher: beide Wellenformen untereinander, Deck A übernimmt den laufenden Song und Deck B den nächsten aus der Warteschlange, ein Knopf macht den Übergang (Tempo angleichen, Start auf dem nächsten Takt, Bass-Tausch, Überblenden über 8, 16 oder 32 Beats), Tastenkürzel und alles Weitere unter „Mehr“.",
+      "Ruhigere Wellenformen: Bass blau, Mitten orange, Höhen weiß, wie in DJ-Software.",
+      "Geräte wechseln: Verliert das abspielende Gerät die Verbindung (etwa ein Handy mit ausgeschaltetem Bildschirm), bleibt sein Song auf den anderen Geräten sichtbar, und Play setzt ihn dort fort."
+    ],
+    "en": [
+      "Windows: playback works now – the app ships a complete audio library so AutoMix, EQ and effects run. Should an effect still be missing, the song plays on without it instead of staying silent.",
+      "DJ deck made much simpler: both waveforms stacked, deck A takes over the playing song and deck B the next one from the queue, one button does the transition (tempo match, start on the next bar, bass swap, fade over 8, 16 or 32 beats), keyboard shortcuts, and everything else under “More”.",
+      "Calmer waveforms: bass blue, mids orange, highs white, as in DJ software.",
+      "Switching devices: if the playing device loses its connection (like a phone with the screen off), its song stays visible on your other devices and play continues it there."
+    ]
+  },
+  {
     "version": "1.7.4",
     "date": "2026-11-05",
     "de": [
