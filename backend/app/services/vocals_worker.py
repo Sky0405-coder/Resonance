@@ -103,11 +103,15 @@ def analyze(model, path: str, duration: float) -> dict:
 
 
 def main() -> None:
+    # The answers get stdout to themselves: whatever libraries or ffmpeg print goes to stderr instead.
+    answers = os.fdopen(os.dup(1), "w")
+    os.dup2(2, 1)
+    sys.stdout = sys.stderr
     os.nice(15)
     torch.set_num_threads(max(1, (os.cpu_count() or 2) // 2))
     model = get_model("htdemucs")
     model.eval()
-    print(json.dumps({"ready": True}), flush=True)
+    print(json.dumps({"ready": True}), file=answers, flush=True)
     for line in sys.stdin:
         try:
             request = json.loads(line)
@@ -117,7 +121,7 @@ def main() -> None:
                 result = analyze(model, request["path"], float(request["duration"]))
         except Exception as e:  # noqa: BLE001 - every failure is reported and the next song goes on
             result = {"error": f"{type(e).__name__}: {e}"[:500]}
-        print(json.dumps(result), flush=True)
+        print(json.dumps(result), file=answers, flush=True)
 
 
 if __name__ == "__main__":

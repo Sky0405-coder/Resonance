@@ -113,7 +113,7 @@ class Worker:
         )
         try:
             # The first start downloads the model (80 MB).
-            line = await asyncio.wait_for(process.stdout.readline(), timeout=_SONG_TIMEOUT)
+            line = await asyncio.wait_for(_answer(process), timeout=_SONG_TIMEOUT)
             if not json.loads(line or b"{}").get("ready"):
                 raise RuntimeError("Song analysis did not start")
         except BaseException:
@@ -140,7 +140,7 @@ class Worker:
         process.stdin.write((json.dumps(request) + "\n").encode())
         try:
             await process.stdin.drain()
-            line = await asyncio.wait_for(process.stdout.readline(), timeout=_SONG_TIMEOUT)
+            line = await asyncio.wait_for(_answer(process), timeout=_SONG_TIMEOUT)
         except (TimeoutError, OSError):
             await self.close()
             raise
@@ -157,6 +157,15 @@ class Worker:
         if process is not None and process.returncode is None:
             process.kill()
             await process.wait()
+
+
+async def _answer(process: asyncio.subprocess.Process) -> bytes:
+    """The worker's next JSON line; anything else a library printed is skipped (empty at the end of the output)."""
+    while True:
+        line = await process.stdout.readline()
+        if not line or line.lstrip().startswith(b"{"):
+            return line
+        log.debug("Song analysis printed: %s", line[:200])
 
 
 _worker = Worker()
