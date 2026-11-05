@@ -72,7 +72,9 @@ enum EffectLane {
   flanger('flanger', 0, 0),
   phaser('phaser', 0, 0),
   gate('gate', 0, 0),
-  beatRoll('beat_roll', 0, 0);
+  beatRoll('beat_roll', 0, 0),
+  // The current song stops like a turntable whose motor is switched off: two beats from the middle.
+  brake('brake', 0, 0);
 
   const EffectLane(this.json, this.echoBeats, this.echoFeedback);
   final String json;
@@ -84,7 +86,7 @@ enum EffectLane {
   bool get reverb => this == reverbMiddle || this == reverbCut || this == reverbTail;
 
   /// Only the desktop players have these (Android plays the transition without the effect).
-  bool get desktopOnly => this == flanger || this == phaser || this == gate || this == beatRoll;
+  bool get desktopOnly => this == flanger || this == phaser || this == gate || this == beatRoll || this == brake;
   bool get echo => echoBeats > 0;
 
   /// The current song stops before the end and only the effect rings on.
@@ -337,6 +339,8 @@ double _sweep(double a, double b, double t) => a * math.pow(b / a, _clamp01(t)).
     if (effect == EffectLane.flanger) flanger = sweep;
     if (effect == EffectLane.phaser) phaser = sweep;
     if (effect == EffectLane.gate) gate = u >= m && u < 1 ? 1 : 0;
+    // Braked to a stop, the song stays silent.
+    if (effect == EffectLane.brake && u >= m + 2 * beat) dryGate = 0;
   } else if (effect != EffectLane.none) {
     final stop = effect.tail ? 1 - bar : 1.0;
     feed = u >= m && u < stop ? 1 : 0;
@@ -371,6 +375,15 @@ double _sweep(double a, double b, double t) => a * math.pow(b / a, _clamp01(t)).
     lowpass: lpIn,
   );
   return (out, incoming);
+}
+
+/// Brake: the current song's speed (a share of its speed) [u] into a transition of [bars] bars; null outside the
+/// two beats from the middle in which it slows to a stop.
+double? brakeSpeed(double u, int bars) {
+  final beat = 1 / (math.max(1, bars) * 4);
+  if (u < 0.5 || u >= 0.5 + 2 * beat) return null;
+  final p = (u - 0.5) / (2 * beat);
+  return math.max(0.05, (1 - p) * (1 - p));
 }
 
 /// Beat roll: the length (beats) of the loop the current song repeats [u] into a transition of [bars] bars, null

@@ -1966,6 +1966,7 @@
   "djLow": "Bass",
   "djFilter": "Filter",
   "djSearch": "Song suchen – oder einen aus der Warteschlange nehmen",
+  "effectBrake": "Bremse wie am Plattenspieler (nur PC)",
   "effectReverbMiddle": "Hall, Song endet in der Mitte",
   "effectReverbCut": "Hall, Schnitt am Übergangsende",
   "effectReverbTail": "Hall klingt bis zum Übergangsende aus",

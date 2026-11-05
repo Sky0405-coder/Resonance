@@ -134,6 +134,7 @@ String effectLaneLabel(AppLocalizations l10n, EffectLane lane) {
     EffectLane.phaser => l10n.effectPhaser,
     EffectLane.gate => l10n.effectGate,
     EffectLane.beatRoll => l10n.effectBeatRoll,
+    EffectLane.brake => l10n.effectBrake,
     _ => lane.tail ? l10n.effectEchoTail(beat) : l10n.effectEchoCut(beat),
   };
 }

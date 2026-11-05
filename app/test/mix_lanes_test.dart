@@ -188,6 +188,17 @@ void desktopEffectTests() {
     expect(beatRollBeats(1, 4), isNull);
   });
 
+  test('the brake slows the song to a stop over two beats from the middle, then it stays silent', () {
+    expect(brakeSpeed(0.49, 4), isNull);
+    expect(brakeSpeed(0.5, 4), 1);
+    expect(brakeSpeed(0.5 + 1 / 16, 4), closeTo(0.25, 1e-9));
+    expect(brakeSpeed(0.5 + 2 / 16, 4), isNull);
+    final (braking, _) = laneStates(const MixLanes(effect: EffectLane.brake), 0.55, 4);
+    final (stopped, _) = laneStates(const MixLanes(effect: EffectLane.brake), 0.7, 4);
+    expect(braking.dry, greaterThan(0));
+    expect(stopped.dry, 0);
+  });
+
   test('flanger and gate lanes drive their desktop filters', () {
     const flanger = MixLanes(effect: EffectLane.flanger);
     final (start, _) = laneStates(flanger, 0, 4);

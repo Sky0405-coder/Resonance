@@ -3625,6 +3625,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get djSearch => 'Song suchen – oder einen aus der Warteschlange nehmen';
 
   @override
+  String get effectBrake => 'Bremse wie am Plattenspieler (nur PC)';
+
+  @override
   String get effectReverbMiddle => 'Hall, Song endet in der Mitte';
 
   @override

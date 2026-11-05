@@ -1451,6 +1451,15 @@ class PlaybackEngine {
           mpvGateCommand(beat: out.gate > 0 ? beat : null, downbeat: points?.downbeat ?? points?.mixIn ?? 0),
         );
       }
+      // The brake: mpv's speed falls, with the pitch (no tempo correction), like a turntable stopping.
+      if (effect == EffectLane.brake) {
+        final brake = brakeSpeed(u, plan.bars);
+        if (brake != null) {
+          final rate = _speed * plan.outgoingSpeed;
+          JustAudioMediaKit.sourceCommand(outKey, ['set', 'audio-pitch-correction', 'no']);
+          JustAudioMediaKit.sourceCommand(outKey, ['set', 'speed', (rate * brake).toStringAsFixed(3)]);
+        }
+      }
       // The beat roll: the loop before the middle halves every beat.
       if (effect == EffectLane.beatRoll) {
         // Set half a beat early: mpv only loops when it reaches the loop's end.
@@ -1573,6 +1582,9 @@ class PlaybackEngine {
         for (final command in [
           ...mpvFxCommands(FxState.neutral, null),
           mpvGateCommand(),
+          // After a brake: the player's own speed and tempo correction again.
+          ['set', 'audio-pitch-correction', 'yes'],
+          ['set', 'speed', _speed.toStringAsFixed(3)],
           ['set', 'ab-loop-a', 'no'],
           ['set', 'ab-loop-b', 'no'],
         ]) {

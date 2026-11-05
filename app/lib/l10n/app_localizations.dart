@@ -6494,6 +6494,12 @@ abstract class AppLocalizations {
   /// **'Song suchen – oder einen aus der Warteschlange nehmen'**
   String get djSearch;
 
+  /// No description provided for @effectBrake.
+  ///
+  /// In de, this message translates to:
+  /// **'Bremse wie am Plattenspieler (nur PC)'**
+  String get effectBrake;
+
   /// No description provided for @effectReverbMiddle.
   ///
   /// In de, this message translates to:

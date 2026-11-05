@@ -3645,6 +3645,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get djSearch => 'Search a song – or take one from the queue';
 
   @override
+  String get effectBrake => 'Turntable brake (PC only)';
+
+  @override
   String get effectReverbMiddle => 'Reverb, song ends in the middle';
 
   @override

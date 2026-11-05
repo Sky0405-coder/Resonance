@@ -1276,6 +1276,7 @@
   "djLow": "Low",
   "djFilter": "Filter",
   "djSearch": "Search a song – or take one from the queue",
+  "effectBrake": "Turntable brake (PC only)",
   "effectReverbMiddle": "Reverb, song ends in the middle",
   "effectReverbCut": "Reverb, cut at the end",
   "effectReverbTail": "Reverb rings out until the end",
