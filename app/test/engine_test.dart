@@ -202,6 +202,27 @@ void main() {
 
     Duration secs(double s) => Duration(microseconds: (s * 1e6).round());
 
+    test('with section starts the bass swaps a phrase after the outro starts, never before it', () {
+      final json = <String, dynamic>{
+        'bpm': 120,
+        'mix_in': 0.5,
+        'mix_out': 160.5,
+        'end': 200,
+        'downbeat': 0.5,
+        'phrases': [64.5, 160.5],
+        'energy': 0.7,
+      };
+      final outgoing = MixPoints.fromJson(json);
+      expect((outgoing.downbeat, outgoing.energy), (0.5, 0.7));
+      expect(outgoing.phrases, [64.5, 160.5]);
+      final plan = automixPlan(outgoing, points(bpm: 120, mixIn: 0.5))!;
+      // 16 beats at 120 BPM = 8 s: the swap lands on 168.5, a phrase of the current song.
+      expect(plan.start + plan.bassSwap, secs(168.5));
+      expect(plan.start >= secs(160.5), isTrue);
+      final old = automixPlan(points(bpm: 120, mixOut: 160.5, end: 200), points(bpm: 120, mixIn: 0.5))!;
+      expect(old.start + old.bassSwap, secs(164.5), reason: 'older analyses keep half a phrase');
+    });
+
     test('matches close tempos and starts the next song at its first beat', () {
       final plan = automixPlan(points(bpm: 120, mixOut: 200.25), points(bpm: 120, mixIn: 1.5))!;
       expect(plan.incomingStart, const Duration(milliseconds: 1500));

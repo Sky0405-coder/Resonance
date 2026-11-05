@@ -19,6 +19,7 @@ import 'admin/metadata_editor.dart';
 import '../widgets/blends.dart';
 import '../widgets/common.dart';
 import '../widgets/cover_crop.dart';
+import '../widgets/playlist_order.dart';
 import '../widgets/offline.dart';
 import '../widgets/track_list.dart';
 import 'playlist_add_page.dart';
@@ -587,6 +588,12 @@ class PlaylistPage extends ConsumerWidget {
                                   onSelected: () => showShareWithUsers(context, ref, d.playlist),
                                 ),
                               ],
+                              if (d.editable && d.playlist.kind == 'user' && d.entries.length > 1)
+                                SheetAction(
+                                  icon: Icons.sort,
+                                  label: context.l10n.playlistSort,
+                                  onSelected: () => showPlaylistSortSheet(context, ref, d),
+                                ),
                               if (d.playlist.kind == 'user' && d.playlist.owner.id == userId)
                                 SheetAction(
                                   icon: Icons.sync,

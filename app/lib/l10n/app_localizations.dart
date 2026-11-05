@@ -1598,6 +1598,90 @@ abstract class AppLocalizations {
   /// **'Fertig'**
   String get commonDone;
 
+  /// No description provided for @commonUndo.
+  ///
+  /// In de, this message translates to:
+  /// **'Rückgängig'**
+  String get commonUndo;
+
+  /// No description provided for @playlistSort.
+  ///
+  /// In de, this message translates to:
+  /// **'Sortieren'**
+  String get playlistSort;
+
+  /// No description provided for @playlistSortHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Ändert die Reihenfolge der Playlist für alle'**
+  String get playlistSortHint;
+
+  /// No description provided for @playlistSorted.
+  ///
+  /// In de, this message translates to:
+  /// **'Playlist neu sortiert'**
+  String get playlistSorted;
+
+  /// No description provided for @playlistReorder.
+  ///
+  /// In de, this message translates to:
+  /// **'Reihenfolge von Hand ändern'**
+  String get playlistReorder;
+
+  /// No description provided for @playlistSetPeak.
+  ///
+  /// In de, this message translates to:
+  /// **'Als DJ-Set: aufwärmen, Höhepunkt, ausklingen'**
+  String get playlistSetPeak;
+
+  /// No description provided for @playlistSetRise.
+  ///
+  /// In de, this message translates to:
+  /// **'Als DJ-Set: immer energiegeladener'**
+  String get playlistSetRise;
+
+  /// No description provided for @playlistSetDown.
+  ///
+  /// In de, this message translates to:
+  /// **'Als DJ-Set: immer ruhiger'**
+  String get playlistSetDown;
+
+  /// No description provided for @playlistSetFlow.
+  ///
+  /// In de, this message translates to:
+  /// **'Als DJ-Set: gleichmäßiger Fluss'**
+  String get playlistSetFlow;
+
+  /// No description provided for @playlistSortTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach Titel'**
+  String get playlistSortTitle;
+
+  /// No description provided for @playlistSortArtist.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach Künstler'**
+  String get playlistSortArtist;
+
+  /// No description provided for @playlistSortAlbum.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach Album'**
+  String get playlistSortAlbum;
+
+  /// No description provided for @playlistSortLength.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach Länge'**
+  String get playlistSortLength;
+
+  /// No description provided for @playlistSortReverse.
+  ///
+  /// In de, this message translates to:
+  /// **'Umdrehen'**
+  String get playlistSortReverse;
+
   /// No description provided for @downloadsStatusPartial.
   ///
   /// In de, this message translates to:

@@ -26,22 +26,25 @@ from app.models import (
     PlaylistTransition,
     RadioPending,
     Track,
+    TrackMixPoints,
     User,
 )
 from app.schemas import (
     AddTracksIn,
     ArtistRef,
     MoveEntryIn,
+    OrderIn,
     PlaylistDetail,
     PlaylistEntryOut,
     PlaylistIn,
     PlaylistOut,
     PlaylistPatch,
     PlaylistSharesIn,
+    SetOrderIn,
     TransitionIn,
     TransitionOut,
 )
-from app.services import covers, mix_covers
+from app.services import covers, dj_set, mix_covers, mixpoints
 from app.services.views import can_edit, playlists_out, tracks_out
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
@@ -362,6 +365,52 @@ async def move_entry(playlist_id: uuid.UUID, body: MoveEntryIn, user: CurrentUse
     entry.position = (await _position_before(db, playlist_id, body.before_entry_id, 1))[0]
     playlist.updated_at = func.now()
     await db.commit()
+
+
+async def _reorder(db: DB, playlist: Playlist, entry_ids: list[uuid.UUID]) -> None:
+    entries = {e.id: e for e in await db.scalars(select(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist.id))}
+    if len(entry_ids) != len(entries) or set(entry_ids) != set(entries):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Die Playlist hat sich geändert")
+    for position, entry_id in enumerate(entry_ids, start=1):
+        entries[entry_id].position = float(position)
+    playlist.updated_at = func.now()
+    await db.commit()
+
+
+@router.put("/{playlist_id}/order", status_code=status.HTTP_204_NO_CONTENT)
+async def set_order(playlist_id: uuid.UUID, body: OrderIn, user: CurrentUser, db: DB) -> None:
+    """The whole playlist in a new order (sorting, or undoing a DJ set order)."""
+    playlist = await _get_editable(db, user, playlist_id)
+    if playlist.kind == "mix":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mixe werden automatisch erstellt")
+    await _reorder(db, playlist, body.entry_ids)
+
+
+@router.post("/{playlist_id}/set-order", status_code=status.HTTP_204_NO_CONTENT)
+async def dj_set_order(playlist_id: uuid.UUID, body: SetOrderIn, user: CurrentUser, db: DB) -> None:
+    """Orders the playlist like a DJ set: compatible keys and tempos next to each other, energy along `arc`."""
+    playlist = await _get_editable(db, user, playlist_id)
+    if playlist.kind == "mix":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mixe werden automatisch erstellt")
+    entries = list(await db.scalars(
+        select(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist_id).order_by(PlaylistEntry.position)
+    ))
+    analyses = {row.track_id: row for row in await db.scalars(
+        select(TrackMixPoints).where(
+            TrackMixPoints.track_id.in_({e.track_id for e in entries}),
+            TrackMixPoints.version >= mixpoints.KEYS_SINCE,
+        )
+    )}
+    tracks = []
+    for entry in entries:
+        row = analyses.get(entry.track_id)
+        tracks.append(dj_set.SetTrack(
+            entry.id,
+            row.bpm if row else None,
+            row.key if row and (row.key_confidence or 0) >= 0.1 else None,
+            row.energy if row else None,
+        ))
+    await _reorder(db, playlist, [t.id for t in dj_set.order(tracks, body.arc)])
 
 
 @router.delete("/{playlist_id}/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)

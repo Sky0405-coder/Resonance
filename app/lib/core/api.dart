@@ -358,8 +358,7 @@ class ApiClient {
   Future<List<NamedRef>> otherUsers() async => [for (final u in await _get('/api/users')) NamedRef.fromJson(u)];
 
   /// The yearly review of [year] (this year without one).
-  Future<Wrapped> wrapped([int? year]) async =>
-      Wrapped.fromJson(await _get('/api/me/wrapped', {'year': ?year}));
+  Future<Wrapped> wrapped([int? year]) async => Wrapped.fromJson(await _get('/api/me/wrapped', {'year': ?year}));
 
   /// The year's most played songs as a playlist of the user's; returns its id.
   Future<String> saveWrappedPlaylist(int year, {required String name, String? description}) async =>
@@ -416,6 +415,13 @@ class ApiClient {
 
   Future<void> moveInPlaylist(String id, String entryId, String? beforeEntryId) =>
       _post('/api/playlists/$id/move', {'entry_id': entryId, 'before_entry_id': beforeEntryId});
+
+  /// Every entry of the playlist in a new order.
+  Future<void> setPlaylistOrder(String id, List<String> entryIds) =>
+      _put('/api/playlists/$id/order', {'entry_ids': entryIds});
+
+  /// Orders the playlist like a DJ set; [arc] is peak, rise, down or flow.
+  Future<void> djSetOrder(String id, String arc) => _post('/api/playlists/$id/set-order', {'arc': arc});
 
   // --- catalog & requests ---------------------------------------------------
 

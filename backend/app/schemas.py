@@ -451,6 +451,16 @@ class MoveEntryIn(BaseModel):
     before_entry_id: uuid.UUID | None = None
 
 
+class OrderIn(BaseModel):
+    """Every entry of the playlist, in the new order."""
+
+    entry_ids: list[uuid.UUID] = Field(max_length=20000)
+
+
+class SetOrderIn(BaseModel):
+    arc: Literal["peak", "rise", "down", "flow"] = "peak"
+
+
 class PlayEventIn(BaseModel):
     track_id: uuid.UUID
     seconds_played: float = Field(ge=0)

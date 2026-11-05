@@ -55,6 +55,9 @@ class MixPoints {
     this.vocalsIn,
     this.vocalsOut,
     this.introEnd,
+    this.downbeat,
+    this.phrases,
+    this.energy,
   });
   final double? bpm;
   final double mixIn;
@@ -70,6 +73,15 @@ class MixPoints {
   final double? vocalsIn;
   final double? vocalsOut;
 
+  /// The first beat 1 (song time); phrases are counted from here. Null from analyses before section detection.
+  final double? downbeat;
+
+  /// Section starts on the 8-bar grid (song times); null from analyses before section detection.
+  final List<double>? phrases;
+
+  /// 0 (calm) to 1 (peak time).
+  final double? energy;
+
   /// The key only when the analysis was reasonably sure (a wrong key would cause needless filter-outs).
   String? get reliableKey => (keyConfidence ?? 0) >= 0.1 ? key : null;
 
@@ -83,6 +95,9 @@ class MixPoints {
     vocalsIn: (j['vocals_in'] as num?)?.toDouble(),
     vocalsOut: (j['vocals_out'] as num?)?.toDouble(),
     introEnd: (j['intro_end'] as num?)?.toDouble(),
+    downbeat: (j['downbeat'] as num?)?.toDouble(),
+    phrases: (j['phrases'] as List?)?.map((v) => (v as num).toDouble()).toList(),
+    energy: (j['energy'] as num?)?.toDouble(),
   );
 }
 
@@ -177,6 +192,7 @@ Duration _filterOutDuration(double? bpm) =>
 /// [automixDefaultLeadBeats] beats from their first beat; with clashing keys both halves last only a bar.
 const automixMaxLeadBeats = 16;
 const automixDefaultLeadBeats = 8;
+const automixPhraseBeats = 16;
 const automixMinTailBeats = 4;
 const automixMaxTailBeats = 8;
 const automixMinSeconds = 6.0;
@@ -258,9 +274,14 @@ AutomixPlan? automixPlan(MixPoints outgoing, MixPoints incoming, {int minSeconds
   final wanted = math.min(minSeconds, 30).toDouble();
   if (leadIn + tail < wanted) tail = wanted - leadIn;
   var duration = leadIn + tail;
-  // The bass swaps half a phrase after the analyzed mix-out point (a phrase start), earlier by whole bars when the
-  // song would end before the blend does, but the blend never starts in the first half of the song.
-  var start = outgoing.mixOut + beats(automixDefaultLeadBeats, 5) - leadIn;
+  // The bass swaps after the analyzed mix-out point (a phrase start), earlier by whole bars when the song would end
+  // before the blend does, but the blend never starts in the first half of the song. With section starts (newer
+  // analyses, mix-out is where the outro begins) it swaps a full phrase later, so the next song's drop lands on the
+  // current song's next phrase and the blend never starts before the outro; otherwise half a phrase after.
+  final swapAfter = outgoing.phrases != null && beat != null
+      ? beats(automixPhraseBeats, 8)
+      : beats(automixDefaultLeadBeats, 5);
+  var start = outgoing.mixOut + swapAfter - leadIn;
   if (start + duration > outgoing.end) start -= toBars(start + duration - outgoing.end);
   if (start < outgoing.end / 2) {
     start = math.min(outgoing.mixOut, outgoing.end / 2);

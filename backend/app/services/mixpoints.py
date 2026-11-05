@@ -23,7 +23,7 @@ from app.services.transcode import resolve_path
 log = logging.getLogger(__name__)
 
 # Bump when the analysis changes so stored results get recomputed.
-VERSION = 5
+VERSION = 6
 # Tempo and key are the same since this version: older results still serve them while the songs are analyzed again.
 KEYS_SINCE = 3
 _RATE = 11025
@@ -52,6 +52,12 @@ class MixPoints:
     intro_end: float | None = None
     vocals_in: float | None = None
     vocals_out: float | None = None
+    # The first beat 1 of a bar (song time): phrases are counted from here.
+    downbeat: float | None = None
+    # Where the song changes section (song times on the 8-bar grid from downbeat), for transitions on phrases.
+    phrases: list[float] | None = None
+    # How driving the song is, 0 (calm) to 1 (peak time), for ordering a set.
+    energy: float | None = None
 
 
 def _vocal_bounds(
@@ -186,6 +192,76 @@ def _band_level(magnitude: np.ndarray, low: float, high: float) -> np.ndarray:
     return 20 * np.log10(np.sqrt(np.mean(band**2, axis=1)) + 1e-9)
 
 
+def _downbeat(bass_onset: np.ndarray, onset: np.ndarray, period: float, first: float) -> float:
+    """The beat 1 among the first four beats from `first` (frames): kick and bass hit hardest on the one, and chords
+    change there, so the beats of one phase that carry the most low-end and overall onset are the downbeats."""
+    count = int((len(onset) - 1 - first) // period)
+    if count < 16:
+        return first
+    beats = first + period * np.arange(count)
+    frames = np.arange(len(onset))
+    bass = np.interp(beats, frames, bass_onset)
+    full = np.interp(beats, frames, onset)
+    score = bass / (bass.mean() + 1e-9) + 0.5 * full / (full.mean() + 1e-9)
+    phase = int(np.argmax([score[i::4].mean() for i in range(4)]))
+    return first + phase * period
+
+
+def _bar_means(values: np.ndarray, bars: np.ndarray, count: int) -> np.ndarray:
+    valid = (bars >= 0) & (bars < count)
+    per_bar = np.bincount(bars[valid], minlength=count)
+    return np.bincount(bars[valid], weights=values[valid], minlength=count) / np.maximum(per_bar, 1)
+
+
+def _phrases(
+    level: np.ndarray, bass: np.ndarray, bright: np.ndarray, seconds: np.ndarray, downbeat: float, bar: float
+) -> list[float]:
+    """Section starts like a DJ hears them: points on the 8-bar grid from the downbeat where level, bass or brightness
+    of the next 4 bars differ clearly (3 dB) from the 4 bars before."""
+    bars = np.floor((seconds - downbeat) / bar).astype(int)
+    count = int(bars.max()) + 1 if len(bars) and bars.max() >= 0 else 0
+    if count < 16:
+        return []
+    features = [_bar_means(values, bars, count) for values in (level, bass, bright)]
+    result = []
+    for start in range(8, count - 3, 8):
+        change = max(abs(f[start : start + 4].mean() - f[start - 4 : start].mean()) for f in features)
+        if change >= 3:
+            result.append(round(float(downbeat + start * bar), 3))
+    return result
+
+
+def _outro_start(level: np.ndarray, seconds: np.ndarray, phrases: list[float], end: float, loud: float) -> float | None:
+    """The last section start in the second half after which the song stays clearly (4 dB) quieter: the outro, where
+    a DJ brings in the next song. Not earlier than 45 s before the end, so long endings are not cut away."""
+    for start in reversed(phrases):
+        if start < end / 2 or start < end - 45:
+            break
+        after = level[(seconds >= start) & (seconds < end)]
+        before = level[(seconds >= start - 30) & (seconds < start)]
+        if len(after) and len(before) and np.median(after) <= min(np.median(before), loud) - 4:
+            return start
+    return None
+
+
+def _energy(bpm: float | None, onset: np.ndarray, level: np.ndarray, magnitude: np.ndarray, loud: float) -> float:
+    """0 (calm) to 1 (peak time) from tempo, how often something hits, how much of the song plays at full level and
+    how much treble (hi-hats, distortion) there is. Rough, but orders a set: lo-fi ~0.4, club pop ~0.85."""
+    active = level > loud - 20
+    if not active.any():
+        return 0.0
+    threshold = 1.5 * _smooth(onset, 2.0) + 1e-6
+    peaks = (onset[1:-1] > onset[:-2]) & (onset[1:-1] >= onset[2:]) & (onset[1:-1] > threshold[1:-1])
+    rate = peaks[active[1:-1]].sum() / max(active.sum() * _HOP / _RATE, 1)
+    full = float(np.mean(level[active] > loud - 6))
+    freqs = np.fft.rfftfreq(_FRAME, 1 / _RATE)
+    power = magnitude[active].astype(np.float64) ** 2
+    treble = float(np.median(power[:, freqs > 2000].sum(axis=1) / (power.sum(axis=1) + 1e-12)))
+    tempo = np.clip(((bpm or 100) - 70) / 80, 0, 1)
+    value = 0.3 * tempo + 0.25 * np.clip((rate - 2.5) / 3, 0, 1) + 0.25 * full + 0.2 * np.clip(treble / 0.08, 0, 1)
+    return round(float(np.clip(value, 0, 1)), 3)
+
+
 def _intro_end(
     level: np.ndarray, bass: np.ndarray, seconds: np.ndarray, mix_in: float, bar: float
 ) -> float | None:
@@ -242,6 +318,8 @@ def analyze(path: Path) -> MixPoints:
     out = max(start, min(end, last_strong + 4) - fade)
     mix_in = start
     intro_end = None
+    downbeat = None
+    phrases: list[float] = []
     if bpm:
         period = _RATE / _HOP * 60 / bpm
         span = int(8 * period)
@@ -249,19 +327,31 @@ def analyze(path: Path) -> MixPoints:
         def to_frame(t: float) -> int:
             return int((t - offset) * _RATE / _HOP)
 
-        mix_in = _beat_near(onset, period, to_frame(start), span) * _HOP / _RATE + offset
-        if mix_in < start - 0.05:
-            mix_in += period * _HOP / _RATE
+        first = _beat_near(onset, period, to_frame(start), span)
+        if first * _HOP / _RATE + offset < start - 0.05:
+            first += period
+        bass = _band_level(magnitude, 30, 150)
+        bass_onset = np.concatenate([[0.0], np.clip(np.diff(bass), 0, None)])
+        # The next song comes in on its beat 1, so its bars line up with the current song's.
+        down = _downbeat(bass_onset, onset, period, first)
+        mix_in = down * _HOP / _RATE + offset
+        downbeat = mix_in
         beat_out = _beat_near(onset, period, to_frame(out), span) * _HOP / _RATE + offset
         out = beat_out if beat_out <= end - 4 else out
-        # Prefer the start of a 16-beat phrase (counted from the first beat) up to 8 beats away: songs change
-        # sections there, so the transition lands where a DJ would start it.
         beat = 60 / bpm
         phrase = 16 * beat
-        boundary = mix_in + round((out - mix_in) / phrase) * phrase
-        if boundary > mix_in and abs(boundary - out) <= 8 * beat and boundary <= end - 4:
-            out = boundary
-        intro_end = _intro_end(level, _band_level(magnitude, 30, 150), seconds, mix_in, 4 * beat)
+        bright = _band_level(magnitude, 2000, _RATE / 2)
+        phrases = _phrases(level, bass, bright, seconds, downbeat, 4 * beat)
+        outro = _outro_start(level, seconds, phrases, end, loud)
+        if outro is not None and outro <= end - 8:
+            # The outro starts a new section: the next song comes in there, like a DJ would.
+            out = outro
+        else:
+            # Otherwise the start of a 16-beat phrase (counted from the downbeat) up to 8 beats away.
+            boundary = downbeat + round((out - downbeat) / phrase) * phrase
+            if boundary > downbeat and abs(boundary - out) <= 8 * beat and boundary <= end - 4:
+                out = boundary
+        intro_end = _intro_end(level, bass, seconds, mix_in, 4 * beat)
     key, confidence = _key(samples)
     return MixPoints(
         bpm=round(float(bpm), 2) if bpm else None,
@@ -271,6 +361,9 @@ def analyze(path: Path) -> MixPoints:
         key=key,
         key_confidence=confidence,
         intro_end=round(float(intro_end), 3) if intro_end is not None else None,
+        downbeat=round(float(downbeat), 3) if downbeat is not None else None,
+        phrases=phrases,
+        energy=_energy(bpm, onset, level, magnitude, loud),
     )
 
 
@@ -314,7 +407,16 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
         row = stored.get(id)
         if row is not None and row.version == VERSION and row.mtime == track.mtime:
             result[id] = None if row.failed else MixPoints(
-                row.bpm, row.mix_in, row.mix_out, row.end, row.key, row.key_confidence, row.intro_end
+                row.bpm,
+                row.mix_in,
+                row.mix_out,
+                row.end,
+                row.key,
+                row.key_confidence,
+                row.intro_end,
+                downbeat=row.downbeat,
+                phrases=row.phrases,
+                energy=row.energy,
             )
             continue
         points = await analyze_async(resolve_path(track.path))
@@ -330,6 +432,9 @@ async def for_tracks(db: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, 
             "key": points.key if points else None,
             "key_confidence": points.key_confidence if points else None,
             "intro_end": points.intro_end if points else None,
+            "downbeat": points.downbeat if points else None,
+            "phrases": points.phrases if points else None,
+            "energy": points.energy if points else None,
         }
         await db.execute(
             insert(TrackMixPoints)

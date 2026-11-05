@@ -393,8 +393,8 @@ async def test_keys_api_reads_stored_keys_without_analysis(env, monkeypatch: pyt
     )
     assert response.status_code == 200, response.text
     assert response.json() == {
-        str(track_id): {"key": "8A", "bpm": 120.0},
-        str(missing_id): {"key": "3B", "bpm": 90.0},
+        str(track_id): {"key": "8A", "bpm": 120.0, "energy": None},
+        str(missing_id): {"key": "3B", "bpm": 90.0, "energy": None},
         str(unknown): None,
     }
     full = ",".join(str(uuid.uuid4()) for _ in range(500))

@@ -38,6 +38,7 @@ import 'ui/pages/now_playing_page.dart';
 import 'ui/pages/lyrics_page.dart';
 import 'ui/pages/settings_page.dart';
 import 'ui/pages/storage_page.dart';
+import 'ui/widgets/playlist_order.dart';
 import 'ui/pages/spotify_page.dart';
 import 'ui/pages/wrapped_page.dart';
 import 'ui/pages/spotify_sync_page.dart';
@@ -172,6 +173,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               tvChild: TvDetailPage(kind: 'playlist', id: s.pathParameters['id']!),
               child: PlaylistPage(id: s.pathParameters['id']!),
             ),
+          ),
+          GoRoute(
+            path: '/playlist/:id/order',
+            builder: (_, s) => PlaylistOrderPage(playlistId: s.pathParameters['id']!),
           ),
           GoRoute(
             path: '/playlist/:id/add',

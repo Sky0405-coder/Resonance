@@ -874,6 +874,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commonDone => 'Done';
 
   @override
+  String get commonUndo => 'Undo';
+
+  @override
+  String get playlistSort => 'Sort';
+
+  @override
+  String get playlistSortHint => 'Changes the playlist\'s order for everyone';
+
+  @override
+  String get playlistSorted => 'Playlist sorted';
+
+  @override
+  String get playlistReorder => 'Reorder by hand';
+
+  @override
+  String get playlistSetPeak => 'As a DJ set: warm up, peak, cool down';
+
+  @override
+  String get playlistSetRise => 'As a DJ set: building up';
+
+  @override
+  String get playlistSetDown => 'As a DJ set: winding down';
+
+  @override
+  String get playlistSetFlow => 'As a DJ set: steady flow';
+
+  @override
+  String get playlistSortTitle => 'By title';
+
+  @override
+  String get playlistSortArtist => 'By artist';
+
+  @override
+  String get playlistSortAlbum => 'By album';
+
+  @override
+  String get playlistSortLength => 'By length';
+
+  @override
+  String get playlistSortReverse => 'Reverse';
+
+  @override
   String get downloadsStatusPartial => 'Partially complete';
 
   @override

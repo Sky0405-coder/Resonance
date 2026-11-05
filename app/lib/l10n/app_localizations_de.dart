@@ -865,6 +865,48 @@ class AppLocalizationsDe extends AppLocalizations {
   String get commonDone => 'Fertig';
 
   @override
+  String get commonUndo => 'Rückgängig';
+
+  @override
+  String get playlistSort => 'Sortieren';
+
+  @override
+  String get playlistSortHint => 'Ändert die Reihenfolge der Playlist für alle';
+
+  @override
+  String get playlistSorted => 'Playlist neu sortiert';
+
+  @override
+  String get playlistReorder => 'Reihenfolge von Hand ändern';
+
+  @override
+  String get playlistSetPeak => 'Als DJ-Set: aufwärmen, Höhepunkt, ausklingen';
+
+  @override
+  String get playlistSetRise => 'Als DJ-Set: immer energiegeladener';
+
+  @override
+  String get playlistSetDown => 'Als DJ-Set: immer ruhiger';
+
+  @override
+  String get playlistSetFlow => 'Als DJ-Set: gleichmäßiger Fluss';
+
+  @override
+  String get playlistSortTitle => 'Nach Titel';
+
+  @override
+  String get playlistSortArtist => 'Nach Künstler';
+
+  @override
+  String get playlistSortAlbum => 'Nach Album';
+
+  @override
+  String get playlistSortLength => 'Nach Länge';
+
+  @override
+  String get playlistSortReverse => 'Umdrehen';
+
+  @override
   String get downloadsStatusPartial => 'Teilweise fertig';
 
   @override

@@ -71,6 +71,7 @@ _EXACT: dict[str, str] = {
     "Unbekannter Nutzer": "Unknown user",
     "Keine Radio-Playlist": "This is not a radio playlist",
     "Mixe werden automatisch erstellt": "Mixes are created automatically",
+    "Die Playlist hat sich geändert": "The playlist has changed",
     "Mix der Woche": "Discover Weekly",
     "Neue Songs für dich – jeden Montag neu": "New songs for you – fresh every Monday",
     "Kuratiert von Apple Music – wöchentlich aktualisiert": "Curated by Apple Music – updated weekly",

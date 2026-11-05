@@ -144,6 +144,9 @@ class TrackMixPoints(Base):
     mix_out: Mapped[float | None] = mapped_column(Float)
     end: Mapped[float | None] = mapped_column(Float)
     intro_end: Mapped[float | None] = mapped_column(Float)
+    downbeat: Mapped[float | None] = mapped_column(Float)
+    phrases: Mapped[list | None] = mapped_column(JSONB)
+    energy: Mapped[float | None] = mapped_column(Float)
     analyzed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

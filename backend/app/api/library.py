@@ -474,7 +474,7 @@ async def get_mixpoint_keys(user: CurrentUser, db: DB, ids: str = Query(max_leng
         )
     )}
     return {
-        str(id): {"key": rows[id].key, "bpm": rows[id].bpm} if id in rows else None
+        str(id): {"key": rows[id].key, "bpm": rows[id].bpm, "energy": rows[id].energy} if id in rows else None
         for id in track_ids
     }
 
