@@ -1,7 +1,7 @@
 [
   {
     "version": "1.7.4",
-    "date": "2026-11-06",
+    "date": "2026-11-05",
     "de": [
       "Warteschlange wie bei Spotify: Hinzugefügte Songs (auch per Wischen) kommen direkt als Nächstes, in der Reihenfolge, in der du sie hinzufügst, markiert und im eigenen Abschnitt; nach links wischen nimmt einen Song wieder heraus. Shuffle reagiert jetzt sofort.",
       "Playlists sortieren: von Hand per Ziehen, nach Titel, Künstler, Album oder Länge, oder als DJ-Set mit passenden Tonarten und einem Energieverlauf (aufwärmen und Höhepunkt, steigend, abklingend oder gleichmäßig) – alles mit „Rückgängig“.",
