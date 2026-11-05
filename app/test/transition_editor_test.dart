@@ -196,6 +196,37 @@ void main() {
     await tester.pump(const Duration(seconds: 10));
   });
 
+  testWidgets('volume curves are drawn by hand: dragging a point saves the curve and marks the lane drawn', (
+    tester,
+  ) async {
+    final scope = (await tester.runAsync(container))!;
+    await open(tester, scope);
+    await tester.tap(find.widgetWithText(FilterChip, 'Volume'));
+    await tester.pumpAndSettle();
+    final editor = find.byWidgetPredicate((w) => w.runtimeType.toString() == '_CurveEditor');
+    expect(editor, findsOneWidget);
+    // Pull the current song's volume down in the first quarter of the transition.
+    final box = tester.getRect(editor);
+    await tester.dragFrom(Offset(box.left + box.width * 0.25, box.top + 12), const Offset(0, 100));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    expect(find.text('Drawn by hand'), findsOneWidget);
+    await tester.drag(find.byType(ListView).first, const Offset(0, 2000));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await tester.pumpAndSettle();
+    final curve = api.saved['one>two']!.lanes!.curves[MixCurve.volumeOut]!;
+    expect(curveAt(curve, 0.25), lessThan(0.6));
+    expect(curve.first.$1, 0);
+    expect(curve.last.$1, 1);
+    expect(api.saved['one>two']!.lanes!.curves.containsKey(MixCurve.volumeIn), isFalse);
+    await tester.pumpWidget(const SizedBox());
+    scope.dispose();
+    await tester.pump(const Duration(seconds: 10));
+  });
+
   testWidgets('people who may only listen see the transition but cannot change it', (tester) async {
     final scope = (await tester.runAsync(container))!;
     await open(tester, scope, canEdit: false);

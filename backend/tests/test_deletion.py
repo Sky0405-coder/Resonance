@@ -564,10 +564,18 @@ async def test_transitions_are_saved_per_pair_by_editors_and_reset(env: SimpleNa
              "beatmatch": False}
     response = await env.client.put(url, json={**body, "lanes": lanes}, headers=env.headers)
     assert response.status_code == 200, response.text
-    assert response.json()["lanes"] == lanes
+    assert response.json()["lanes"] == {**lanes, "curves": None}
+    # Curves drawn by hand travel along too.
+    curves = {"volume_out": [[0, 1], [0.5, 0.8], [1, 0]], "filter_in": [[0, -1], [1, 0]]}
+    response = await env.client.put(url, json={**body, "lanes": {**lanes, "curves": curves}}, headers=env.headers)
+    assert response.status_code == 200, response.text
+    assert response.json()["lanes"]["curves"] == curves
     response = await env.client.put(url, json={**body, "lanes": {"effect": "reverb_tail"}}, headers=env.headers)
     assert response.json()["lanes"]["volume"] == "smooth" and response.json()["lanes"]["effect"] == "reverb_tail"
-    for bad_lanes in [{"volume": "spin"}, {"loop": 3}, {"filter": "bandpass"}]:
+    for bad_lanes in [
+        {"volume": "spin"}, {"loop": 3}, {"filter": "bandpass"}, {"curves": {"pitch": [[0, 0], [1, 1]]}},
+        {"curves": {"volume_in": [[0, 0]]}}, {"curves": {"volume_in": [[0, 0], [1.5, 1]]}},
+    ]:
         response = await env.client.put(url, json={**body, "lanes": bad_lanes}, headers=env.headers)
         assert response.status_code == 422
     response = await env.client.put(url, json={**body, "style": "crossfade", "bars": 8}, headers=env.headers)

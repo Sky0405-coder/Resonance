@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show PointerScrollEvent;
+import 'package:flutter/gestures.dart' show PointerDeviceKind, PointerScrollEvent, kPrimaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -62,6 +62,9 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
   // How far the waveforms are zoomed in around the transition (mouse wheel or the buttons).
   double _zoom = 1;
   double _dragSeconds = 0;
+
+  /// The curves being drawn by hand (volume, bass or filter), null while the songs are dragged instead.
+  _CurveGroup? _drawing;
 
   late final PlayerController _player = ref.read(playerProvider.notifier);
   String get _context => 'playlist:${widget.playlistId}';
@@ -232,6 +235,11 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
     final custom = _draft != null && preset == null;
 
     void setLanes(MixLanes value) => _update(edit.copyWith(lanes: value));
+    // Picking a lane's variant replaces what was drawn for it.
+    MixLanes undrawn(_CurveGroup group) =>
+        lanes.copyWith(curves: {...lanes.curves}..removeWhere((curve, _) => group.curves.contains(curve)));
+    String laneValue(_CurveGroup group, String label) =>
+        group.curves.any(lanes.curves.containsKey) ? l10n.transitionDrawn : label;
 
     Widget chip(String label, bool selected, VoidCallback? onSelected, {Widget? avatar}) => Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -251,6 +259,44 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
           builder: (context, constraints) => _waveforms(context, constraints.maxWidth, out, inc, plan, edit),
         ),
         _TrackHeader(track: widget.to, points: inc),
+        if (widget.canEdit) ...[
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Text(l10n.transitionDraw, style: const TextStyle(color: Palette.textMuted)),
+                const SizedBox(width: 12),
+                for (final group in _CurveGroup.values)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      avatar: CircleAvatar(backgroundColor: group.color, radius: 5),
+                      label: Text(switch (group) {
+                        _CurveGroup.volume => l10n.transitionVolume,
+                        _CurveGroup.bass => l10n.transitionBass,
+                        _CurveGroup.filter => l10n.transitionFilterLane,
+                      }),
+                      selected: _drawing == group,
+                      onSelected: (on) => setState(() => _drawing = on ? group : null),
+                    ),
+                  ),
+                if (_drawing case final group? when group.curves.any(lanes.curves.containsKey))
+                  TextButton.icon(
+                    onPressed: () => setLanes(undrawn(group)),
+                    icon: const Icon(Icons.restart_alt, size: 18),
+                    label: Text(l10n.transitionDrawReset),
+                  ),
+              ],
+            ),
+          ),
+          if (_drawing != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+              child: Text(l10n.transitionDrawHint, style: const TextStyle(color: Palette.textMuted, fontSize: 12)),
+            ),
+        ],
         const SizedBox(height: 16),
         Row(
           children: [
@@ -278,7 +324,7 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
         _LaneRow(
           color: _volumeColor,
           label: l10n.transitionVolume,
-          value: volumeLaneLabel(l10n, lanes.volume),
+          value: laneValue(_CurveGroup.volume, volumeLaneLabel(l10n, lanes.volume)),
           onTap: !widget.canEdit
               ? null
               : () => _pick(
@@ -286,13 +332,13 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
                   _volumeColor,
                   [for (final v in VolumeLane.values) (volumeLaneLabel(l10n, v), v)],
                   lanes.volume,
-                  (v) => setLanes(lanes.copyWith(volume: v)),
+                  (v) => setLanes(undrawn(_CurveGroup.volume).copyWith(volume: v)),
                 ),
         ),
         _LaneRow(
           color: _bassColor,
           label: l10n.transitionEq,
-          value: eqLaneLabel(l10n, lanes.eq),
+          value: laneValue(_CurveGroup.bass, eqLaneLabel(l10n, lanes.eq)),
           onTap: !widget.canEdit
               ? null
               : () => _pick(
@@ -300,13 +346,13 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
                   _bassColor,
                   [for (final v in EqLane.values) (eqLaneLabel(l10n, v), v)],
                   lanes.eq,
-                  (v) => setLanes(lanes.copyWith(eq: v)),
+                  (v) => setLanes(undrawn(_CurveGroup.bass).copyWith(eq: v)),
                 ),
         ),
         _LaneRow(
           color: _filterColor,
           label: l10n.transitionFilterLane,
-          value: filterLaneLabel(l10n, lanes.filter),
+          value: laneValue(_CurveGroup.filter, filterLaneLabel(l10n, lanes.filter)),
           onTap: !widget.canEdit
               ? null
               : () => _pick(
@@ -314,7 +360,7 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
                   _filterColor,
                   [for (final v in FilterLane.values) (filterLaneLabel(l10n, v), v)],
                   lanes.filter,
-                  (v) => setLanes(lanes.copyWith(filter: v)),
+                  (v) => setLanes(undrawn(_CurveGroup.filter).copyWith(filter: v)),
                 ),
         ),
         _LaneRow(
@@ -509,6 +555,19 @@ class _TransitionEditorPageState extends ConsumerState<TransitionEditorPage> {
               ),
             ),
             Column(children: [lane(outgoing: true), lane(outgoing: false)]),
+            if (_drawing case final group? when widget.canEdit)
+              Positioned(
+                left: (start - window.$1) * pixelsPerSecond,
+                width: duration * pixelsPerSecond,
+                top: 0,
+                height: height,
+                child: _CurveEditor(
+                  group: group,
+                  lanes: edit.effectiveLanes,
+                  bars: edit.bars,
+                  onChanged: (lanes) => _update(edit.copyWith(lanes: lanes)),
+                ),
+              ),
             Center(
               child: IconButton.filled(
                 tooltip: _previewing ? context.l10n.transitionStopPreview : context.l10n.transitionPreview,
@@ -597,6 +656,228 @@ class _TrackHeader extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// What can be drawn by hand: a song's volume, its bass or its filter, for both songs at once.
+enum _CurveGroup {
+  volume(_volumeColor, MixCurve.volumeOut, MixCurve.volumeIn),
+  bass(_bassColor, MixCurve.bassOut, MixCurve.bassIn),
+  filter(_filterColor, MixCurve.filterOut, MixCurve.filterIn);
+
+  const _CurveGroup(this.color, this.outgoing, this.incoming);
+  final Color color;
+  final MixCurve outgoing;
+  final MixCurve incoming;
+
+  List<MixCurve> get curves => [outgoing, incoming];
+}
+
+/// Drawing a curve over the transition like an EQ's: the current song's in the upper half, the next one's in the
+/// lower. A click adds a point (on a sixteenth note), dragging moves one, a right click or long press removes it.
+/// The ends stay at the start and end of the transition and only move up and down.
+class _CurveEditor extends StatefulWidget {
+  const _CurveEditor({required this.group, required this.lanes, required this.bars, required this.onChanged});
+  final _CurveGroup group;
+  final MixLanes lanes;
+  final int bars;
+  final ValueChanged<MixLanes> onChanged;
+
+  @override
+  State<_CurveEditor> createState() => _CurveEditorState();
+}
+
+class _CurveEditorState extends State<_CurveEditor> {
+  (MixCurve, int)? _dragged;
+  Offset? _down;
+  bool _removed = false;
+
+  // The curves as changed during this gesture (the page shows them a frame later).
+  final _changed = <MixCurve, List<CurvePoint>>{};
+
+  void _release() {
+    _down = null;
+    _dragged = null;
+    _changed.clear();
+  }
+
+  List<CurvePoint> _points(MixCurve curve) =>
+      _changed[curve] ?? widget.lanes.curves[curve] ?? curve.sample(widget.lanes, widget.bars);
+
+  /// Height on screen of a curve's value: as the painter draws it (the filter's open position in the middle).
+  static double _shown(MixCurve curve, double value) =>
+      curve == MixCurve.filterOut || curve == MixCurve.filterIn ? 0.5 + 0.5 * value : value;
+  static double _stored(MixCurve curve, double shown) =>
+      curve == MixCurve.filterOut || curve == MixCurve.filterIn ? shown * 2 - 1 : shown;
+
+  MixCurve _curveAt(double y, Size size) => y < size.height / 2 ? widget.group.outgoing : widget.group.incoming;
+
+  Offset _offset(MixCurve curve, CurvePoint point, Size size) {
+    final lane = size.height / 2;
+    final top = curve.outgoing ? 0.0 : lane;
+    return Offset(point.$1 * size.width, top + 10 + (1 - _shown(curve, point.$2)) * (lane - 20));
+  }
+
+  CurvePoint _point(MixCurve curve, Offset position, Size size) {
+    final lane = size.height / 2;
+    final top = curve.outgoing ? 0.0 : lane;
+    final steps = widget.bars * 16;
+    final u = ((position.dx / size.width).clamp(0.0, 1.0) * steps).round() / steps;
+    var shown = (1 - (position.dy - top - 10) / (lane - 20)).clamp(0.0, 1.0);
+    // Easy to hit the ends and the middle (an open filter).
+    for (final snap in const [0.0, 0.5, 1.0]) {
+      if ((shown - snap).abs() < 0.03) shown = snap;
+    }
+    return (u, _stored(curve, shown).clamp(curve.min, curve.max));
+  }
+
+  int? _nearest(MixCurve curve, Offset position, Size size) {
+    final points = _points(curve);
+    int? best;
+    var distance = 18.0;
+    for (var i = 0; i < points.length; i++) {
+      final d = (_offset(curve, points[i], size) - position).distance;
+      if (d < distance) (best, distance) = (i, d);
+    }
+    return best;
+  }
+
+  void _write(MixCurve curve, List<CurvePoint> points) {
+    _changed[curve] = points;
+    widget.onChanged(widget.lanes.copyWith(curves: {...widget.lanes.curves, ..._changed}));
+  }
+
+  /// Adds a point under [position] (between its neighbours) and returns its index.
+  int _add(MixCurve curve, Offset position, Size size) {
+    final points = [..._points(curve)];
+    final point = _point(curve, position, size);
+    var index = points.indexWhere((p) => p.$1 > point.$1);
+    if (index <= 0) index = points.length - 1;
+    // Never on top of another point's place.
+    if (points.any((p) => p.$1 == point.$1)) {
+      final same = points.indexWhere((p) => p.$1 == point.$1);
+      if (same == 0 || same == points.length - 1) return same;
+      points[same] = point;
+      _write(curve, points);
+      return same;
+    }
+    points.insert(index, point);
+    _write(curve, points);
+    return index;
+  }
+
+  void _move(MixCurve curve, int index, Offset position, Size size) {
+    final points = [..._points(curve)];
+    var point = _point(curve, position, size);
+    if (index == 0 || index == points.length - 1) {
+      point = (points[index].$1, point.$2);
+    } else {
+      // Stays between its neighbours.
+      final step = 1 / (widget.bars * 16);
+      point = (point.$1.clamp(points[index - 1].$1 + step, points[index + 1].$1 - step).toDouble(), point.$2);
+      if (points[index + 1].$1 - points[index - 1].$1 < 2 * step) point = (points[index].$1, point.$2);
+    }
+    points[index] = point;
+    _write(curve, points);
+  }
+
+  void _remove(Offset position, Size size) {
+    final curve = _curveAt(position.dy, size);
+    final index = _nearest(curve, position, size);
+    final points = [..._points(curve)];
+    if (index == null || index == 0 || index == points.length - 1) return;
+    points.removeAt(index);
+    _write(curve, points);
+    _changed.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final size = constraints.biggest;
+      // Raw pointer events, so dragging a point wins over scrolling the page and moving the songs (which the
+      // empty drag handlers below keep from starting).
+      return Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (e) {
+          if (e.kind == PointerDeviceKind.mouse && e.buttons != kPrimaryMouseButton) return;
+          _down = e.localPosition;
+          _removed = false;
+          final curve = _curveAt(e.localPosition.dy, size);
+          final index = _nearest(curve, e.localPosition, size);
+          _dragged = index == null ? null : (curve, index);
+          setState(() {});
+        },
+        onPointerMove: (e) {
+          final down = _down;
+          if (down == null || _removed) return;
+          if (_dragged == null && (e.localPosition - down).distance > 4) {
+            final curve = _curveAt(down.dy, size);
+            _dragged = (curve, _add(curve, down, size));
+          }
+          if (_dragged case (final curve, final index)) _move(curve, index, e.localPosition, size);
+        },
+        onPointerUp: (e) {
+          final down = _down;
+          if (down != null && _dragged == null && !_removed) {
+            final curve = _curveAt(down.dy, size);
+            if (_nearest(curve, down, size) == null) _add(curve, down, size);
+          }
+          setState(_release);
+        },
+        onPointerCancel: (_) => setState(_release),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragStart: (_) {},
+          onHorizontalDragStart: (_) {},
+          onSecondaryTapUp: (d) => _remove(d.localPosition, size),
+          onLongPressStart: (d) {
+            if (_dragged != null && _down != null) {
+              // Held still on a point: remove it instead of moving it.
+              _removed = true;
+              _remove(d.localPosition, size);
+            }
+          },
+          child: CustomPaint(
+            size: size,
+            painter: _HandlePainter(
+              color: widget.group.color,
+              handles: [
+                for (final curve in widget.group.curves)
+                  for (final (i, point) in _points(curve).indexed)
+                    (_offset(curve, point, size), _dragged == (curve, i)),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// The points of the curve being drawn, as handles.
+class _HandlePainter extends CustomPainter {
+  _HandlePainter({required this.color, required this.handles});
+  final Color color;
+  final List<(Offset, bool)> handles;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = color.withValues(alpha: 0.05));
+    for (final (offset, active) in handles) {
+      canvas.drawCircle(offset, active ? 8 : 6, Paint()..color = color);
+      canvas.drawCircle(
+        offset,
+        active ? 8 : 6,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Colors.black54,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HandlePainter old) => true;
 }
 
 class _LaneRow extends StatelessWidget {
@@ -740,7 +1021,11 @@ class _TransitionPainter extends CustomPainter {
         key: Path(),
     };
     final showMids = lanes?.eq == EqLane.threeBand;
-    final showFilter = lanes != null && lanes.filter != FilterLane.none;
+    final showFilter =
+        lanes != null &&
+        (lanes.filter != FilterLane.none ||
+            lanes.curves.containsKey(MixCurve.filterOut) ||
+            lanes.curves.containsKey(MixCurve.filterIn));
     double filterValue(FxState state) {
       // Neutral in the middle of the lane; a high-pass rises, a low-pass sinks, noise rises.
       final hp = math.log(state.highpass / mixHighpassOff) / math.log(2400 / mixHighpassOff);
@@ -784,7 +1069,10 @@ class _TransitionPainter extends CustomPainter {
     final stroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
-    if (lanes == null || lanes.eq != EqLane.none) {
+    if (lanes == null ||
+        lanes.eq != EqLane.none ||
+        lanes.curves.containsKey(MixCurve.bassOut) ||
+        lanes.curves.containsKey(MixCurve.bassIn)) {
       canvas.drawPath(paths['outBass']!, stroke..color = _bassColor);
       canvas.drawPath(paths['inBass']!, stroke..color = _bassColor);
     }

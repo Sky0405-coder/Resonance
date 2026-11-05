@@ -93,6 +93,140 @@ enum EffectLane {
   bool get tail => this == reverbTail || this == echoHalfTail || this == echoThreeQuarterTail || this == echoBeatTail;
 }
 
+/// A curve drawn by hand in the transition editor; it replaces what the lanes compute for one song. Values: the
+/// volume (0 to 1), how much bass is left (1: all, 0: cut by [mixCutDb]) and the filter like a DJ mixer's knob (-1:
+/// low-pass closed, 0: open, 1: high-pass closed).
+enum MixCurve {
+  volumeOut('volume_out', 0, 1),
+  volumeIn('volume_in', 0, 1),
+  bassOut('bass_out', 0, 1),
+  bassIn('bass_in', 0, 1),
+  filterOut('filter_out', -1, 1),
+  filterIn('filter_in', -1, 1);
+
+  const MixCurve(this.json, this.min, this.max);
+  final String json;
+  final double min;
+  final double max;
+
+  bool get outgoing => this == volumeOut || this == bassOut || this == filterOut;
+
+  /// The value of this curve's quantity in a player's [state].
+  double valueOf(FxState state) => switch (this) {
+    volumeOut || volumeIn => state.level,
+    bassOut || bassIn => (1 - state.low / mixCutDb).clamp(0.0, 1.0),
+    filterOut || filterIn => filterKnob(state),
+  };
+
+  /// What the lanes alone make of this curve: sampled finely, then reduced to the points that shape it.
+  List<CurvePoint> sample(MixLanes lanes, int bars) {
+    final plain = lanes.copyWith(curves: const {});
+    final steps = math.max(32, bars * 16);
+    final points = <CurvePoint>[
+      for (var i = 0; i <= steps; i++)
+        () {
+          final u = i / steps;
+          // Just before the end: at 1 the transition is over.
+          final (out, inc) = laneStates(plain, math.min(u, 1 - 1e-6), bars);
+          return (u, valueOf(outgoing ? out : inc));
+        }(),
+    ];
+    return simplifyCurve(points, 0.02 * (max - min));
+  }
+}
+
+/// A point of a [MixCurve]: where in the transition (0 to 1) and its value.
+typedef CurvePoint = (double, double);
+
+/// [points]' value at [u]: straight lines between them, flat before the first and after the last.
+double curveAt(List<CurvePoint> points, double u) {
+  if (points.isEmpty) return 0;
+  if (u <= points.first.$1) return points.first.$2;
+  for (var i = 1; i < points.length; i++) {
+    final (u1, v1) = points[i];
+    if (u <= u1) {
+      final (u0, v0) = points[i - 1];
+      return u1 <= u0 ? v1 : v0 + (v1 - v0) * (u - u0) / (u1 - u0);
+    }
+  }
+  return points.last.$2;
+}
+
+/// Fewer points drawing the same line within [tolerance] (Ramer–Douglas–Peucker), at most 64.
+List<CurvePoint> simplifyCurve(List<CurvePoint> points, double tolerance) {
+  if (points.length <= 2) return [...points];
+  final keep = List<bool>.filled(points.length, false)
+    ..[0] = true
+    ..[points.length - 1] = true;
+  void reduce(int first, int last) {
+    final (u0, v0) = points[first];
+    final (u1, v1) = points[last];
+    var worst = -1.0, index = -1;
+    for (var i = first + 1; i < last; i++) {
+      final (u, v) = points[i];
+      final expected = u1 == u0 ? v0 : v0 + (v1 - v0) * (u - u0) / (u1 - u0);
+      final off = (v - expected).abs();
+      if (off > worst) {
+        worst = off;
+        index = i;
+      }
+    }
+    if (index >= 0 && worst > tolerance) {
+      keep[index] = true;
+      reduce(first, index);
+      reduce(index, last);
+    }
+  }
+
+  reduce(0, points.length - 1);
+  final result = [
+    for (var i = 0; i < points.length; i++)
+      if (keep[i]) points[i],
+  ];
+  return result.length <= 64 ? result : simplifyCurve(points, tolerance * 2);
+}
+
+/// A filter state as a DJ mixer's knob: -1 low-pass closed (250 Hz), 0 open, 1 high-pass closed (2.4 kHz).
+double filterKnob(FxState state) {
+  if (state.highpass > mixHighpassOff * 1.01) {
+    return (math.log(state.highpass / mixHighpassOff) / math.log(2400 / mixHighpassOff)).clamp(0.0, 1.0);
+  }
+  if (state.lowpass < mixLowpassOff * 0.99) {
+    return -(math.log(mixLowpassOff / state.lowpass) / math.log(mixLowpassOff / 250)).clamp(0.0, 1.0);
+  }
+  return 0;
+}
+
+/// The filter frequencies (high-pass, low-pass) of a knob at [value] (see [filterKnob]).
+(double, double) filterFrequencies(double value) => value > 0
+    ? (_sweep(mixHighpassOff, 2400, value), mixLowpassOff)
+    : (mixHighpassOff, _sweep(mixLowpassOff, 250, -value));
+
+bool _sameCurves(Map<MixCurve, List<CurvePoint>> a, Map<MixCurve, List<CurvePoint>> b) {
+  if (a.length != b.length) return false;
+  for (final MapEntry(:key, :value) in a.entries) {
+    final other = b[key];
+    if (other == null || other.length != value.length) return false;
+    for (var i = 0; i < value.length; i++) {
+      if (other[i] != value[i]) return false;
+    }
+  }
+  return true;
+}
+
+Map<MixCurve, List<CurvePoint>> _curvesFromJson(Object? json) {
+  if (json is! Map) return const {};
+  return {
+    for (final curve in MixCurve.values)
+      if (json[curve.json] case final List points when points.length >= 2)
+        curve: [
+          for (final p in points)
+            if (p is List && p.length == 2 && p[0] is num && p[1] is num)
+              ((p[0] as num).toDouble().clamp(0.0, 1.0), (p[1] as num).toDouble().clamp(curve.min, curve.max)),
+        ]..sort((a, b) => a.$1.compareTo(b.$1)),
+  };
+}
+
 T? _fromJson<T extends Enum>(List<T> values, Object? json, String Function(T) key) =>
     values.where((v) => key(v) == json).firstOrNull;
 
@@ -104,6 +238,7 @@ class MixLanes {
     this.effect = EffectLane.none,
     this.loopBeats = 0,
     this.beatmatch = true,
+    this.curves = const {},
   });
 
   final VolumeLane volume;
@@ -115,10 +250,18 @@ class MixLanes {
   final int loopBeats;
   final bool beatmatch;
 
+  /// Curves drawn by hand, each replacing what the lanes above compute for its song.
+  final Map<MixCurve, List<CurvePoint>> curves;
+
   static const loopChoices = [0, 1, 2, 4, 8, 16];
 
   /// Whether the sound needs the players' mix effects (beyond the volume): EQ, filters, effects and loops.
-  bool get usesEffects => effect != EffectLane.none || filter != FilterLane.none || loopBeats > 0;
+  bool get usesEffects =>
+      effect != EffectLane.none ||
+      filter != FilterLane.none ||
+      loopBeats > 0 ||
+      curves.containsKey(MixCurve.filterOut) ||
+      curves.containsKey(MixCurve.filterIn);
 
   static MixLanes? fromJson(Object? json) {
     if (json is! Map) return null;
@@ -129,6 +272,7 @@ class MixLanes {
       effect: _fromJson(EffectLane.values, json['effect'], (v) => v.json) ?? EffectLane.none,
       loopBeats: loopChoices.contains(json['loop']) ? json['loop'] as int : 0,
       beatmatch: json['beatmatch'] != false,
+      curves: _curvesFromJson(json['curves']),
     );
   }
 
@@ -139,6 +283,13 @@ class MixLanes {
     'effect': effect.json,
     'loop': loopBeats,
     'beatmatch': beatmatch,
+    if (curves.isNotEmpty)
+      'curves': {
+        for (final MapEntry(:key, :value) in curves.entries)
+          key.json: [
+            for (final (u, v) in value) [u, v],
+          ],
+      },
   };
 
   MixLanes copyWith({
@@ -148,6 +299,7 @@ class MixLanes {
     EffectLane? effect,
     int? loopBeats,
     bool? beatmatch,
+    Map<MixCurve, List<CurvePoint>>? curves,
   }) => MixLanes(
     volume: volume ?? this.volume,
     eq: eq ?? this.eq,
@@ -155,6 +307,7 @@ class MixLanes {
     effect: effect ?? this.effect,
     loopBeats: loopBeats ?? this.loopBeats,
     beatmatch: beatmatch ?? this.beatmatch,
+    curves: curves ?? this.curves,
   );
 
   @override
@@ -165,10 +318,11 @@ class MixLanes {
       other.filter == filter &&
       other.effect == effect &&
       other.loopBeats == loopBeats &&
-      other.beatmatch == beatmatch;
+      other.beatmatch == beatmatch &&
+      _sameCurves(other.curves, curves);
 
   @override
-  int get hashCode => Object.hash(volume, eq, filter, effect, loopBeats, beatmatch);
+  int get hashCode => Object.hash(volume, eq, filter, effect, loopBeats, beatmatch, curves.length);
 }
 
 /// How far an EQ band is cut when it is handed over (dB).
@@ -258,7 +412,13 @@ double _sweep(double a, double b, double t) => a * math.pow(b / a, _clamp01(t)).
   final bar = 1 / math.max(1, bars);
   final beat = bar / 4;
   const m = 0.5;
-  final (vo, vi) = laneVolumes(lanes.volume, u, bar);
+  var (vo, vi) = laneVolumes(lanes.volume, u, bar);
+  final curves = lanes.curves;
+  double? drawn(MixCurve curve) => curves[curve] == null ? null : curveAt(curves[curve]!, u);
+  if (u < 1) {
+    vo = drawn(MixCurve.volumeOut) ?? vo;
+    vi = drawn(MixCurve.volumeIn) ?? vi;
+  }
 
   // EQ: the outgoing band's cut (0 to 1) and the incoming one's.
   var lowOut = 0.0, lowIn = 0.0, midOut = 0.0, midIn = 0.0, highOut = 0.0, highIn = 0.0;
@@ -291,6 +451,8 @@ double _sweep(double a, double b, double t) => a * math.pow(b / a, _clamp01(t)).
     case EqLane.none:
       break;
   }
+  if (drawn(MixCurve.bassOut) case final bass?) lowOut = 1 - bass;
+  if (drawn(MixCurve.bassIn) case final bass?) lowIn = 1 - bass;
 
   // Filters: sweeps in octaves, the incoming song's opening up until the middle, the outgoing one's closing after.
   final opening = _ramp(u, 0, m), closing = _ramp(u, m, 1);
@@ -324,6 +486,8 @@ double _sweep(double a, double b, double t) => a * math.pow(b / a, _clamp01(t)).
       // Noise swells over the second half and stops with the transition.
       noise = u >= 1 ? 0 : math.pow(_smooth(closing), 2).toDouble();
   }
+  if (drawn(MixCurve.filterOut) case final knob?) (hpOut, lpOut) = filterFrequencies(knob);
+  if (drawn(MixCurve.filterIn) case final knob?) (hpIn, lpIn) = filterFrequencies(knob);
 
   // Effects on the outgoing song: fed from the middle (reverb into the middle for [reverbMiddle]); "tail" ones stop
   // the song a bar early (the middle for [reverbMiddle]) and let the effect ring on.

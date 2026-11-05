@@ -3586,6 +3586,22 @@ class AppLocalizationsDe extends AppLocalizations {
   String get transitionZoomOut => 'Herauszoomen';
 
   @override
+  String get transitionDraw => 'Kurven zeichnen';
+
+  @override
+  String get transitionBass => 'Bass';
+
+  @override
+  String get transitionDrawn => 'Von Hand gezeichnet';
+
+  @override
+  String get transitionDrawReset => 'Kurve zurücksetzen';
+
+  @override
+  String get transitionDrawHint =>
+      'Klicken setzt einen Punkt, Ziehen verschiebt ihn, Rechtsklick oder langes Drücken entfernt ihn. Oben der aktuelle Song, unten der nächste.';
+
+  @override
   String get djTitle => 'DJ-Pult';
 
   @override

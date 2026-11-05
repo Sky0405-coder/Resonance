@@ -6416,6 +6416,36 @@ abstract class AppLocalizations {
   /// **'Herauszoomen'**
   String get transitionZoomOut;
 
+  /// No description provided for @transitionDraw.
+  ///
+  /// In de, this message translates to:
+  /// **'Kurven zeichnen'**
+  String get transitionDraw;
+
+  /// No description provided for @transitionBass.
+  ///
+  /// In de, this message translates to:
+  /// **'Bass'**
+  String get transitionBass;
+
+  /// No description provided for @transitionDrawn.
+  ///
+  /// In de, this message translates to:
+  /// **'Von Hand gezeichnet'**
+  String get transitionDrawn;
+
+  /// No description provided for @transitionDrawReset.
+  ///
+  /// In de, this message translates to:
+  /// **'Kurve zurücksetzen'**
+  String get transitionDrawReset;
+
+  /// No description provided for @transitionDrawHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Klicken setzt einen Punkt, Ziehen verschiebt ihn, Rechtsklick oder langes Drücken entfernt ihn. Oben der aktuelle Song, unten der nächste.'**
+  String get transitionDrawHint;
+
   /// No description provided for @djTitle.
   ///
   /// In de, this message translates to:

@@ -1,7 +1,7 @@
 import re
 import uuid
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -403,6 +403,10 @@ class PlaylistDetail(PlaylistOut):
     editable: bool = False
 
 
+CurveName = Literal["volume_out", "volume_in", "bass_out", "bass_in", "filter_out", "filter_in"]
+CurvePoint = tuple[Annotated[float, Field(ge=0, le=1)], Annotated[float, Field(ge=-1, le=1)]]
+
+
 class TransitionLanes(BaseModel):
     """The transition editor's lanes; the app knows what each one sounds like."""
 
@@ -424,6 +428,8 @@ class TransitionLanes(BaseModel):
     ] = "none"
     loop: Literal[0, 1, 2, 4, 8, 16] = 0
     beatmatch: bool = True
+    # Curves drawn by hand: points (place in the transition 0–1, value) replacing a lane for one song.
+    curves: dict[CurveName, Annotated[list[CurvePoint], Field(min_length=2, max_length=64)]] | None = None
 
 
 class TransitionIn(BaseModel):

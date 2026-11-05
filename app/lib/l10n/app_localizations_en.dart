@@ -3606,6 +3606,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get transitionZoomOut => 'Zoom out';
 
   @override
+  String get transitionDraw => 'Draw curves';
+
+  @override
+  String get transitionBass => 'Bass';
+
+  @override
+  String get transitionDrawn => 'Drawn by hand';
+
+  @override
+  String get transitionDrawReset => 'Reset curve';
+
+  @override
+  String get transitionDrawHint =>
+      'Click to add a point, drag to move it, right-click or long-press to remove it. The current song on top, the next one below.';
+
+  @override
   String get djTitle => 'DJ deck';
 
   @override

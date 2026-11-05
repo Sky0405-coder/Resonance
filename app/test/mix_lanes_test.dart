@@ -214,4 +214,78 @@ void desktopEffectTests() {
     expect(mpvGateCommand()[3], '1');
     expect(EffectLane.beatRoll.desktopOnly && !EffectLane.reverbCut.desktopOnly, isTrue);
   });
+
+  group('drawn curves', () {
+    test('a curve runs in straight lines between its points and is flat beyond them', () {
+      const points = [(0.0, 1.0), (0.5, 0.5), (1.0, 0.0)];
+      expect(curveAt(points, 0.25), closeTo(0.75, 1e-9));
+      expect(curveAt(points, 0.75), closeTo(0.25, 1e-9));
+      expect(curveAt(const [(0.2, 0.4), (0.8, 0.6)], 0), 0.4);
+      expect(curveAt(const [(0.2, 0.4), (0.8, 0.6)], 1), 0.6);
+    });
+
+    test('simplifying keeps the corners and drops points on straight stretches', () {
+      final points = [for (var i = 0; i <= 10; i++) (i / 10, i < 5 ? 1.0 : 0.0)];
+      final simple = simplifyCurve(points, 0.01);
+      expect(simple.first, (0.0, 1.0));
+      expect(simple.last, (1.0, 0.0));
+      expect(simple, containsAll([(0.4, 1.0), (0.5, 0.0)]));
+      expect(simple.length, 4);
+    });
+
+    test('drawn curves replace the lanes for their song only', () {
+      const lanes = MixLanes(
+        filter: FilterLane.lowpassOut,
+        curves: {
+          MixCurve.volumeIn: [(0.0, 0.2), (1.0, 0.2)],
+          MixCurve.bassOut: [(0.0, 1.0), (1.0, 0.0)],
+          MixCurve.filterIn: [(0.0, 1.0), (1.0, 1.0)],
+        },
+      );
+      final (out, inc) = laneStates(lanes, 0.5, 4);
+      final (plainOut, _) = laneStates(lanes.copyWith(curves: const {}), 0.5, 4);
+      expect(inc.level, closeTo(0.2, 1e-9));
+      expect(out.level, plainOut.level, reason: 'the outgoing volume still follows its lane');
+      expect(out.low, closeTo(0.5 * mixCutDb, 1e-9));
+      expect(inc.highpass, closeTo(2400, 1e-6));
+      expect(out.lowpass, plainOut.lowpass, reason: 'the outgoing filter keeps its lane');
+      expect(lanes.usesEffects, isTrue);
+    });
+
+    test('curves travel through JSON, sorted and limited to their range', () {
+      const lanes = MixLanes(
+        curves: {
+          MixCurve.filterOut: [(0.0, 0.0), (0.5, -0.5), (1.0, 0.25)],
+        },
+      );
+      expect(MixLanes.fromJson(lanes.toJson()), lanes);
+      expect(const MixLanes().toJson().containsKey('curves'), isFalse);
+      final odd = MixLanes.fromJson({
+        'curves': {
+          'volume_out': [
+            [1, 2],
+            [0, 0.5],
+          ],
+          'nonsense': [
+            [0, 0],
+            [1, 1],
+          ],
+        },
+      })!;
+      expect(odd.curves, {
+        MixCurve.volumeOut: [(0.0, 0.5), (1.0, 1.0)],
+      });
+    });
+
+    test('sampling a lane gives a curve that sounds like it', () {
+      const lanes = MixLanes(eq: EqLane.swapMiddle, filter: FilterLane.highpassOut);
+      final bass = MixCurve.bassOut.sample(lanes, 4);
+      expect(bass.length, lessThan(12));
+      expect(curveAt(bass, 0.1), closeTo(1, 0.02));
+      expect(curveAt(bass, 0.9), closeTo(0, 0.02));
+      final filter = MixCurve.filterOut.sample(lanes, 4);
+      expect(curveAt(filter, 0.25), closeTo(0, 0.04));
+      expect(curveAt(filter, 0.99), greaterThan(0.9));
+    });
+  });
 }
