@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 import '../../l10n/l10n.dart';
 
@@ -734,14 +733,7 @@ class _OfflineSettings extends ConsumerWidget {
     final offline = ref.watch(offlineProvider);
     final controller = ref.read(offlineSettingsProvider.notifier);
     final media = ref.watch(mediaDownloadsProvider);
-    String format(int bytes) {
-      final gigabytes = bytes >= 1024 * 1024 * 1024;
-      final value = NumberFormat(
-        '0.0',
-        Localizations.localeOf(context).toLanguageTag(),
-      ).format(bytes / (gigabytes ? 1024 * 1024 * 1024 : 1024 * 1024));
-      return gigabytes ? context.l10n.offlineGigabytes(value) : context.l10n.offlineMegabytes(value);
-    }
+    String format(int bytes) => formatStorage(context, bytes);
 
     final size = format(offline.totalBytes);
     final count = offline.tracks.keys.where(offline.isDownloaded).length;
@@ -774,6 +766,8 @@ class _OfflineSettings extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.storage),
           title: Text(context.l10n.offlineStorage),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/settings/storage'),
           subtitle: Text(
             [
               context.l10n.offlineStorageUsed(size, count),

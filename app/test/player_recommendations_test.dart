@@ -334,6 +334,48 @@ void main() {
     return context;
   }
 
+  test('queued songs play next in the order added, ahead of the context, and survive shuffle', () async {
+    final context = List.generate(6, (i) => track('$i'));
+    await player.playTracks(context, context: 'album:first');
+    await player.addToQueue(track('q1'));
+    await player.addToQueue(track('q2'));
+    expect(view().queue.map((t) => t.id), ['0', 'q1', 'q2', '1', '2', '3', '4', '5']);
+    expect(
+      [for (var i = 0; i < view().queue.length; i++) view().isQueued(i)],
+      [
+        false, true, true, false, false, false, false, false, //
+      ],
+    );
+    await player.playNext(track('n'));
+    expect(view().queue.take(4).map((t) => t.id), ['0', 'n', 'q1', 'q2']);
+    expect(view().queuedCount, 3);
+    await player.removeAt(2);
+    expect(view().queue.take(3).map((t) => t.id), ['0', 'n', 'q2']);
+    expect(view().queuedCount, 2);
+    await player.setShuffle(true);
+    expect(view().queue.take(3).map((t) => t.id), ['0', 'n', 'q2']);
+    expect(view().queuedCount, 2);
+    await player.setShuffle(false);
+    expect(view().queue.map((t) => t.id), ['0', 'n', 'q2', '1', '2', '3', '4', '5']);
+    expect(view().queuedCount, 2);
+    engine.indices.add(1);
+    await settle();
+    expect(view().queuedFrom, 2);
+    expect(view().queuedCount, 1);
+    await player.addToQueue(track('q3'));
+    expect(view().queue.take(4).map((t) => t.id), ['0', 'n', 'q2', 'q3']);
+    engine.indices.add(4);
+    await settle();
+    expect(view().queuedCount, 0);
+  });
+
+  test('queuedAfterIndex counts reached songs as played', () {
+    expect(queuedAfterIndex(3, 2, 2), (3, 2));
+    expect(queuedAfterIndex(3, 2, 3), (4, 1));
+    expect(queuedAfterIndex(3, 2, 7), (0, 0));
+    expect(queuedAfterIndex(0, 0, 1), (0, 0));
+  });
+
   test('smart shuffle interleaves, marks and removes upcoming extras when switched off', () async {
     final original = await enableSmart();
     expect(view().queue[4].id, 'smart-a');
@@ -346,7 +388,7 @@ void main() {
     expect(view().smartShuffle, isFalse);
     expect(view().queue.map((t) => t.id), original.map((t) => t.id));
     expect(view().current!.id, original.first.id);
-    expect(engine.removed, [8, 4]);
+    expect(engine.removed, isEmpty, reason: "the extras go in one engine call, not one by one");
     expect(engine.playing, isTrue);
     expect(engine.position, const Duration(seconds: 42));
   });

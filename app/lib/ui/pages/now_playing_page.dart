@@ -1113,6 +1113,15 @@ class QueuePage extends ConsumerWidget {
       return jam.isHost || (queue != null && i < queue.length && queue[i].addedById == jam.myId);
     }
 
+    // Like Spotify: the user's queue first, then the rest of the context, then autoplay.
+    String section(int i) => jam == null && p.isQueued(i)
+        ? context.l10n.playerNextInQueue
+        : p.autoplayIds.contains(p.queue[i].id)
+        ? context.l10n.playerAutoplaySection
+        : jam == null && p.queuedCount > 0
+        ? context.l10n.playerLater
+        : context.l10n.playerNextUp;
+
     return Scaffold(
       appBar: AppBar(title: Text(jam == null ? context.l10n.playerQueue : context.l10n.jamQueue)),
       body: p.current == null
@@ -1126,18 +1135,14 @@ class QueuePage extends ConsumerWidget {
                 TrackRow(track: p.current!, onPlay: ctrl.togglePlay, smart: p.smartIds.contains(p.current!.id)),
                 if (addedBy(p.index!) case final label?) _AddedBy(label),
                 for (final i in upcoming) ...[
-                  if (i == upcoming.first ||
-                      p.autoplayIds.contains(p.queue[i].id) != p.autoplayIds.contains(p.queue[i - 1].id))
-                    _QueueHeading(
-                      p.autoplayIds.contains(p.queue[i].id)
-                          ? context.l10n.playerAutoplaySection
-                          : context.l10n.playerNextUp,
-                    ),
+                  if (i == upcoming.first || section(i) != section(i - 1)) _QueueHeading(section(i)),
                   TrackRow(
                     key: ValueKey('q$i-${p.queue[i].id}'),
                     track: p.queue[i],
                     smart: p.smartIds.contains(p.queue[i].id),
+                    queued: jam == null && p.isQueued(i),
                     onPlay: () => ctrl.jumpTo(i),
+                    onRemove: canRemove(i) ? () => ctrl.removeAt(i) : null,
                     extraActions: [
                       if (canRemove(i))
                         TrackAction(

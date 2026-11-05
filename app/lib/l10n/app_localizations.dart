@@ -632,6 +632,24 @@ abstract class AppLocalizations {
   /// **'Aus Warteschlange entfernen'**
   String get playerRemoveFromQueue;
 
+  /// No description provided for @playerNextInQueue.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Nächstes in der Warteschlange'**
+  String get playerNextInQueue;
+
+  /// No description provided for @playerLater.
+  ///
+  /// In de, this message translates to:
+  /// **'Danach'**
+  String get playerLater;
+
+  /// No description provided for @playerRemovedTrack.
+  ///
+  /// In de, this message translates to:
+  /// **'„{title}“ aus der Warteschlange entfernt'**
+  String playerRemovedTrack(String title);
+
   /// No description provided for @settingsAccount.
   ///
   /// In de, this message translates to:
@@ -3613,6 +3631,36 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Download entfernen?'**
   String get offlineRemoveTitle;
+
+  /// No description provided for @coverCropTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausschnitt wählen'**
+  String get coverCropTitle;
+
+  /// No description provided for @coverCropHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Bild verschieben und mit zwei Fingern oder dem Mausrad zoomen'**
+  String get coverCropHint;
+
+  /// No description provided for @storageOpenFolder.
+  ///
+  /// In de, this message translates to:
+  /// **'Ordner öffnen'**
+  String get storageOpenFolder;
+
+  /// No description provided for @storageCollections.
+  ///
+  /// In de, this message translates to:
+  /// **'Heruntergeladene Sammlungen'**
+  String get storageCollections;
+
+  /// No description provided for @storageFiles.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateien nach Größe'**
+  String get storageFiles;
 
   /// No description provided for @offlineQuality.
   ///

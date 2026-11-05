@@ -607,6 +607,14 @@ List<T> shuffleQueue<T>(List<T> queue, int currentIndex, {math.Random? random}) 
   return [queue[currentIndex], ...rest];
 }
 
+/// The user's queued block (from, count) after playback moved to [index]: songs it reached are played.
+(int, int) queuedAfterIndex(int from, int count, int? index) {
+  if (count <= 0) return (0, 0);
+  if (index == null || index < from) return (from, count);
+  final played = math.min(count, index - from + 1);
+  return count == played ? (0, 0) : (from + played, count - played);
+}
+
 List<T> interleaveEvery<T>(List<T> upcoming, List<T> extra, int every) {
   if (every < 1) throw ArgumentError.value(every, 'every');
   final result = <T>[];

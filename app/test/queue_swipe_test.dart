@@ -25,6 +25,7 @@ void main() {
       duration: 200,
     );
     final player = _Player();
+    var removed = 0;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [playerProvider.overrideWith(() => player)],
@@ -35,6 +36,7 @@ void main() {
           home: Scaffold(
             body: QueueSwipe(
               track: track,
+              onRemove: () => removed++,
               child: const SizedBox(height: 60, width: 400, child: Text('row')),
             ),
           ),
@@ -49,5 +51,11 @@ void main() {
     expect(player.queued, ['one']);
     expect(find.text('row'), findsOneWidget);
     expect(find.text('“Song one” added to queue'), findsOneWidget);
+    expect(removed, 0);
+    await tester.drag(find.text('row'), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(removed, 1, reason: 'swiping to the left takes the song out of the queue');
+    expect(player.queued, ['one']);
+    expect(find.text('row'), findsOneWidget);
   });
 }

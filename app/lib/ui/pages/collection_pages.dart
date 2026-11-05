@@ -18,6 +18,7 @@ import '../widgets/collection.dart';
 import 'admin/metadata_editor.dart';
 import '../widgets/blends.dart';
 import '../widgets/common.dart';
+import '../widgets/cover_crop.dart';
 import '../widgets/offline.dart';
 import '../widgets/track_list.dart';
 import 'playlist_add_page.dart';
@@ -388,8 +389,11 @@ class PlaylistPage extends ConsumerWidget {
       } else {
         final file = await FilePicker.pickFile(type: FileType.image);
         if (file == null) return;
-        final bytes = await file.readAsBytes();
-        await api.uploadPlaylistCover(id, bytes, file.name);
+        final original = await file.readAsBytes();
+        if (!context.mounted) return;
+        final cropped = await cropSquareImage(context, original);
+        if (cropped == null) return;
+        await api.uploadPlaylistCover(id, cropped, 'cover.png');
       }
       ref.invalidate(playlistDetailProvider(id));
       ref.invalidate(playlistsProvider);

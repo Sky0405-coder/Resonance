@@ -111,6 +111,8 @@ class PlayerView {
     this.sleepAt,
     this.jamRemote = false,
     this.connectRemote = false,
+    this.queuedFrom = 0,
+    this.queuedCount = 0,
   });
 
   final List<Track> queue;
@@ -135,6 +137,12 @@ class PlayerView {
   // In a Jam without listening on this device: the view mirrors the Jam, the engine is idle.
   final bool jamRemote;
   final bool connectRemote;
+  // Songs added to the queue by the user (like Spotify's "Next in queue"): [queuedCount] entries from [queuedFrom],
+  // played before the rest of the context.
+  final int queuedFrom;
+  final int queuedCount;
+
+  bool isQueued(int i) => queuedCount > 0 && i >= queuedFrom && i < queuedFrom + queuedCount;
 
   bool get inJam => context?.startsWith('jam:') ?? false;
 
@@ -205,6 +213,7 @@ class PlayerController extends Notifier<PlayerView> {
   // AutoMix analyses by track id; null once the server could not provide one.
   final _mixPoints = <String, MixPoints?>{};
   final _mixPointsLoading = <String>{};
+  final _knownKeys = <String, ({String? key, double? bpm})>{};
 
   /// Expected position of the Jam's current song (used while not listening on this device).
   Duration get jamPosition => _jamPosition?.call() ?? Duration.zero;
@@ -275,7 +284,8 @@ class PlayerController extends Notifier<PlayerView> {
           return;
         }
         _flushPlayReport();
-        state = _copy(index: i);
+        final (queuedFrom, queuedCount) = queuedAfterIndex(state.queuedFrom, state.queuedCount, i);
+        state = _copy(index: i, queuedFrom: queuedFrom, queuedCount: queuedCount);
         _applyGain();
         _reportTrackId = state.current?.id;
         _maybeAutoplay();
@@ -310,7 +320,7 @@ class PlayerController extends Notifier<PlayerView> {
       queuedTrackIds: () => {for (final track in state.queue) track.id},
       append: (track, context) => _switch(() async {
         if (state.context != context || state.queue.any((t) => t.id == track.id)) return;
-        await addToQueue(track);
+        await _append([track]);
       }),
     );
     listenSelf((previous, next) {
@@ -372,6 +382,8 @@ class PlayerController extends Notifier<PlayerView> {
     DateTime? Function()? sleepAt,
     StationNowPlaying? Function()? stationNow,
     BookPlayback? book,
+    int? queuedFrom,
+    int? queuedCount,
   }) => PlayerView(
     queue: queue ?? state.queue,
     index: index ?? state.index,
@@ -391,6 +403,8 @@ class PlayerController extends Notifier<PlayerView> {
     sleepAt: sleepAt == null ? state.sleepAt : sleepAt(),
     jamRemote: state.jamRemote,
     connectRemote: state.connectRemote,
+    queuedFrom: queuedFrom ?? state.queuedFrom,
+    queuedCount: queuedCount ?? state.queuedCount,
   );
 
   SourceFactory _source(Track t) => () {
@@ -409,33 +423,35 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   Future<void> _playTracks(List<Track> tracks, {int? index, String? context, bool isRadio = false}) =>
-      _switch(() async {
-        if (tracks.isEmpty) return;
-        final shuffle = state.shuffle;
-        final chosen = index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0);
-        var queue = shuffle ? shuffleQueue(tracks, chosen) : tracks;
-        if (shuffle) {
-          final keys = await _harmonicKeys(queue, context: context);
-          queue = [queue.first, ..._harmonicOrder(queue.first, queue.skip(1).toList(), keys)];
-        }
-        await _replacePlayback(
-          PlayerView(
-            queue: List.unmodifiable(queue),
-            shuffle: shuffle,
-            smartShuffle: state.smartShuffle && supportsSmartShuffle(context, isRadio: isRadio),
-            isRadio: isRadio,
-            loop: state.book == null ? state.loop : LoopMode.off,
-            context: context,
-            sleepAt: state.sleepAt,
-          ),
-          [for (final t in queue) _source(t)],
-          index: shuffle ? 0 : chosen,
-        );
-        _unshuffled = [...tracks];
-        _contextTracks = [...tracks];
-        if (state.smartShuffle) _loadSmart().ignore();
-        _maybeAutoplay();
-      });
+      _switch(() => _playTracksNow(tracks, index: index, context: context, isRadio: isRadio));
+
+  Future<void> _playTracksNow(List<Track> tracks, {int? index, String? context, bool isRadio = false}) async {
+    if (tracks.isEmpty) return;
+    final shuffle = state.shuffle;
+    final chosen = index ?? (shuffle ? math.Random().nextInt(tracks.length) : 0);
+    var queue = shuffle ? shuffleQueue(tracks, chosen) : tracks;
+    if (shuffle) {
+      final keys = await _harmonicKeys(queue, context: context);
+      queue = [queue.first, ..._harmonicOrder(queue.first, queue.skip(1).toList(), keys)];
+    }
+    await _replacePlayback(
+      PlayerView(
+        queue: List.unmodifiable(queue),
+        shuffle: shuffle,
+        smartShuffle: state.smartShuffle && supportsSmartShuffle(context, isRadio: isRadio),
+        isRadio: isRadio,
+        loop: state.book == null ? state.loop : LoopMode.off,
+        context: context,
+        sleepAt: state.sleepAt,
+      ),
+      [for (final t in queue) _source(t)],
+      index: shuffle ? 0 : chosen,
+    );
+    _unshuffled = [...tracks];
+    _contextTracks = [...tracks];
+    if (state.smartShuffle) _loadSmart().ignore();
+    _maybeAutoplay();
+  }
 
   Future<void> replaceUpcoming(List<Track> tracks, {required String context, bool isRadio = false}) {
     final previousContext = state.context;
@@ -451,7 +467,12 @@ class PlayerController extends Notifier<PlayerView> {
         id: (track) => track.id,
         shuffle: state.shuffle,
       );
-      final queue = [current, ..._harmonicOrder(current, shuffled.skip(1).toList(), keys)];
+      final queued = _upcomingQueued();
+      final queue = [
+        current,
+        ...queued,
+        ..._harmonicOrder(queued.lastOrNull ?? current, shuffled.skip(1).toList(), keys),
+      ];
       _switching = true;
       try {
         await engine.setSources([for (final track in queue) _source(track)], initialIndex: 0, preserveCurrent: true);
@@ -464,6 +485,8 @@ class PlayerController extends Notifier<PlayerView> {
           context: context,
           isRadio: isRadio,
           smartShuffle: state.smartShuffle && supportsSmartShuffle(context, isRadio: isRadio),
+          queuedFrom: 1,
+          queuedCount: queued.length,
         );
       } finally {
         _switching = false;
@@ -472,6 +495,12 @@ class PlayerController extends Notifier<PlayerView> {
       _maybeAutoplay();
     });
   }
+
+  /// The songs the user queued that are still to come.
+  List<Track> _upcomingQueued() => [
+    for (var i = (state.index ?? -1) + 1; i < state.queue.length; i++)
+      if (state.isQueued(i)) state.queue[i],
+  ];
 
   /// Commit metadata only after loading, and reload the previous sources on failure.
   Future<void> _replacePlayback(
@@ -568,34 +597,78 @@ class PlayerController extends Notifier<PlayerView> {
     }
   }
 
+  /// Like Spotify's "Play next": first in the user's queue.
   Future<void> playNext(Track t) async {
     if (jam != null) return jam!.add(t, next: true);
     if (connect != null) return;
-    await engine.finishFade();
-    final at = (state.index ?? -1) + 1;
-    await _insert(at, t);
+    await _switch(() async {
+      await engine.finishFade();
+      final at = (state.index ?? -1) + 1;
+      final queued = state.queuedCount > 0 && state.queuedFrom == at;
+      await _insert(at, t, queuedFrom: at, queuedCount: queued ? state.queuedCount + 1 : 1);
+    });
   }
 
-  Future<void> addToQueue(Track t) => jam != null
-      ? jam!.add(t, next: false)
-      : connect != null
-      ? Future.value()
-      : _insert(state.queue.length, t);
+  /// Like Spotify's "Add to queue": after the songs the user queued before, ahead of the rest of the context.
+  Future<void> addToQueue(Track t) async {
+    if (jam != null) return jam!.add(t, next: false);
+    if (connect != null) return;
+    await _switch(() async {
+      await engine.finishFade();
+      final next = (state.index ?? -1) + 1;
+      final queued = state.queuedCount > 0 && state.queuedFrom >= next;
+      final from = queued ? state.queuedFrom : next;
+      final count = queued ? state.queuedCount : 0;
+      await _insert(from + count, t, queuedFrom: from, queuedCount: count + 1);
+    });
+  }
 
-  Future<void> _insert(int at, Track t) async {
-    if (state.queue.isEmpty || state.book != null) return playTracks([t]);
+  Future<void> _insert(int at, Track t, {int? queuedFrom, int? queuedCount}) async {
+    if (state.queue.isEmpty || state.book != null) return _playTracksNow([t]);
     await engine.finishFade();
-    state = _copy(queue: List.unmodifiable([...state.queue]..insert(at, t)));
-    _unshuffled.insert(state.shuffle ? _unshuffled.length : at, t);
+    final shifted = state.queuedCount > 0 && at <= state.queuedFrom && queuedFrom == null;
+    state = _copy(
+      queue: List.unmodifiable([...state.queue]..insert(at, t)),
+      queuedFrom: queuedFrom ?? (shifted ? state.queuedFrom + 1 : null),
+      queuedCount: queuedCount,
+    );
+    _unshuffled.insert(state.shuffle ? _unshuffled.length : at.clamp(0, _unshuffled.length), t);
     await engine.insert(at, _source(t));
+  }
+
+  /// Adds songs at the end of the queue in one go (autoplay, a radio playlist growing).
+  Future<void> _append(List<Track> tracks) async {
+    if (tracks.isEmpty || jam != null || connect != null) return;
+    if (state.queue.isEmpty || state.book != null || state.index == null) return _playTracksNow(tracks);
+    await _setUpcoming([...state.queue.skip(state.index! + 1), ...tracks]);
+    _unshuffled.addAll(tracks);
+  }
+
+  /// Replaces the songs after the current one with one engine call; inserting them one by one costs two platform
+  /// calls per song and made smart shuffle take seconds.
+  Future<void> _setUpcoming(List<Track> upcoming, {int? queuedFrom, int? queuedCount}) async {
+    final index = state.index!;
+    final queue = [...state.queue.take(index + 1), ...upcoming];
+    _switching = true;
+    try {
+      await engine.setSources([for (final t in queue) _source(t)], initialIndex: index, preserveCurrent: true);
+      state = _copy(queue: List.unmodifiable(queue), index: index, queuedFrom: queuedFrom, queuedCount: queuedCount);
+    } finally {
+      _switching = false;
+    }
   }
 
   Future<void> removeAt(int i) async {
     if (jam != null) return jam!.removeAt(i);
     if (connect != null) return;
     await engine.finishFade();
+    if (i >= state.queue.length) return;
     _unshuffled.remove(state.queue[i]);
-    state = _copy(queue: List.unmodifiable([...state.queue]..removeAt(i)));
+    state = _copy(
+      queue: List.unmodifiable([...state.queue]..removeAt(i)),
+      queuedFrom: state.queuedCount > 0 && i < state.queuedFrom ? state.queuedFrom - 1 : null,
+      queuedCount: state.isQueued(i) ? state.queuedCount - 1 : null,
+    );
     await engine.removeAt(i);
   }
 
@@ -680,12 +753,24 @@ class PlayerController extends Notifier<PlayerView> {
     if (enabled == state.shuffle && smart == state.smartShuffle) return;
     _smartRequest = null;
     if (state.smartShuffle && !smart) {
+      // Drop the upcoming recommendations in one go.
+      final index = state.index ?? -1;
+      final drop = {
+        for (final t in state.queue.skip(index + 1))
+          if (_smartIds.contains(t.id)) t.id,
+      }..remove(state.current?.id);
+      _smartIds.removeAll(drop);
+      _unshuffled.removeWhere((t) => drop.contains(t.id));
       state = _copy(smartShuffle: false);
-      for (var i = state.queue.length - 1; i > (state.index ?? -1); i--) {
-        if (_smartIds.contains(state.queue[i].id)) {
-          _smartIds.remove(state.queue[i].id);
-          await removeAt(i);
+      if (drop.isNotEmpty && enabled == state.shuffle && state.index != null) {
+        final upcoming = <Track>[];
+        var queuedCount = 0;
+        for (var i = index + 1; i < state.queue.length; i++) {
+          if (drop.contains(state.queue[i].id)) continue;
+          if (state.isQueued(i)) queuedCount++;
+          upcoming.add(state.queue[i]);
         }
+        await _setUpcoming(upcoming, queuedFrom: index + 1, queuedCount: queuedCount);
       }
     }
     if (enabled == state.shuffle) {
@@ -693,30 +778,51 @@ class PlayerController extends Notifier<PlayerView> {
       if (smart) _loadSmart().ignore();
       return;
     }
-    final before = state.queue;
-    final beforeIndex = state.index;
-    final shuffled = enabled && beforeIndex != null ? shuffleQueue(before, beforeIndex) : null;
-    final keys = shuffled == null ? null : await _harmonicKeys(shuffled, context: state.context);
+    final keys = enabled && state.index != null ? await _harmonicKeys(state.queue, context: state.context) : null;
     await engine.finishFade();
     final current = state.current;
     if (current == null) {
       state = _copy(shuffle: enabled, smartShuffle: smart);
       return;
     }
-    if (enabled) _unshuffled = [...state.queue];
-    final (plain, index) = enabled
-        ? (
-            identical(before, state.queue) && beforeIndex == state.index
-                ? shuffled!
-                : shuffleQueue(state.queue, state.index!),
-            0,
-          )
-        : unshuffleQueue(_unshuffled, current);
-    final queue = enabled ? [current, ..._harmonicOrder(current, plain.skip(1).toList(), keys)] : plain;
+    // The user's queue stays right after the current song (like Spotify).
+    final queued = _upcomingQueued();
+    final queuedSet = Set<Track>.identity()..addAll(queued);
+    final List<Track> queue;
+    final int index;
+    if (enabled) {
+      _unshuffled = [...state.queue];
+      final rest = [
+        for (var i = 0; i < state.queue.length; i++)
+          if (i != state.index && !queuedSet.contains(state.queue[i])) state.queue[i],
+      ]..shuffle();
+      queue = [current, ...queued, ..._harmonicOrder(queued.lastOrNull ?? current, rest, keys)];
+      index = 0;
+    } else {
+      final base = [
+        for (final t in _unshuffled)
+          if (!queuedSet.contains(t)) t,
+      ];
+      var at = base.indexOf(current);
+      if (at < 0) {
+        base.insert(0, current);
+        at = 0;
+      }
+      queue = [...base.take(at + 1), ...queued, ...base.skip(at + 1)];
+      index = at;
+    }
     _switching = true;
     try {
       await engine.setSources([for (final t in queue) _source(t)], initialIndex: index, preserveCurrent: true);
-      state = _copy(queue: List.unmodifiable(queue), index: index, shuffle: enabled, smartShuffle: smart);
+      state = _copy(
+        queue: List.unmodifiable(queue),
+        index: index,
+        shuffle: enabled,
+        smartShuffle: smart,
+        queuedFrom: index + 1,
+        queuedCount: queued.length,
+      );
+      if (!enabled) _unshuffled = [...queue];
     } finally {
       _switching = false;
     }
@@ -744,7 +850,16 @@ class PlayerController extends Notifier<PlayerView> {
       return null;
     }
     try {
-      final keys = await _api.mixKeys({for (final track in tracks) track.id}.toList());
+      // Known keys come from memory: every shuffle used to ask the server for the whole queue again.
+      final ids = {for (final track in tracks) track.id};
+      final missing = ids.where((id) => !_knownKeys.containsKey(id)).toList();
+      if (missing.isNotEmpty) {
+        final fetched = await _api.mixKeys(missing);
+        for (final entry in fetched.entries) {
+          if (entry.value != null) _knownKeys[entry.key] = entry.value!;
+        }
+      }
+      final keys = {for (final id in ids) id: _knownKeys[id]};
       if (!ref.mounted || !engine.automix || jam != null || !keys.values.any((info) => info?.key != null)) return null;
       return keys;
     } catch (_) {
@@ -796,10 +911,9 @@ class PlayerController extends Notifier<PlayerView> {
         final current = state.current!;
         final keys = await _harmonicKeys([current, ...extra], context: state.context);
         if (generation != _contextGeneration || !_canAutoplay || state.current?.id != id) return;
-        for (final track in _harmonicOrder(current, extra, keys)) {
-          _autoplayIds.add(track.id);
-          await addToQueue(track);
-        }
+        final ordered = _harmonicOrder(current, extra, keys);
+        _autoplayIds.addAll([for (final track in ordered) track.id]);
+        await _append(ordered);
       });
     } catch (_) {
       // Offline or an older server: leave the queue as it is.
@@ -831,7 +945,9 @@ class PlayerController extends Notifier<PlayerView> {
         final seen = {for (final t in state.queue) t.id};
         final extra = tracks.where((t) => seen.add(t.id)).toList();
         final queue = state.queue;
-        final following = queue.skip(index + 1).toList();
+        // Recommendations go between the context's songs, after the user's own queue.
+        final queued = _upcomingQueued();
+        final following = queue.skip(index + 1 + queued.length).toList();
         final predecessors = [for (var i = 2; i < math.min(following.length, extra.length * 3); i += 3) following[i]];
         final keys = await _harmonicKeys([...extra, ...predecessors], context: state.context);
         if (_smartRequest != request ||
@@ -851,14 +967,15 @@ class PlayerController extends Notifier<PlayerView> {
           remaining.remove(next);
         }
         ordered.addAll(remaining);
-        final ids = {for (final t in extra) t.id};
         final upcoming = interleaveEvery(following, ordered, 3);
-        for (var i = 0; i < upcoming.length; i++) {
-          final track = upcoming[i];
-          if (!ids.contains(track.id)) continue;
-          _smartIds.add(track.id);
-          await _insert(index + 1 + i, track);
-        }
+        final added = {for (final t in extra) t.id}.intersection({for (final t in upcoming) t.id});
+        if (added.isEmpty) return;
+        _smartIds.addAll(added);
+        _unshuffled.addAll([
+          for (final t in upcoming)
+            if (added.contains(t.id)) t,
+        ]);
+        await _setUpcoming([...queued, ...upcoming], queuedFrom: index + 1, queuedCount: queued.length);
       });
     } catch (_) {
       // Recommendations are optional; the shuffled context keeps playing.
@@ -1046,7 +1163,7 @@ class PlayerController extends Notifier<PlayerView> {
         try {
           await engine.setSources([for (final t in queue) _source(t)], initialIndex: current, preserveCurrent: true);
           _unshuffled = [...queue];
-          state = _copy(queue: queue, index: current, context: context);
+          state = _copy(queue: queue, index: current, context: context, queuedFrom: 0, queuedCount: 0);
         } finally {
           _switching = false;
         }

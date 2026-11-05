@@ -302,6 +302,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerRemoveFromQueue => 'Remove from queue';
 
   @override
+  String get playerNextInQueue => 'Next in queue';
+
+  @override
+  String get playerLater => 'Later';
+
+  @override
+  String playerRemovedTrack(String title) {
+    return 'Removed “$title” from queue';
+  }
+
+  @override
   String get settingsAccount => 'Account';
 
   @override
@@ -2077,6 +2088,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get offlineRemoveTitle => 'Remove download?';
+
+  @override
+  String get coverCropTitle => 'Choose the crop';
+
+  @override
+  String get coverCropHint => 'Drag the image and zoom with two fingers or the mouse wheel';
+
+  @override
+  String get storageOpenFolder => 'Open folder';
+
+  @override
+  String get storageCollections => 'Downloaded collections';
+
+  @override
+  String get storageFiles => 'Files by size';
 
   @override
   String get offlineQuality => 'Download quality';

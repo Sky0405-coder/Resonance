@@ -299,6 +299,17 @@ class AppLocalizationsDe extends AppLocalizations {
   String get playerRemoveFromQueue => 'Aus Warteschlange entfernen';
 
   @override
+  String get playerNextInQueue => 'Als Nächstes in der Warteschlange';
+
+  @override
+  String get playerLater => 'Danach';
+
+  @override
+  String playerRemovedTrack(String title) {
+    return '„$title“ aus der Warteschlange entfernt';
+  }
+
+  @override
   String get settingsAccount => 'Konto';
 
   @override
@@ -2052,6 +2063,21 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get offlineRemoveTitle => 'Download entfernen?';
+
+  @override
+  String get coverCropTitle => 'Ausschnitt wählen';
+
+  @override
+  String get coverCropHint => 'Bild verschieben und mit zwei Fingern oder dem Mausrad zoomen';
+
+  @override
+  String get storageOpenFolder => 'Ordner öffnen';
+
+  @override
+  String get storageCollections => 'Heruntergeladene Sammlungen';
+
+  @override
+  String get storageFiles => 'Dateien nach Größe';
 
   @override
   String get offlineQuality => 'Downloadqualität';

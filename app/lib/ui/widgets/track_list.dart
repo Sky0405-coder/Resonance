@@ -31,6 +31,8 @@ class TrackRow extends ConsumerStatefulWidget {
     this.showCover = true,
     this.showAlbum = true,
     this.smart = false,
+    this.queued = false,
+    this.onRemove,
     this.extraActions = const [],
     this.addedBy,
     this.mixInfo,
@@ -42,6 +44,12 @@ class TrackRow extends ConsumerStatefulWidget {
   final bool showCover;
   final bool showAlbum;
   final bool smart;
+
+  /// Added to the queue by the user: marked like Spotify does.
+  final bool queued;
+
+  /// In the queue: swiping to the left removes the song.
+  final VoidCallback? onRemove;
   final List<TrackAction> extraActions;
 
   /// Collaborative playlists: who added the song, shown after the artist.
@@ -139,6 +147,10 @@ class _TrackRowState extends ConsumerState<TrackRow> {
                       ),
                       Row(
                         children: [
+                          if (widget.queued) ...[
+                            Icon(Icons.queue_music, size: 14, color: accent),
+                            const SizedBox(width: 4),
+                          ],
                           if (downloaded) ...[
                             Icon(Icons.arrow_circle_down, size: 14, color: accent),
                             const SizedBox(width: 4),
@@ -186,34 +198,45 @@ class _TrackRowState extends ConsumerState<TrackRow> {
       ),
     );
     if (wide) return row;
-    return QueueSwipe(track: t, child: row);
+    return QueueSwipe(track: t, onRemove: widget.onRemove, child: row);
   }
 }
 
-/// Swiping a song to the right adds it to the queue (touch layouts); the row springs back.
+/// Swiping a song to the right adds it to the queue (touch layouts); the row springs back. With [onRemove] (the
+/// queue itself), swiping to the left takes it out again.
 class QueueSwipe extends ConsumerWidget {
-  const QueueSwipe({super.key, required this.track, required this.child});
+  const QueueSwipe({super.key, required this.track, required this.child, this.onRemove});
   final Track track;
   final Widget child;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accent = Theme.of(context).colorScheme.primary;
+    final onAccent = ThemeData.estimateBrightnessForColor(accent) == Brightness.dark ? Colors.white : Colors.black;
     return Dismissible(
       key: const ValueKey('queue-swipe'),
-      direction: DismissDirection.startToEnd,
-      dismissThresholds: const {DismissDirection.startToEnd: 0.25},
+      direction: onRemove == null ? DismissDirection.startToEnd : DismissDirection.horizontal,
+      dismissThresholds: const {DismissDirection.startToEnd: 0.25, DismissDirection.endToStart: 0.25},
       background: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 24),
         decoration: BoxDecoration(color: accent.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(4)),
-        child: Icon(
-          Icons.queue_music,
-          color: ThemeData.estimateBrightnessForColor(accent) == Brightness.dark ? Colors.white : Colors.black,
-        ),
+        child: Icon(Icons.queue_music, color: onAccent),
       ),
-      confirmDismiss: (_) async {
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(color: Colors.red.shade700, borderRadius: BorderRadius.circular(4)),
+        child: const Icon(Icons.remove_circle_outline, color: Colors.white),
+      ),
+      confirmDismiss: (direction) async {
         HapticFeedback.mediumImpact();
+        if (direction == DismissDirection.endToStart) {
+          onRemove?.call();
+          showInfo(context, context.l10n.playerRemovedTrack(track.title));
+          return false;
+        }
         ref.read(playerProvider.notifier).addToQueue(track).catchError((Object e) {
           if (context.mounted) showError(context, e);
         });

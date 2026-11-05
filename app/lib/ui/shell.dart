@@ -89,34 +89,37 @@ class AppShell extends ConsumerWidget {
     if (isWide(context)) {
       return Scaffold(
         backgroundColor: Palette.sidebar,
-        body: Column(
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 300,
-                      child: _Sidebar(location: location, isAdmin: isAdmin, media: media),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: ColoredBox(
-                          color: Palette.background,
-                          child: UpdateNotifier(child: child),
+        // Tablets: Android's taskbar and status bar sit on top of the app; keep the sidebar and player clear of them.
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 300,
+                        child: _Sidebar(location: location, isAdmin: isAdmin, media: media),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: ColoredBox(
+                            color: Palette.background,
+                            child: UpdateNotifier(child: child),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (offline) const _OfflineBanner(),
-            const DesktopPlayerBar(),
-          ],
+              if (offline) const _OfflineBanner(),
+              const DesktopPlayerBar(),
+            ],
+          ),
         ),
       );
     }

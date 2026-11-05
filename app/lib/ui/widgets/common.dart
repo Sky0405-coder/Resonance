@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:intl/intl.dart';
 
 import '../../l10n/l10n.dart';
 
@@ -70,6 +71,16 @@ class TrackTitle extends StatelessWidget {
           )
         : title;
   }
+}
+
+/// A file size as MB or GB in the app's language.
+String formatStorage(BuildContext context, int bytes) {
+  final gigabytes = bytes >= 1024 * 1024 * 1024;
+  final value = NumberFormat(
+    '0.0',
+    Localizations.localeOf(context).toLanguageTag(),
+  ).format(bytes / (gigabytes ? 1024 * 1024 * 1024 : 1024 * 1024));
+  return gigabytes ? context.l10n.offlineGigabytes(value) : context.l10n.offlineMegabytes(value);
 }
 
 String formatDuration(Duration d) {
