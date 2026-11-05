@@ -240,7 +240,7 @@ class PlayerController extends Notifier<PlayerView> {
     normalize = prefs.getBool('normalize_volume') ?? true;
     userVolume.value = (prefs.getDouble('user_volume') ?? 1).clamp(0, 1);
     engine.crossfadeSeconds = (prefs.getInt('crossfade_seconds') ?? 0).clamp(0, 20);
-    engine.targetVolumeForIndex = (index) => userVolume.value * _gainForTrack(state.queue[index]);
+    engine.targetVolumeForIndex = (index) => userVolume.value * gainForTrack(state.queue[index]);
     engine.automix = prefs.getBool('automix') ?? false;
     engine.keyShift = prefs.getBool('automix_key_shift') ?? true;
     engine.vocalSwap = prefs.getBool('automix_vocal_swap') ?? true;
@@ -1506,7 +1506,8 @@ class PlayerController extends Notifier<PlayerView> {
 
   /// ReplayGain: attenuate loud tracks towards a common level. We can only
   /// lower volume (max 1.0), so gains are offset by a fixed headroom.
-  double _gainForTrack(Track? track) {
+  /// The loudness-normalizing volume factor of [track] (1 when normalizing is off).
+  double gainForTrack(Track? track) {
     if (!normalize || track == null) return 1;
     const headroomDb = -6.0;
     final gainDb = (track.replayGainTrack ?? 0) + headroomDb;
@@ -1514,7 +1515,7 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   void _applyGain() {
-    _gainFactor = state.book == null ? _gainForTrack(state.current) : 1;
+    _gainFactor = state.book == null ? gainForTrack(state.current) : 1;
     engine.setVolume(_gainFactor * userVolume.value);
   }
 

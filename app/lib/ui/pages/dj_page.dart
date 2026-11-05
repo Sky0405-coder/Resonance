@@ -77,6 +77,9 @@ class DjDeck extends ChangeNotifier {
   /// -1 (low-pass closed) … 0 (open) … 1 (high-pass closed).
   double filter = 0;
   double channel = 1;
+
+  /// The song's loudness-normalizing factor, as the player uses it.
+  double trackGain = 1;
   Duration cue = Duration.zero;
   final hotCues = List<Duration?>.filled(4, null);
   int loopBeats = 0;
@@ -217,6 +220,7 @@ class _DjPageState extends ConsumerState<DjPage> {
       }
     }
     _applyVolumes();
+    _controller.userVolume.addListener(_applyVolumes);
     // After the first frame: pausing changes the player's state.
     WidgetsBinding.instance.addPostFrameCallback((_) => _takeOver());
   }
@@ -243,6 +247,7 @@ class _DjPageState extends ConsumerState<DjPage> {
   void dispose() {
     _fadeTimer?.cancel();
     _startTimer?.cancel();
+    _controller.userVolume.removeListener(_applyVolumes);
     _handBack();
     _a.dispose();
     _b.dispose();
@@ -273,10 +278,12 @@ class _DjPageState extends ConsumerState<DjPage> {
     return !leaning.playing && other.playing ? other : leaning;
   }
 
+  /// Crossfader × channel fader × the song's loudness normalizing × the player's volume, like normal playback.
   void _applyVolumes() {
     final (a, b) = crossfaderGains(_crossfader);
-    _a.player.setVolume(a * _a.channel).ignore();
-    _b.player.setVolume(b * _b.channel).ignore();
+    final volume = _controller.userVolume.value;
+    _a.player.setVolume(a * _a.channel * _a.trackGain * volume).ignore();
+    _b.player.setVolume(b * _b.channel * _b.trackGain * volume).ignore();
   }
 
   void _setCrossfader(double value, {bool byHand = true}) {
@@ -289,6 +296,7 @@ class _DjPageState extends ConsumerState<DjPage> {
     final api = ref.read(apiProvider);
     try {
       final points = (await api.mixPoints([track.id]))[track.id];
+      deck.trackGain = _controller.gainForTrack(track);
       await deck.load(api.streamUrl(track.id), track, points, at: at);
       _applyVolumes();
     } catch (e) {
