@@ -1,5 +1,23 @@
 [
   {
+    "version": "1.7.3",
+    "date": "2026-11-05",
+    "de": [
+      "Jahresrückblick: Deine Minuten, Top-Songs, Top-Künstler, Genres und Hörzeiten des Jahres als Story zum Durchtippen, mit deinen Top-Songs als Playlist. In den Einstellungen jederzeit, im Dezember und Januar auch auf der Startseite.",
+      "Blend: Eine gemeinsame Playlist mit einer anderen Person, jeden Tag neu aus eurem Geschmack, mit eurer Übereinstimmung in Prozent. Erstellen über das Plus in der Bibliothek.",
+      "Neuerscheinungen: Jeden Freitag die neuen Songs deiner meistgehörten Künstler unter „Für dich“; fehlende werden heruntergeladen.",
+      "Mitwirkende: Wer einen Song gesungen, geschrieben, produziert und abgemischt hat, im Song-Menü und unter dem Player (aus den Dateiinfos und von MusicBrainz).",
+      "Übergangs-Editor wie ein DJ-Mixer: eigene Zeilen für Lautstärke, EQ, Filter, Effekte (Hall, Echo, Verzögerung), Looping und Beatmatching, jeweils mit allen Varianten zur Auswahl und als Kurven über den Wellenformen."
+    ],
+    "en": [
+      "Year in review: your minutes, top songs, top artists, genres and listening times of the year as a story to tap through, with your top songs as a playlist. Always in settings, in December and January on home too.",
+      "Blend: a shared playlist with another person, fresh every day from both your tastes, with your match in percent. Create it with the plus in the library.",
+      "Release Radar: every Friday the new songs of your most played artists under “Made for you”; missing ones are downloaded.",
+      "Credits: who sang, wrote, produced and mixed a song, in the song menu and below the player (from the file tags and MusicBrainz).",
+      "Transition editor like a DJ mixer: own lanes for volume, EQ, filter, effects (reverb, echo, delay), looping and beatmatching, each with all its variants to choose from and drawn as curves over the waveforms."
+    ]
+  },
+  {
     "version": "1.7.2",
     "date": "2026-11-04",
     "de": [
