@@ -1275,66 +1275,6 @@
   "transitionDrawn": "Drawn by hand",
   "transitionDrawReset": "Reset curve",
   "transitionDrawHint": "Click to add a point, drag to move it, right-click or long-press to remove it. The current song on top, the next one below.",
-  "djTitle": "DJ deck",
-  "djOpen": "DJ deck (mix yourself)",
-  "djCrossfader": "Crossfader – double-tap a control to reset it",
-  "djEmptyDeck": "Deck {deck} – empty",
-  "djLoad": "Load",
-  "djPlay": "Play",
-  "djPause": "Pause",
-  "djTempo": "Tempo",
-  "djHotCues": "Hot cues (tap: set/jump, long press: clear)",
-  "djLoop": "Loop (beats)",
-  "djHigh": "High",
-  "djMid": "Mid",
-  "djLow": "Low",
-  "djFilter": "Filter",
-  "djTransition": "Transition {from} → {to}",
-  "@djTransition": {
-    "placeholders": {
-      "from": {
-        "type": "String"
-      },
-      "to": {
-        "type": "String"
-      }
-    }
-  },
-  "djTransitionCancel": "Cancel transition",
-  "djTransitionHint": "Matches the tempo, starts the other deck on the next bar, swaps the bass and fades over",
-  "djNeedsTwo": "Load a song on both decks",
-  "djBeats": "{count} beats",
-  "@djBeats": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "djMore": "More: tempo, EQ, hot cues, loops",
-  "djVolume": "Volume",
-  "djNextUp": "Up next: {title}",
-  "@djNextUp": {
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
-  },
-  "djQueueEnd": "The queue has ended – load a song yourself",
-  "djOriginalBpm": "Original {bpm} BPM · {percent}",
-  "@djOriginalBpm": {
-    "placeholders": {
-      "bpm": {
-        "type": "String"
-      },
-      "percent": {
-        "type": "String"
-      }
-    }
-  },
-  "djShortcuts": "Keys: Q / P play A / B · S sync · T transition · ← / → crossfader",
-  "djSearch": "Search a song – or take one from the queue",
   "effectBrake": "Turntable brake (PC only)",
   "effectReverbMiddle": "Reverb, song ends in the middle",
   "effectReverbCut": "Reverb, cut at the end",

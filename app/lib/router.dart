@@ -37,7 +37,6 @@ import 'ui/pages/world_radio_page.dart';
 import 'ui/pages/now_playing_page.dart';
 import 'ui/pages/lyrics_page.dart';
 import 'ui/pages/settings_page.dart';
-import 'ui/pages/dj_page.dart';
 import 'ui/pages/storage_page.dart';
 import 'ui/widgets/playlist_order.dart';
 import 'ui/pages/spotify_page.dart';
@@ -279,7 +278,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
           GoRoute(path: '/settings/equalizer', builder: (_, _) => const EqualizerPage()),
           GoRoute(path: '/settings/storage', builder: (_, _) => const StoragePage()),
-          GoRoute(path: '/dj', builder: (_, _) => const DjPage()),
           GoRoute(path: '/spotify', builder: (_, _) => const SpotifyImportPage()),
           GoRoute(
             path: '/admin',

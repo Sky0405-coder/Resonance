@@ -12,7 +12,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
-import '../../core/desktop.dart';
 import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
@@ -519,13 +518,6 @@ class DesktopPlayerBar extends ConsumerWidget {
                     icon: const Icon(Icons.lyrics_outlined),
                     color: Palette.textMuted,
                     onPressed: () => context.push('/lyrics'),
-                  ),
-                if (isDesktop)
-                  IconButton(
-                    tooltip: context.l10n.djOpen,
-                    icon: const Icon(Icons.album_outlined),
-                    color: Palette.textMuted,
-                    onPressed: () => context.push('/dj'),
                   ),
                 if (book == null && station == null)
                   IconButton(
