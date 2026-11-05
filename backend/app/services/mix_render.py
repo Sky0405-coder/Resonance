@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import Playlist, PlaylistEntry, PlaylistTransition, Track
-from app.services import mixpoints
+from app.services import mix_lanes, mixpoints
 from app.services.mixpoints import MixPoints
 from app.services.transcode import resolve_path
 
@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 RATE = 44100
 # Bump when the sound of a render changes, so cached files are made again.
-VERSION = 1
+VERSION = 2
 MAX_SONGS = 150
 KEEP_DAYS = 7
 _MAX_TEMPO_CHANGE = 0.16
@@ -48,6 +48,12 @@ class Plan:
     swap: float
     speed: float = 1.0
     ramp: float = 0.0
+    # A transition made in the editor: its lanes (else AutoMix's blend), its length in bars, the current song's beat
+    # (seconds) and its first downbeat.
+    lanes: dict | None = None
+    bars: int = 4
+    beat: float = 0.5
+    downbeat: float = 0.0
 
 
 @dataclass
@@ -87,7 +93,14 @@ def plan(outgoing: MixPoints | None, incoming: MixPoints | None, custom: Playlis
     if custom is not None:
         length = custom.bars * 4 * beat if beat else custom.bars * 2.0
         length = max(2.0, min(length, outgoing.end - custom.start))
-        return Plan(custom.start, custom.incoming_start, length, length / 2, speed or 1.0, 8 * beat if beat and speed else 0)
+        lanes = custom.lanes if custom.lanes is not None else dict(mix_lanes.STYLE_LANES.get(custom.style, {}))
+        if lanes.get("beatmatch") is False:
+            speed = None
+        return Plan(
+            custom.start, custom.incoming_start, length, length / 2, speed or 1.0, 8 * beat if beat and speed else 0,
+            lanes=lanes, bars=custom.bars, beat=beat or 0.5,
+            downbeat=outgoing.downbeat if outgoing.downbeat is not None else outgoing.mix_in,
+        )
     if speed is None or beat is None:
         # Different tempos: a short crossfade at the end, the next song from its first beat.
         start = max(outgoing.mix_out, outgoing.end - 8)
@@ -167,6 +180,134 @@ def blend(outgoing: np.ndarray, incoming: np.ndarray, swap: int) -> np.ndarray:
     return mixed.astype(np.float32)
 
 
+# The desktop players' effect chain (the app's `mixMpvFilter`): three EQ bands, high- and low-pass, the eighth-note
+# gate, then the dry sound beside a flanger, a phaser, a three-tap echo, a reverb and a noise riser. Its values follow
+# the lanes through timed commands, like the app's live `af-command`s.
+_CHAIN = (
+    "[0:a]asendcmd=f={commands},"
+    "bass@lo=g=0:f=150:w=0.6,equalizer@mid=f=1000:t=o:w=2:g=0,treble@hi=g=0:f=4000:w=0.6,"
+    "highpass@hp=f=10:p=2,lowpass@lp=f=20000:p=2,asetnsamples=n=256:p=0,volume@gate='{gate}':eval=frame,"
+    "asplit=4[dry][wet][fl][ph];"
+    "[dry]volume@dry=1[d];"
+    "[fl]flanger=delay=1:depth=5:regen=60:width=70:speed=0.25,volume@flw=0[f];"
+    "[ph]aphaser=in_gain=0.5:out_gain=0.8:delay=3:decay=0.5:speed=0.5:type=t,volume@phw=0[p];"
+    "[wet]volume@fx=0,asplit=4[e1][e2][e3][r];"
+    "[e1]adelay=delays={d1}:all=1,volume@g1=0[o1];[e2]adelay=delays={d2}:all=1,volume@g2=0[o2];"
+    "[e3]adelay=delays={d3}:all=1,volume@g3=0[o3];"
+    "[r]aecho=0.8:0.9:23|37|53|71|97|131:0.5|0.45|0.4|0.35|0.3|0.25,lowpass=f=5000,volume@rv=0[rr];"
+    "anoisesrc=c=pink:a=0.5:r=44100,aformat=channel_layouts=stereo,highpass=f=300,volume@noise=0[n];"
+    "[d][f][p][o1][o2][o3][rr][n]amix=inputs=8:normalize=0:duration=first[out]"
+)
+_STEP = 0.02
+
+
+def _commands(state: dict, times: np.ndarray, echo_feedback: float) -> str:
+    """The chain's commands every 20 ms (only values that changed), as in the app's `mpvFxCommands`."""
+    level = state["level"]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        gate = np.where(level <= 0, 0.0, np.clip(state["dry"] / level, 0, 1))
+        feed = np.where(level <= 0, 0.0, np.clip(state["fx_in"] / level, 0, 1))
+    through = gate * np.clip(1 - state["flanger"] - state["phaser"], 0, 1)
+    values = [
+        ("bass@lo", "g", state["low"], 1), ("equalizer@mid", "g", state["mid"], 1), ("treble@hi", "g", state["high"], 1),
+        ("highpass@hp", "f", state["highpass"], 0), ("lowpass@lp", "f", state["lowpass"], 0),
+        ("volume@dry", "volume", through, 3), ("volume@flw", "volume", gate * state["flanger"], 3),
+        ("volume@phw", "volume", gate * state["phaser"], 3), ("volume@fx", "volume", feed, 3),
+        ("volume@g1", "volume", state["echo"], 3), ("volume@g2", "volume", state["echo"] * echo_feedback, 3),
+        ("volume@g3", "volume", state["echo"] * echo_feedback**2, 3), ("volume@rv", "volume", state["reverb"], 3),
+        ("volume@noise", "volume", state["noise"] * 0.4, 3),
+    ]
+    lines = []
+    previous: dict[str, str] = {}
+    for k, t in enumerate(times):
+        parts = []
+        for target, name, series, digits in values:
+            text = f"{float(series[k]):.{digits}f}"
+            if previous.get(target) != text:
+                previous[target] = text
+                parts.append(f"{target} {name} {text}")
+        if parts:
+            lines.append(f"{t:.3f} " + ", ".join(parts) + ";")
+    return "\n".join(lines) + "\n"
+
+
+def _through_chain(audio: np.ndarray, state: dict, times: np.ndarray, gate: str, echo: tuple[float, float]) -> np.ndarray:
+    """`audio` through the effect chain following `state` (sampled at `times`, seconds into `audio`)."""
+    if len(audio) == 0:
+        return audio
+    delay, feedback = echo
+    with tempfile.TemporaryDirectory() as scratch:
+        commands = Path(scratch) / "commands.txt"
+        commands.write_text(_commands(state, times, feedback))
+        ms = [max(1, round(delay * i * 1000)) if delay > 0 else 500 * i for i in (1, 2, 3)]
+        graph = _CHAIN.format(commands=str(commands), gate=gate, d1=ms[0], d2=ms[1], d3=ms[2])
+        result = subprocess.run(
+            ["ffmpeg", "-v", "error", "-nostdin", "-f", "f32le", "-ar", str(RATE), "-ac", "2", "-i", "-",
+             "-filter_complex", graph, "-map", "[out]", "-f", "f32le", "-ar", str(RATE), "-ac", "2", "-"],
+            input=np.ascontiguousarray(audio, dtype=np.float32).tobytes(),
+            capture_output=True,
+            check=True,
+            timeout=600,
+        )
+    out = np.frombuffer(result.stdout, dtype=np.float32).reshape(-1, 2)
+    if len(out) < len(audio):
+        out = np.concatenate([out, np.zeros((len(audio) - len(out), 2), dtype=np.float32)])
+    return out[: len(audio)]
+
+
+def _outgoing_positions(p: Plan, start: int, length: int) -> np.ndarray:
+    """Where in the current song each sample of the transition comes from: straight on, or looped, rolled or braked
+    from the middle as its lanes say."""
+    lanes = p.lanes or {}
+    u = np.arange(length, dtype=np.float64) / max(1, length)
+    middle = start + length / 2
+    beat = p.beat * RATE
+    effect = lanes.get("effect", "none")
+    if effect == "brake":
+        speeds = mix_lanes.brake_speed(u, p.bars)
+        return start + np.concatenate([[0.0], np.cumsum(speeds[:-1])])
+    positions = start + np.arange(length, dtype=np.float64)
+    after = positions >= middle
+    if effect == "beat_roll":
+        beats_in = np.floor((u - 0.5) * p.bars * 4)
+        span = beat / 2 ** np.clip(beats_in, 0, 4)
+        rolled = middle - span + np.mod(positions - middle, span)
+        return np.where(after & (u < 1), rolled, positions)
+    if (loop := mix_lanes.fitting_loop_beats(lanes, p.bars)) > 0:
+        span = loop * beat
+        return np.where(after, middle - span + np.mod(positions - middle, span), positions)
+    return positions
+
+
+def blend_lanes(current: np.ndarray, start: int, incoming: np.ndarray, p: Plan) -> np.ndarray:
+    """A transition made in the editor, sounding as the PC plays it: both songs through the effect chain following
+    their lanes (and curves drawn by hand), at their volume curves."""
+    length = len(incoming)
+    lanes = p.lanes or {}
+    positions = _outgoing_positions(p, start, length)
+    positions = np.clip(positions, 0, len(current) - 1)
+    index = np.arange(len(current))
+    outgoing = np.stack([np.interp(positions, index, current[:, c]) for c in range(2)], axis=1).astype(np.float32)
+    times = np.arange(0, length / RATE + _STEP, _STEP)
+    u = np.clip(times / max(1e-6, length / RATE), 0, 1)
+    out_state, in_state = mix_lanes.states(lanes, u, p.bars)
+    gate = "1"
+    if lanes.get("effect") == "gate":
+        # Eighth notes on the current song's grid, from the middle to the end (t: seconds into this stretch).
+        half, quarter = p.beat / 2, p.beat / 4
+        offset = start / RATE - p.downbeat
+        mid, end = length / RATE / 2, length / RATE
+        chop = f"if(lt(mod(t+{offset:.4f},{half:.4f}),{quarter:.4f}),1,0.05)"
+        gate = f"if(gte(t,{mid:.3f})*lt(t,{end:.3f}),{chop},1)"
+    delay_beats, feedback = mix_lanes.echo_of(lanes.get("effect", "none"))
+    out_audio = _through_chain(outgoing, out_state, times, gate, (delay_beats * p.beat, feedback))
+    in_audio = _through_chain(incoming, in_state, times, "1", (0.0, 0.0))
+    sample_u = np.arange(length) / max(1, length)
+    out_level = np.interp(sample_u, u, out_state["level"])
+    in_level = np.interp(sample_u, u, in_state["level"])
+    return (out_level[:, None] * out_audio + in_level[:, None] * in_audio).astype(np.float32)
+
+
 def _gain(track: Track) -> float:
     """ReplayGain toward a common loudness (the app normalizes the same way), never louder than +6 dB."""
     gain = track.replaygain_track_gain if track.replaygain_track_gain is not None else track.replaygain_album_gain
@@ -209,7 +350,10 @@ def render_songs(
             np.linspace(p.speed, 1.0, ramp, dtype=np.float64) if ramp else np.zeros(0),
         ])
         rendered, position = stretch(audio, p.incoming_start * RATE, speeds)
-        mixed = blend(outgoing, rendered[: len(outgoing)], int(p.swap * RATE))
+        if p.lanes is not None:
+            mixed = blend_lanes(current, start, rendered[: len(outgoing)], p)
+        else:
+            mixed = blend(outgoing, rendered[: len(outgoing)], int(p.swap * RATE))
         starts.append((written + int(p.swap * RATE)) / RATE)
         head = np.clip(np.concatenate([mixed, rendered[len(mixed) :]]), -1, 1)
         current = audio
@@ -258,7 +402,10 @@ async def _load(db: AsyncSession, playlist_id: uuid.UUID):
 def cache_key(tracks: list[Track], transitions: dict) -> str:
     parts = [f"v{VERSION}:{mixpoints.VERSION}"]
     parts += [f"{t.id}:{t.mtime}" for t in tracks]
-    parts += sorted(f"{a}>{b}:{t.start}:{t.incoming_start}:{t.bars}" for (a, b), t in transitions.items())
+    parts += sorted(
+        f"{a}>{b}:{t.start}:{t.incoming_start}:{t.bars}:{t.style}:{json.dumps(t.lanes, sort_keys=True)}"
+        for (a, b), t in transitions.items()
+    )
     return hashlib.sha1("|".join(parts).encode()).hexdigest()[:16]
 
 

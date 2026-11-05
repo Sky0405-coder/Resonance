@@ -125,3 +125,71 @@ def test_render_songs_writes_every_song_once(tmp_path: Path, monkeypatch: pytest
     # Two 20 s songs overlapping by 6 s.
     assert total == pytest.approx(34.0, abs=0.01)
     assert starts == [0.0, pytest.approx(17.0)]
+
+
+def _tone(freq: float, seconds: float, level: float = 0.3) -> np.ndarray:
+    t = np.arange(int(mix_render.RATE * seconds)) / mix_render.RATE
+    wave = (level * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+    return np.stack([wave, wave], axis=1)
+
+
+def _rms(audio: np.ndarray) -> float:
+    return float(np.sqrt(np.mean(audio**2))) if len(audio) else 0.0
+
+
+def _lanes_plan(lanes: dict, bars: int = 2) -> mix_render.Plan:
+    # 120 bpm: two bars last 4 s.
+    return mix_render.Plan(0.0, 0.0, bars * 2.0, bars, lanes=lanes, bars=bars, beat=0.5)
+
+
+def test_editor_lanes_shape_the_rendered_transition() -> None:
+    rate = mix_render.RATE
+    current, incoming = _tone(440, 10), _tone(60, 4)
+    p = _lanes_plan({"volume": "center_cut"})
+    mixed = mix_render.blend_lanes(current, rate, incoming, p)
+    assert mixed.shape == incoming.shape
+    # A center cut: only the current song in the first half, only the next one in the second.
+    first, second = mixed[: int(rate * 1.9)], mixed[int(rate * 2.1) :]
+    spectrum = np.abs(np.fft.rfft(second[:, 0]))
+    freqs = np.fft.rfftfreq(len(second), 1 / rate)
+    assert freqs[spectrum.argmax()] == pytest.approx(60, abs=2)
+    assert _rms(first) == pytest.approx(_rms(current), rel=0.1)
+
+    # A drawn curve: the next song's high-pass closed all along removes its 60 Hz tone.
+    drawn = {"volume": "overlap", "curves": {"filter_in": [[0, 1], [1, 1]], "volume_out": [[0, 0], [1, 0]]}}
+    filtered = mix_render.blend_lanes(current, rate, incoming, _lanes_plan(drawn))
+    assert _rms(filtered[rate:]) < 0.1 * _rms(incoming)
+
+
+def test_every_lane_and_effect_renders(monkeypatch: pytest.MonkeyPatch) -> None:
+    rate = mix_render.RATE
+    current, incoming = _tone(220, 8), _tone(330, 4)
+    for lanes in [
+        {"eq": "three_band", "filter": "noise_end", "effect": "echo_3q_tail"},
+        {"filter": "lowpass_in_highpass_out", "effect": "reverb_middle"},
+        {"effect": "flanger"}, {"effect": "phaser"}, {"effect": "gate"}, {"effect": "beat_roll"},
+        {"effect": "brake"}, {"loop": 4, "beatmatch": False},
+    ]:
+        mixed = mix_render.blend_lanes(current, rate, incoming, _lanes_plan(lanes))
+        assert mixed.shape == incoming.shape, lanes
+        assert np.isfinite(mixed).all(), lanes
+        assert _rms(mixed) > 0.01, lanes
+
+
+def test_gate_chops_eighth_notes_and_echo_rings_after_the_cut() -> None:
+    rate = mix_render.RATE
+    current, silent = _tone(440, 10), np.zeros((rate * 4, 2), dtype=np.float32)
+    gated = mix_render.blend_lanes(current, 0, silent, _lanes_plan({"volume": "overlap", "effect": "gate"}))
+    # Second half, eighth notes of 0.25 s: on for the first 0.125 s, nearly off after.
+    on = gated[int(rate * 2.5) : int(rate * 2.6)]
+    off = gated[int(rate * 2.64) : int(rate * 2.74)]
+    assert _rms(off) < 0.2 * _rms(on)
+    # "Echo every beat rings out" over four bars: fed from the middle, the song stops a bar early (6 s), its echo
+    # goes on.
+    silent = np.zeros((rate * 8, 2), dtype=np.float32)
+    echoed = mix_render.blend_lanes(
+        current, 0, silent, _lanes_plan({"volume": "overlap", "effect": "echo_beat_tail"}, bars=4)
+    )
+    assert _rms(echoed[int(rate * 6.2) : int(rate * 6.8)]) > 0.02
+    plain = mix_render.blend_lanes(current, 0, silent, _lanes_plan({"volume": "overlap"}, bars=4))
+    assert _rms(plain[int(rate * 6.2) : int(rate * 6.8)]) > _rms(echoed[int(rate * 6.2) : int(rate * 6.8)])
