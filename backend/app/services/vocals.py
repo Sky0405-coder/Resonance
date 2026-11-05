@@ -100,6 +100,8 @@ class Worker:
 
     def __init__(self) -> None:
         self._process: asyncio.subprocess.Process | None = None
+        # One request at a time: the background analysis and stems for playback share the worker.
+        self._lock = asyncio.Lock()
 
     async def _start(self) -> asyncio.subprocess.Process:
         root = _root()
@@ -121,10 +123,21 @@ class Worker:
         return process
 
     async def analyze(self, path: Path, duration: float) -> tuple[float, float]:
+        result = await self._request({"path": str(path), "duration": duration})
+        return float(result["vocals_in"]), float(result["vocals_out"])
+
+    async def instrumental(self, path: Path, length: float, out: Path) -> None:
+        await self._request({"path": str(path), "length": length, "stem": str(out)})
+
+    async def _request(self, request: dict) -> dict:
+        async with self._lock:
+            return await self._send(request)
+
+    async def _send(self, request: dict) -> dict:
         if self._process is None or self._process.returncode is not None:
             self._process = await self._start()
         process = self._process
-        process.stdin.write((json.dumps({"path": str(path), "duration": duration}) + "\n").encode())
+        process.stdin.write((json.dumps(request) + "\n").encode())
         try:
             await process.stdin.drain()
             line = await asyncio.wait_for(process.stdout.readline(), timeout=_SONG_TIMEOUT)
@@ -137,7 +150,7 @@ class Worker:
         result = json.loads(line)
         if "error" in result:
             raise ValueError(result["error"])
-        return float(result["vocals_in"]), float(result["vocals_out"])
+        return result
 
     async def close(self) -> None:
         process, self._process = self._process, None
@@ -212,6 +225,56 @@ async def run_once(limit: int = 20) -> int:
             if not (await load_config(db)).library.vocal_analysis:
                 break
     return done
+
+
+# Seconds of a song's start separated for the desktop's vocal swap (its intro and the first bars after it).
+STEM_SECONDS = 90.0
+_STEM_DAYS = 30
+_stems_pending: set[uuid.UUID] = set()
+_stem_tasks: set[asyncio.Task] = set()
+
+
+def stem_path(track: Track) -> Path:
+    """The instrumental start of [track]'s current file."""
+    return get_settings().data_dir / "stems" / f"{track.id}-{int(track.mtime or 0)}.opus"
+
+
+def _clean_stems(directory: Path) -> None:
+    cutoff = time.time() - _STEM_DAYS * 86400
+    for path in directory.glob("*.opus"):
+        if path.stat().st_mtime < cutoff:
+            path.unlink(missing_ok=True)
+
+
+async def request_stem(db: AsyncSession, track: Track) -> str:
+    """ready | pending | unavailable: starts separating the song's start when the song analysis is on."""
+    path = stem_path(track)
+    if path.exists():
+        return "ready"
+    if track.id in _stems_pending:
+        return "pending"
+    if not (await load_config(db)).library.vocal_analysis or not installed() or not track.duration:
+        return "unavailable"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _clean_stems(path.parent)
+    _stems_pending.add(track.id)
+    source, length = resolve_path(track.path), min(STEM_SECONDS, track.duration)
+
+    async def run() -> None:
+        partial = path.with_suffix(".part.opus")
+        try:
+            await _worker.instrumental(source, length, partial)
+            partial.replace(path)
+        except (ValueError, RuntimeError, OSError, TimeoutError) as e:
+            log.info("Instrumental stem failed for %s: %s", track.id, e)
+            partial.unlink(missing_ok=True)
+        finally:
+            _stems_pending.discard(track.id)
+
+    task = asyncio.get_running_loop().create_task(run())
+    _stem_tasks.add(task)
+    task.add_done_callback(_stem_tasks.discard)
+    return "pending"
 
 
 async def bounds_for(db: AsyncSession, tracks: list[Track]) -> dict[uuid.UUID, tuple[float, float]]:

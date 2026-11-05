@@ -479,6 +479,25 @@ async def get_mixpoint_keys(user: CurrentUser, db: DB, ids: str = Query(max_leng
     }
 
 
+@router.post("/tracks/{id}/stems")
+async def prepare_stem(id: uuid.UUID, user: CurrentUser, db: DB) -> dict:
+    """The song's start without its voice, for the desktop's vocal swap: ready, pending (separating) or
+    unavailable (the song analysis is off)."""
+    track = await db.get(Track, id)
+    if track is None:
+        raise HTTPException(404, "Nicht gefunden")
+    return {"state": await vocals.request_stem(db, track), "seconds": min(vocals.STEM_SECONDS, track.duration or 0)}
+
+
+@router.get("/tracks/{id}/stems/intro")
+async def get_stem(id: uuid.UUID, user: CurrentUser, db: DB) -> FileResponse:
+    track = await db.get(Track, id)
+    path = None if track is None else vocals.stem_path(track)
+    if path is None or not path.exists():
+        raise HTTPException(404, "Nicht gefunden")
+    return FileResponse(path, media_type="audio/ogg", headers={"Cache-Control": "private, max-age=86400"})
+
+
 @router.get("/mixpoints")
 async def get_mixpoints(user: CurrentUser, db: DB, ids: str = Query(max_length=400)) -> dict[str, dict | None]:
     """Tempo, mix points and lyric-based vocal bounds for AutoMix (null when a track cannot be analyzed)."""

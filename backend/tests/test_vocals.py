@@ -153,3 +153,32 @@ async def test_worker_protocol_keeps_one_process(tmp_path, monkeypatch, runtime)
         assert await worker.analyze(Path("/music/c"), 10) == (1.5, 8)
     finally:
         await worker.close()
+
+
+async def test_stem_endpoint_separates_the_start_once_and_serves_it(env, monkeypatch, runtime):  # noqa: F811
+    client, headers, track_id, missing_id = env
+    calls: list[float] = []
+
+    class StemWorker(FakeWorker):
+        async def instrumental(self, path: Path, length: float, out: Path) -> None:
+            calls.append(length)
+            out.write_bytes(b"OggS-stem")
+
+    monkeypatch.setattr(vocals, "_worker", StemWorker())
+    url = f"/api/tracks/{track_id}/stems"
+    # Song analysis off: nothing to separate.
+    assert (await client.post(url, headers=headers)).json()["state"] == "unavailable"
+    await enable()
+    monkeypatch.setattr(vocals, "installed", lambda: True)
+    response = await client.post(url, headers=headers)
+    assert response.json() == {"state": "pending", "seconds": 40.0}
+    assert (await client.post(url, headers=headers)).json()["state"] in ("pending", "ready")
+    for task in list(vocals._stem_tasks):
+        await task
+    assert (await client.post(url, headers=headers)).json()["state"] == "ready"
+    assert calls == [40.0], "separated once, the song is 40 s long"
+    response = await client.get(f"{url}/intro", headers=headers)
+    assert response.status_code == 200 and response.content == b"OggS-stem"
+    assert response.headers["content-type"] == "audio/ogg"
+    assert (await client.get(f"/api/tracks/{missing_id}/stems/intro", headers=headers)).status_code == 404
+    assert (await client.post("/api/tracks/00000000-0000-0000-0000-000000000000/stems", headers=headers)).status_code == 404

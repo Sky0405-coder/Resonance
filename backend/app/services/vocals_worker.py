@@ -1,7 +1,8 @@
 """Finds where a song's voice starts and ends (run with the Python of the Demucs environment, not the server's).
 
 Reads one JSON request per line on stdin – {"path": "...", "duration": 215.3} – and answers each with one JSON line on
-stdout: {"vocals_in": 12.5, "vocals_out": 201.0} or {"error": "..."}. The first line is {"ready": true} once the model
+stdout: {"vocals_in": 12.5, "vocals_out": 201.0} or {"error": "..."}. A request with "stem" and "length" instead writes
+the song's first `length` seconds without the voice (drums, bass and the rest) as Opus to "stem": {"stem": "..."}. The first line is {"ready": true} once the model
 is loaded. Only the intro and the outro are separated (the parts AutoMix blends); a part without a voice reports the
 edge of its window, a song without any voice its length and zero.
 """
@@ -60,6 +61,27 @@ def _voiced(model, path: str, start: float, length: float) -> np.ndarray:
     return sustained
 
 
+def instrumental(model, path: str, length: float, out: str) -> dict:
+    """The start of the song without its voice, for transitions where the next song's beat runs under the current
+    song's singing (the desktop app plays it until the bass swaps)."""
+    rate = model.samplerate
+    wav = torch.from_numpy(_decode(path, 0.0, length, rate))
+    ref = wav.mean(0)
+    mean, std = ref.mean(), ref.std() + 1e-8
+    with torch.no_grad():
+        sources = apply_model(
+            model, ((wav - mean) / std)[None], shifts=0, split=True, overlap=0.1, progress=False, device="cpu"
+        )[0]
+    rest = (sources.sum(0) - sources[model.sources.index("vocals")]) * std + mean
+    data = rest.clamp(-1, 1).T.contiguous().numpy().astype(np.float32).tobytes()
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-nostdin", "-y", "-f", "f32le", "-ar", str(rate), "-ac", "2", "-i", "-",
+         "-c:a", "libopus", "-b:a", "160k", out],
+        input=data, check=True, timeout=300,
+    )
+    return {"stem": out}
+
+
 def analyze(model, path: str, duration: float) -> dict:
     if duration <= 2 * WINDOW + 10:
         voiced = _voiced(model, path, 0.0, duration)
@@ -89,7 +111,10 @@ def main() -> None:
     for line in sys.stdin:
         try:
             request = json.loads(line)
-            result = analyze(model, request["path"], float(request["duration"]))
+            if "stem" in request:
+                result = instrumental(model, request["path"], float(request["length"]), request["stem"])
+            else:
+                result = analyze(model, request["path"], float(request["duration"]))
         except Exception as e:  # noqa: BLE001 - every failure is reported and the next song goes on
             result = {"error": f"{type(e).__name__}: {e}"[:500]}
         print(json.dumps(result), flush=True)

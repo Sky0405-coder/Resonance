@@ -125,6 +125,12 @@ class _Engine implements PlaybackEngine {
   @override
   bool keyShift = true;
   @override
+  bool vocalSwap = true;
+  @override
+  ({String url, double seconds})? Function(int index)? stemForIndex;
+  @override
+  void Function(int index)? requestStemForIndex;
+  @override
   MixPoints? Function(int index)? mixPointsForIndex;
   @override
   AutomixPlan? Function(int index, int next)? customPlanForIndex;

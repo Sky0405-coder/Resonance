@@ -243,6 +243,16 @@ class PlayerController extends Notifier<PlayerView> {
     engine.targetVolumeForIndex = (index) => userVolume.value * _gainForTrack(state.queue[index]);
     engine.automix = prefs.getBool('automix') ?? false;
     engine.keyShift = prefs.getBool('automix_key_shift') ?? true;
+    engine.vocalSwap = prefs.getBool('automix_vocal_swap') ?? true;
+    engine.requestStemForIndex = (index) {
+      if (index < state.queue.length) _requestStem(state.queue[index].id).ignore();
+    };
+    engine.stemForIndex = (index) {
+      if (index >= state.queue.length) return null;
+      final id = state.queue[index].id;
+      final seconds = _stems[id];
+      return seconds == null ? null : (url: _api.stemUrl(id), seconds: seconds);
+    };
     engine.setEqualizer(ref.read(equalizerProvider)).ignore();
     ref.listen(equalizerProvider, (_, settings) {
       _equalizerDebounce?.cancel();
@@ -1517,6 +1527,37 @@ class PlayerController extends Notifier<PlayerView> {
   }
 
   bool get automix => _automixBeforeJam ?? engine.automix;
+
+  // Desktop vocal swap: songs whose instrumental start the server has ready, with its length.
+  final _stems = <String, double>{};
+  final _stemsAsked = <String>{};
+
+  /// Asks the server for the song's instrumental start; it takes about a minute, so it is asked again a few times
+  /// until it is ready (the transition comes minutes later).
+  Future<void> _requestStem(String trackId) async {
+    if (_stems.containsKey(trackId) || !_stemsAsked.add(trackId)) return;
+    try {
+      for (var attempt = 0; attempt < 8; attempt++) {
+        final result = await _api.prepareStem(trackId);
+        if (result.state == 'ready') {
+          _stems[trackId] = result.seconds;
+          return;
+        }
+        if (result.state != 'pending' || !ref.mounted) return;
+        await Future<void>.delayed(const Duration(seconds: 20));
+      }
+    } catch (_) {
+      // An older server or offline: the transition plays without the vocal swap.
+    } finally {
+      _stemsAsked.remove(trackId);
+    }
+  }
+
+  /// Desktop: the next song's beat runs under the current song's singing (AutoMix).
+  void setVocalSwap(bool enabled) {
+    ref.read(prefsProvider).setBool('automix_vocal_swap', enabled);
+    engine.vocalSwap = enabled;
+  }
 
   /// Desktop: pitch a next song in a clashing key to fit (AutoMix).
   void setKeyShift(bool enabled) {

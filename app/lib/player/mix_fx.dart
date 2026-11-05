@@ -136,7 +136,7 @@ class AndroidMixFx {
 /// `af-command` ([mpvFxCommands]); the gate gets an expression on the song's beat grid ([mpvGateCommand]).
 const mixMpvFilter =
     '@automix:lavfi=[bass@lo=g=0:f=150:w=0.6,equalizer@mid=f=1000:t=o:w=2:g=0,treble@hi=g=0:f=4000:w=0.6,'
-    'highpass@hp=f=10:p=2,lowpass@lp=f=20000:p=2,volume@gate=1:eval=frame,asplit=4[dry][wet][fl][ph];'
+    'highpass@hp=f=10:p=2,lowpass@lp=f=20000:p=2,asetnsamples=n=256:p=0,volume@gate=1:eval=frame,asplit=4[dry][wet][fl][ph];'
     '[dry]volume@dry=1[d];'
     '[fl]flanger=delay=1:depth=5:regen=60:width=70:speed=0.25,volume@flw=0[f];'
     '[ph]aphaser=in_gain=0.5:out_gain=0.8:delay=3:decay=0.5:speed=0.5:type=t,volume@phw=0[p];'
@@ -147,7 +147,7 @@ const mixMpvFilter =
     'anoisesrc=c=pink:a=0.5,highpass=f=300,volume@noise=0[n];'
     '[d][f][p][o1][o2][o3][rr][n]amix=inputs=8:normalize=0:duration=first]';
 
-/// The gate's volume: on for the first half of every eighth note counted from [downbeat] (song seconds; mpv's
+/// The gate's volume (evaluated every 256 samples, so its edges sit on the beat): on for the first half of every eighth note counted from [downbeat] (song seconds; mpv's
 /// filters see song time), almost silent for the second half; [beat] in song seconds. Off: a plain 1.
 List<String> mpvGateCommand({double? beat, double downbeat = 0}) => [
   'af-command',

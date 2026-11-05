@@ -315,6 +315,18 @@ class SettingsPage extends ConsumerWidget {
           if (isDesktop)
             StatefulBuilder(
               builder: (context, setState) => SwitchListTile(
+                title: Text(context.l10n.settingsVocalSwap),
+                subtitle: Text(context.l10n.settingsVocalSwapHint),
+                value: ref.read(playerProvider.notifier).engine.vocalSwap,
+                onChanged: (v) {
+                  ref.read(playerProvider.notifier).setVocalSwap(v);
+                  setState(() {});
+                },
+              ),
+            ),
+          if (isDesktop)
+            StatefulBuilder(
+              builder: (context, setState) => SwitchListTile(
                 title: Text(context.l10n.settingsKeyShift),
                 subtitle: Text(context.l10n.settingsKeyShiftHint),
                 value: ref.read(playerProvider.notifier).engine.keyShift,

@@ -27,6 +27,12 @@ class ConnectTestEngine implements PlaybackEngine {
   @override
   bool keyShift = true;
   @override
+  bool vocalSwap = true;
+  @override
+  ({String url, double seconds})? Function(int index)? stemForIndex;
+  @override
+  void Function(int index)? requestStemForIndex;
+  @override
   MixPoints? Function(int)? mixPointsForIndex;
   @override
   AutomixPlan? Function(int, int)? customPlanForIndex;

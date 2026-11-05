@@ -4190,6 +4190,18 @@ abstract class AppLocalizations {
   /// **'Übergänge wie bei einem DJ: Der nächste Song setzt im Takt ein und sein Tempo wird kurz angeglichen. Songs ohne Analyse (z. B. offline) werden einfach überblendet. Der Crossfade-Regler legt die Mindestlänge der Übergänge fest.'**
   String get settingsAutomixHint;
 
+  /// No description provided for @settingsVocalSwap.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesangs-Tausch'**
+  String get settingsVocalSwap;
+
+  /// No description provided for @settingsVocalSwapHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Der nächste Song kommt ohne Gesang herein, sein Beat läuft unter dem Gesang des aktuellen Songs (nur PC, braucht die Song-Analyse auf dem Server)'**
+  String get settingsVocalSwapHint;
+
   /// No description provided for @settingsKeyShift.
   ///
   /// In de, this message translates to:

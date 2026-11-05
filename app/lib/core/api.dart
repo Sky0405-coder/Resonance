@@ -435,6 +435,14 @@ class ApiClient {
 
   String renderedMixUrl(String id) => '$baseUrl/api/playlists/$id/render/file';
 
+  /// The song's start without its voice (desktop vocal swap): state ready|pending|unavailable and its seconds.
+  Future<({String state, double seconds})> prepareStem(String trackId) async {
+    final j = await _post('/api/tracks/$trackId/stems');
+    return (state: j['state'] as String, seconds: (j['seconds'] as num).toDouble());
+  }
+
+  String stemUrl(String trackId) => '$baseUrl/api/tracks/$trackId/stems/intro?token=$token';
+
   // --- catalog & requests ---------------------------------------------------
 
   Future<CatalogSearch> catalogSearch(String q, {int limit = 10}) async =>

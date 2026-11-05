@@ -2398,6 +2398,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'DJ-style transitions: the next song comes in on the beat with its tempo briefly matched. Songs without an analysis (e.g. offline) simply crossfade. The crossfade slider sets the minimum length of the transitions.';
 
   @override
+  String get settingsVocalSwap => 'Vocal swap';
+
+  @override
+  String get settingsVocalSwapHint =>
+      'The next song comes in without its vocals, its beat running under the current song\'s singing (PC only, needs the server\'s song analysis)';
+
+  @override
   String get settingsKeyShift => 'Match keys';
 
   @override

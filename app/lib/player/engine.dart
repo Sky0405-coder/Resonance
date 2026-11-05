@@ -835,6 +835,19 @@ class PlaybackEngine {
 
   /// Desktop: a next song in a clashing key is pitched by up to two semitones to fit (AutoMix).
   bool keyShift = true;
+
+  /// Desktop vocal swap: the next song comes in without its voice (its instrumental start, separated by the server)
+  /// until the bass swaps, so its beat runs under the current song's singing.
+  bool vocalSwap = true;
+
+  /// The instrumental start of the song at an index, when the server has it (URL and its length in seconds).
+  ({String url, double seconds})? Function(int index)? stemForIndex;
+
+  /// Asks the server to separate the song at an index (early, so it is ready when the transition comes).
+  void Function(int index)? requestStemForIndex;
+  // The source each player plays with its instrumental start mixed in (mpv lavfi-complex).
+  final _stemmed = <String?>[null, null];
+  String? _stemRequested;
   static final _desktop =
       !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows);
   late final List<AndroidEqualizer> _equalizers;
@@ -1014,6 +1027,12 @@ class PlaybackEngine {
 
   void _checkFade() {
     if (_disposed || _editing || _fade != null || _finishingFade != null) return;
+    // A song with its instrumental start mixed in that ends without a transition: back to the plain song before
+    // the player moves on (the next song has no extra track).
+    final length = duration;
+    if (_stemmed[_activeIndex] != null && length != null && length - position < const Duration(seconds: 2)) {
+      _clearStem(_active);
+    }
     if (_failedFadeIndex != null && _failedFadeIndex != currentIndex) _failedFadeIndex = null;
     if (_failedFadeIndex == currentIndex) return;
     if (_checkAutomix()) return;
@@ -1052,7 +1071,14 @@ class PlaybackEngine {
     final plan = customPlanForIndex?.call(index, next) ?? automixPlan(outgoing, incoming, minSeconds: crossfadeSeconds);
     if (plan == null) return false;
     final ahead = plan.start - const Duration(seconds: 8);
-    if (position < ahead) return true;
+    if (position < ahead) {
+      final nextKey = sourceKeyForIndex?.call(next);
+      if (_desktop && vocalSwap && nextKey != null && _stemRequested != nextKey) {
+        _stemRequested = nextKey;
+        requestStemForIndex?.call(next);
+      }
+      return true;
+    }
     if (position >= plan.start + const Duration(seconds: 1)) return false;
     final fade = _Fade(_active, _inactive, next, plan.duration, plan: plan)..keyShift = shift;
     _fade = fade;
@@ -1065,11 +1091,13 @@ class PlaybackEngine {
     try {
       _speedRamp?.cancel();
       await fade.incoming.setVolume(0);
+      _clearStem(fade.incoming);
       await fade.incoming.load();
       await _applyEqualizer();
       await fade.incoming.seek(fade.plan!.incomingStart, index: fade.index);
       if (fade.plan!.changesTempo) await fade.incoming.setSpeed(_speed * fade.plan!.speed);
       _setKeyShift(fade.incoming, fade.index, fade.keyShift);
+      _setStem(fade);
       // The next song comes in without its bass; the bass swaps over halfway (see [_startAutomix]).
       if (fade.plan!.lanes != null) {
         await _prepareLanes(fade);
@@ -1478,6 +1506,47 @@ class PlaybackEngine {
     _keyShifted[slot] = key;
   }
 
+  /// Desktop vocal swap: mixes the next song's instrumental start (an extra audio track) in place of the song until
+  /// the bass swaps, switching on the song's own clock (mpv's filters see song time). Only when the next song sings
+  /// before the swap and the swap lies within the separated start.
+  void _setStem(_Fade fade) {
+    if (!_desktop || !vocalSwap) return;
+    final plan = fade.plan!;
+    final stem = stemForIndex?.call(fade.index);
+    final key = sourceKeyForIndex?.call(fade.index);
+    final points = mixPointsForIndex?.call(fade.index);
+    if (stem == null || key == null || points == null) return;
+    final swapAt = (plan.incomingStart + plan.bassSwap * plan.speed).inMicroseconds / 1e6;
+    final sings = points.vocalsIn != null && points.vocalsIn! < swapAt;
+    if (!sings || swapAt > stem.seconds - 1) return;
+    final t = swapAt.toStringAsFixed(3);
+    JustAudioMediaKit.sourceCommand(key, ['audio-add', stem.url, 'auto']);
+    JustAudioMediaKit.sourceCommand(key, [
+      'set',
+      'lavfi-complex',
+      '[aid1]volume=clip((t-$t)/0.03\\,0\\,1):eval=frame[full];'
+          '[aid2]volume=clip(($t-t)/0.03\\,0\\,1):eval=frame[inst];'
+          '[full][inst]amix=inputs=2:normalize=0:duration=first[ao]',
+    ]);
+    _stemmed[_players.indexOf(fade.incoming)] = key;
+  }
+
+  /// Takes the instrumental start off [player] again (before it moves to another song: the mix needs that song's
+  /// extra track).
+  void _clearStem(AudioPlayer player) {
+    final slot = _players.indexOf(player);
+    final key = _stemmed[slot];
+    if (key == null) return;
+    _stemmed[slot] = null;
+    for (final command in [
+      ['set', 'lavfi-complex', ''],
+      ['audio-remove', '2'],
+      ['set', 'aid', '1'],
+    ]) {
+      JustAudioMediaKit.sourceCommand(key, command);
+    }
+  }
+
   /// A shifted song that is no longer playing on its player (skipped, or the queue moved on) loses its shift.
   void _dropStaleKeyShifts() {
     for (final (slot, player) in _players.indexed) {
@@ -1542,21 +1611,25 @@ class PlaybackEngine {
 
   Future<void> stop() async {
     await finishFade();
+    _players.forEach(_clearStem);
     await Future.wait(_players.map((p) => p.stop()));
   }
 
   Future<void> seek(Duration position, {int? index}) async {
     await finishFade();
+    if (index != null && index != currentIndex) _clearStem(_active);
     await _active.seek(position, index: index);
   }
 
   Future<void> seekToNext() async {
     await finishFade();
+    _clearStem(_active);
     await _active.seekToNext();
   }
 
   Future<void> seekToPrevious() async {
     await finishFade();
+    _clearStem(_active);
     await _active.seekToPrevious();
   }
 
