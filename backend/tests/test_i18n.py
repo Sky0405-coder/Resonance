@@ -70,6 +70,10 @@ PATTERN_CASES = [
     ),
     ("Parameter fehlt: query", "Missing parameter: query"),
     ("Ungültiger Parameter: count", "Invalid parameter: count"),
+    (
+        "Eure gemeinsame Playlist – täglich neu · 72 % Übereinstimmung",
+        "Your shared playlist – fresh every day · 72 % match",
+    ),
     ("Artist, Other und mehr", "Artist, Other and more"),
     ("Das Beste aus Rock in deiner Bibliothek", "The best of Rock in your library"),
     ("Das Beste aus den 80ern in deiner Bibliothek", "The best of the 80s in your library"),

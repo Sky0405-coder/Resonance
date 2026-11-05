@@ -108,6 +108,16 @@ class TrackLyrics(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class TrackCredits(Base):
+    """Who wrote, produced and played a song: from its tags and MusicBrainz, fetched when first asked for."""
+
+    __tablename__ = "track_credits"
+
+    track_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSONB)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class TrackFingerprint(Base):
     __tablename__ = "track_fingerprints"
 

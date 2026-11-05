@@ -154,7 +154,9 @@ async def get_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB, reques
         (await playlists_out(db, [playlist], user.id, language(request)))[0].model_dump()
     )
     chart = (playlist.mix_key or "").startswith(("chart:", "editorial:"))
-    adders = {e.added_by_id for e in entries if e.added_by_id is not None} if playlist.collaborative else set()
+    # Collaborative playlists show who added a song, blends whose taste it came from.
+    shows_adders = playlist.collaborative or (playlist.mix_key or "").startswith("blend:")
+    adders = {e.added_by_id for e in entries if e.added_by_id is not None} if shows_adders else set()
     names: dict[uuid.UUID, str] = {}
     if adders:
         names = dict((await db.execute(select(User.id, User.display_name).where(User.id.in_(adders)))).all())

@@ -19,10 +19,10 @@ import '../core/models.dart';
 import '../core/session.dart';
 import '../core/theme.dart';
 import '../player/player.dart';
+import 'widgets/blends.dart';
 import 'widgets/common.dart';
 import 'widgets/player_bar.dart';
 import 'widgets/update.dart';
-import 'widgets/track_list.dart';
 
 typedef _MediaEntry = (String, IconData, IconData, String);
 
@@ -243,12 +243,9 @@ class _Sidebar extends ConsumerWidget {
                   ),
                   onTap: () => context.go('/library'),
                   trailing: IconButton(
-                    tooltip: context.l10n.libraryCreatePlaylist,
+                    tooltip: context.l10n.libraryCreate,
                     icon: const Icon(Icons.add, color: Palette.textMuted),
-                    onPressed: () async {
-                      final p = await createPlaylistInteractive(context, ref);
-                      if (p != null && context.mounted) context.go('/playlist/${p.id}');
-                    },
+                    onPressed: () => showCreateSheet(context, ref),
                   ),
                 ),
                 Expanded(

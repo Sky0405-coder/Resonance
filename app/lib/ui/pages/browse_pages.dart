@@ -14,6 +14,7 @@ import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../widgets/collection.dart';
+import '../widgets/blends.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import '../widgets/track_list.dart';
@@ -214,12 +215,9 @@ class LibraryPage extends ConsumerWidget {
           actions: [
             const _DownloadsButton(),
             IconButton(
-              tooltip: context.l10n.libraryCreatePlaylist,
+              tooltip: context.l10n.libraryCreate,
               icon: const Icon(Icons.add),
-              onPressed: () async {
-                final p = await createPlaylistInteractive(context, ref);
-                if (p != null && context.mounted) context.push('/playlist/${p.id}');
-              },
+              onPressed: () => showCreateSheet(context, ref),
             ),
           ],
           bottom: TabBar(

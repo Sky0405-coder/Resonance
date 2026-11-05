@@ -1,5 +1,6 @@
 from app.models.books import Book, BookProgress, BookRequest
 from app.models.collection import (
+    Blend,
     PlaybackState,
     PlayEvent,
     Playlist,
@@ -17,6 +18,7 @@ from app.models.library import (
     Album,
     Artist,
     Track,
+    TrackCredits,
     TrackFingerprint,
     TrackLyrics,
     TrackMixPoints,
@@ -53,6 +55,7 @@ __all__ = [
     "Artist",
     "AudiobookshelfAccount",
     "AuthSession",
+    "Blend",
     "Book",
     "BookProgress",
     "BookRequest",
@@ -86,6 +89,7 @@ __all__ = [
     "SpotifySync",
     "SpotifyTrackMap",
     "Track",
+    "TrackCredits",
     "TrackFingerprint",
     "TrackLike",
     "TrackLyrics",

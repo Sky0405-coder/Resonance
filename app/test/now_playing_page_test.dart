@@ -29,6 +29,8 @@ import 'package:resonance/ui/widgets/reflection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/idle_connect.dart';
+import 'package:resonance/core/review.dart';
+import 'package:resonance/ui/widgets/credits_sheet.dart';
 
 const _tracks = [
   Track(
@@ -191,6 +193,7 @@ void main() {
         lyricsProvider.overrideWith(
           (ref, id) async => lyrics ?? const Lyrics(synced: false, instrumental: false, source: null, lines: []),
         ),
+        creditsProvider.overrideWith((ref, id) async => const Credits()),
         positionProvider.overrideWith((ref) => const Stream.empty()),
         durationProvider.overrideWith((ref) => const Stream.empty()),
         worldRadioFavoritesProvider.overrideWith((ref) async => radioFavorites),

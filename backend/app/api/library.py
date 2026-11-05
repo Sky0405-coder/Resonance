@@ -28,6 +28,7 @@ from app.schemas import (
     AlbumOut,
     ArtistDetail,
     ArtistOut,
+    CreditsOut,
     DownloadRequestDetail,
     HomeOut,
     LyricsOut,
@@ -37,7 +38,15 @@ from app.schemas import (
     SearchResult,
     TrackOut,
 )
-from app.services import covers, mixpoints, ringtone, spectrum, transcode, vocals
+from app.services import (
+    covers,
+    credits,
+    mixpoints,
+    ringtone,
+    spectrum,
+    transcode,
+    vocals,
+)
 from app.services.deezer import DeezerError, deezer
 from app.services.downloads import create_redownload
 from app.services.lyrics import get_lyrics
@@ -315,6 +324,15 @@ async def track_lyrics(track_id: uuid.UUID, user: CurrentUser, db: DB, response:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Titel nicht gefunden")
     response.headers["Cache-Control"] = "private, max-age=3600"
     return await get_lyrics(db, track)
+
+
+@router.get("/tracks/{track_id}/credits", response_model=CreditsOut)
+async def track_credits(track_id: uuid.UUID, user: CurrentUser, db: DB) -> CreditsOut:
+    """Who sang, wrote and produced the song (tags and MusicBrainz; looked up once, then cached)."""
+    track = await db.get(Track, track_id)
+    if track is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Track not found")
+    return await credits.credits(db, track)
 
 
 @router.get("/tracks/{track_id}/stream")

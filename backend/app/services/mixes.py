@@ -352,6 +352,10 @@ def mix_search_terms(mix_key: str | None) -> list[str]:
         elif entry.group == "charts":
             terms.append("charts")
         return terms
+    if mix_key == RELEASE_RADAR:
+        return ["release radar", "neuerscheinungen", "new releases", "neu erschienen"]
+    if mix_key and mix_key.startswith("blend:"):
+        return ["blend"]
     if mix_key == "chart:de":
         return ["charts", "top 100", "top 100 germany", "deutschland charts"]
     if mix_key == "chart:global":
@@ -633,6 +637,113 @@ async def generate_discover(db: AsyncSession, user: User) -> Playlist | None:
     return playlist
 
 
+RELEASE_RADAR = "release-radar"
+# Generated on their own schedule (weekly) or by their own service (blends): the daily run leaves them alone.
+OWN_SCHEDULE = ("discover-weekly", RELEASE_RADAR)
+
+
+def own_schedule(column):
+    return column.in_(OWN_SCHEDULE) | column.startswith("blend:")
+
+
+# When each user's radar was last made, also without a playlist (no new releases): not again until next Friday.
+_radar_checked: dict[uuid.UUID, datetime] = {}
+
+
+def release_radar_due(user_id: uuid.UUID, generated_at: datetime | None) -> bool:
+    local = datetime.now(UTC).astimezone()
+    friday = datetime.combine(local.date() - timedelta(days=(local.weekday() - 4) % 7), time.min).astimezone()
+    last = max(filter(None, (generated_at, _radar_checked.get(user_id))), default=None)
+    return last is None or last < friday
+
+
+def _released(album: dict) -> date | None:
+    try:
+        return date.fromisoformat(album.get("release_date") or "")
+    except ValueError:
+        return None
+
+
+async def generate_release_radar(db: AsyncSession, user: User) -> Playlist | None:
+    """Spotify's Release Radar: the newest releases (last four weeks) of the artists the user listens to most."""
+    cfg = await load_config(db)
+    if not cfg.mixes.release_radar_enabled:
+        return None
+    now = datetime.now(UTC)
+    taste = await _taste(db, user, now)
+    seeds = [taste.artists[artist_id] for artist_id in taste.favourites[:25]]
+    if not seeds:
+        return None
+    today = date.today()
+    cutoff = today - timedelta(days=28)
+    releases: list[tuple[date, dict]] = []
+    seen_albums: set[str] = set()
+    for artist in seeds:
+        deezer_id = await _deezer_artist_id(artist)
+        if deezer_id is None:
+            continue
+        try:
+            albums = await deezer.artist_albums(deezer_id)
+        except DeezerError:
+            log.debug("Release radar album lookup failed", exc_info=True)
+            continue
+        for album in albums:
+            released = _released(album)
+            if released is None or not cutoff <= released <= today or str(album["id"]) in seen_albums:
+                continue
+            seen_albums.add(str(album["id"]))
+            releases.append((released, album))
+    releases.sort(key=lambda item: (item[0], str(item[1]["id"])), reverse=True)
+    candidates: list[CatalogTrack] = []
+    names: set[tuple[str, str]] = set()
+    for _, album in releases:
+        try:
+            album_tracks = await deezer.album_tracks(str(album["id"]))
+        except DeezerError:
+            log.debug("Release radar track lookup failed", exc_info=True)
+            continue
+        # Singles and EPs whole (up to three songs), albums by their three most popular songs.
+        if len(album_tracks) > 3:
+            album_tracks = sorted(album_tracks, key=lambda track: -(track.get("rank") or 0))[:3]
+        for track in album_tracks:
+            key = (name_key(primary_artist(artist_string(track))), name_key(track["title"]))
+            if key in names:
+                continue
+            names.add(key)
+            candidates.append(_track(track, album))
+        if len(candidates) >= cfg.mixes.release_radar_size:
+            break
+    candidates = candidates[: cfg.mixes.release_radar_size]
+    await match_tracks(db, candidates)
+    chosen: list[uuid.UUID] = []
+    pending: list[str] = []
+    download_limit = cfg.mixes.release_radar_downloads
+    for track in candidates:
+        if track.library_id is not None:
+            if track.library_id not in chosen:
+                chosen.append(track.library_id)
+        elif len(pending) < download_limit:
+            try:
+                await create_request(
+                    db, user, "track", track.id, temporary=cfg.radio.temporary_tracks_enabled, radio=True
+                )
+            except HTTPException as exc:
+                if exc.status_code == 429:
+                    download_limit = 0
+                continue
+            pending.append(track.id)
+    playlist = await _write(
+        db, user, RELEASE_RADAR, "Neuerscheinungen", "Neue Songs deiner Lieblingskünstler – jeden Freitag neu",
+        chosen, now, pending,
+    )
+    if playlist is None:
+        # Nothing new in four weeks: an older radar would only repeat older songs.
+        await db.execute(delete(Playlist).where(Playlist.owner_id == user.id, Playlist.mix_key == RELEASE_RADAR))
+    _radar_checked[user.id] = now
+    await db.commit()
+    return playlist
+
+
 async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool = True) -> None:
     """`chart_downloads=False` (requests from the app) leaves requesting missing chart songs to the scheduler,
     which takes a minute and would block the response."""
@@ -908,8 +1019,7 @@ async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool 
         delete(Playlist).where(
             Playlist.owner_id == user.id,
             Playlist.kind == "mix",
-            Playlist.mix_key.is_distinct_from("discover-weekly"),
-            Playlist.mix_key.is_(None) | Playlist.mix_key.not_in(produced),
+            Playlist.mix_key.is_(None) | (Playlist.mix_key.not_in(produced) & ~own_schedule(Playlist.mix_key)),
         )
     )
     await db.commit()
@@ -922,7 +1032,7 @@ async def _generate_due() -> None:
             select(
                 Playlist.owner_id,
                 func.max(Playlist.generated_at)
-                .filter(Playlist.mix_key.is_distinct_from("discover-weekly"))
+                .filter(Playlist.mix_key.is_(None) | ~own_schedule(Playlist.mix_key))
                 .label("generated_at"),
                 func.count().label("count"),
             )
@@ -934,18 +1044,21 @@ async def _generate_due() -> None:
         discover = (
             select(Playlist.owner_id, Playlist.generated_at).where(Playlist.mix_key == "discover-weekly").subquery()
         )
+        radar = select(Playlist.owner_id, Playlist.generated_at).where(Playlist.mix_key == RELEASE_RADAR).subquery()
         rows = (
             await db.execute(
-                select(User.id, newest.c.generated_at, discover.c.generated_at)
+                select(User.id, newest.c.generated_at, discover.c.generated_at, radar.c.generated_at)
                 .outerjoin(newest, newest.c.owner_id == User.id)
                 .outerjoin(discover, discover.c.owner_id == User.id)
+                .outerjoin(radar, radar.c.owner_id == User.id)
                 .where(~User.is_disabled, (User.last_seen_at >= now - timedelta(days=14)) | newest.c.count.is_(None))
             )
         ).all()
-    for user_id, generated_at, discover_at in rows:
+    for user_id, generated_at, discover_at, radar_at in rows:
         daily_due = generated_at is None or generated_at.astimezone().date() != date.today()
         weekly_due = cfg.mixes.discover_enabled and discover_due(discover_at)
-        if not daily_due and not weekly_due:
+        radar_due = cfg.mixes.release_radar_enabled and release_radar_due(user_id, radar_at)
+        if not daily_due and not weekly_due and not radar_due:
             continue
         try:
             async with SessionLocal() as db:
@@ -953,8 +1066,13 @@ async def _generate_due() -> None:
                 if user is not None and not user.is_disabled:
                     if daily_due:
                         await generate_mixes(db, user, chart_downloads=False)
+                        from app.services import blends
+
+                        await blends.generate_due(db, user)
                     if weekly_due:
                         await generate_discover(db, user)
+                    if radar_due:
+                        await generate_release_radar(db, user)
         except Exception:
             log.exception("Mix generation failed for user %s", user_id)
 

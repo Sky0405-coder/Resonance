@@ -16,6 +16,7 @@ import '../widgets/catalog.dart';
 import '../widgets/action_sheet.dart';
 import '../widgets/collection.dart';
 import 'admin/metadata_editor.dart';
+import '../widgets/blends.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import '../widgets/track_list.dart';
@@ -442,6 +443,8 @@ class PlaylistPage extends ConsumerWidget {
                           ),
                     kind: d.playlist.isRadio
                         ? context.l10n.radioKind
+                        : d.playlist.isBlend
+                        ? context.l10n.blendKind
                         : d.playlist.isMix
                         ? context.l10n.mixKind
                         : d.playlist.collaborative
@@ -476,6 +479,32 @@ class PlaylistPage extends ConsumerWidget {
                           onPressed: () => context.push('/playlist/$id/add'),
                         ),
                       if (mixable) MixModeButton(playlistId: id),
+                      if (d.playlist.isBlend)
+                        IconButton(
+                          iconSize: 28,
+                          color: Palette.textMuted,
+                          icon: const Icon(Icons.more_horiz),
+                          onPressed: () => showActionSheet(
+                            context,
+                            header: ListTile(title: Text(d.playlist.name), subtitle: Text(context.l10n.blendKind)),
+                            actions: [
+                              SheetAction(
+                                icon: Icons.bookmark_add,
+                                label: context.l10n.mixSave,
+                                onSelected: () async {
+                                  final kept = await ref.read(apiProvider).keepPlaylist(id);
+                                  ref.invalidate(playlistsProvider);
+                                  if (context.mounted) context.push('/playlist/${kept.id}');
+                                },
+                              ),
+                              SheetAction(
+                                icon: Icons.logout,
+                                label: context.l10n.blendLeave,
+                                onSelected: () => leaveBlend(context, ref, d.playlist),
+                              ),
+                            ],
+                          ),
+                        ),
                       // Renaming, sharing, cover and deleting stay with the owner (collaborators only edit songs).
                       if (d.playlist.owner.id == userId && !d.playlist.isMix)
                         IconButton(
@@ -631,7 +660,7 @@ class PlaylistPage extends ConsumerWidget {
                         mixInfo: info == null ? null : MixInfo(bpm: info.bpm, musicalKey: info.key),
                         track: e.track,
                         number: e.rank,
-                        addedBy: d.playlist.collaborative ? e.addedBy?.name : null,
+                        addedBy: d.playlist.collaborative || d.playlist.isBlend ? e.addedBy?.name : null,
                         onPlay: () =>
                             playMusic(context, ref, tracks, index: i, contextId: ctx, isRadio: d.playlist.isRadio),
                         extraActions: [

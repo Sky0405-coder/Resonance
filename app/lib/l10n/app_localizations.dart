@@ -6193,6 +6193,498 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Effekte, Filter und Loops gehen auf diesem Gerät nicht; du hörst nur die Lautstärke.'**
   String get transitionFxUnavailable;
+
+  /// No description provided for @creditsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Mitwirkende'**
+  String get creditsTitle;
+
+  /// No description provided for @creditsShow.
+  ///
+  /// In de, this message translates to:
+  /// **'Mitwirkende anzeigen'**
+  String get creditsShow;
+
+  /// No description provided for @creditsShowAll.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle anzeigen'**
+  String get creditsShowAll;
+
+  /// No description provided for @creditsPerformers.
+  ///
+  /// In de, this message translates to:
+  /// **'Interpretiert von'**
+  String get creditsPerformers;
+
+  /// No description provided for @creditsWriters.
+  ///
+  /// In de, this message translates to:
+  /// **'Geschrieben von'**
+  String get creditsWriters;
+
+  /// No description provided for @creditsProducers.
+  ///
+  /// In de, this message translates to:
+  /// **'Produziert von'**
+  String get creditsProducers;
+
+  /// No description provided for @creditsEngineers.
+  ///
+  /// In de, this message translates to:
+  /// **'Technik'**
+  String get creditsEngineers;
+
+  /// No description provided for @creditsLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Label'**
+  String get creditsLabel;
+
+  /// No description provided for @creditsSources.
+  ///
+  /// In de, this message translates to:
+  /// **'Quelle: {sources}'**
+  String creditsSources(Object sources);
+
+  /// No description provided for @creditsSourceTags.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateiinfos'**
+  String get creditsSourceTags;
+
+  /// No description provided for @creditRoleArtist.
+  ///
+  /// In de, this message translates to:
+  /// **'Künstler'**
+  String get creditRoleArtist;
+
+  /// No description provided for @creditRoleFeatured.
+  ///
+  /// In de, this message translates to:
+  /// **'Gastkünstler'**
+  String get creditRoleFeatured;
+
+  /// No description provided for @creditRoleComposer.
+  ///
+  /// In de, this message translates to:
+  /// **'Komposition'**
+  String get creditRoleComposer;
+
+  /// No description provided for @creditRoleLyricist.
+  ///
+  /// In de, this message translates to:
+  /// **'Text'**
+  String get creditRoleLyricist;
+
+  /// No description provided for @creditRoleWriter.
+  ///
+  /// In de, this message translates to:
+  /// **'Songwriter'**
+  String get creditRoleWriter;
+
+  /// No description provided for @creditRoleArranger.
+  ///
+  /// In de, this message translates to:
+  /// **'Arrangement'**
+  String get creditRoleArranger;
+
+  /// No description provided for @creditRoleProducer.
+  ///
+  /// In de, this message translates to:
+  /// **'Produktion'**
+  String get creditRoleProducer;
+
+  /// No description provided for @creditRoleCoProducer.
+  ///
+  /// In de, this message translates to:
+  /// **'Co-Produktion'**
+  String get creditRoleCoProducer;
+
+  /// No description provided for @creditRoleExecutiveProducer.
+  ///
+  /// In de, this message translates to:
+  /// **'Executive Producer'**
+  String get creditRoleExecutiveProducer;
+
+  /// No description provided for @creditRoleMix.
+  ///
+  /// In de, this message translates to:
+  /// **'Mixing'**
+  String get creditRoleMix;
+
+  /// No description provided for @creditRoleMastering.
+  ///
+  /// In de, this message translates to:
+  /// **'Mastering'**
+  String get creditRoleMastering;
+
+  /// No description provided for @creditRoleRecording.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahme'**
+  String get creditRoleRecording;
+
+  /// No description provided for @creditRoleEngineer.
+  ///
+  /// In de, this message translates to:
+  /// **'Toningenieur'**
+  String get creditRoleEngineer;
+
+  /// No description provided for @creditRoleProgramming.
+  ///
+  /// In de, this message translates to:
+  /// **'Programmierung'**
+  String get creditRoleProgramming;
+
+  /// No description provided for @creditRoleVocals.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesang'**
+  String get creditRoleVocals;
+
+  /// No description provided for @creditRoleBackgroundVocals.
+  ///
+  /// In de, this message translates to:
+  /// **'Hintergrundgesang'**
+  String get creditRoleBackgroundVocals;
+
+  /// No description provided for @creditRolePerformer.
+  ///
+  /// In de, this message translates to:
+  /// **'Musiker'**
+  String get creditRolePerformer;
+
+  /// No description provided for @libraryCreate.
+  ///
+  /// In de, this message translates to:
+  /// **'Erstellen'**
+  String get libraryCreate;
+
+  /// No description provided for @blendCreate.
+  ///
+  /// In de, this message translates to:
+  /// **'Blend'**
+  String get blendCreate;
+
+  /// No description provided for @blendKind.
+  ///
+  /// In de, this message translates to:
+  /// **'Blend'**
+  String get blendKind;
+
+  /// No description provided for @blendPickUser.
+  ///
+  /// In de, this message translates to:
+  /// **'Blend mit …'**
+  String get blendPickUser;
+
+  /// No description provided for @blendHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine gemeinsame Playlist aus eurem Geschmack, jeden Tag neu. Ihr seht sie beide unter „Für dich“.'**
+  String get blendHint;
+
+  /// No description provided for @blendNoUsers.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf diesem Server gibt es niemanden, mit dem du einen Blend machen kannst.'**
+  String get blendNoUsers;
+
+  /// No description provided for @blendWaiting.
+  ///
+  /// In de, this message translates to:
+  /// **'Blend mit {name} erstellt. Sobald ihr beide etwas gehört oder geliked habt, erscheint er unter „Für dich“.'**
+  String blendWaiting(Object name);
+
+  /// No description provided for @blendLeave.
+  ///
+  /// In de, this message translates to:
+  /// **'Blend verlassen'**
+  String get blendLeave;
+
+  /// No description provided for @blendLeaveConfirm.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Blend mit {name} wird für euch beide gelöscht.'**
+  String blendLeaveConfirm(Object name);
+
+  /// No description provided for @releaseRadar.
+  ///
+  /// In de, this message translates to:
+  /// **'Neuerscheinungen'**
+  String get releaseRadar;
+
+  /// No description provided for @adminReleaseRadarHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Jeden Freitag neue Songs der meistgehörten Künstler jedes Nutzers, fehlende werden heruntergeladen'**
+  String get adminReleaseRadarHint;
+
+  /// No description provided for @adminReleaseRadarSize.
+  ///
+  /// In de, this message translates to:
+  /// **'Songs in den Neuerscheinungen (10–100)'**
+  String get adminReleaseRadarSize;
+
+  /// No description provided for @wrappedSettingsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Jahresrückblick'**
+  String get wrappedSettingsTitle;
+
+  /// No description provided for @wrappedSettingsHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine meistgehörten Songs, Künstler und Genres des Jahres'**
+  String get wrappedSettingsHint;
+
+  /// No description provided for @wrappedBannerTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein {year} in Musik'**
+  String wrappedBannerTitle(Object year);
+
+  /// No description provided for @wrappedBannerText.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein Jahresrückblick ist da – sieh dir an, was du gehört hast.'**
+  String get wrappedBannerText;
+
+  /// No description provided for @wrappedEmpty.
+  ///
+  /// In de, this message translates to:
+  /// **'Für {year} gibt es noch keine Wiedergaben.'**
+  String wrappedEmpty(Object year);
+
+  /// No description provided for @wrappedYearButton.
+  ///
+  /// In de, this message translates to:
+  /// **'Rückblick {year} ansehen'**
+  String wrappedYearButton(Object year);
+
+  /// No description provided for @wrappedIntroKicker.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein Jahresrückblick'**
+  String get wrappedIntroKicker;
+
+  /// No description provided for @wrappedIntroTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein {year} in Musik'**
+  String wrappedIntroTitle(Object year);
+
+  /// No description provided for @wrappedIntroHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Tippe rechts für weiter, links für zurück. Halte gedrückt zum Anhalten.'**
+  String get wrappedIntroHint;
+
+  /// No description provided for @wrappedMinutesBefore.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieses Jahr hast du'**
+  String get wrappedMinutesBefore;
+
+  /// No description provided for @wrappedMinutesAfter.
+  ///
+  /// In de, this message translates to:
+  /// **'Minuten Musik gehört.'**
+  String get wrappedMinutesAfter;
+
+  /// No description provided for @wrappedMinutesDays.
+  ///
+  /// In de, this message translates to:
+  /// **'Das sind {days} Tage am Stück.'**
+  String wrappedMinutesDays(Object days);
+
+  /// No description provided for @wrappedTopDay.
+  ///
+  /// In de, this message translates to:
+  /// **'Am meisten am {day}: {minutes} Minuten an einem Tag.'**
+  String wrappedTopDay(Object day, Object minutes);
+
+  /// No description provided for @wrappedGenresTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Top-Genres'**
+  String get wrappedGenresTitle;
+
+  /// No description provided for @wrappedTopArtistKicker.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein Künstler des Jahres'**
+  String get wrappedTopArtistKicker;
+
+  /// No description provided for @wrappedArtistStats.
+  ///
+  /// In de, this message translates to:
+  /// **'{plays} Wiedergaben · {minutes} Minuten'**
+  String wrappedArtistStats(Object minutes, Object plays);
+
+  /// No description provided for @wrappedTopArtistsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Top-Künstler'**
+  String get wrappedTopArtistsTitle;
+
+  /// No description provided for @wrappedPlays.
+  ///
+  /// In de, this message translates to:
+  /// **'{plays} Wiedergaben'**
+  String wrappedPlays(Object plays);
+
+  /// No description provided for @wrappedTopSongKicker.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein Song des Jahres'**
+  String get wrappedTopSongKicker;
+
+  /// No description provided for @wrappedSongStats.
+  ///
+  /// In de, this message translates to:
+  /// **'{plays}-mal gehört'**
+  String wrappedSongStats(Object plays);
+
+  /// No description provided for @wrappedPlay.
+  ///
+  /// In de, this message translates to:
+  /// **'Abspielen'**
+  String get wrappedPlay;
+
+  /// No description provided for @wrappedTopSongsTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Top-Songs'**
+  String get wrappedTopSongsTitle;
+
+  /// No description provided for @wrappedClockKicker.
+  ///
+  /// In de, this message translates to:
+  /// **'Du hörst am liebsten'**
+  String get wrappedClockKicker;
+
+  /// No description provided for @wrappedMorning.
+  ///
+  /// In de, this message translates to:
+  /// **'morgens'**
+  String get wrappedMorning;
+
+  /// No description provided for @wrappedAfternoon.
+  ///
+  /// In de, this message translates to:
+  /// **'tagsüber'**
+  String get wrappedAfternoon;
+
+  /// No description provided for @wrappedEvening.
+  ///
+  /// In de, this message translates to:
+  /// **'abends'**
+  String get wrappedEvening;
+
+  /// No description provided for @wrappedNight.
+  ///
+  /// In de, this message translates to:
+  /// **'nachts'**
+  String get wrappedNight;
+
+  /// No description provided for @wrappedPeakHour.
+  ///
+  /// In de, this message translates to:
+  /// **'Die meiste Musik lief um {time} Uhr.'**
+  String wrappedPeakHour(Object time);
+
+  /// No description provided for @wrappedBestMonth.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein stärkster Monat: {month}'**
+  String wrappedBestMonth(Object month);
+
+  /// No description provided for @wrappedVarietyKicker.
+  ///
+  /// In de, this message translates to:
+  /// **'Du warst neugierig'**
+  String get wrappedVarietyKicker;
+
+  /// No description provided for @wrappedDifferentSongs.
+  ///
+  /// In de, this message translates to:
+  /// **'verschiedene Songs'**
+  String get wrappedDifferentSongs;
+
+  /// No description provided for @wrappedDifferentArtists.
+  ///
+  /// In de, this message translates to:
+  /// **'verschiedene Künstler'**
+  String get wrappedDifferentArtists;
+
+  /// No description provided for @wrappedNewArtists.
+  ///
+  /// In de, this message translates to:
+  /// **'{count} davon hast du dieses Jahr zum ersten Mal gehört.'**
+  String wrappedNewArtists(Object count);
+
+  /// No description provided for @wrappedFirstSong.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein erster Song des Jahres'**
+  String get wrappedFirstSong;
+
+  /// No description provided for @wrappedSummaryTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Dein {year}'**
+  String wrappedSummaryTitle(Object year);
+
+  /// No description provided for @wrappedMinutesLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Minuten gehört'**
+  String get wrappedMinutesLabel;
+
+  /// No description provided for @wrappedTopGenreLabel.
+  ///
+  /// In de, this message translates to:
+  /// **'Top-Genre'**
+  String get wrappedTopGenreLabel;
+
+  /// No description provided for @wrappedSavePlaylist.
+  ///
+  /// In de, this message translates to:
+  /// **'Top-Songs als Playlist'**
+  String get wrappedSavePlaylist;
+
+  /// No description provided for @wrappedOpenPlaylist.
+  ///
+  /// In de, this message translates to:
+  /// **'Playlist öffnen'**
+  String get wrappedOpenPlaylist;
+
+  /// No description provided for @wrappedUpdatePlaylist.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktualisieren'**
+  String get wrappedUpdatePlaylist;
+
+  /// No description provided for @wrappedReplay.
+  ///
+  /// In de, this message translates to:
+  /// **'Nochmal'**
+  String get wrappedReplay;
+
+  /// No description provided for @wrappedPlaylistName.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Top-Songs {year}'**
+  String wrappedPlaylistName(Object year);
+
+  /// No description provided for @wrappedPlaylistDescription.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine 100 meistgehörten Songs {year}'**
+  String wrappedPlaylistDescription(Object year);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

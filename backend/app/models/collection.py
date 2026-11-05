@@ -159,6 +159,20 @@ class PlaybackState(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class Blend(Base):
+    """Two users' shared mix: each gets a playlist (mix key "blend:<other user>") with the same songs from both
+    tastes, made again every day."""
+
+    __tablename__ = "blends"
+    __table_args__ = (UniqueConstraint("user_a_id", "user_b_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    # The user who made it; both may leave it, which ends it for both.
+    user_a_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_b_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class RadioStationFavorite(Base):
     __tablename__ = "radio_station_favorites"
 

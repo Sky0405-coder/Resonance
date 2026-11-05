@@ -3461,4 +3461,288 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get transitionFxUnavailable =>
       'Effekte, Filter und Loops gehen auf diesem Gerät nicht; du hörst nur die Lautstärke.';
+
+  @override
+  String get creditsTitle => 'Mitwirkende';
+
+  @override
+  String get creditsShow => 'Mitwirkende anzeigen';
+
+  @override
+  String get creditsShowAll => 'Alle anzeigen';
+
+  @override
+  String get creditsPerformers => 'Interpretiert von';
+
+  @override
+  String get creditsWriters => 'Geschrieben von';
+
+  @override
+  String get creditsProducers => 'Produziert von';
+
+  @override
+  String get creditsEngineers => 'Technik';
+
+  @override
+  String get creditsLabel => 'Label';
+
+  @override
+  String creditsSources(Object sources) {
+    return 'Quelle: $sources';
+  }
+
+  @override
+  String get creditsSourceTags => 'Dateiinfos';
+
+  @override
+  String get creditRoleArtist => 'Künstler';
+
+  @override
+  String get creditRoleFeatured => 'Gastkünstler';
+
+  @override
+  String get creditRoleComposer => 'Komposition';
+
+  @override
+  String get creditRoleLyricist => 'Text';
+
+  @override
+  String get creditRoleWriter => 'Songwriter';
+
+  @override
+  String get creditRoleArranger => 'Arrangement';
+
+  @override
+  String get creditRoleProducer => 'Produktion';
+
+  @override
+  String get creditRoleCoProducer => 'Co-Produktion';
+
+  @override
+  String get creditRoleExecutiveProducer => 'Executive Producer';
+
+  @override
+  String get creditRoleMix => 'Mixing';
+
+  @override
+  String get creditRoleMastering => 'Mastering';
+
+  @override
+  String get creditRoleRecording => 'Aufnahme';
+
+  @override
+  String get creditRoleEngineer => 'Toningenieur';
+
+  @override
+  String get creditRoleProgramming => 'Programmierung';
+
+  @override
+  String get creditRoleVocals => 'Gesang';
+
+  @override
+  String get creditRoleBackgroundVocals => 'Hintergrundgesang';
+
+  @override
+  String get creditRolePerformer => 'Musiker';
+
+  @override
+  String get libraryCreate => 'Erstellen';
+
+  @override
+  String get blendCreate => 'Blend';
+
+  @override
+  String get blendKind => 'Blend';
+
+  @override
+  String get blendPickUser => 'Blend mit …';
+
+  @override
+  String get blendHint =>
+      'Eine gemeinsame Playlist aus eurem Geschmack, jeden Tag neu. Ihr seht sie beide unter „Für dich“.';
+
+  @override
+  String get blendNoUsers => 'Auf diesem Server gibt es niemanden, mit dem du einen Blend machen kannst.';
+
+  @override
+  String blendWaiting(Object name) {
+    return 'Blend mit $name erstellt. Sobald ihr beide etwas gehört oder geliked habt, erscheint er unter „Für dich“.';
+  }
+
+  @override
+  String get blendLeave => 'Blend verlassen';
+
+  @override
+  String blendLeaveConfirm(Object name) {
+    return 'Der Blend mit $name wird für euch beide gelöscht.';
+  }
+
+  @override
+  String get releaseRadar => 'Neuerscheinungen';
+
+  @override
+  String get adminReleaseRadarHint =>
+      'Jeden Freitag neue Songs der meistgehörten Künstler jedes Nutzers, fehlende werden heruntergeladen';
+
+  @override
+  String get adminReleaseRadarSize => 'Songs in den Neuerscheinungen (10–100)';
+
+  @override
+  String get wrappedSettingsTitle => 'Jahresrückblick';
+
+  @override
+  String get wrappedSettingsHint => 'Deine meistgehörten Songs, Künstler und Genres des Jahres';
+
+  @override
+  String wrappedBannerTitle(Object year) {
+    return 'Dein $year in Musik';
+  }
+
+  @override
+  String get wrappedBannerText => 'Dein Jahresrückblick ist da – sieh dir an, was du gehört hast.';
+
+  @override
+  String wrappedEmpty(Object year) {
+    return 'Für $year gibt es noch keine Wiedergaben.';
+  }
+
+  @override
+  String wrappedYearButton(Object year) {
+    return 'Rückblick $year ansehen';
+  }
+
+  @override
+  String get wrappedIntroKicker => 'Dein Jahresrückblick';
+
+  @override
+  String wrappedIntroTitle(Object year) {
+    return 'Dein $year in Musik';
+  }
+
+  @override
+  String get wrappedIntroHint => 'Tippe rechts für weiter, links für zurück. Halte gedrückt zum Anhalten.';
+
+  @override
+  String get wrappedMinutesBefore => 'Dieses Jahr hast du';
+
+  @override
+  String get wrappedMinutesAfter => 'Minuten Musik gehört.';
+
+  @override
+  String wrappedMinutesDays(Object days) {
+    return 'Das sind $days Tage am Stück.';
+  }
+
+  @override
+  String wrappedTopDay(Object day, Object minutes) {
+    return 'Am meisten am $day: $minutes Minuten an einem Tag.';
+  }
+
+  @override
+  String get wrappedGenresTitle => 'Deine Top-Genres';
+
+  @override
+  String get wrappedTopArtistKicker => 'Dein Künstler des Jahres';
+
+  @override
+  String wrappedArtistStats(Object minutes, Object plays) {
+    return '$plays Wiedergaben · $minutes Minuten';
+  }
+
+  @override
+  String get wrappedTopArtistsTitle => 'Deine Top-Künstler';
+
+  @override
+  String wrappedPlays(Object plays) {
+    return '$plays Wiedergaben';
+  }
+
+  @override
+  String get wrappedTopSongKicker => 'Dein Song des Jahres';
+
+  @override
+  String wrappedSongStats(Object plays) {
+    return '$plays-mal gehört';
+  }
+
+  @override
+  String get wrappedPlay => 'Abspielen';
+
+  @override
+  String get wrappedTopSongsTitle => 'Deine Top-Songs';
+
+  @override
+  String get wrappedClockKicker => 'Du hörst am liebsten';
+
+  @override
+  String get wrappedMorning => 'morgens';
+
+  @override
+  String get wrappedAfternoon => 'tagsüber';
+
+  @override
+  String get wrappedEvening => 'abends';
+
+  @override
+  String get wrappedNight => 'nachts';
+
+  @override
+  String wrappedPeakHour(Object time) {
+    return 'Die meiste Musik lief um $time Uhr.';
+  }
+
+  @override
+  String wrappedBestMonth(Object month) {
+    return 'Dein stärkster Monat: $month';
+  }
+
+  @override
+  String get wrappedVarietyKicker => 'Du warst neugierig';
+
+  @override
+  String get wrappedDifferentSongs => 'verschiedene Songs';
+
+  @override
+  String get wrappedDifferentArtists => 'verschiedene Künstler';
+
+  @override
+  String wrappedNewArtists(Object count) {
+    return '$count davon hast du dieses Jahr zum ersten Mal gehört.';
+  }
+
+  @override
+  String get wrappedFirstSong => 'Dein erster Song des Jahres';
+
+  @override
+  String wrappedSummaryTitle(Object year) {
+    return 'Dein $year';
+  }
+
+  @override
+  String get wrappedMinutesLabel => 'Minuten gehört';
+
+  @override
+  String get wrappedTopGenreLabel => 'Top-Genre';
+
+  @override
+  String get wrappedSavePlaylist => 'Top-Songs als Playlist';
+
+  @override
+  String get wrappedOpenPlaylist => 'Playlist öffnen';
+
+  @override
+  String get wrappedUpdatePlaylist => 'Aktualisieren';
+
+  @override
+  String get wrappedReplay => 'Nochmal';
+
+  @override
+  String wrappedPlaylistName(Object year) {
+    return 'Deine Top-Songs $year';
+  }
+
+  @override
+  String wrappedPlaylistDescription(Object year) {
+    return 'Deine 100 meistgehörten Songs $year';
+  }
 }

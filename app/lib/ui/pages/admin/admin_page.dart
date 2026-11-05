@@ -866,6 +866,30 @@ class _ServerTab extends ConsumerWidget {
               }),
             ),
             SwitchListTile(
+              title: Text(context.l10n.releaseRadar),
+              subtitle: Text(context.l10n.adminReleaseRadarHint),
+              value: mixes['release_radar_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'mixes': {'release_radar_enabled': v},
+              }),
+            ),
+            _NumberTile(
+              title: context.l10n.adminReleaseRadarSize,
+              value: mixes['release_radar_size'] ?? 30,
+              enabled: mixes['release_radar_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'mixes': {'release_radar_size': v},
+              }),
+            ),
+            _NumberTile(
+              title: context.l10n.adminDiscoverDownloads,
+              value: mixes['release_radar_downloads'] ?? 20,
+              enabled: mixes['release_radar_enabled'] ?? true,
+              onChanged: (v) => patch({
+                'mixes': {'release_radar_downloads': v},
+              }),
+            ),
+            SwitchListTile(
               title: Text(context.l10n.adminChartsEnabled),
               subtitle: Text(context.l10n.adminChartsEnabledHint),
               value: mixes['charts_enabled'] ?? true,

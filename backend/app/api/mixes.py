@@ -7,8 +7,15 @@ from app.deps import DB, CurrentUser
 from app.i18n import language
 from app.models import Playlist
 from app.schemas import MixesOut
+from app.services import blends
 from app.services.editorial import BY_KEY, EDITORIAL
-from app.services.mixes import CHARTS, discover_due, generate_discover, generate_mixes
+from app.services.mixes import (
+    CHARTS,
+    discover_due,
+    generate_discover,
+    generate_mixes,
+    own_schedule,
+)
 from app.services.server_config import load_config
 from app.services.views import playlists_out
 
@@ -50,7 +57,9 @@ async def _out(db: DB, user: CurrentUser, lang: str) -> MixesOut:
             made_for_you.append(item)
     genres.sort(key=lambda item: -item.track_count)
     # Daily mixes first and artist mixes last, like Spotify's "Made for you".
-    order = ["daily:", "discover", "on-repeat", "favourites", "new-music", "rewind", "artist:"]
+    order = [
+        "release-radar", "blend:", "daily:", "discover", "on-repeat", "favourites", "new-music", "rewind", "artist:",
+    ]
     keys = {item.id: playlist.mix_key or "" for playlist, item in zip(playlists, items, strict=True)}
     made_for_you.sort(
         key=lambda item: (next((i for i, p in enumerate(order) if keys[item.id].startswith(p)), len(order)), keys[item.id])
@@ -78,11 +87,13 @@ async def get_mixes(user: CurrentUser, db: DB, request: Request) -> MixesOut:
         select(func.max(Playlist.generated_at)).where(
             Playlist.owner_id == user.id,
             Playlist.kind == "mix",
-            Playlist.mix_key.is_distinct_from("discover-weekly"),
+            Playlist.mix_key.is_(None) | ~own_schedule(Playlist.mix_key),
         )
     )
     if generated_at is None or generated_at.astimezone().date() != date.today():
         await generate_mixes(db, user, chart_downloads=False)
+    # The weekly Release Radar takes a while (many catalog lookups): the background loop makes it.
+    await blends.generate_due(db, user)
     cfg = await load_config(db)
     if cfg.mixes.discover_enabled:
         discover_at = await db.scalar(

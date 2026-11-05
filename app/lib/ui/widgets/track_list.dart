@@ -16,6 +16,7 @@ import '../../player/player.dart';
 import '../../offline/offline_store.dart';
 import '../pages/admin/metadata_editor.dart';
 import 'common.dart';
+import 'credits_sheet.dart';
 import 'ringtone_sheet.dart';
 import 'action_sheet.dart';
 
@@ -269,6 +270,12 @@ Future<void> showTrackMenu(BuildContext context, WidgetRef ref, Track t, [List<T
         label: context.l10n.playerGoToArtist,
         onSelected: () => context.push('/artist/${t.artist.id}'),
       ),
+      if (!ref.read(sessionProvider).offline)
+        SheetAction(
+          icon: Icons.people_outline,
+          label: context.l10n.creditsShow,
+          onSelected: () => showCreditsSheet(context, t),
+        ),
       if (ringtonesAvailable(ref))
         SheetAction(
           icon: Icons.ring_volume,

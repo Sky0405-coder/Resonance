@@ -10,6 +10,7 @@ import '../l10n/l10n.dart';
 import 'package:dio/dio.dart';
 
 import 'models.dart';
+import 'review.dart';
 import 'podcasts.dart';
 
 class ApiException implements Exception {
@@ -355,6 +356,22 @@ class ApiClient {
 
   /// Other (active) users of this server, e.g. to share a playlist with.
   Future<List<NamedRef>> otherUsers() async => [for (final u in await _get('/api/users')) NamedRef.fromJson(u)];
+
+  /// The yearly review of [year] (this year without one).
+  Future<Wrapped> wrapped([int? year]) async =>
+      Wrapped.fromJson(await _get('/api/me/wrapped', {'year': ?year}));
+
+  /// The year's most played songs as a playlist of the user's; returns its id.
+  Future<String> saveWrappedPlaylist(int year, {required String name, String? description}) async =>
+      (await _put('/api/me/wrapped/$year/playlist', {'name': name, 'description': description}))['id'] as String;
+
+  Future<List<Blend>> blends() async => [for (final b in await _get('/api/blends')) Blend.fromJson(b)];
+
+  Future<Blend> createBlend(String userId) async => Blend.fromJson(await _post('/api/blends', {'user_id': userId}));
+
+  Future<void> leaveBlend(String id) => _delete('/api/blends/$id');
+
+  Future<Credits> credits(String trackId) async => Credits.fromJson(await _get('/api/tracks/$trackId/credits'));
 
   /// Catalog id of a library album (to download its missing songs).
   Future<String> albumCatalogId(String albumId) async =>

@@ -119,6 +119,13 @@ class SettingsPage extends ConsumerWidget {
               ref.read(sessionProvider.notifier).updateUser(updated);
             },
           ),
+          if (!ref.watch(sessionProvider.select((s) => s.offline)))
+            ListTile(
+              leading: const Icon(Icons.auto_awesome),
+              title: Text(context.l10n.wrappedSettingsTitle),
+              subtitle: Text(context.l10n.wrappedSettingsHint),
+              onTap: () => context.push('/wrapped'),
+            ),
           ListTile(
             leading: const Icon(Icons.lock_outline),
             title: Text(context.l10n.settingsChangePassword),

@@ -3481,4 +3481,288 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get transitionFxUnavailable =>
       'Effects, filters and loops don\'t work on this device; you only hear the volumes.';
+
+  @override
+  String get creditsTitle => 'Credits';
+
+  @override
+  String get creditsShow => 'Show credits';
+
+  @override
+  String get creditsShowAll => 'Show all';
+
+  @override
+  String get creditsPerformers => 'Performed by';
+
+  @override
+  String get creditsWriters => 'Written by';
+
+  @override
+  String get creditsProducers => 'Produced by';
+
+  @override
+  String get creditsEngineers => 'Engineering';
+
+  @override
+  String get creditsLabel => 'Label';
+
+  @override
+  String creditsSources(Object sources) {
+    return 'Source: $sources';
+  }
+
+  @override
+  String get creditsSourceTags => 'File tags';
+
+  @override
+  String get creditRoleArtist => 'Artist';
+
+  @override
+  String get creditRoleFeatured => 'Featured artist';
+
+  @override
+  String get creditRoleComposer => 'Composer';
+
+  @override
+  String get creditRoleLyricist => 'Lyricist';
+
+  @override
+  String get creditRoleWriter => 'Songwriter';
+
+  @override
+  String get creditRoleArranger => 'Arranger';
+
+  @override
+  String get creditRoleProducer => 'Producer';
+
+  @override
+  String get creditRoleCoProducer => 'Co-producer';
+
+  @override
+  String get creditRoleExecutiveProducer => 'Executive producer';
+
+  @override
+  String get creditRoleMix => 'Mixing';
+
+  @override
+  String get creditRoleMastering => 'Mastering';
+
+  @override
+  String get creditRoleRecording => 'Recording';
+
+  @override
+  String get creditRoleEngineer => 'Engineer';
+
+  @override
+  String get creditRoleProgramming => 'Programming';
+
+  @override
+  String get creditRoleVocals => 'Vocals';
+
+  @override
+  String get creditRoleBackgroundVocals => 'Background vocals';
+
+  @override
+  String get creditRolePerformer => 'Musician';
+
+  @override
+  String get libraryCreate => 'Create';
+
+  @override
+  String get blendCreate => 'Blend';
+
+  @override
+  String get blendKind => 'Blend';
+
+  @override
+  String get blendPickUser => 'Blend with …';
+
+  @override
+  String get blendHint =>
+      'A shared playlist from both your tastes, fresh every day. You both find it under “Made for you”.';
+
+  @override
+  String get blendNoUsers => 'There is nobody on this server to blend with.';
+
+  @override
+  String blendWaiting(Object name) {
+    return 'Blend with $name created. Once you have both played or liked something, it shows up under “Made for you”.';
+  }
+
+  @override
+  String get blendLeave => 'Leave blend';
+
+  @override
+  String blendLeaveConfirm(Object name) {
+    return 'The blend with $name is deleted for both of you.';
+  }
+
+  @override
+  String get releaseRadar => 'Release Radar';
+
+  @override
+  String get adminReleaseRadarHint =>
+      'Every Friday new songs of each user\'s most played artists, missing ones are downloaded';
+
+  @override
+  String get adminReleaseRadarSize => 'Songs in Release Radar (10–100)';
+
+  @override
+  String get wrappedSettingsTitle => 'Year in review';
+
+  @override
+  String get wrappedSettingsHint => 'Your most played songs, artists and genres of the year';
+
+  @override
+  String wrappedBannerTitle(Object year) {
+    return 'Your $year in music';
+  }
+
+  @override
+  String get wrappedBannerText => 'Your year in review is here – see what you listened to.';
+
+  @override
+  String wrappedEmpty(Object year) {
+    return 'There are no plays for $year yet.';
+  }
+
+  @override
+  String wrappedYearButton(Object year) {
+    return 'See $year';
+  }
+
+  @override
+  String get wrappedIntroKicker => 'Your year in review';
+
+  @override
+  String wrappedIntroTitle(Object year) {
+    return 'Your $year in music';
+  }
+
+  @override
+  String get wrappedIntroHint => 'Tap right for next, left for back. Hold to pause.';
+
+  @override
+  String get wrappedMinutesBefore => 'This year you listened to';
+
+  @override
+  String get wrappedMinutesAfter => 'minutes of music.';
+
+  @override
+  String wrappedMinutesDays(Object days) {
+    return 'That\'s $days days in a row.';
+  }
+
+  @override
+  String wrappedTopDay(Object day, Object minutes) {
+    return 'Most on $day: $minutes minutes in one day.';
+  }
+
+  @override
+  String get wrappedGenresTitle => 'Your top genres';
+
+  @override
+  String get wrappedTopArtistKicker => 'Your artist of the year';
+
+  @override
+  String wrappedArtistStats(Object minutes, Object plays) {
+    return '$plays plays · $minutes minutes';
+  }
+
+  @override
+  String get wrappedTopArtistsTitle => 'Your top artists';
+
+  @override
+  String wrappedPlays(Object plays) {
+    return '$plays plays';
+  }
+
+  @override
+  String get wrappedTopSongKicker => 'Your song of the year';
+
+  @override
+  String wrappedSongStats(Object plays) {
+    return 'Played $plays times';
+  }
+
+  @override
+  String get wrappedPlay => 'Play';
+
+  @override
+  String get wrappedTopSongsTitle => 'Your top songs';
+
+  @override
+  String get wrappedClockKicker => 'You like listening most';
+
+  @override
+  String get wrappedMorning => 'in the morning';
+
+  @override
+  String get wrappedAfternoon => 'during the day';
+
+  @override
+  String get wrappedEvening => 'in the evening';
+
+  @override
+  String get wrappedNight => 'at night';
+
+  @override
+  String wrappedPeakHour(Object time) {
+    return 'Most music played at $time.';
+  }
+
+  @override
+  String wrappedBestMonth(Object month) {
+    return 'Your biggest month: $month';
+  }
+
+  @override
+  String get wrappedVarietyKicker => 'You were curious';
+
+  @override
+  String get wrappedDifferentSongs => 'different songs';
+
+  @override
+  String get wrappedDifferentArtists => 'different artists';
+
+  @override
+  String wrappedNewArtists(Object count) {
+    return 'You heard $count of them for the first time this year.';
+  }
+
+  @override
+  String get wrappedFirstSong => 'Your first song of the year';
+
+  @override
+  String wrappedSummaryTitle(Object year) {
+    return 'Your $year';
+  }
+
+  @override
+  String get wrappedMinutesLabel => 'Minutes listened';
+
+  @override
+  String get wrappedTopGenreLabel => 'Top genre';
+
+  @override
+  String get wrappedSavePlaylist => 'Top songs as a playlist';
+
+  @override
+  String get wrappedOpenPlaylist => 'Open playlist';
+
+  @override
+  String get wrappedUpdatePlaylist => 'Update';
+
+  @override
+  String get wrappedReplay => 'Replay';
+
+  @override
+  String wrappedPlaylistName(Object year) {
+    return 'Your Top Songs $year';
+  }
+
+  @override
+  String wrappedPlaylistDescription(Object year) {
+    return 'Your 100 most played songs of $year';
+  }
 }

@@ -1,6 +1,6 @@
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -304,6 +304,88 @@ class MixesOut(BaseModel):
     discover: PlaylistOut | None
     decades: list[PlaylistOut] = []  # Editorial decades, personal decades/eras, editorial eras.
     charts: list[PlaylistOut] = []  # Top 100 charts, Deutschrap 100, then year charts.
+
+
+class WrappedTrack(BaseModel):
+    track: TrackOut
+    plays: int
+    minutes: int
+
+
+class WrappedArtist(BaseModel):
+    id: uuid.UUID
+    name: str
+    plays: int
+    minutes: int
+    songs: int
+    has_image: bool = False
+    # The album of the artist's most played song, the picture without an artist image.
+    cover_album_id: uuid.UUID | None = None
+
+
+class WrappedGenre(BaseModel):
+    name: str
+    # Its part of the year's listening time (0..1); a song in two genres counts for both.
+    share: float
+
+
+class WrappedOut(BaseModel):
+    """The yearly review; empty numbers when nothing was played that year."""
+
+    year: int
+    # Years with plays, oldest first.
+    years: list[int] = []
+    minutes: int = 0
+    plays: int = 0
+    songs: int = 0
+    artists: int = 0
+    new_artists: int = 0
+    top_tracks: list[WrappedTrack] = []
+    top_artists: list[WrappedArtist] = []
+    top_genres: list[WrappedGenre] = []
+    # Minutes per month (12) and per hour of the day (24).
+    months: list[int] = []
+    hours: list[int] = []
+    top_day: date | None = None
+    top_day_minutes: int = 0
+    first_track: TrackOut | None = None
+    # The year's top songs playlist, once made.
+    playlist_id: uuid.UUID | None = None
+
+
+class WrappedPlaylistIn(BaseModel):
+    name: str = Field(min_length=1, max_length=256)
+    description: str | None = Field(None, max_length=1000)
+
+
+class BlendIn(BaseModel):
+    user_id: uuid.UUID
+
+
+class BlendOut(BaseModel):
+    id: uuid.UUID
+    partner: ArtistRef
+    # This user's playlist of the blend (None until it could be made: both need some plays or likes).
+    playlist_id: uuid.UUID | None
+    # How alike both tastes are (0..1).
+    match: float
+
+
+class CreditOut(BaseModel):
+    name: str
+    # E.g. "artist", "featured", "composer", "lyricist", "producer", "mix", "mastering"; instruments by name.
+    roles: list[str]
+
+
+class CreditsOut(BaseModel):
+    performers: list[CreditOut] = []
+    writers: list[CreditOut] = []
+    producers: list[CreditOut] = []
+    engineers: list[CreditOut] = []
+    label: str | None = None
+    copyright: str | None = None
+    # Where they come from: "tags" and/or "musicbrainz".
+    sources: list[str] = []
 
 
 class PlaylistEntryOut(BaseModel):

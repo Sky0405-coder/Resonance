@@ -219,6 +219,11 @@ _EXACT: dict[str, str] = {
     "Songs, die du lange nicht gehört hast": "Songs you haven't heard in a while",
     "Vollständiger Scan": "Full scan",
     "Schneller Scan": "Quick scan",
+    "Neuerscheinungen": "Release Radar",
+    "Neue Songs deiner Lieblingskünstler – jeden Freitag neu": "New songs from your favourite artists – fresh every Friday",
+    "Keine Wiedergaben in diesem Jahr": "No plays this year",
+    "Blend nicht gefunden": "Blend not found",
+    "Mit dir selbst geht kein Blend": "You cannot blend with yourself",
 }
 
 _PATTERNS: list[tuple[re.Pattern, str]] = [
@@ -255,6 +260,10 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
     ),
     (re.compile(r"Parameter fehlt: (?P<name>.*)"), r"Missing parameter: \g<name>"),
     (re.compile(r"Ungültiger Parameter: (?P<name>.*)"), r"Invalid parameter: \g<name>"),
+    (
+        re.compile(r"Eure gemeinsame Playlist – täglich neu · (?P<match>\d+) % Übereinstimmung"),
+        r"Your shared playlist – fresh every day · \g<match> % match",
+    ),
     (re.compile(r"(?P<artists>.+) und mehr"), r"\g<artists> and more"),
     (re.compile(r"Das Beste aus den (?P<decade>\d+)ern in deiner Bibliothek"), r"The best of the \g<decade>s in your library"),
     (re.compile(r"(?P<decade>\d+)er Mix"), r"\g<decade>s Mix"),

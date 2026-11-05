@@ -13,6 +13,7 @@ import '../../core/api.dart';
 import '../../core/audiobooks.dart';
 import '../../core/theme.dart';
 import '../../core/models.dart';
+import '../../core/session.dart';
 import '../../core/library.dart';
 import '../../player/player.dart';
 import '../../player/spectrum.dart';
@@ -20,6 +21,7 @@ import '../../player/visualizer_themes.dart';
 import 'audiobook_pages.dart';
 import 'podcast_pages.dart';
 import '../widgets/catalog.dart';
+import '../widgets/credits_sheet.dart';
 import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/player_bar.dart';
@@ -154,6 +156,7 @@ class NowPlayingPage extends ConsumerWidget {
                           ),
                         ),
                         _LyricsCard(trackId: track.id),
+                        if (!ref.watch(sessionProvider.select((s) => s.offline))) CreditsCard(track: track),
                       ],
                     );
                   },

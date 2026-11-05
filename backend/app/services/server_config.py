@@ -39,6 +39,10 @@ class MixesConfig(BaseModel):
     discover_size: int = Field(50, ge=10, le=100)
     # Missing songs downloaded per user and week for the 'Mix der Woche'.
     discover_downloads: int = Field(20, ge=0, le=100)
+    # 'Neuerscheinungen' (Release Radar): new releases of the user's most played artists, every Friday.
+    release_radar_enabled: bool = True
+    release_radar_size: int = Field(30, ge=10, le=100)
+    release_radar_downloads: int = Field(20, ge=0, le=100)
     charts_enabled: bool = True
     # Missing chart songs requested for download per chart and day, shared by all users.
     charts_downloads: int = Field(100, ge=0, le=100)

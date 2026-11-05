@@ -1,6 +1,7 @@
 import asyncio
 import secrets
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
@@ -20,14 +21,17 @@ from app.schemas import (
     PlaybackStateIn,
     PlaybackStateOut,
     PlayEventIn,
+    PlaylistOut,
     ProfilePatch,
     SessionOut,
     TrackOut,
     UserOut,
+    WrappedOut,
+    WrappedPlaylistIn,
 )
 from app.security import hash_password, verify_password
-from app.services import covers, mix_covers
-from app.services.views import track_options, tracks_out
+from app.services import covers, mix_covers, wrapped
+from app.services.views import playlists_out, track_options, tracks_out
 
 router = APIRouter(prefix="/api/me", tags=["me"])
 
@@ -155,6 +159,24 @@ async def report_play(body: PlayEventIn, user: CurrentUser, db: DB) -> None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Track not found")
     db.add(PlayEvent(user_id=user.id, track_id=body.track_id, seconds_played=body.seconds_played, context=body.context))
     await db.commit()
+
+
+# --- yearly review -------------------------------------------------------------
+
+
+@router.get("/wrapped", response_model=WrappedOut)
+async def get_wrapped(user: CurrentUser, db: DB, year: int | None = Query(None, ge=2000, le=2100)) -> WrappedOut:
+    """The yearly review of `year` (default: this year)."""
+    return await wrapped.wrapped(db, user, year or date.today().year)
+
+
+@router.put("/wrapped/{year}/playlist", response_model=PlaylistOut)
+async def save_wrapped_playlist(year: int, body: WrappedPlaylistIn, user: CurrentUser, db: DB) -> PlaylistOut:
+    """The year's 100 most played songs as a playlist of the user's (made again when asked again)."""
+    playlist = await wrapped.save_playlist(db, user, year, body.name, body.description)
+    if playlist is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Keine Wiedergaben in diesem Jahr")
+    return (await playlists_out(db, [playlist], user.id))[0]
 
 
 # --- last playback ------------------------------------------------------------

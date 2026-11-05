@@ -38,6 +38,7 @@ import 'ui/pages/now_playing_page.dart';
 import 'ui/pages/lyrics_page.dart';
 import 'ui/pages/settings_page.dart';
 import 'ui/pages/spotify_page.dart';
+import 'ui/pages/wrapped_page.dart';
 import 'ui/pages/spotify_sync_page.dart';
 import 'ui/shell.dart';
 
@@ -100,6 +101,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/queue', builder: (_, _) => const QueuePage()),
       GoRoute(path: '/lyrics', builder: (_, _) => const LyricsPage()),
       GoRoute(path: '/changelog', builder: (_, _) => const ChangelogPage()),
+      GoRoute(
+        path: '/wrapped',
+        builder: (_, state) => WrappedPage(year: int.tryParse(state.uri.queryParameters['year'] ?? '')),
+      ),
       ShellRoute(
         builder: (context, state, child) => WhatsNewNotifier(
           child: Consumer(

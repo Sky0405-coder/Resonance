@@ -14,6 +14,7 @@ import '../widgets/collection.dart';
 import '../widgets/common.dart';
 import '../widgets/offline.dart';
 import 'world_radio_page.dart';
+import 'wrapped_page.dart';
 
 String _greeting(AppLocalizations l10n) {
   final h = DateTime.now().hour;
@@ -87,6 +88,7 @@ class HomePage extends ConsumerWidget {
             children: [
               heading,
               _QuickGrid(home: h),
+              if (wrappedSeason(DateTime.now())) WrappedBanner(year: wrappedSeasonYear(DateTime.now())),
               if (stations.isNotEmpty)
                 Shelf(
                   title: context.l10n.worldRadioYourStations,
