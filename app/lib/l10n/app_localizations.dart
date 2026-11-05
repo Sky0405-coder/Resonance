@@ -6404,6 +6404,96 @@ abstract class AppLocalizations {
   /// **'Herauszoomen'**
   String get transitionZoomOut;
 
+  /// No description provided for @djTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'DJ-Pult'**
+  String get djTitle;
+
+  /// No description provided for @djOpen.
+  ///
+  /// In de, this message translates to:
+  /// **'DJ-Pult (selbst auflegen)'**
+  String get djOpen;
+
+  /// No description provided for @djCrossfader.
+  ///
+  /// In de, this message translates to:
+  /// **'Crossfader – Doppeltippen auf einen Regler setzt ihn zurück'**
+  String get djCrossfader;
+
+  /// No description provided for @djEmptyDeck.
+  ///
+  /// In de, this message translates to:
+  /// **'Deck {deck} – leer'**
+  String djEmptyDeck(String deck);
+
+  /// No description provided for @djLoad.
+  ///
+  /// In de, this message translates to:
+  /// **'Laden'**
+  String get djLoad;
+
+  /// No description provided for @djPlay.
+  ///
+  /// In de, this message translates to:
+  /// **'Play'**
+  String get djPlay;
+
+  /// No description provided for @djPause.
+  ///
+  /// In de, this message translates to:
+  /// **'Pause'**
+  String get djPause;
+
+  /// No description provided for @djTempo.
+  ///
+  /// In de, this message translates to:
+  /// **'Tempo'**
+  String get djTempo;
+
+  /// No description provided for @djHotCues.
+  ///
+  /// In de, this message translates to:
+  /// **'Hot Cues (tippen: setzen/springen, lange drücken: löschen)'**
+  String get djHotCues;
+
+  /// No description provided for @djLoop.
+  ///
+  /// In de, this message translates to:
+  /// **'Loop (Schläge)'**
+  String get djLoop;
+
+  /// No description provided for @djHigh.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhen'**
+  String get djHigh;
+
+  /// No description provided for @djMid.
+  ///
+  /// In de, this message translates to:
+  /// **'Mitten'**
+  String get djMid;
+
+  /// No description provided for @djLow.
+  ///
+  /// In de, this message translates to:
+  /// **'Bass'**
+  String get djLow;
+
+  /// No description provided for @djFilter.
+  ///
+  /// In de, this message translates to:
+  /// **'Filter'**
+  String get djFilter;
+
+  /// No description provided for @djSearch.
+  ///
+  /// In de, this message translates to:
+  /// **'Song suchen – oder einen aus der Warteschlange nehmen'**
+  String get djSearch;
+
   /// No description provided for @effectReverbMiddle.
   ///
   /// In de, this message translates to:

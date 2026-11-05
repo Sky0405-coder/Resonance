@@ -3578,6 +3578,53 @@ class AppLocalizationsDe extends AppLocalizations {
   String get transitionZoomOut => 'Herauszoomen';
 
   @override
+  String get djTitle => 'DJ-Pult';
+
+  @override
+  String get djOpen => 'DJ-Pult (selbst auflegen)';
+
+  @override
+  String get djCrossfader => 'Crossfader – Doppeltippen auf einen Regler setzt ihn zurück';
+
+  @override
+  String djEmptyDeck(String deck) {
+    return 'Deck $deck – leer';
+  }
+
+  @override
+  String get djLoad => 'Laden';
+
+  @override
+  String get djPlay => 'Play';
+
+  @override
+  String get djPause => 'Pause';
+
+  @override
+  String get djTempo => 'Tempo';
+
+  @override
+  String get djHotCues => 'Hot Cues (tippen: setzen/springen, lange drücken: löschen)';
+
+  @override
+  String get djLoop => 'Loop (Schläge)';
+
+  @override
+  String get djHigh => 'Höhen';
+
+  @override
+  String get djMid => 'Mitten';
+
+  @override
+  String get djLow => 'Bass';
+
+  @override
+  String get djFilter => 'Filter';
+
+  @override
+  String get djSearch => 'Song suchen – oder einen aus der Warteschlange nehmen';
+
+  @override
   String get effectReverbMiddle => 'Hall, Song endet in der Mitte';
 
   @override
