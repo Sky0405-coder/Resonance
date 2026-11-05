@@ -15,6 +15,7 @@ import '../../player/mix_lanes.dart';
 import '../../player/player.dart';
 import '../../player/spectrum.dart';
 import '../../player/transitions.dart';
+import '../widgets/band_waveform.dart';
 import '../widgets/common.dart';
 
 /// Colours of the editor, as in DJ software: low end orange, the rest blue, volume and bass curves on top.
@@ -680,46 +681,16 @@ class _TransitionPainter extends CustomPainter {
       canvas.drawLine(Offset(px, 0), Offset(px, size.height), grid);
     }
 
-    final levels = List<double>.filled(64, 0);
-    // Like rekordbox's RGB waveform: bass red, mids green, highs blue, mixed per column; the height is the loudest.
+    // Three-band waveforms as in DJ software; outside the transition each song is dimmed.
     void wave(Spectrum? spectrum, double top, double Function(double outSeconds) songTime, bool Function(double) live) {
       if (spectrum == null) return;
-      final center = top + lane / 2;
-      final bands = math.min(spectrum.bands, levels.length);
-      final group = [
-        for (var i = 0; i < bands; i++)
-          switch (Spectrum.bandFrequency(i, bands)) {
-            < 250 => 0,
-            < 2500 => 1,
-            _ => 2,
-          },
-      ];
-      final counts = [0, 0, 0];
-      for (final g in group) {
-        counts[g]++;
-      }
-      final line = Paint()..strokeWidth = 2;
-      for (var px = 0.0; px < size.width; px += 2) {
-        final seconds = window.$1 + px / pixelsPerSecond;
-        final t = songTime(seconds);
-        if (t < 0) continue;
-        spectrum.levelsAt(Duration(microseconds: (t * 1e6).round()), levels);
-        final sums = [0.0, 0.0, 0.0];
-        for (var i = 0; i < bands; i++) {
-          sums[group[i]] += levels[i];
-        }
-        final rgb = [for (var g = 0; g < 3; g++) counts[g] == 0 ? 0.0 : sums[g] / counts[g]];
-        final peak = rgb.reduce(math.max);
-        if (peak <= 0.01) continue;
-        line.color = Color.fromRGBO(
-          (255 * rgb[0] / peak).round(),
-          (255 * rgb[1] / peak).round(),
-          (255 * rgb[2] / peak).round(),
-          live(seconds) ? 1 : 0.3,
-        );
-        final h = peak * lane * 0.42;
-        canvas.drawLine(Offset(px, center - h), Offset(px, center + h), line);
-      }
+      paintBandWaveform(
+        canvas,
+        Rect.fromLTWH(0, top + lane * 0.08, size.width, lane * 0.84),
+        spectrum,
+        songTime: (px) => songTime(window.$1 + px / pixelsPerSecond),
+        opacity: (px) => live(window.$1 + px / pixelsPerSecond) ? 1 : 0.3,
+      );
     }
 
     // Section starts: a bright line with a small flag on the song's lane.
