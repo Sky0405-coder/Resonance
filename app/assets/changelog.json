@@ -1,5 +1,27 @@
 [
   {
+    "version": "1.7.4",
+    "date": "2026-11-06",
+    "de": [
+      "Warteschlange wie bei Spotify: Hinzugefügte Songs (auch per Wischen) kommen direkt als Nächstes, in der Reihenfolge, in der du sie hinzufügst, markiert und im eigenen Abschnitt; nach links wischen nimmt einen Song wieder heraus. Shuffle reagiert jetzt sofort.",
+      "Playlists sortieren: von Hand per Ziehen, nach Titel, Künstler, Album oder Länge, oder als DJ-Set mit passenden Tonarten und einem Energieverlauf (aufwärmen und Höhepunkt, steigend, abklingend oder gleichmäßig) – alles mit „Rückgängig“.",
+      "Übergänge auf Phrasen: Die Song-Analyse erkennt Takt-Anfänge, Abschnitte und Energie; der nächste Song kommt im Outro herein und der Bass wechselt genau auf der nächsten Phrase.",
+      "Mix als MP3: Der Server mischt eine ganze Playlist mit allen Übergängen zu einer Datei mit Kapitel pro Song, gespeichert unter Musik/Resonance/Mixes.",
+      "Downloads exportieren und ansehen: „Speicher belegt“ zeigt Playlists und Dateien nach Größe; Export als „Künstler - Titel“ nach Musik/Resonance.",
+      "Am PC: Gesangs-Tausch (der Beat des nächsten Songs läuft unter dem Gesang des aktuellen), Tonart angleichen, Flanger, Phaser, Gater, Beat-Roll und Bremse im Übergangs-Editor, farbige Wellenformen mit Taktraster und Zoom und ein DJ-Pult mit zwei Decks zum selbst Auflegen.",
+      "Eigene Playlist-Cover zuschneiden, und am Tablet überdeckt die Taskleiste den Player nicht mehr."
+    ],
+    "en": [
+      "Queue like Spotify: songs you add (by swiping too) play next, in the order you add them, marked and in their own section; swiping left takes a song out again. Shuffle now responds right away.",
+      "Sort playlists: by hand by dragging, by title, artist, album or length, or as a DJ set with fitting keys and an energy arc (warm up and peak, building up, winding down or steady) – all undoable.",
+      "Transitions on phrases: the song analysis finds beat 1, sections and energy; the next song comes in at the outro and the bass swaps exactly on the next phrase.",
+      "Mix as MP3: the server mixes a whole playlist with all its transitions into one file with a chapter per song, saved to Music/Resonance/Mixes.",
+      "Export and view downloads: “Storage used” shows playlists and files by size; export them as “Artist - Title” to Music/Resonance.",
+      "On PC: vocal swap (the next song's beat runs under the current song's singing), key matching, flanger, phaser, gate, beat roll and brake in the transition editor, RGB waveforms with a beat grid and zoom, and a DJ deck with two decks to mix yourself.",
+      "Crop your own playlist covers, and on tablets the taskbar no longer covers the player."
+    ]
+  },
+  {
     "version": "1.7.3",
     "date": "2026-11-05",
     "de": [
