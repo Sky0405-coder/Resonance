@@ -3650,6 +3650,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get djFilter => 'Filter';
 
   @override
+  String djTransition(String from, String to) {
+    return 'Transition $from → $to';
+  }
+
+  @override
+  String get djTransitionCancel => 'Cancel transition';
+
+  @override
+  String get djTransitionHint =>
+      'Matches the tempo, starts the other deck on the next bar, swaps the bass and fades over';
+
+  @override
+  String get djNeedsTwo => 'Load a song on both decks';
+
+  @override
+  String djBeats(int count) {
+    return '$count beats';
+  }
+
+  @override
+  String get djMore => 'More: tempo, EQ, hot cues, loops';
+
+  @override
+  String get djVolume => 'Volume';
+
+  @override
+  String djNextUp(String title) {
+    return 'Up next: $title';
+  }
+
+  @override
+  String get djQueueEnd => 'The queue has ended – load a song yourself';
+
+  @override
+  String djOriginalBpm(String bpm, String percent) {
+    return 'Original $bpm BPM · $percent';
+  }
+
+  @override
+  String get djShortcuts => 'Keys: Q / P play A / B · S sync · T transition · ← / → crossfader';
+
+  @override
   String get djSearch => 'Search a song – or take one from the queue';
 
   @override

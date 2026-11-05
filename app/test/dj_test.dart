@@ -18,6 +18,13 @@ void main() {
     expect(beatPhase(0.0, 0.25, 0.5), closeTo(0.5, 1e-9), reason: 'before the downbeat');
   });
 
+  test('the next bar counts four beats from the downbeat and keeps a minimum distance', () {
+    expect(untilNextBar(10, 0, 0.5), closeTo(0, 1e-9), reason: 'right on a bar');
+    expect(untilNextBar(10.5, 0, 0.5), closeTo(1.5, 1e-9));
+    expect(untilNextBar(9.9, 0.1, 0.5), closeTo(0.2, 1e-9));
+    expect(untilNextBar(9.9, 0.1, 0.5, minimum: 0.3), closeTo(2.2, 1e-9));
+  });
+
   test('the crossfader keeps the power even', () {
     final (onlyA, none) = crossfaderGains(-1);
     expect((onlyA, none.abs() < 1e-9), (1.0, true));

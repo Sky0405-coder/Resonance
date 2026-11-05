@@ -1974,6 +1974,51 @@
   "djMid": "Mitten",
   "djLow": "Bass",
   "djFilter": "Filter",
+  "djTransition": "Übergang {from} → {to}",
+  "@djTransition": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "djTransitionCancel": "Übergang abbrechen",
+  "djTransitionHint": "Gleicht das Tempo an, startet das andere Deck auf dem nächsten Takt, tauscht den Bass und blendet über",
+  "djNeedsTwo": "Lade auf beiden Decks einen Song",
+  "djBeats": "{count} Beats",
+  "@djBeats": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "djMore": "Mehr: Tempo, EQ, Hot Cues, Loops",
+  "djVolume": "Lautstärke",
+  "djNextUp": "Als Nächstes: {title}",
+  "@djNextUp": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "djQueueEnd": "Die Warteschlange ist zu Ende – lade selbst einen Song",
+  "djOriginalBpm": "Original {bpm} BPM · {percent}",
+  "@djOriginalBpm": {
+    "placeholders": {
+      "bpm": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "djShortcuts": "Tasten: Q / P Play A / B · S Sync · T Übergang · ← / → Crossfader",
   "djSearch": "Song suchen – oder einen aus der Warteschlange nehmen",
   "effectBrake": "Bremse wie am Plattenspieler (nur PC)",
   "effectReverbMiddle": "Hall, Song endet in der Mitte",

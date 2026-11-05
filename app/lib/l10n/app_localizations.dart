@@ -6500,6 +6500,72 @@ abstract class AppLocalizations {
   /// **'Filter'**
   String get djFilter;
 
+  /// No description provided for @djTransition.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergang {from} → {to}'**
+  String djTransition(String from, String to);
+
+  /// No description provided for @djTransitionCancel.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergang abbrechen'**
+  String get djTransitionCancel;
+
+  /// No description provided for @djTransitionHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Gleicht das Tempo an, startet das andere Deck auf dem nächsten Takt, tauscht den Bass und blendet über'**
+  String get djTransitionHint;
+
+  /// No description provided for @djNeedsTwo.
+  ///
+  /// In de, this message translates to:
+  /// **'Lade auf beiden Decks einen Song'**
+  String get djNeedsTwo;
+
+  /// No description provided for @djBeats.
+  ///
+  /// In de, this message translates to:
+  /// **'{count} Beats'**
+  String djBeats(int count);
+
+  /// No description provided for @djMore.
+  ///
+  /// In de, this message translates to:
+  /// **'Mehr: Tempo, EQ, Hot Cues, Loops'**
+  String get djMore;
+
+  /// No description provided for @djVolume.
+  ///
+  /// In de, this message translates to:
+  /// **'Lautstärke'**
+  String get djVolume;
+
+  /// No description provided for @djNextUp.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Nächstes: {title}'**
+  String djNextUp(String title);
+
+  /// No description provided for @djQueueEnd.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Warteschlange ist zu Ende – lade selbst einen Song'**
+  String get djQueueEnd;
+
+  /// No description provided for @djOriginalBpm.
+  ///
+  /// In de, this message translates to:
+  /// **'Original {bpm} BPM · {percent}'**
+  String djOriginalBpm(String bpm, String percent);
+
+  /// No description provided for @djShortcuts.
+  ///
+  /// In de, this message translates to:
+  /// **'Tasten: Q / P Play A / B · S Sync · T Übergang · ← / → Crossfader'**
+  String get djShortcuts;
+
   /// No description provided for @djSearch.
   ///
   /// In de, this message translates to:
