@@ -27,6 +27,7 @@ class MainActivity : AudioServiceActivity() {
             }
         }
         RingtoneChannel.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
+        ExportChannel.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     // Switching DeX on or off while the app runs only changes the configuration (see configChanges).

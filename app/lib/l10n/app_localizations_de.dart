@@ -2065,6 +2065,32 @@ class AppLocalizationsDe extends AppLocalizations {
   String get offlineRemoveTitle => 'Download entfernen?';
 
   @override
+  String get storageExport => 'Exportieren';
+
+  @override
+  String get storageExportAll => 'Alle exportieren';
+
+  @override
+  String get storageExportUnsupported => 'Exportieren braucht Android 10 oder neuer';
+
+  @override
+  String storageExportProgress(int done, int total) {
+    return '$done von $total Songs';
+  }
+
+  @override
+  String storageExported(int count, String folder) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Songs nach $folder exportiert',
+      one: '1 Song nach $folder exportiert',
+      zero: 'Schon alles exportiert',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get coverCropTitle => 'Ausschnitt wählen';
 
   @override

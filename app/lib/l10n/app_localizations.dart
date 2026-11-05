@@ -3632,6 +3632,36 @@ abstract class AppLocalizations {
   /// **'Download entfernen?'**
   String get offlineRemoveTitle;
 
+  /// No description provided for @storageExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Exportieren'**
+  String get storageExport;
+
+  /// No description provided for @storageExportAll.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle exportieren'**
+  String get storageExportAll;
+
+  /// No description provided for @storageExportUnsupported.
+  ///
+  /// In de, this message translates to:
+  /// **'Exportieren braucht Android 10 oder neuer'**
+  String get storageExportUnsupported;
+
+  /// No description provided for @storageExportProgress.
+  ///
+  /// In de, this message translates to:
+  /// **'{done} von {total} Songs'**
+  String storageExportProgress(int done, int total);
+
+  /// No description provided for @storageExported.
+  ///
+  /// In de, this message translates to:
+  /// **'{count, plural, =0{Schon alles exportiert} =1{1 Song nach {folder} exportiert} other{{count} Songs nach {folder} exportiert}}'**
+  String storageExported(int count, String folder);
+
   /// No description provided for @coverCropTitle.
   ///
   /// In de, this message translates to:
