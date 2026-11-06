@@ -8,6 +8,7 @@ a little daily randomness so the list changes from day to day; at most two per a
 import asyncio
 import math
 import random
+import re
 import time
 import uuid
 from collections import Counter, defaultdict
@@ -35,6 +36,9 @@ from app.services.views import track_options
 # artist key -> (fetched at, related artist keys, (artist key, title key) of the songs on the artist's Deezer radio)
 _related_cache: dict[str, tuple[float, set[str], set[tuple[str, str]]]] = {}
 SEED_ARTISTS = 8
+# Words that say nothing about which album series a title belongs to.
+_SERIES_NOISE = {"the", "a", "of", "from", "and", "season", "vol", "volume", "part", "soundtrack", "original", "series",
+                 "music", "deluxe", "edition", "1", "2", "3", "4", "5", "i", "ii", "iii"}
 # Plays further apart than this belong to different listening sessions.
 _SESSION_GAP = timedelta(minutes=30)
 
@@ -91,6 +95,16 @@ def _cosine(a: dict[str, float], b: dict[str, float]) -> float:
     dot = sum(value * b.get(tag, 0) for tag, value in a.items())
     norm = math.sqrt(sum(v * v for v in a.values())) * math.sqrt(sum(v * v for v in b.values()))
     return dot / norm if norm else 0.0
+
+
+def _title_words(title: str | None) -> set[str]:
+    return set(re.findall(r"\w+", (title or "").casefold())) - _SERIES_NOISE
+
+
+def _same_series(title: str, series: list[set[str]]) -> bool:
+    """Whether an album title shares most words with an album of the playlist ("Arcane: Season 1" and "Season 2")."""
+    words = _title_words(title)
+    return any(len(words & other) >= 0.6 * max(len(words), len(other)) for other in series if other)
 
 
 def _tempo_distance(bpm: float, center: float) -> float:
@@ -198,14 +212,6 @@ async def recommend(
     for track in seed_tracks:
         seeds[name_key(primary_artist(track.artist_credit))].append(track)
         genres.update(genre_keys(track.genre) or genre_keys(track.album.genre))
-    seed_artists = sorted(seeds, key=lambda key: (-len(seeds[key]), key))[:SEED_ARTISTS]
-    related: set[str] = set()
-    radio: set[tuple[str, str]] = set()
-    for artist_related, artist_radio in await asyncio.gather(*(_related(key, seeds[key]) for key in seed_artists)):
-        related |= artist_related
-        radio |= artist_radio
-    shared_genres = {key for key, count in genres.items() if count >= 2}
-
     weights = _tag_weights(library)
     profile: Counter[str] = Counter()
     for track in seed_tracks:
@@ -213,6 +219,35 @@ async def recommend(
             profile.update(_tag_vector(track.artist.lastfm_tags, weights))
     profile_vector = dict(profile)
     artist_similarity: dict[uuid.UUID, float] = {}
+
+    def similarity(track: Track) -> float:
+        """How close the song's artist's Last.fm tags are to the playlist's (0 to 1)."""
+        if track.artist is None or not track.artist.lastfm_tags or not profile_vector:
+            return 0.0
+        if track.artist.id not in artist_similarity:
+            artist_similarity[track.artist.id] = _cosine(_tag_vector(track.artist.lastfm_tags, weights), profile_vector)
+        return artist_similarity[track.artist.id]
+
+    # The artists with the most songs in the playlist, then those most typical of it (an outlier's related artists
+    # would pull the suggestions away).
+    seed_artists = sorted(seeds, key=lambda key: (-len(seeds[key]), -similarity(seeds[key][0]), key))[:SEED_ARTISTS]
+    related: set[str] = set()
+    radio: set[tuple[str, str]] = set()
+    for artist_related, artist_radio in await asyncio.gather(*(_related(key, seeds[key]) for key in seed_artists)):
+        related |= artist_related
+        radio |= artist_radio
+    shared_genres = {key for key, count in genres.items() if count >= 2}
+
+    # Albums the playlist draws from (a soundtrack, a compilation) and their series (its other seasons or volumes).
+    seed_albums = Counter(track.album_id for track in seed_tracks)
+    series = [_title_words(track.album.title) for track in seed_tracks if seed_albums[track.album_id] >= 2]
+
+    def album_tie(track: Track) -> float:
+        if seed_albums[track.album_id] >= 2:
+            return 5.0
+        if seed_albums[track.album_id] or (series and track.album and _same_series(track.album.title, series)):
+            return 2.5
+        return 0.0
 
     analysis = {
         track_id: (energy, bpm)
@@ -239,19 +274,22 @@ async def recommend(
     scored = []
     for track in available:
         artist = name_key(primary_artist(track.artist_credit))
-        style = 0.0
+        alike = similarity(track)
+        # Deezer's radio and related artists of one artist of a mixed playlist reach far (mainstream hits); they
+        # count fully only for artists whose tags fit the playlist.
+        if not profile_vector:
+            reach = 1.0
+        elif track.artist is None or not track.artist.lastfm_tags:
+            reach = 0.6  # tags not known yet
+        else:
+            reach = 0.3 + 0.7 * min(1.0, alike / 0.5)
+        style = album_tie(track) + 3 * alike
         if (artist, name_key(track.title)) in radio:
-            style += 4
+            style += 3 * reach
         if artist in related:
-            style += 3
+            style += 2.5 * reach
         elif artist in seed_artists:
             style += 1.5
-        if track.artist is not None and track.artist.lastfm_tags and profile_vector:
-            if track.artist.id not in artist_similarity:
-                artist_similarity[track.artist.id] = _cosine(
-                    _tag_vector(track.artist.lastfm_tags, weights), profile_vector
-                )
-            style += 3 * artist_similarity[track.artist.id]
         if shared_genres.intersection(genre_keys(track.genre) or genre_keys(track.album.genre)):
             style += 1
         style += 2 * min(1.0, sessions[track.id] / 3) + 2 * min(1.0, playlists[track.id])

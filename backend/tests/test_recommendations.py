@@ -89,9 +89,10 @@ async def test_weighting_exclusions_cap_limit_and_track_shape(env, monkeypatch):
     result = await request(env, [seed], exclude_ids=[str(related[0].id)], limit=4)
     assert len(result) == 4
     assert {row["id"] for row in result}.isdisjoint({str(seed.id), str(related[0].id)})
-    assert [row["artist"]["name"] for row in result] == ["Related", "Related", "Seed Artist", "Seed Artist"]
+    # The seed's album mates come first (same artist and album), then the related artist.
+    assert [row["artist"]["name"] for row in result] == ["Seed Artist", "Seed Artist", "Related", "Related"]
     assert max(Counter(row["artist"]["name"] for row in result).values()) == 2
-    track = result[0]
+    track = result[2]
     library = await env.client.get(f"/api/tracks/{track['id']}", headers=env.headers)
     assert library.status_code == 200 and track == library.json()
     assert track["liked"]
@@ -193,8 +194,8 @@ async def test_without_seeds_the_latest_likes_stand_in(env, monkeypatch):
         db.add(TrackLike(user_id=env.user_id, track_id=liked.id))
         await db.commit()
     result = await request(env, [], limit=3)
-    assert [row["id"] for row in result][:1] == [str(related.id)]
-    assert {row["id"] for row in result[1:]} == {str(liked.id), str(same_artist.id)}
+    assert {row["id"] for row in result[:2]} == {str(liked.id), str(same_artist.id)}
+    assert result[2]["id"] == str(related.id)
     excluded = await request(env, [], limit=3, exclude_ids=[str(liked.id)])
     assert str(liked.id) not in {row["id"] for row in excluded}
 
@@ -213,7 +214,7 @@ async def test_radio_songs_tags_and_sound_shape_the_choice(env, monkeypatch):
         loud_alike = await library_track(db, "Loud alike", artist_name="Loud Alike")
         ballad = await library_track(db, "Ballad", artist_name="Ballad")
         dark_tags = {"dark pop": 100, "soundtrack": 80, "pop": 60}
-        for track in [*seeds, alike, loud_alike]:
+        for track in [*seeds, on_radio, alike, loud_alike]:
             (await db.get(Artist, track.artist_id)).lastfm_tags = dark_tags
         (await db.get(Artist, ballad.artist_id)).lastfm_tags = {"soft rock": 100, "pop": 90}
         for track, energy, bpm in [
@@ -248,3 +249,23 @@ async def test_songs_played_or_kept_together_with_the_playlist_come_first(env):
         await db.commit()
     result = [row["id"] for row in await request(env, seeds, limit=3)]
     assert set(result[:2]) == {str(played.id), str(kept.id)}
+
+
+async def test_the_playlists_albums_and_their_series_come_first(env):
+    async with SessionLocal() as db:
+        season2 = Album(title="Arcane: Season 2 (Soundtrack)", title_key="arcane season 2")
+        season1 = Album(title="Arcane: Season 1 (Soundtrack)", title_key="arcane season 1")
+        for album, name in ((season2, "Season Two"), (season1, "Season One")):
+            artist = Artist(name=name, name_key=name.lower())
+            db.add(artist)
+            await db.flush()
+            album.artist_id = artist.id
+            db.add(album)
+        await db.flush()
+        seeds = [await library_track(db, f"S2 {i}", artist_name=f"Singer {i}", album=season2) for i in range(2)]
+        sibling = await library_track(db, "S2 more", artist_name="Other Singer", album=season2)
+        earlier = await library_track(db, "S1 song", artist_name="Old Singer", album=season1)
+        await library_track(db, "Unrelated", artist_name="Unrelated")
+        await db.commit()
+    result = [row["id"] for row in await request(env, seeds, limit=2)]
+    assert result == [str(sibling.id), str(earlier.id)]
