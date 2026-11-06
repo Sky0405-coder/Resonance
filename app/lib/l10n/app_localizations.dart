@@ -4211,7 +4211,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsKeyShiftHint.
   ///
   /// In de, this message translates to:
-  /// **'AutoMix verschiebt den nächsten Song um bis zu zwei Halbtöne, wenn die Tonarten nicht zusammenpassen (nur PC)'**
+  /// **'AutoMix verschiebt den nächsten Song um bis zu zwei Halbtöne, wenn die Tonarten nicht zusammenpassen'**
   String get settingsKeyShiftHint;
 
   /// No description provided for @equalizerTitle.

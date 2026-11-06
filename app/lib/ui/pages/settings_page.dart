@@ -324,7 +324,7 @@ class SettingsPage extends ConsumerWidget {
                 },
               ),
             ),
-          if (isDesktop)
+          if (isDesktop || (!kIsWeb && defaultTargetPlatform == TargetPlatform.android))
             StatefulBuilder(
               builder: (context, setState) => SwitchListTile(
                 title: Text(context.l10n.settingsKeyShift),

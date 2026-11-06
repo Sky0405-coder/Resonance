@@ -2408,8 +2408,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsKeyShift => 'Match keys';
 
   @override
-  String get settingsKeyShiftHint =>
-      'AutoMix shifts the next song by up to two semitones when the keys clash (PC only)';
+  String get settingsKeyShiftHint => 'AutoMix shifts the next song by up to two semitones when the keys clash';
 
   @override
   String get equalizerTitle => 'Equalizer';

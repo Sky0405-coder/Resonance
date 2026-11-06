@@ -752,7 +752,7 @@ class _Fade {
   FxState? lastIn;
   double? lastRoll;
 
-  /// Desktop: semitones the next song is pitched by to fit the current one's key.
+  /// Semitones the next song is pitched by to fit the current one's key (desktop and Android).
   int keyShift = 0;
 }
 
@@ -844,14 +844,14 @@ class PlaybackEngine {
   /// AutoMix cuts per player and (desktop) the source key each was sent to.
   final _bassCut = <AutomixCut?>[null, null];
   final _cutKeys = <String?>[null, null];
-  // Desktop: the source each player pitched for a key shift (see [_setKeyShift]).
+  // The source each player pitched for a key shift (see [_setKeyShift]).
   final _keyShifted = <String?>[null, null];
 
   /// Desktop: the player's libmpv cannot run the audio filters (AutoMix's sound effects, the equalizer); playback
   /// goes on without them.
   final filtersUnavailable = ValueNotifier(false);
 
-  /// Desktop: a next song in a clashing key is pitched by up to two semitones to fit (AutoMix).
+  /// A next song in a clashing key is pitched by up to two semitones to fit (AutoMix; desktop and Android).
   bool keyShift = true;
 
   /// Desktop vocal swap: the next song comes in without its voice (its instrumental start, separated by the server)
@@ -1083,8 +1083,10 @@ class PlaybackEngine {
     final outgoing = points(index);
     var incoming = points(next);
     if (outgoing == null || incoming == null || !playing) return false;
-    // Desktop: a next song in a clashing key is pitched to fit, so it can blend as long as a fitting one.
-    final shift = _desktop && keyShift ? keyShiftSemitones(outgoing.reliableKey, incoming.reliableKey) : 0;
+    // A next song in a clashing key is pitched to fit, so it can blend as long as a fitting one.
+    final shift = (_desktop || _android) && keyShift
+        ? keyShiftSemitones(outgoing.reliableKey, incoming.reliableKey)
+        : 0;
     if (shift != 0) incoming = incoming.withKey(shiftCamelot(incoming.key!, shift));
     final plan = customPlanForIndex?.call(index, next) ?? automixPlan(outgoing, incoming, minSeconds: crossfadeSeconds);
     if (plan == null) return false;
@@ -1523,21 +1525,37 @@ class PlaybackEngine {
     fade.lastIn = inc;
   }
 
-  /// Desktop: pitches the song at [index] on [player] by [semitones] (mpv's rubberband filter, kept for the rest of
-  /// the song like a DJ would), or takes an earlier shift off that player.
+  /// Pitches the song at [index] on [player] by [semitones], kept for the rest of the song like a DJ would, or takes
+  /// an earlier shift off that player. The desktop uses mpv's rubberband filter on that song, Android the player's
+  /// pitch (ExoPlayer's Sonic; it stays with the player, so it is reset once the song leaves it).
   void _setKeyShift(AudioPlayer player, int index, int semitones) {
-    if (!_desktop) return;
+    if (!_desktop && !_android) return;
     final slot = _players.indexOf(player);
     final key = sourceKeyForIndex?.call(index);
-    final shifted = _keyShifted[slot];
-    if (shifted != null) {
-      JustAudioMediaKit.sourceCommand(shifted, ['af', 'remove', '@keyshift']);
-      _keyShifted[slot] = null;
-    }
+    if (_keyShifted[slot] != null) _unshift(slot, player);
     if (semitones == 0 || key == null) return;
-    final scale = math.pow(2, semitones / 12).toStringAsFixed(5);
-    JustAudioMediaKit.sourceCommand(key, ['af', 'add', '@keyshift:rubberband=pitch-scale=$scale']);
+    final scale = math.pow(2, semitones / 12);
+    if (_desktop) {
+      JustAudioMediaKit.sourceCommand(key, [
+        'af',
+        'add',
+        '@keyshift:rubberband=pitch-scale=${scale.toStringAsFixed(5)}',
+      ]);
+    } else {
+      player.setPitch(scale.toDouble()).ignore();
+    }
     _keyShifted[slot] = key;
+  }
+
+  void _unshift(int slot, AudioPlayer player) {
+    final shifted = _keyShifted[slot];
+    _keyShifted[slot] = null;
+    if (shifted == null) return;
+    if (_desktop) {
+      JustAudioMediaKit.sourceCommand(shifted, ['af', 'remove', '@keyshift']);
+    } else {
+      player.setPitch(1).ignore();
+    }
   }
 
   /// Desktop vocal swap: mixes the next song's instrumental start (an extra audio track) in place of the song until
@@ -1588,8 +1606,7 @@ class PlaybackEngine {
       if (shifted == null) continue;
       final index = player.currentIndex;
       if (index == null || sourceKeyForIndex?.call(index) != shifted || player == _inactive && _fade == null) {
-        JustAudioMediaKit.sourceCommand(shifted, ['af', 'remove', '@keyshift']);
-        _keyShifted[slot] = null;
+        _unshift(slot, player);
       }
     }
   }
