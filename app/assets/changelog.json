@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.7.6",
+    "date": "2026-11-06",
+    "de": [
+      "Übergangs-Editor: Lautstärke, Bass und Filter beider Songs lassen sich jetzt wie bei einem EQ von Hand als Kurve zeichnen – Klicken setzt einen Punkt (auf Sechzehntel eingerastet), Ziehen verschiebt ihn, Rechtsklick oder langes Drücken entfernt ihn. Die Kurven spielen in AutoMix und werden mit dem Übergang gespeichert.",
+      "Mix als MP3 klingt jetzt wie in der App: Übergänge aus dem Editor werden mit allen Spuren, gezeichneten Kurven und Effekten (EQ, Filter, Echo, Hall, Flanger, Phaser, Gater, Beat-Roll, Bremse, Loops, Rauschen) gemischt.",
+      "Das DJ-Pult ist entfernt – AutoMix mit dem Übergangs-Editor deckt das Mischen ab."
+    ],
+    "en": [
+      "Transition editor: draw the volume, bass and filter of both songs by hand as curves, like an EQ – click adds a point (snapped to sixteenth notes), drag moves it, right click or long press removes it. The curves play in AutoMix and are saved with the transition.",
+      "Mix as MP3 now sounds as in the app: transitions from the editor are mixed with every lane, drawn curve and effect (EQ, filters, echo, reverb, flanger, phaser, gate, beat roll, brake, loops, noise).",
+      "The DJ deck is gone – AutoMix with the transition editor covers mixing."
+    ]
+  },
+  {
     "version": "1.7.5",
     "date": "2026-11-05",
     "de": [
