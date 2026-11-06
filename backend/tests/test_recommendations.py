@@ -1,12 +1,21 @@
 import random
 import uuid
 from collections import Counter
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
 
 from app.db import Base, SessionLocal, engine
-from app.models import Album, TrackLike
+from app.models import (
+    Album,
+    Artist,
+    PlayEvent,
+    Playlist,
+    PlaylistEntry,
+    TrackLike,
+    TrackMixPoints,
+)
 from app.services import recommendations
 from app.services.deezer import DeezerError, deezer
 from tests.conftest import auth, register
@@ -44,7 +53,13 @@ async def env(client, monkeypatch, tmp_path):
 
     monkeypatch.setattr(deezer, "track_by_isrc", by_isrc)
     monkeypatch.setattr(deezer, "search_artists", artists)
+    async def radio(artist_id):
+        state.calls.append(("radio", artist_id))
+        return state.radio
+
+    state.radio = []
     monkeypatch.setattr(deezer, "artist_related", related)
+    monkeypatch.setattr(deezer, "artist_radio", radio)
     yield state
     recommendations._related_cache.clear()
     await reset()
@@ -124,23 +139,23 @@ async def test_daily_order_and_cache_are_stable_and_cache_expires(env, monkeypat
     assert await request(env, [seed, seed]) == first
     assert env.calls == calls
     assert ("search", "Seed Artist", 5) in calls
-    cached_at, keys = recommendations._related_cache["seed artist"]
-    recommendations._related_cache["seed artist"] = (cached_at - 24 * 3600, keys)
+    cached_at, keys, songs = recommendations._related_cache["seed artist"]
+    recommendations._related_cache["seed artist"] = (cached_at - 24 * 3600, keys, songs)
     await request(env, [seed])
     assert env.calls == calls * 2
 
 
-async def test_top_five_seed_artists_are_weighted_by_occurrence(env):
+async def test_top_eight_seed_artists_are_weighted_by_occurrence(env):
     async with SessionLocal() as db:
-        seeds = [await library_track(db, f"Seed {i}", artist_name=f"Artist {i}") for i in range(6)]
-        seeds.append(await library_track(db, "Another", artist_name="Artist 5"))
+        seeds = [await library_track(db, f"Seed {i}", artist_name=f"Artist {i}") for i in range(10)]
+        seeds.append(await library_track(db, "Another", artist_name="Artist 9"))
         await db.commit()
     await request(env, seeds)
     searches = [call[1] for call in env.calls if call[0] == "search"]
-    assert searches == ["Artist 5", "Artist 0", "Artist 1", "Artist 2", "Artist 3"]
+    assert searches == ["Artist 9", *(f"Artist {i}" for i in range(7))]
 
 
-@pytest.mark.parametrize("method", ["track_by_isrc", "search_artists", "artist_related"])
+@pytest.mark.parametrize("method", ["track_by_isrc", "search_artists", "artist_related", "artist_radio"])
 async def test_deezer_errors_still_fill_from_library(env, monkeypatch, method):
     async def fail(*args):
         raise DeezerError("offline")
@@ -182,3 +197,54 @@ async def test_without_seeds_the_latest_likes_stand_in(env, monkeypatch):
     assert {row["id"] for row in result[1:]} == {str(liked.id), str(same_artist.id)}
     excluded = await request(env, [], limit=3, exclude_ids=[str(liked.id)])
     assert str(liked.id) not in {row["id"] for row in excluded}
+
+
+async def test_radio_songs_tags_and_sound_shape_the_choice(env, monkeypatch):
+    class FixedRandom(random.Random):
+        def random(self):
+            return 0.5
+
+    monkeypatch.setattr(recommendations.random, "Random", FixedRandom)
+    env.radio = [{"title": "On The Radio", "artist": {"name": "Radio Artist"}}]
+    async with SessionLocal() as db:
+        seeds = [await library_track(db, f"Dark {i}", artist_name=f"Dark {i}") for i in range(3)]
+        on_radio = await library_track(db, "On the Radio", artist_name="Radio Artist")
+        alike = await library_track(db, "Alike", artist_name="Alike")
+        loud_alike = await library_track(db, "Loud alike", artist_name="Loud Alike")
+        ballad = await library_track(db, "Ballad", artist_name="Ballad")
+        dark_tags = {"dark pop": 100, "soundtrack": 80, "pop": 60}
+        for track in [*seeds, alike, loud_alike]:
+            (await db.get(Artist, track.artist_id)).lastfm_tags = dark_tags
+        (await db.get(Artist, ballad.artist_id)).lastfm_tags = {"soft rock": 100, "pop": 90}
+        for track, energy, bpm in [
+            *((seed, 0.7, 140) for seed in seeds),
+            (alike, 0.72, 70),  # half time counts as the same tempo
+            (loud_alike, 0.2, 100),
+            (ballad, 0.3, 80),
+        ]:
+            db.add(TrackMixPoints(track_id=track.id, version=6, mtime=0, energy=energy, bpm=bpm))
+        await db.commit()
+    result = [row["id"] for row in await request(env, seeds, limit=4)]
+    assert result[:3] == [str(on_radio.id), str(alike.id), str(loud_alike.id)]
+    assert result[3] == str(ballad.id)  # no tie to the playlist: only as filler
+
+
+async def test_songs_played_or_kept_together_with_the_playlist_come_first(env):
+    async with SessionLocal() as db:
+        seeds = [await library_track(db, f"Seed {i}", artist_name=f"Seed {i}") for i in range(4)]
+        played = await library_track(db, "Played", artist_name="Played")
+        kept = await library_track(db, "Kept", artist_name="Kept")
+        await library_track(db, "Stranger", artist_name="Stranger")
+        now = datetime.now(UTC)
+        for day in range(3):
+            at = now - timedelta(days=day)
+            db.add(PlayEvent(user_id=env.user_id, track_id=seeds[0].id, played_at=at))
+            db.add(PlayEvent(user_id=env.user_id, track_id=played.id, played_at=at + timedelta(minutes=4)))
+        other = Playlist(owner_id=env.user_id, name="Other")
+        db.add(other)
+        await db.flush()
+        for position, track in enumerate([seeds[1], seeds[2], kept]):
+            db.add(PlaylistEntry(playlist_id=other.id, track_id=track.id, position=position))
+        await db.commit()
+    result = [row["id"] for row in await request(env, seeds, limit=3)]
+    assert set(result[:2]) == {str(played.id), str(kept.id)}
