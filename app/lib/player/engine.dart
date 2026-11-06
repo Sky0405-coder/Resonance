@@ -1221,17 +1221,24 @@ class PlaybackEngine {
   }
 
   /// After a beat-matched transition the new song drifts back to its own tempo.
-  /// Moves [player] from [from] to [to] over [duration] in steps of about 1 %: each speed change makes Android's
-  /// audio output start over, which can click, so a small difference takes few steps (a 3 % one three).
+  /// Moves [player] from [from] to [to] over [duration]. On Android in steps of about 1 %: each speed change makes
+  /// its audio output start over, which can click, so a small difference takes few steps (a 3 % one three). mpv
+  /// changes speed seamlessly, so the desktop glides (ten small changes a second, eased at both ends); steps of 1 %
+  /// there were heard as the song speeding up and slowing down.
   void _rampSpeed(AudioPlayer player, double from, double to, Duration duration) {
     _speedRamp?.cancel();
-    final steps = ((to - from).abs() / 0.01).ceil().clamp(1, 8);
+    final steps = _desktop
+        ? math.max(1, duration.inMilliseconds ~/ 100)
+        : ((to - from).abs() / 0.01).ceil().clamp(1, 8);
     final interval = duration ~/ steps;
+    const minInterval = Duration(seconds: 1);
     var step = 0;
-    _speedRamp = Timer.periodic(interval < const Duration(seconds: 1) ? const Duration(seconds: 1) : interval, (timer) {
+    _speedRamp = Timer.periodic(!_desktop && interval < minInterval ? minInterval : interval, (timer) {
       step++;
       final done = step >= steps || _disposed;
-      player.setSpeed(done ? to : from + (to - from) * step / steps).ignore();
+      final t = step / steps;
+      final eased = _desktop ? t * t * (3 - 2 * t) : t;
+      player.setSpeed(done ? to : from + (to - from) * eased).ignore();
       if (done) timer.cancel();
     });
   }
