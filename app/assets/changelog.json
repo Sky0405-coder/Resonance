@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.7.7",
+    "date": "2026-11-06",
+    "de": [
+      "AutoMix am PC: Nach einem Übergang mit Tempo-Angleichung gleitet der neue Song jetzt fließend zurück zu seinem eigenen Tempo, statt hörbar in Stufen schneller und langsamer zu werden.",
+      "Tonart angleichen jetzt auch auf Android: Passen die Tonarten nicht zusammen, verschiebt AutoMix den nächsten Song um bis zu zwei Halbtöne."
+    ],
+    "en": [
+      "AutoMix on PC: after a tempo-matched transition the new song now glides back to its own tempo instead of audibly speeding up and slowing down in steps.",
+      "Match keys on Android too: when the keys clash, AutoMix shifts the next song by up to two semitones."
+    ]
+  },
+  {
     "version": "1.7.6",
     "date": "2026-11-06",
     "de": [
