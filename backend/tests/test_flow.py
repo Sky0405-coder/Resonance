@@ -284,6 +284,30 @@ async def test_last_admin_cannot_be_demoted(client):
     assert r.status_code == 400
 
 
+async def test_admin_password_reset_signs_out_others_but_not_the_admin_themself(client):
+    users = (await client.get("/api/admin/users", headers=auth(state["admin"]))).json()
+    admin_id = next(u["id"] for u in users if u["username"] == "admin")
+    r = await client.patch(
+        f"/api/admin/users/{admin_id}", json={"new_password": "admin-password-2"}, headers=auth(state["admin"])
+    )
+    assert r.status_code == 200
+    assert (await client.get("/api/me", headers=auth(state["admin"]))).status_code == 200
+    login = await client.post("/api/auth/login", json={"username": "admin", "password": "admin-password-2"})
+    assert login.status_code == 200
+
+    other = (await client.post("/api/auth/login", json={"username": "LISA", "password": "password123"})).json()
+    lisa_id = next(u["id"] for u in users if u["username"].lower() == "lisa")
+    r = await client.patch(
+        f"/api/admin/users/{lisa_id}", json={"new_password": "password1234"}, headers=auth(state["admin"])
+    )
+    assert r.status_code == 200
+    assert (await client.get("/api/me", headers=auth(other["token"]))).status_code == 401
+    r = await client.patch(
+        f"/api/admin/users/{lisa_id}", json={"new_password": "password123"}, headers=auth(state["admin"])
+    )
+    assert r.status_code == 200
+
+
 async def test_logout_revokes_token(client):
     login = (await client.post("/api/auth/login", json={"username": "LISA", "password": "password123"})).json()
     assert (await client.post("/api/auth/logout", headers=auth(login["token"]))).status_code == 204

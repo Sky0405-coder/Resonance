@@ -167,7 +167,9 @@ async def update_user(user_id: uuid.UUID, body: UserAdminPatch, admin: AdminUser
             await db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
     if body.new_password is not None:
         user.password_hash = hash_password(body.new_password)
-        await db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
+        # Someone else's account is signed out everywhere; an admin setting their own keeps their devices.
+        if user.id != admin.id:
+            await db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
     await db.commit()
     await db.refresh(user)
     return UserOut.model_validate(user)
