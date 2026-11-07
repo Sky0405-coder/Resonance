@@ -2,6 +2,7 @@ import '../../l10n/l10n.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -128,6 +129,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
     try {
       final (token, user) = await ref.read(apiProvider).login(_user.text.trim(), _pass.text, deviceName);
+      // Lets password managers (and the browser) offer to save the login.
+      TextInput.finishAutofillContext();
       await ref.read(sessionProvider.notifier).signedIn(token, user);
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -158,22 +161,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         return _AuthFrame(
           title: context.l10n.authSignInTo((s.serverName).toString()),
           children: [
-            TextField(
-              controller: _user,
-              autofocus: true,
-              autofillHints: const [AutofillHints.username],
-              decoration: InputDecoration(labelText: context.l10n.authUsername),
-              textInputAction: TextInputAction.next,
-              onEditingComplete: () {},
-              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _pass,
-              obscureText: true,
-              autofillHints: const [AutofillHints.password],
-              decoration: InputDecoration(labelText: context.l10n.authPassword),
-              onSubmitted: (_) => _login(),
+            // One autofill group (a form on the web), so password managers like Bitwarden find both fields.
+            AutofillGroup(
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _user,
+                    autofocus: true,
+                    autofillHints: const [AutofillHints.username],
+                    decoration: InputDecoration(labelText: context.l10n.authUsername),
+                    textInputAction: TextInputAction.next,
+                    onEditingComplete: () {},
+                    onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _pass,
+                    obscureText: true,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: InputDecoration(labelText: context.l10n.authPassword),
+                    onSubmitted: (_) => _login(),
+                  ),
+                ],
+              ),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
