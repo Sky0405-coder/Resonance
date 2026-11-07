@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -6,8 +7,21 @@ from sqlalchemy import delete, func, select
 from app.config import get_settings
 from app.deps import DB, CurrentUser
 from app.models import AuthSession, Invite, Role, User
-from app.schemas import AuthStatus, LoginIn, RegisterIn, TokenOut, UserOut
-from app.security import hash_password, hash_token, new_token, verify_password
+from app.schemas import (
+    AuthStatus,
+    LoginIn,
+    PasswordResetIn,
+    RegisterIn,
+    TokenOut,
+    UserOut,
+)
+from app.security import (
+    hash_password,
+    hash_token,
+    new_token,
+    reset_code_valid,
+    verify_password,
+)
 from app.services.server_config import load_config
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -99,6 +113,29 @@ async def login(body: LoginIn, db: DB) -> TokenOut:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Benutzername oder Passwort falsch")
     if user.is_disabled:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Konto ist deaktiviert")
+    return await _issue_session(db, user, body.device_name)
+
+
+# Failed reset attempts per user name (lower case): their times; a few per quarter hour, so codes cannot be guessed.
+_reset_failures: dict[str, list[float]] = {}
+_RESET_ATTEMPTS = 5
+
+
+@router.post("/reset-password", response_model=TokenOut)
+async def reset_password(body: PasswordResetIn, db: DB) -> TokenOut:
+    """A new password with a code from a device that is signed in (Settings); signs this device in. The account's
+    other devices stay signed in."""
+    key = body.username.lower()
+    now = time.monotonic()
+    recent = [t for t in _reset_failures.get(key, []) if now - t < 900]
+    if len(recent) >= _RESET_ATTEMPTS:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Zu viele Versuche, bitte in 15 Minuten erneut")
+    user = await db.scalar(select(User).where(func.lower(User.username) == key))
+    if user is None or user.is_disabled or not reset_code_valid(user.password_hash, body.code):
+        _reset_failures[key] = [*recent, now]
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Code ungültig oder abgelaufen")
+    _reset_failures.pop(key, None)
+    user.password_hash = hash_password(body.new_password)
     return await _issue_session(db, user, body.device_name)
 
 

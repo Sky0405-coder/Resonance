@@ -139,6 +139,84 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  /// A new password with a code from a device that is still signed in (its settings show one).
+  Future<void> _forgotPassword() async {
+    final user = TextEditingController(text: _user.text.trim());
+    final code = TextEditingController();
+    final password = TextEditingController();
+    String? error;
+    var busy = false;
+    await showDialog<void>(
+      context: context,
+      builder: (d) => StatefulBuilder(
+        builder: (d, setDialog) {
+          Future<void> submit() async {
+            setDialog(() {
+              busy = true;
+              error = null;
+            });
+            try {
+              final (token, account) = await ref
+                  .read(apiProvider)
+                  .resetPassword(user.text.trim(), code.text, password.text, deviceName);
+              TextInput.finishAutofillContext();
+              if (d.mounted) Navigator.pop(d);
+              await ref.read(sessionProvider.notifier).signedIn(token, account);
+            } on ApiException catch (e) {
+              setDialog(() => error = e.message);
+            } finally {
+              if (d.mounted) setDialog(() => busy = false);
+            }
+          }
+
+          return AlertDialog(
+            title: Text(context.l10n.authResetTitle),
+            content: SingleChildScrollView(
+              child: AutofillGroup(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(context.l10n.authResetHint),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: user,
+                      autofillHints: const [AutofillHints.username],
+                      decoration: InputDecoration(labelText: context.l10n.authUsername),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: code,
+                      autofocus: true,
+                      textCapitalization: TextCapitalization.characters,
+                      autocorrect: false,
+                      decoration: InputDecoration(labelText: context.l10n.authResetCode, hintText: 'ABCD-EFGH'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: password,
+                      obscureText: true,
+                      autofillHints: const [AutofillHints.newPassword],
+                      decoration: InputDecoration(labelText: context.l10n.settingsNewPassword),
+                      onSubmitted: (_) => busy ? null : submit(),
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonCancel)),
+              FilledButton(onPressed: busy ? null : submit, child: Text(context.l10n.authResetSubmit)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(authStatusProvider);
@@ -191,6 +269,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ],
             const SizedBox(height: 24),
             FilledButton(onPressed: _busy ? null : _login, child: Text(context.l10n.authSignIn)),
+            TextButton(onPressed: _busy ? null : _forgotPassword, child: Text(context.l10n.authForgotPassword)),
             if (s.registrationMode == 'public')
               TextButton(onPressed: () => context.go('/register'), child: Text(context.l10n.authCreateAccount)),
             if (!kIsWeb)

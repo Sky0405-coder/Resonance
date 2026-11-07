@@ -674,6 +674,54 @@ abstract class AppLocalizations {
   /// **'Passwort ändern'**
   String get settingsChangePassword;
 
+  /// No description provided for @settingsResetCode.
+  ///
+  /// In de, this message translates to:
+  /// **'Code für neues Passwort'**
+  String get settingsResetCode;
+
+  /// No description provided for @settingsResetCodeHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Für ein anderes Gerät, wenn du dein Passwort vergessen hast'**
+  String get settingsResetCodeHint;
+
+  /// No description provided for @settingsResetCodeBody.
+  ///
+  /// In de, this message translates to:
+  /// **'Gib diesen Code dort bei „Passwort vergessen?“ ein. Er gilt {minutes} Minuten und nur, bis das Passwort geändert ist.'**
+  String settingsResetCodeBody(int minutes);
+
+  /// No description provided for @authForgotPassword.
+  ///
+  /// In de, this message translates to:
+  /// **'Passwort vergessen?'**
+  String get authForgotPassword;
+
+  /// No description provided for @authResetTitle.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Passwort setzen'**
+  String get authResetTitle;
+
+  /// No description provided for @authResetHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Öffne Resonance auf einem Gerät, auf dem du noch angemeldet bist: Einstellungen → „Code für neues Passwort“. Ohne angemeldetes Gerät kann ein Admin dir ein neues Passwort setzen.'**
+  String get authResetHint;
+
+  /// No description provided for @authResetCode.
+  ///
+  /// In de, this message translates to:
+  /// **'Code'**
+  String get authResetCode;
+
+  /// No description provided for @authResetSubmit.
+  ///
+  /// In de, this message translates to:
+  /// **'Passwort setzen'**
+  String get authResetSubmit;
+
   /// No description provided for @settingsAppearance.
   ///
   /// In de, this message translates to:

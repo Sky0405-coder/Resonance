@@ -1,5 +1,6 @@
 import asyncio
 import secrets
+import time
 import uuid
 from datetime import date
 
@@ -23,13 +24,14 @@ from app.schemas import (
     PlayEventIn,
     PlaylistOut,
     ProfilePatch,
+    ResetCodeOut,
     SessionOut,
     TrackOut,
     UserOut,
     WrappedOut,
     WrappedPlaylistIn,
 )
-from app.security import hash_password, verify_password
+from app.security import RESET_WINDOW, hash_password, reset_code, verify_password
 from app.services import covers, mix_covers, wrapped
 from app.services.views import playlists_out, track_options, tracks_out
 
@@ -52,6 +54,14 @@ async def generate_subsonic_password(user: CurrentUser, db: DB) -> dict[str, str
 async def remove_subsonic_password(user: CurrentUser, db: DB) -> None:
     user.subsonic_password = None
     await db.commit()
+
+
+@router.post("/reset-code", response_model=ResetCodeOut)
+async def password_reset_code(user: CurrentUser) -> ResetCodeOut:
+    """A code to set a new password on another device without the old one ("Forgot password" on its login)."""
+    window_left = RESET_WINDOW - int(time.time()) % RESET_WINDOW
+    # The previous window's code counts too, so it lasts at least ten minutes.
+    return ResetCodeOut(code=reset_code(user.password_hash), expires_in=window_left + RESET_WINDOW)
 
 
 @router.patch("", response_model=UserOut)

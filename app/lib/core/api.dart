@@ -262,6 +262,23 @@ class ApiClient {
 
   Future<User> updateMe(Map<String, dynamic> patch) async => User.fromJson(await _patch('/api/me', patch));
 
+  /// A code for setting a new password on another device without the old one (valid at least ten minutes).
+  Future<({String code, int expiresIn})> passwordResetCode() async {
+    final j = await _post('/api/me/reset-code', {});
+    return (code: j['code'] as String, expiresIn: j['expires_in'] as int);
+  }
+
+  /// Sets a new password with a code from a signed-in device and signs this device in.
+  Future<(String, User)> resetPassword(String username, String code, String password, String device) async {
+    final j = await _post('/api/auth/reset-password', {
+      'username': username,
+      'code': code,
+      'new_password': password,
+      'device_name': device,
+    });
+    return (j['token'] as String, User.fromJson(j['user']));
+  }
+
   Future<List<Map<String, dynamic>>> sessions() async => [
     for (final s in await _get('/api/me/sessions')) Map<String, dynamic>.from(s),
   ];

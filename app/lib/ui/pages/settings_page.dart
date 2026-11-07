@@ -131,6 +131,12 @@ class SettingsPage extends ConsumerWidget {
             onTap: () => _changePassword(context, ref),
           ),
           ListTile(
+            leading: const Icon(Icons.key_outlined),
+            title: Text(context.l10n.settingsResetCode),
+            subtitle: Text(context.l10n.settingsResetCodeHint),
+            onTap: () => _showResetCode(context, ref),
+          ),
+          ListTile(
             leading: const Icon(Icons.apps),
             title: Text(context.l10n.settingsSubsonicTitle),
             subtitle: Text(context.l10n.settingsSubsonicSubtitle),
@@ -461,6 +467,38 @@ class SettingsPage extends ConsumerWidget {
     final d = DateTime.tryParse('$iso')?.toLocal();
     if (d == null) return '-';
     return '${MaterialLocalizations.of(context).formatShortDate(d)} ${TimeOfDay.fromDateTime(d).format(context)}';
+  }
+
+  Future<void> _showResetCode(BuildContext context, WidgetRef ref) async {
+    try {
+      final result = await ref.read(apiProvider).passwordResetCode();
+      if (!context.mounted) return;
+      final code = '${result.code.substring(0, 4)}-${result.code.substring(4)}';
+      await showDialog<void>(
+        context: context,
+        builder: (d) => AlertDialog(
+          title: Text(context.l10n.settingsResetCode),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(code, style: const TextStyle(fontFamily: 'monospace', fontSize: 28, letterSpacing: 2)),
+              const SizedBox(height: 12),
+              Text(context.l10n.settingsResetCodeBody(result.expiresIn ~/ 60)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Clipboard.setData(ClipboardData(text: result.code)),
+              child: Text(context.l10n.commonCopy),
+            ),
+            FilledButton(onPressed: () => Navigator.pop(d), child: Text(context.l10n.commonOk)),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) showError(context, e);
+    }
   }
 
   Future<void> _changePassword(BuildContext context, WidgetRef ref) async {

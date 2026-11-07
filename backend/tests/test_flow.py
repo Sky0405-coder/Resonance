@@ -312,3 +312,46 @@ async def test_logout_revokes_token(client):
     login = (await client.post("/api/auth/login", json={"username": "LISA", "password": "password123"})).json()
     assert (await client.post("/api/auth/logout", headers=auth(login["token"]))).status_code == 204
     assert (await client.get("/api/me", headers=auth(login["token"]))).status_code == 401
+
+
+async def test_forgotten_password_is_reset_with_a_code_from_a_signed_in_device(client, monkeypatch):
+    from app.api import auth as auth_api
+    from app.security import RESET_WINDOW
+
+    auth_api._reset_failures.clear()
+    other_device = (await client.post("/api/auth/login", json={"username": "lisa", "password": "password123"})).json()
+    r = await client.post("/api/me/reset-code", headers=auth(other_device["token"]))
+    assert r.status_code == 200
+    code, expires_in = r.json()["code"], r.json()["expires_in"]
+    assert len(code) == 8 and RESET_WINDOW < expires_in <= 2 * RESET_WINDOW
+
+    reset = {"username": "LISA", "code": code.lower(), "new_password": "a-new-password", "device_name": "Laptop"}
+    r = await client.post("/api/auth/reset-password", json=reset)
+    assert r.status_code == 200 and r.json()["user"]["username"].lower() == "lisa"
+    # The device that showed the code stays signed in; the old password and the used code no longer work.
+    assert (await client.get("/api/me", headers=auth(other_device["token"]))).status_code == 200
+    assert (await client.post("/api/auth/login", json={"username": "lisa", "password": "password123"})).status_code == 401
+    assert (await client.post("/api/auth/reset-password", json=reset)).status_code == 400
+
+    # A code from the previous ten minutes still counts, an older one does not.
+    import time as clock
+
+    now = clock.time()
+    monkeypatch.setattr(clock, "time", lambda: now + RESET_WINDOW)
+    old = (await client.post("/api/me/reset-code", headers=auth(other_device["token"]))).json()["code"]
+    monkeypatch.setattr(clock, "time", lambda: now + 2 * RESET_WINDOW)
+    back = {"username": "lisa", "code": old, "new_password": "password123"}
+    assert (await client.post("/api/auth/reset-password", json=back)).status_code == 200
+    monkeypatch.setattr(clock, "time", lambda: now + 4 * RESET_WINDOW)
+    stale = (await client.post("/api/me/reset-code", headers=auth(other_device["token"]))).json()["code"]
+    monkeypatch.setattr(clock, "time", lambda: now + 6 * RESET_WINDOW)
+    assert (await client.post("/api/auth/reset-password", json={**back, "code": stale})).status_code == 400
+
+    # Guessing is cut off after a few tries.
+    monkeypatch.undo()
+    auth_api._reset_failures.clear()
+    for _ in range(5):
+        assert (await client.post("/api/auth/reset-password", json={**back, "code": "AAAAAAAA"})).status_code == 400
+    r = await client.post("/api/auth/reset-password", json={**back, "code": code})
+    assert r.status_code == 429
+    auth_api._reset_failures.clear()

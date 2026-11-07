@@ -58,6 +58,18 @@ class LoginIn(BaseModel):
     device_name: str | None = Field(None, max_length=128)
 
 
+class PasswordResetIn(BaseModel):
+    username: str = Field(max_length=64)
+    code: str = Field(max_length=32)
+    new_password: str = Field(min_length=8, max_length=256)
+    device_name: str | None = Field(None, max_length=128)
+
+
+class ResetCodeOut(BaseModel):
+    code: str
+    expires_in: int
+
+
 class TokenOut(BaseModel):
     token: str
     user: UserOut

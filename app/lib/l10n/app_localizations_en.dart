@@ -325,6 +325,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsChangePassword => 'Change password';
 
   @override
+  String get settingsResetCode => 'Code for a new password';
+
+  @override
+  String get settingsResetCodeHint => 'For another device, if you forgot your password';
+
+  @override
+  String settingsResetCodeBody(int minutes) {
+    return 'Enter this code there under “Forgot password?”. It works for $minutes minutes and only until the password is changed.';
+  }
+
+  @override
+  String get authForgotPassword => 'Forgot password?';
+
+  @override
+  String get authResetTitle => 'Set a new password';
+
+  @override
+  String get authResetHint =>
+      'Open Resonance on a device where you are still signed in: Settings → “Code for a new password”. Without a signed-in device, an admin can set a new password for you.';
+
+  @override
+  String get authResetCode => 'Code';
+
+  @override
+  String get authResetSubmit => 'Set password';
+
+  @override
   String get settingsAppearance => 'Appearance';
 
   @override
