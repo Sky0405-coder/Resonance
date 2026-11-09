@@ -57,6 +57,8 @@ _EXACT: dict[str, str] = {
     "File missing on disk": "File missing on disk",
     "Nicht gefunden": "Not found",
     "Einladungslink ist ungültig oder abgelaufen": "Invitation link is invalid or has expired",
+    "Zu viele Versuche, bitte in 15 Minuten erneut": "Too many attempts, please try again in 15 minutes",
+    "Code ungültig oder abgelaufen": "Code is invalid or has expired",
     "Registrierung nur mit Einladungslink möglich": "An invitation link is required to register",
     "Benutzername ist bereits vergeben": "Username is already taken",
     "Benutzername oder Passwort falsch": "Incorrect username or password",
