@@ -789,13 +789,13 @@ class PlayerController extends Notifier<PlayerView> {
       if (smart) _loadSmart().ignore();
       return;
     }
+    // The button answers right away: rebuilding a long queue in both players takes a moment.
+    final wasSmart = state.smartShuffle;
+    state = _copy(shuffle: enabled, smartShuffle: smart);
     final keys = enabled && state.index != null ? await _harmonicKeys(state.queue, context: state.context) : null;
     await engine.finishFade();
     final current = state.current;
-    if (current == null) {
-      state = _copy(shuffle: enabled, smartShuffle: smart);
-      return;
-    }
+    if (current == null) return;
     // The user's queue stays right after the current song (like Spotify).
     final queued = _upcomingQueued();
     final queuedSet = Set<Track>.identity()..addAll(queued);
@@ -834,6 +834,9 @@ class PlayerController extends Notifier<PlayerView> {
         queuedCount: queued.length,
       );
       if (!enabled) _unshuffled = [...queue];
+    } catch (_) {
+      state = _copy(shuffle: !enabled, smartShuffle: wasSmart);
+      rethrow;
     } finally {
       _switching = false;
     }
