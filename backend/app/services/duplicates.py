@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 import uuid
 from collections import Counter, defaultdict
 from dataclasses import dataclass
@@ -238,7 +239,14 @@ async def find_groups(db: AsyncSession) -> list[DuplicateGroup]:
 async def _pick_tracks(db: AsyncSession, limit: int = 200) -> list[uuid.UUID]:
     _, cross = await _candidate_groups(db)
     tracks = {track.id: track for group in cross for track in group}
-    current = await _current_fingerprints(db, list(tracks))
+    # Only the ids: the fingerprints themselves are megabytes that this check reads every minute.
+    current = set(
+        await db.scalars(
+            select(TrackFingerprint.track_id)
+            .join(Track, Track.id == TrackFingerprint.track_id)
+            .where(Track.id.in_(list(tracks)), TrackFingerprint.mtime == Track.mtime)
+        )
+    )
     missing = [track for track in tracks.values() if track.id not in current]
     missing.sort(key=lambda track: (track.created_at, track.id))
     return [track.id for track in missing[:limit]]
@@ -267,7 +275,8 @@ async def _fingerprint_track(id: uuid.UUID) -> None:
         await db.commit()
 
 
-async def run_once() -> None:
+async def run_once() -> int:
+    """Fingerprints the next tracks that may be duplicates; returns how many it picked."""
     async with SessionLocal() as db:
         ids = await _pick_tracks(db)
     for index, id in enumerate(ids):
@@ -277,16 +286,32 @@ async def run_once() -> None:
             await _fingerprint_track(id)
         except Exception:
             log.exception("Background fingerprint failed for %s", id)
+    return len(ids)
 
 
 _loop_task: asyncio.Task | None = None
+_IDLE_RECHECK = 3600
+_idle_state: tuple | None = None
+_idle_until = 0.0
+
+
+async def _run_if_changed() -> None:
+    """Looking for candidates compares the whole library, so it waits for the library to change (or an hour)."""
+    global _idle_state, _idle_until
+    async with SessionLocal() as db:
+        query = select(func.count(Track.id), func.max(Track.created_at), func.sum(Track.mtime))
+        state = tuple((await db.execute(query)).one())
+    if state == _idle_state and time.monotonic() < _idle_until:
+        return
+    picked = await run_once()
+    _idle_state, _idle_until = (state, time.monotonic() + _IDLE_RECHECK) if not picked else (None, 0.0)
 
 
 async def _loop() -> None:
     while True:
         await asyncio.sleep(60)
         try:
-            await run_once()
+            await _run_if_changed()
         except Exception:
             log.exception("Duplicate fingerprint loop failed")
 

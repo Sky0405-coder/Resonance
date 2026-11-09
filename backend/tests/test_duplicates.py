@@ -861,3 +861,28 @@ async def test_new_import_without_copy_is_kept(env: SimpleNamespace) -> None:
         kept = await merge_new_duplicates(db, await db.get(Track, tracks[1].id))
         assert kept.id == tracks[1].id
         assert len(list(await db.scalars(select(Track)))) == 2
+
+
+async def test_idle_check_waits_for_a_library_change(env, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(duplicates, "_idle_state", None)
+    monkeypatch.setattr(duplicates, "_idle_until", 0.0)
+    picked = [0]
+    calls = 0
+
+    async def run_once() -> int:
+        nonlocal calls
+        calls += 1
+        return picked[0]
+
+    monkeypatch.setattr(duplicates, "run_once", run_once)
+    await duplicates._run_if_changed()
+    await duplicates._run_if_changed()
+    assert calls == 1
+    duplicates._idle_until = 0.0
+    await duplicates._run_if_changed()
+    assert calls == 2
+    picked[0] = 3
+    duplicates._idle_state = None
+    await duplicates._run_if_changed()
+    await duplicates._run_if_changed()
+    assert calls == 4

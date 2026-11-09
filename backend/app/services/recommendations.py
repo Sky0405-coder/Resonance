@@ -31,7 +31,7 @@ from app.services.deezer import DeezerError, deezer
 from app.services.matching import name_key
 from app.services.mixes import genre_keys
 from app.services.tags import primary_artist
-from app.services.views import track_options
+from app.services.views import load_tracks, track_options
 
 # artist key -> (fetched at, related artist keys, (artist key, title key) of the songs on the artist's Deezer radio)
 _related_cache: dict[str, tuple[float, set[str], set[tuple[str, str]]]] = {}
@@ -193,7 +193,7 @@ async def _playlists_with(db: AsyncSession, user: User, seed_ids: set[uuid.UUID]
 async def recommend(
     db: AsyncSession, user: User, track_ids: list[uuid.UUID], limit: int, exclude_ids: list[uuid.UUID]
 ) -> list[Track]:
-    library = list(await db.scalars(select(Track).options(*track_options()).order_by(Track.id)))
+    library = await load_tracks(db, select(Track).options(*track_options()).order_by(Track.id))
     # Without seeds (a new, empty playlist), the user's latest likes stand in; those may be suggested too.
     from_likes = not track_ids
     if from_likes:
@@ -212,7 +212,7 @@ async def recommend(
     for track in seed_tracks:
         seeds[name_key(primary_artist(track.artist_credit))].append(track)
         genres.update(genre_keys(track.genre) or genre_keys(track.album.genre))
-    weights = _tag_weights(library)
+    weights = await asyncio.to_thread(_tag_weights, library)
     profile: Counter[str] = Counter()
     for track in seed_tracks:
         if track.artist is not None:
@@ -271,32 +271,37 @@ async def recommend(
         energy, bpm = analysis.get(track.id, (None, None))
         return sound.match(energy, bpm)
 
-    scored = []
-    for track in available:
-        artist = name_key(primary_artist(track.artist_credit))
-        alike = similarity(track)
-        # Deezer's radio and related artists of one artist of a mixed playlist reach far (mainstream hits); they
-        # count fully only for artists whose tags fit the playlist.
-        if not profile_vector:
-            reach = 1.0
-        elif track.artist is None or not track.artist.lastfm_tags:
-            reach = 0.6  # tags not known yet
-        else:
-            reach = 0.3 + 0.7 * min(1.0, alike / 0.5)
-        style = album_tie(track) + 3 * alike
-        if (artist, name_key(track.title)) in radio:
-            style += 3 * reach
-        if artist in related:
-            style += 2.5 * reach
-        elif artist in seed_artists:
-            style += 1.5
-        if shared_genres.intersection(genre_keys(track.genre) or genre_keys(track.album.genre)):
-            style += 1
-        style += 2 * min(1.0, sessions[track.id] / 3) + 2 * min(1.0, playlists[track.id])
-        # Weak ties alone (a broad shared tag) are not enough to count as fitting.
-        if style >= 1:
-            score = style * (0.35 + 0.65 * sound_of(track))
-            scored.append((score * (0.75 + 0.5 * rng.random()), track))
+    def score_available() -> list[tuple[float, Track]]:
+        scored = []
+        for track in available:
+            artist = name_key(primary_artist(track.artist_credit))
+            alike = similarity(track)
+            # Deezer's radio and related artists of one artist of a mixed playlist reach far (mainstream hits); they
+            # count fully only for artists whose tags fit the playlist.
+            if not profile_vector:
+                reach = 1.0
+            elif track.artist is None or not track.artist.lastfm_tags:
+                reach = 0.6  # tags not known yet
+            else:
+                reach = 0.3 + 0.7 * min(1.0, alike / 0.5)
+            style = album_tie(track) + 3 * alike
+            if (artist, name_key(track.title)) in radio:
+                style += 3 * reach
+            if artist in related:
+                style += 2.5 * reach
+            elif artist in seed_artists:
+                style += 1.5
+            if shared_genres.intersection(genre_keys(track.genre) or genre_keys(track.album.genre)):
+                style += 1
+            style += 2 * min(1.0, sessions[track.id] / 3) + 2 * min(1.0, playlists[track.id])
+            # Weak ties alone (a broad shared tag) are not enough to count as fitting.
+            if style >= 1:
+                score = style * (0.35 + 0.65 * sound_of(track))
+                scored.append((score * (0.75 + 0.5 * rng.random()), track))
+        return scored
+
+    # Only reads loaded songs; in a thread so that other requests are answered meanwhile.
+    scored = await asyncio.to_thread(score_available)
     scored.sort(key=lambda item: item[0], reverse=True)
     chosen: list[Track] = []
     included: set[uuid.UUID] = set()

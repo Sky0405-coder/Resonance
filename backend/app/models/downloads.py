@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text, false, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, false, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,6 +43,7 @@ class DownloadRequest(Base):
 
 class DownloadItem(Base):
     __tablename__ = "download_items"
+    __table_args__ = (Index("ix_download_items_deezer_track_id", text("(meta->>'deezer_track_id')")),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("download_requests.id", ondelete="CASCADE"), index=True)

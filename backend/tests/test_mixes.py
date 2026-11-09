@@ -44,6 +44,7 @@ async def env(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch) -> Asy
     await mixes.stop()
     monkeypatch.setattr(mixes, "_chart_cache", {})
     monkeypatch.setattr(mixes, "_chart_requested", {})
+    monkeypatch.setattr(mixes, "_source_matches", {})
     monkeypatch.setattr(editorial, "_refs", {})
     monkeypatch.setattr(editorial, "_cache", {})
     monkeypatch.setattr(editorial, "resolve", AsyncMock(return_value=None))

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import SessionLocal
 from app.models import Album, Artist, Track
 from app.schemas import CatalogTrack
+from app.services import mixes
 from app.services.matching import base_title, loose_key, match_tracks, name_key
 
 
@@ -135,6 +136,45 @@ def catalog(title: str = "Push It (Radio Version)", artist: str = "Salt-N-Pepa",
             **values,
         }
     )
+
+
+async def test_exact_title_of_another_artist_does_not_match(db: AsyncSession, library: Track) -> None:
+    track = catalog(library.title, "Somebody Else")
+    await match_tracks(db, [track])
+    assert track.library_id is None
+
+
+async def test_source_match_is_shared_between_users(
+    db: AsyncSession, library: Track, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mixes, "_source_matches", {})
+    calls = 0
+
+    async def counting(session: AsyncSession, tracks: list[CatalogTrack]) -> None:
+        nonlocal calls
+        calls += 1
+        await match_tracks(session, tracks)
+
+    monkeypatch.setattr(mixes, "match_tracks", counting)
+
+    async def matched(key: str = "chart", **values: object) -> uuid.UUID | None:
+        track = catalog(**values)
+        await mixes._match_source(db, key, [track])
+        return track.library_id
+
+    assert await matched() == library.id and calls == 1
+    assert await matched() == library.id and calls == 1
+    assert await matched("other") == library.id and calls == 2
+    # Another playlist content or an expired match is looked up again.
+    assert await matched(title="Something New") is None and calls == 3
+    assert await matched() == library.id and calls == 4
+    expires, identity, ids = mixes._source_matches["chart"]
+    mixes._source_matches["chart"] = (expires - mixes._MATCH_TTL - 1, identity, ids)
+    assert await matched() == library.id and calls == 5
+
+    await db.delete(library)
+    await db.flush()
+    assert await matched() is None and calls == 5
 
 
 @pytest.mark.parametrize("temporary", [False, True])

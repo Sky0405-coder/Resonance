@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from itertools import zip_longest
+from time import monotonic
 
 from fastapi import HTTPException
 from sqlalchemy import delete, func, select
@@ -39,6 +40,7 @@ from app.services.matching import match_tracks, name_key
 from app.services.server_config import ServerConfig, load_config
 from app.services.spotify import catalog_tracks
 from app.services.tags import primary_artist
+from app.services.views import load_tracks
 
 GENRE_NAMES = {"hip hop": "Hip-Hop", "r&b": "R&B", "edm": "EDM"}
 CHARTS = {"chart:de": ("Top 100 Deutschland", "1111143121"), "chart:global": ("Top 100 Global", "3155776842")}
@@ -46,6 +48,9 @@ CHARTS = {"chart:de": ("Top 100 Deutschland", "1111143121"), "chart:global": ("T
 APPLE_CHARTS = {"chart:de": "Top 100: Deutschland", "chart:global": "Top 100: Global"}
 _chart_cache: dict[str, tuple[date, list[dict]]] = {}
 _chart_requested: dict[str, date] = {}
+# Matching a source against the library is the same for every user; a nightly run asks once per user and source.
+_MATCH_TTL = 3600
+_source_matches: dict[str, tuple[float, list[tuple], list[uuid.UUID | None]]] = {}
 _chart_request_lock = asyncio.Lock()
 log = logging.getLogger(__name__)
 _loop_task: asyncio.Task | None = None
@@ -118,9 +123,22 @@ async def _source_catalog(db: AsyncSession, key: str) -> list[CatalogTrack] | No
         for track in catalog or []:
             track.id = source.deezer_ids.get(track.isrc) or ""
     if catalog is not None:
-        for start in range(0, len(catalog), 500):
-            await match_tracks(db, catalog[start : start + 500])
+        await _match_source(db, key, catalog)
     return catalog
+
+
+async def _match_source(db: AsyncSession, key: str, catalog: list[CatalogTrack]) -> None:
+    identity = [(track.isrc, track.title, track.artist, track.duration) for track in catalog]
+    cached = _source_matches.get(key)
+    if cached is not None and monotonic() < cached[0] and cached[1] == identity:
+        # Songs deleted within the hour must not reach a playlist.
+        existing = set(await db.scalars(select(Track.id).where(Track.id.in_({id for id in cached[2] if id}))))
+        for track, library_id in zip(catalog, cached[2], strict=True):
+            track.library_id = library_id if library_id in existing else None
+        return
+    for start in range(0, len(catalog), 500):
+        await match_tracks(db, catalog[start : start + 500])
+    _source_matches[key] = (monotonic() + _MATCH_TTL, identity, [track.library_id for track in catalog])
 
 
 def _source_positions(catalog: list[CatalogTrack]) -> tuple[dict[uuid.UUID, float], dict[str, float]]:
@@ -394,13 +412,12 @@ class _Taste:
 
 
 async def _taste(db: AsyncSession, user: User, now: datetime) -> _Taste:
-    tracks = list(
-        await db.scalars(
-            select(Track)
-            .options(joinedload(Track.album), joinedload(Track.artist))
-            .where(~Track.is_temporary)
-            .order_by(Track.id)
-        )
+    tracks = await load_tracks(
+        db,
+        select(Track)
+        .options(joinedload(Track.album), joinedload(Track.artist))
+        .where(~Track.is_temporary)
+        .order_by(Track.id),
     )
     by_artist: dict[uuid.UUID, list[Track]] = defaultdict(list)
     for track in tracks:
@@ -754,25 +771,30 @@ async def generate_mixes(db: AsyncSession, user: User, *, chart_downloads: bool 
     history, likes, scores = taste.history, taste.likes, taste.scores
     artist_scores, favourites = taste.artist_scores, taste.favourites
     artist_ids_by_key = {artist.name_key: artist.id for artist in artists.values()}
-    by_genre: dict[str, list[Track]] = defaultdict(list)
-    for track in tracks:
-        for key in genre_keys(track.genre) or genre_keys(track.album.genre):
-            by_genre[key].append(track)
-    own_genres: dict[uuid.UUID, set[str]] = defaultdict(set)
-    for track in tracks:
-        if track.album.artist_id == track.artist_id:
-            own_genres[track.artist_id].update(genre_keys(track.genre) or genre_keys(track.album.genre))
-    lastfm_genres = {artist_id: artist_lastfm_genres(artist.lastfm_tags) for artist_id, artist in artists.items()}
-    known = set(by_genre)
-    by_genre = {
-        key: fitting_genre_tracks(key, pool, own_genres, lastfm_genres, known) for key, pool in by_genre.items()
-    }
-    dominant: dict[uuid.UUID, str] = {}
-    for artist_id, artist_tracks in by_artist.items():
-        counts = Counter(
-            key for track in artist_tracks for key in (genre_keys(track.genre) or genre_keys(track.album.genre))
-        )
-        dominant[artist_id] = min(counts, key=lambda key: (-counts[key], key)) if counts else "other"
+    def index_library():
+        by_genre: dict[str, list[Track]] = defaultdict(list)
+        for track in tracks:
+            for key in genre_keys(track.genre) or genre_keys(track.album.genre):
+                by_genre[key].append(track)
+        own_genres: dict[uuid.UUID, set[str]] = defaultdict(set)
+        for track in tracks:
+            if track.album.artist_id == track.artist_id:
+                own_genres[track.artist_id].update(genre_keys(track.genre) or genre_keys(track.album.genre))
+        lastfm_genres = {artist_id: artist_lastfm_genres(artist.lastfm_tags) for artist_id, artist in artists.items()}
+        known = set(by_genre)
+        by_genre = {
+            key: fitting_genre_tracks(key, pool, own_genres, lastfm_genres, known) for key, pool in by_genre.items()
+        }
+        dominant: dict[uuid.UUID, str] = {}
+        for artist_id, artist_tracks in by_artist.items():
+            counts = Counter(
+                key for track in artist_tracks for key in (genre_keys(track.genre) or genre_keys(track.album.genre))
+            )
+            dominant[artist_id] = min(counts, key=lambda key: (-counts[key], key)) if counts else "other"
+        return by_genre, own_genres, lastfm_genres, known, dominant
+
+    # Only reads loaded songs; in a thread so that other requests are answered meanwhile.
+    by_genre, own_genres, lastfm_genres, known, dominant = await asyncio.to_thread(index_library)
     related_cache: dict[uuid.UUID, list[uuid.UUID]] = {}
 
     async def related_artists(seeds: list[uuid.UUID]) -> list[uuid.UUID]:

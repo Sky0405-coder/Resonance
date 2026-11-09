@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -23,6 +23,12 @@ from app.schemas import AlbumOut, ArtistOut, ArtistRef, PlaylistOut, TrackOut
 
 def track_options():
     return (joinedload(Track.artist), joinedload(Track.album))
+
+
+async def load_tracks(db: AsyncSession, query: Select[tuple[Track]]) -> list[Track]:
+    """Loads a large result in batches: building tens of thousands of objects at once stalls every other request."""
+    result = await db.stream_scalars(query.execution_options(yield_per=500))
+    return [track async for track in result]
 
 
 def album_options():

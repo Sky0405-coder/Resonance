@@ -23,6 +23,7 @@ from tests.test_mixes import env as env  # noqa: PLC0414
 
 @pytest.fixture(autouse=True)
 def caches(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mixes, "_source_matches", {})
     monkeypatch.setattr(editorial, "_refs", {})
     monkeypatch.setattr(editorial, "_cache", {})
 

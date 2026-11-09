@@ -92,7 +92,9 @@ async def match_tracks(db: AsyncSession, tracks: list[CatalogTrack]) -> None:
     if not tracks:
         return
     album_artist = aliased(Artist)
-    pairs = [(name_key(primary_artist(t.artist)), t.title.casefold()) for t in tracks]
+    # Only the indexed title in SQL (a comparison on the joined artists scanned the whole library for every playlist);
+    # rows with another artist are simply never looked up below.
+    titles = list({t.title.casefold() for t in tracks})
     rows = await db.execute(
         select(Track.id, Track.isrc, func.lower(Track.title), Artist.name_key, album_artist.name_key)
         .join(Artist, Artist.id == Track.artist_id)
@@ -101,8 +103,7 @@ async def match_tracks(db: AsyncSession, tracks: list[CatalogTrack]) -> None:
         .where(
             or_(
                 Track.isrc.in_([t.isrc for t in tracks if t.isrc]),
-                tuple_(Artist.name_key, func.lower(Track.title)).in_(pairs),
-                tuple_(album_artist.name_key, func.lower(Track.title)).in_(pairs),
+                func.lower(Track.title).in_(titles),
             )
         )
         .order_by(Track.id)

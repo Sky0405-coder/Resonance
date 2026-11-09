@@ -12,6 +12,7 @@ from sqlalchemy import (
     Text,
     false,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -66,6 +67,8 @@ class Album(Base):
 
 class Track(Base):
     __tablename__ = "tracks"
+    # text_pattern_ops also serves equality; LIKE 'prefix%' needs it unless the database uses the C collation.
+    __table_args__ = (Index("ix_tracks_lower_title", text("lower(title) text_pattern_ops")),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     path: Mapped[str] = mapped_column(Text, unique=True)
