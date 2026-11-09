@@ -244,7 +244,9 @@ async def _mosaic(db: DB, playlist_id: uuid.UUID) -> str | None:
         return files[0]
     key = tuple(files)
     if key not in _mosaics:
-        data = [path.read_bytes() for name in files if (path := covers.resized(name, None)) is not None]
+        data = await asyncio.to_thread(
+            lambda: [path.read_bytes() for name in files if (path := covers.resized(name, None)) is not None]
+        )
         image = await asyncio.to_thread(mix_covers.mosaic, data)
         stored = image and await asyncio.to_thread(covers.store, image)
         if stored is None:
@@ -264,7 +266,7 @@ async def playlist_cover(
     name = playlist.cover_file or await _mosaic(db, playlist_id)
     if name is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
-    path = covers.resized(name, size)
+    path = await asyncio.to_thread(covers.resized, name, size)
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})

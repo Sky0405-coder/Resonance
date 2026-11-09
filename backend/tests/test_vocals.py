@@ -135,7 +135,7 @@ async def test_worker_protocol_keeps_one_process(tmp_path, monkeypatch, runtime)
         "    elif r['path'].endswith('crash'):\n"
         "        sys.exit(1)\n"
         "    else:\n"
-        "        print(json.dumps({'vocals_in': 1.5, 'vocals_out': r['duration'] - 2, 'pid': os.getpid()}), flush=True)\n"
+        "        print(json.dumps({'vocals_in': 1.5, 'vocals_out': r['duration'] - 2, 'nice': os.nice(0)}), flush=True)\n"
     )
     monkeypatch.setattr(vocals, "_python", lambda: Path(sys.executable))
     monkeypatch.setattr(vocals, "_WORKER", script)
@@ -151,6 +151,32 @@ async def test_worker_protocol_keeps_one_process(tmp_path, monkeypatch, runtime)
             await worker.analyze(Path("/music/crash"), 50)
         assert worker._process is None
         assert await worker.analyze(Path("/music/c"), 10) == (1.5, 8)
+        assert (await worker._request({"path": "/music/d", "duration": 5}))["nice"] == 19
+    finally:
+        await worker.close()
+
+
+async def test_idle_worker_releases_the_model_until_the_next_song(tmp_path, monkeypatch, runtime):
+    script = tmp_path / "worker.py"
+    script.write_text(
+        "import json, sys\n"
+        "print(json.dumps({'ready': True}), flush=True)\n"
+        "for line in sys.stdin:\n"
+        "    print(json.dumps({'vocals_in': 1.0, 'vocals_out': 2.0}), flush=True)\n"
+    )
+    monkeypatch.setattr(vocals, "_python", lambda: Path(sys.executable))
+    monkeypatch.setattr(vocals, "_WORKER", script)
+    worker = vocals.Worker()
+    try:
+        await worker.analyze(Path("/music/a"), 10)
+        first = worker._process
+        await worker.close_idle()
+        assert worker._process is first
+        worker._used_at -= vocals._WORKER_IDLE
+        await worker.close_idle()
+        assert worker._process is None and first.returncode is not None
+        await worker.analyze(Path("/music/b"), 10)
+        assert worker._process is not None
     finally:
         await worker.close()
 

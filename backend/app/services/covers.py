@@ -6,6 +6,7 @@ resized variants are created lazily next to them.
 
 import hashlib
 import io
+import uuid
 from pathlib import Path
 
 from PIL import Image
@@ -52,7 +53,13 @@ def resized(name: str, size: int | None) -> Path | None:
         return original
     target = original.with_name(f"{original.stem}_{bucket}.jpg")
     if not target.exists():
-        with Image.open(original) as img:
-            img.thumbnail((bucket, bucket))
-            img.save(target, "JPEG", quality=85)
+        # Requests resize in threads: a second request must never serve a half-written file.
+        partial = target.with_name(f"{target.stem}.{uuid.uuid4().hex}.part")
+        try:
+            with Image.open(original) as img:
+                img.thumbnail((bucket, bucket))
+                img.save(partial, "JPEG", quality=85)
+            partial.replace(target)
+        finally:
+            partial.unlink(missing_ok=True)
     return target

@@ -62,6 +62,7 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
 async def _schema():
     assert engine.url.database.startswith("app_test")
     async with engine.begin() as conn:
+        await conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS pg_trgm")
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield

@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    ColumnElement,
     DateTime,
     Float,
     ForeignKey,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Text,
     false,
     func,
+    literal_column,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -20,8 +22,28 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 
 
+def compact_text(column: ColumnElement[str]) -> ColumnElement[str]:
+    """Lower-case letters and digits only, for search. Literals, not parameters, so that it matches the index."""
+    return func.regexp_replace(
+        func.lower(column), literal_column("'[^[:alnum:]]+'"), literal_column("''"), literal_column("'g'")
+    )
+
+
+def _search_indexes(table: str, column: str) -> tuple[Index, Index]:
+    """Trigram indexes for searching anywhere in a text column, as written and as compact_text."""
+    return (
+        Index(f"ix_{table}_{column}_trgm", text(f"{column} gin_trgm_ops"), postgresql_using="gin"),
+        Index(
+            f"ix_{table}_{column}_compact_trgm",
+            text(rf"regexp_replace(lower({column}), '[^[\:alnum\:]]+', '', 'g') gin_trgm_ops"),
+            postgresql_using="gin",
+        ),
+    )
+
+
 class Artist(Base):
     __tablename__ = "artists"
+    __table_args__ = _search_indexes("artists", "name")
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(512))
@@ -43,7 +65,10 @@ class Artist(Base):
 
 class Album(Base):
     __tablename__ = "albums"
-    __table_args__ = (Index("ix_albums_artist_key", "artist_id", "title_key", unique=True),)
+    __table_args__ = (
+        Index("ix_albums_artist_key", "artist_id", "title_key", unique=True),
+        *_search_indexes("albums", "title"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String(512))
@@ -68,7 +93,11 @@ class Album(Base):
 class Track(Base):
     __tablename__ = "tracks"
     # text_pattern_ops also serves equality; LIKE 'prefix%' needs it unless the database uses the C collation.
-    __table_args__ = (Index("ix_tracks_lower_title", text("lower(title) text_pattern_ops")),)
+    __table_args__ = (
+        Index("ix_tracks_lower_title", text("lower(title) text_pattern_ops")),
+        *_search_indexes("tracks", "title"),
+        *_search_indexes("tracks", "artist_credit"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     path: Mapped[str] = mapped_column(Text, unique=True)

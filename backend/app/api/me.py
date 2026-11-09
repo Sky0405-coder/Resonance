@@ -109,7 +109,7 @@ async def liked_cover(user: CurrentUser, size: int | None = Query(None, ge=32, l
     global _liked_cover
     if _liked_cover is None:
         _liked_cover = await asyncio.to_thread(lambda: covers.store(mix_covers.liked()))
-    path = covers.resized(_liked_cover, size) if _liked_cover else None
+    path = await asyncio.to_thread(covers.resized, _liked_cover, size) if _liked_cover else None
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})

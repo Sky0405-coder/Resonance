@@ -37,6 +37,8 @@ _PACKAGES = (
 _WORKER = Path(__file__).with_name("vocals_worker.py")
 # Separating both windows of a song takes about a minute; give up on one after this long.
 _SONG_TIMEOUT = 15 * 60
+# The loaded model takes a lot of memory; it is released after this many seconds without work.
+_WORKER_IDLE = 10 * 60
 
 _state: dict[str, str | None] = {"state": "off", "message": None}
 _install_failed_at = 0.0
@@ -102,11 +104,13 @@ class Worker:
         self._process: asyncio.subprocess.Process | None = None
         # One request at a time: the background analysis and stems for playback share the worker.
         self._lock = asyncio.Lock()
+        self._used_at = 0.0
 
     async def _start(self) -> asyncio.subprocess.Process:
         root = _root()
         process = await asyncio.create_subprocess_exec(
-            str(_python()), str(_WORKER),
+            # Lowest priority: the separation uses half the machine's cores and must not slow anything else down.
+            "nice", "-n", "19", str(_python()), str(_WORKER),
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
             env={"TORCH_HOME": str(root / "torch"), "HOME": str(root), "PATH": "/usr/local/bin:/usr/bin:/bin"},
             limit=2**20,
@@ -131,7 +135,10 @@ class Worker:
 
     async def _request(self, request: dict) -> dict:
         async with self._lock:
-            return await self._send(request)
+            try:
+                return await self._send(request)
+            finally:
+                self._used_at = time.monotonic()
 
     async def _send(self, request: dict) -> dict:
         if self._process is None or self._process.returncode is not None:
@@ -151,6 +158,11 @@ class Worker:
         if "error" in result:
             raise ValueError(result["error"])
         return result
+
+    async def close_idle(self) -> None:
+        """Ends the process when it has had nothing to do for a while; the next request starts it again."""
+        if not self._lock.locked() and time.monotonic() - self._used_at >= _WORKER_IDLE:
+            await self.close()
 
     async def close(self) -> None:
         process, self._process = self._process, None
@@ -324,6 +336,7 @@ async def _loop() -> None:
     while True:
         try:
             if not await run_once():
+                await _worker.close_idle()
                 await asyncio.sleep(60)
         except Exception:
             log.exception("Song analysis loop failed")

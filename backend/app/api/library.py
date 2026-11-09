@@ -23,6 +23,7 @@ from app.models import (
     Track,
     TrackMixPoints,
 )
+from app.models.library import compact_text
 from app.schemas import (
     AlbumDetail,
     AlbumOut,
@@ -177,7 +178,11 @@ async def artist_image(
     artist_id: uuid.UUID, user: CurrentUser, db: DB, size: int | None = Query(None, ge=32, le=2000)
 ) -> Response:
     artist = await db.get(Artist, artist_id)
-    path = covers.resized(artist.image_path.removeprefix("covers/"), size) if artist and artist.image_path else None
+    path = (
+        await asyncio.to_thread(covers.resized, artist.image_path.removeprefix("covers/"), size)
+        if artist and artist.image_path
+        else None
+    )
     if path is None:
         raise HTTPException(404, "Kein Künstlerbild")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})
@@ -290,7 +295,7 @@ async def album_cover(
     album = await db.get(Album, album_id)
     if album is None or album.cover_file is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
-    path = covers.resized(album.cover_file, size)
+    path = await asyncio.to_thread(covers.resized, album.cover_file, size)
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No cover")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})
@@ -536,8 +541,7 @@ def _search_match(column: ColumnElement[str], q: str) -> ColumnElement[bool]:
     compact = _compact(q)
     if not compact:  # only punctuation, e.g. the band "!!!"
         return column.ilike(pattern)
-    stripped = func.regexp_replace(func.lower(column), r"[^[:alnum:]]+", "", "g")
-    return or_(column.ilike(pattern), stripped.contains(compact))
+    return or_(column.ilike(pattern), compact_text(column).contains(compact))
 
 
 def search_queries(q: str) -> tuple[Select[tuple[Artist]], Select[tuple[Album]], Select[tuple[Track]]]:

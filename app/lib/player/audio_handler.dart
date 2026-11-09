@@ -104,7 +104,7 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
     displaySubtitle: track.artistCredit,
     album: track.album.name,
     duration: track.length,
-    artUri: _cover(track.album.id),
+    artUri: track.album.id.isEmpty ? null : _cover(track.album.id),
   );
 
   MediaItem _stationItem(Station station, [StationNowPlaying? now]) {
