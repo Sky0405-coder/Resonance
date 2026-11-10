@@ -11,7 +11,7 @@ from itertools import zip_longest
 from time import monotonic
 
 from fastapi import HTTPException
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -411,11 +411,32 @@ class _Taste:
     favourites: list[uuid.UUID]
 
 
+async def _has_favourites(db: AsyncSession, user: User, now: datetime) -> bool:
+    """Whether `_taste` would find a favourite artist, without loading the whole library to find out."""
+    played = (
+        select(PlayEvent.id)
+        .join(Track, Track.id == PlayEvent.track_id)
+        .where(
+            PlayEvent.user_id == user.id,
+            PlayEvent.played_at >= now - timedelta(days=90),
+            PlayEvent.seconds_played >= 30,
+            ~Track.is_temporary,
+        )
+    )
+    liked = (
+        select(TrackLike.track_id)
+        .join(Track, Track.id == TrackLike.track_id)
+        .where(TrackLike.user_id == user.id, ~Track.is_temporary)
+    )
+    return bool(await db.scalar(select(or_(played.exists(), liked.exists()))))
+
+
 async def _taste(db: AsyncSession, user: User, now: datetime) -> _Taste:
     tracks = await load_tracks(
         db,
         select(Track)
-        .options(joinedload(Track.album), joinedload(Track.artist))
+        # Every song's row repeats its artist, and the biographies would be most of the data.
+        .options(joinedload(Track.album), joinedload(Track.artist).defer(Artist.bio_de).defer(Artist.bio_en))
         .where(~Track.is_temporary)
         .order_by(Track.id),
     )
@@ -583,11 +604,25 @@ def discover_due(generated_at: datetime | None) -> bool:
     return generated_at is None or generated_at < monday
 
 
+# When a user's Discover found no songs: no playlist records that, and the search is too expensive for every check.
+_discover_empty: dict[uuid.UUID, datetime] = {}
+_DISCOVER_EMPTY_RETRY = timedelta(days=1)
+
+
+def discover_wanted(user_id: uuid.UUID, generated_at: datetime | None) -> bool:
+    """`discover_due`, except that a search which found no songs is repeated only once a day."""
+    empty_at = _discover_empty.get(user_id)
+    recently_empty = empty_at is not None and datetime.now(UTC) - empty_at < _DISCOVER_EMPTY_RETRY
+    return discover_due(generated_at) and not recently_empty
+
+
 async def generate_discover(db: AsyncSession, user: User) -> Playlist | None:
     cfg = await load_config(db)
     if not cfg.mixes.discover_enabled:
         return None
     now = datetime.now(UTC)
+    if not await _has_favourites(db, user, now):
+        return None
     taste = await _taste(db, user, now)
     seeds = [taste.artists[artist_id] for artist_id in taste.favourites[:10]]
     if not seeds:
@@ -650,6 +685,10 @@ async def generate_discover(db: AsyncSession, user: User) -> Playlist | None:
     playlist = await _write(
         db, user, "discover-weekly", "Mix der Woche", "Neue Songs für dich – jeden Montag neu", chosen, now, pending
     )
+    if playlist is None:
+        _discover_empty[user.id] = now
+    else:
+        _discover_empty.pop(user.id, None)
     await db.commit()
     return playlist
 
@@ -687,6 +726,8 @@ async def generate_release_radar(db: AsyncSession, user: User) -> Playlist | Non
     if not cfg.mixes.release_radar_enabled:
         return None
     now = datetime.now(UTC)
+    if not await _has_favourites(db, user, now):
+        return None
     taste = await _taste(db, user, now)
     seeds = [taste.artists[artist_id] for artist_id in taste.favourites[:25]]
     if not seeds:
@@ -1078,7 +1119,7 @@ async def _generate_due() -> None:
         ).all()
     for user_id, generated_at, discover_at, radar_at in rows:
         daily_due = generated_at is None or generated_at.astimezone().date() != date.today()
-        weekly_due = cfg.mixes.discover_enabled and discover_due(discover_at)
+        weekly_due = cfg.mixes.discover_enabled and discover_wanted(user_id, discover_at)
         radar_due = cfg.mixes.release_radar_enabled and release_radar_due(user_id, radar_at)
         if not daily_due and not weekly_due and not radar_due:
             continue

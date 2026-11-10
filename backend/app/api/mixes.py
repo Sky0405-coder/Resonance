@@ -11,7 +11,7 @@ from app.services import blends
 from app.services.editorial import BY_KEY, EDITORIAL
 from app.services.mixes import (
     CHARTS,
-    discover_due,
+    discover_wanted,
     generate_discover,
     generate_mixes,
     own_schedule,
@@ -99,7 +99,7 @@ async def get_mixes(user: CurrentUser, db: DB, request: Request) -> MixesOut:
         discover_at = await db.scalar(
             select(Playlist.generated_at).where(Playlist.owner_id == user.id, Playlist.mix_key == "discover-weekly")
         )
-        if discover_due(discover_at):
+        if discover_wanted(user.id, discover_at):
             await generate_discover(db, user)
     return await _out(db, user, language(request))
 

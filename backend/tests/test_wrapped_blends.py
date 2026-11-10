@@ -2,6 +2,7 @@ import uuid
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
@@ -258,6 +259,21 @@ async def test_release_radar_collects_new_releases_of_favourite_artists(radar: S
     assert made[0]["name"] == "Neuerscheinungen"
     english = await radar.client.get("/api/mixes", headers={**radar.headers, "Accept-Language": "en"})
     assert english.json()["made_for_you"][0]["name"] == "Release Radar"
+
+
+async def test_release_radar_without_favourites_does_not_load_the_library(
+    radar: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    taste = AsyncMock(wraps=mixes._taste)
+    monkeypatch.setattr(mixes, "_taste", taste)
+    async with SessionLocal() as db:
+        await library(db, "Unheard", "Pop", 1)
+        await db.commit()
+        user = await db.get(User, radar.user_id)
+        assert await mixes.generate_release_radar(db, user) is None
+    taste.assert_not_awaited()
+    # The first plays still count right away.
+    assert mixes.release_radar_due(user.id, None)
 
 
 async def test_release_radar_without_new_releases_removes_the_old_one(radar: SimpleNamespace) -> None:

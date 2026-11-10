@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import inspect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import mixes as mixes_api
@@ -112,6 +112,57 @@ async def test_no_seeds_no_playlist_or_deezer_calls(discover: SimpleNamespace) -
         assert await mixes.generate_discover(db, await db.get(User, discover.user_id)) is None
         assert await generated(db, discover.user_id) == {}
     assert discover.calls == discover.downloads == []
+
+
+async def test_no_seeds_does_not_load_the_library_but_first_plays_count_at_once(
+    discover: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    taste = AsyncMock(wraps=mixes._taste)
+    monkeypatch.setattr(mixes, "_taste", taste)
+    async with SessionLocal() as db:
+        tracks = await library(db, "Heard", None, 2)
+        temporary = (await library(db, "Temporary", None, 1))[0]
+        temporary.is_temporary = True
+        like(db, discover.user_id, temporary)
+        plays(db, discover.user_id, tracks[0], days=91)
+        plays(db, discover.user_id, tracks[1], seconds=29)
+        plays(db, discover.other_id, tracks[0])
+        await db.commit()
+        user = await db.get(User, discover.user_id)
+        assert await mixes.generate_discover(db, user) is None
+        taste.assert_not_awaited()
+        assert mixes.discover_wanted(user.id, None)
+
+        plays(db, discover.user_id, tracks[0])
+        await db.commit()
+        await mixes.generate_discover(db, user)
+        taste.assert_awaited_once()
+
+
+async def test_week_without_songs_is_retried_daily_not_on_every_run(
+    discover: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async with SessionLocal() as db:
+        await seed(db, discover)
+        user = await db.get(User, discover.user_id)
+        assert mixes.discover_wanted(user.id, None)
+        assert await mixes.generate_discover(db, user) is None
+        assert not mixes.discover_wanted(user.id, None)
+
+        monkeypatch.setitem(mixes._discover_empty, user.id, datetime.now(UTC) - timedelta(days=1))
+        assert mixes.discover_wanted(user.id, None)
+        candidates(discover)
+        assert await mixes.generate_discover(db, user) is not None
+        assert user.id not in mixes._discover_empty
+
+
+async def test_taste_leaves_artist_biographies_in_the_database(discover: SimpleNamespace) -> None:
+    async with SessionLocal() as db:
+        await seed(db, discover)
+        taste = await mixes._taste(db, await db.get(User, discover.user_id), datetime.now(UTC))
+        artist = taste.tracks[0].artist
+        assert {"bio_de", "bio_en"} <= inspect(artist).unloaded
+        assert artist.name and "lastfm_tags" not in inspect(artist).unloaded
 
 
 async def test_seed_related_artists_skipped_round_robin_and_deduplication(discover: SimpleNamespace) -> None:
