@@ -1207,8 +1207,17 @@ class Station {
 /// albums so cover images and downloaded covers can tell when they are out of date.
 final coverKeys = <String, String>{};
 
+/// Albums the server reported without a cover (`cover_key: null`): their cover URL only answers 404.
+final albumsWithoutCover = <String>{};
+
 Map<String, dynamic> noteCoverKey(Map<String, dynamic> album) {
   final key = album['cover_key'];
-  if (key is String) coverKeys[album['id'] as String] = key;
+  final id = album['id'] as String;
+  if (key is String) {
+    coverKeys[id] = key;
+    albumsWithoutCover.remove(id);
+  } else if (album.containsKey('cover_key')) {
+    albumsWithoutCover.add(id);
+  }
   return album;
 }

@@ -11,6 +11,12 @@ import 'package:window_manager/window_manager.dart';
 bool get isDesktop =>
     !kIsWeb && (defaultTargetPlatform == TargetPlatform.linux || defaultTargetPlatform == TargetPlatform.windows);
 
+/// Steam's Gaming Mode (gamescope, e.g. Bazzite or SteamOS on a TV): the app is the only window on the screen.
+bool get isGamescope =>
+    !kIsWeb &&
+    defaultTargetPlatform == TargetPlatform.linux &&
+    (Platform.environment['XDG_CURRENT_DESKTOP'] == 'gamescope' || Platform.environment['GAMESCOPE_WAYLAND_DISPLAY'] != null);
+
 /// Android on a desktop screen (Samsung DeX, Android's desktop mode, Chromebooks): behaves like the desktop app.
 final androidDesktopProvider = NotifierProvider<AndroidDesktop, bool>(AndroidDesktop.new);
 
@@ -61,6 +67,15 @@ String formatBounds(Rect r) => [r.left, r.top, r.width, r.height].map((v) => v.r
 /// Title, minimum size, and the size/position from the last session.
 Future<void> initDesktopWindow(SharedPreferences prefs) async {
   await windowManager.ensureInitialized();
+  if (isGamescope) {
+    // gamescope scales a smaller window up to the screen and keeps its aspect ratio: a 1280x800 window ends up
+    // blurry with black bars. Fullscreen gets the real resolution.
+    await windowManager.waitUntilReadyToShow(const WindowOptions(title: 'Resonance', fullScreen: true), () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
+    return;
+  }
   final bounds = parseBounds(prefs.getString(_boundsKey));
   await windowManager.waitUntilReadyToShow(
     WindowOptions(title: 'Resonance', minimumSize: minWindowSize, size: bounds?.size ?? const Size(1280, 800)),

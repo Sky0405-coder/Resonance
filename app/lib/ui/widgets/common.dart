@@ -138,9 +138,11 @@ class CoverImage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Queue entries a Connect device has not described yet have an empty album id.
-    final missing = albumId == null || albumId!.isEmpty;
+    final noAlbum = albumId == null || albumId!.isEmpty;
+    final version = noAlbum ? 0 : ref.watch(coverVersionsProvider.select((v) => v[albumId] ?? 0));
+    // An album the server lists without a cover only answers 404, unless a cover was set since.
+    final missing = noAlbum || (version == 0 && albumsWithoutCover.contains(albumId));
     final localCover = kIsWeb || missing ? null : ref.watch(offlineProvider.select((s) => s.coverPath(albumId!)));
-    final version = missing ? 0 : ref.watch(coverVersionsProvider.select((v) => v[albumId] ?? 0));
     final key = missing ? null : coverKeys[albumId];
     final current = missing || ref.watch(offlineProvider.select((s) => s.coverCurrent(albumId!)));
     final suffix = '${key == null ? '' : ':$key'}${version > 0 ? ':$version' : ''}';
