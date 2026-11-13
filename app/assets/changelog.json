@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.7.9",
+    "date": "2026-11-13",
+    "de": [
+      "Warteschlange: Kommende Songs lassen sich am Griff rechts mit dem Finger oder der Maus an eine andere Stelle ziehen. Zwischen die selbst eingereihten Songs gezogen, gehören sie danach dazu.",
+      "Gesangserkennung für AutoMix: Songs, bei denen die Analyse früher gescheitert ist, werden neu analysiert, die meistgehörten zuerst. Der Admin-Bereich zeigt gescheiterte Songs jetzt getrennt an."
+    ],
+    "en": [
+      "Queue: drag upcoming songs by the handle on the right to move them, with a finger or the mouse. Dropped among the songs you queued yourself, they join them.",
+      "Vocal detection for AutoMix: songs whose analysis failed before are analyzed again, the most played first. The admin area now shows failed songs separately."
+    ]
+  },
+  {
     "version": "1.7.8",
     "date": "2026-11-12",
     "de": [
