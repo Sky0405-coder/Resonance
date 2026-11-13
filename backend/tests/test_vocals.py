@@ -79,13 +79,14 @@ async def test_installs_once_then_analyzes_the_most_played_first(env, monkeypatc
     async with SessionLocal() as db:
         rows = {row.track_id: row for row in await db.scalars(select(TrackVocals))}
     assert rows[missing_id].failed and rows[missing_id].vocals_in is None
+    assert rows[missing_id].error == "CalledProcessError" and rows[track_id].error is None
     assert (rows[track_id].vocals_in, rows[track_id].vocals_out) == (4.5, 34)
     # Done: no second install, nothing left to analyze.
     commands.clear()
     assert await vocals.run_once() == 0 and commands == []
 
     status = (await client.get("/api/mixpoints/status", headers=headers)).json()["vocals"]
-    assert status == {"state": "ready", "message": None, "enabled": True, "total": 2, "analyzed": 2}
+    assert status == {"state": "ready", "message": None, "enabled": True, "total": 2, "analyzed": 1, "failed": 1}
 
     # The heard voice replaces the lyrics; a changed file falls back to them until it is analyzed again.
     async def analyze(path):
@@ -103,6 +104,33 @@ async def test_installs_once_then_analyzes_the_most_played_first(env, monkeypatc
     points = (await client.get("/api/mixpoints", params={"ids": str(track_id)}, headers=headers)).json()
     assert (points[str(track_id)]["vocals_in"], points[str(track_id)]["vocals_out"]) == (10, 36)
     assert await vocals.run_once() == 1 and worker.paths[-1] == "beat.wav"
+
+
+async def test_a_stopped_worker_does_not_fail_the_song(env, monkeypatch, runtime):  # noqa: F811
+    _, _, track_id, missing_id = env
+    (runtime / "venv" / "bin").mkdir(parents=True)
+    (runtime / "venv" / "bin" / "python").touch()
+    (runtime / f"installed-{vocals._RUNTIME}").touch()
+    monkeypatch.setattr(vocals, "_crashes", {})
+    calls: list[str] = []
+
+    class StoppingWorker(FakeWorker):
+        async def analyze(self, path: Path, duration: float) -> tuple[float, float]:
+            calls.append(path.name)
+            raise RuntimeError("Song analysis stopped")
+
+    monkeypatch.setattr(vocals, "_worker", StoppingWorker())
+    async with SessionLocal() as db:
+        (await db.get(Track, missing_id)).duration = 30
+        await db.commit()
+    await enable()
+    # Each run stops at the first song and stores nothing, until the same song stopped the worker three times.
+    assert [await vocals.run_once() for _ in range(3)] == [0, 0, 1]
+    assert len(set(calls[:3])) == 1
+    async with SessionLocal() as db:
+        rows = list(await db.scalars(select(TrackVocals)))
+    assert len(rows) == 1 and rows[0].failed and rows[0].error == "RuntimeError: Song analysis stopped"
+    assert rows[0].track_id in (track_id, missing_id)
 
 
 async def test_a_failed_install_waits_an_hour(env, monkeypatch, runtime):  # noqa: F811
