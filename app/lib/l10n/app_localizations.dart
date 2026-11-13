@@ -632,6 +632,12 @@ abstract class AppLocalizations {
   /// **'Aus Warteschlange entfernen'**
   String get playerRemoveFromQueue;
 
+  /// No description provided for @playerMoveInQueue.
+  ///
+  /// In de, this message translates to:
+  /// **'Verschieben'**
+  String get playerMoveInQueue;
+
   /// No description provided for @playerNextInQueue.
   ///
   /// In de, this message translates to:

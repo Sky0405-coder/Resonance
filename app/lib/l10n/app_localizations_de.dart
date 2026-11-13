@@ -299,6 +299,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get playerRemoveFromQueue => 'Aus Warteschlange entfernen';
 
   @override
+  String get playerMoveInQueue => 'Verschieben';
+
+  @override
   String get playerNextInQueue => 'Als Nächstes in der Warteschlange';
 
   @override

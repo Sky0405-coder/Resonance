@@ -302,6 +302,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get playerRemoveFromQueue => 'Remove from queue';
 
   @override
+  String get playerMoveInQueue => 'Move';
+
+  @override
   String get playerNextInQueue => 'Next in queue';
 
   @override

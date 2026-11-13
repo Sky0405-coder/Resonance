@@ -36,6 +36,7 @@ class TrackRow extends ConsumerStatefulWidget {
     this.extraActions = const [],
     this.addedBy,
     this.mixInfo,
+    this.dragHandle,
   });
 
   final Track track;
@@ -57,6 +58,9 @@ class TrackRow extends ConsumerStatefulWidget {
 
   /// Tempo and key (transition editor), shown before the like button.
   final Widget? mixInfo;
+
+  /// In a reorderable list (the queue): the handle that moves the song, at the end of the row.
+  final Widget? dragHandle;
 
   @override
   ConsumerState<TrackRow> createState() => _TrackRowState();
@@ -191,6 +195,7 @@ class _TrackRowState extends ConsumerState<TrackRow> {
                   color: Palette.textMuted,
                   onPressed: () => showTrackMenu(context, ref, t, widget.extraActions),
                 ),
+                ?widget.dragHandle,
               ],
             ),
           ),

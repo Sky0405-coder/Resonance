@@ -143,6 +143,7 @@
   "playerNowPlaying": "Läuft gerade",
   "playerNextUp": "Als Nächstes",
   "playerRemoveFromQueue": "Aus Warteschlange entfernen",
+  "playerMoveInQueue": "Verschieben",
   "playerNextInQueue": "Als Nächstes in der Warteschlange",
   "playerLater": "Danach",
   "playerRemovedTrack": "„{title}“ aus der Warteschlange entfernt",

@@ -97,6 +97,7 @@
   "playerNowPlaying": "Now playing",
   "playerNextUp": "Next up",
   "playerRemoveFromQueue": "Remove from queue",
+  "playerMoveInQueue": "Move",
   "playerNextInQueue": "Next in queue",
   "playerLater": "Later",
   "playerRemovedTrack": "Removed “{title}” from queue",
