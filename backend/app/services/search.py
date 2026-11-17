@@ -134,13 +134,16 @@ def _rank(title_key: ColumnElement[str], other_key: ColumnElement[str] | None, q
 
 
 def _word_starts(fields: Sequence[tuple[ColumnElement[str], int]], query: str) -> ColumnElement[int]:
-    """Points for each query word that starts a word of a field, weighted by field: the compact matching also finds
-    words across word boundaries ("the" in "Night Heart"), which this ranks below real words. Only for ordering, so
-    lower() instead of folding every row: accented words just miss these points."""
+    """Points for each query word that starts a word of a field, by the best field: the compact matching also finds
+    words across word boundaries ("the" in "Night Heart"), which this ranks below real words. A word counts once,
+    so "Killer Queen" by Queen does not outrank "Bohemian Rhapsody" by Queen for "bohemian queen". Only for ordering,
+    so lower() instead of folding every row: accented words just miss these points."""
     points = [
-        case((func.lower(column).regexp_match(literal(rf"\m{fold(word)}")), weight), else_=0)
+        case(
+            *((func.lower(column).regexp_match(literal(rf"\m{fold(word)}")), weight) for column, weight in fields),
+            else_=0,
+        )
         for word in words(query)
-        for column, weight in fields
     ]
     return sum(points[1:], points[0]) if points else literal(0)
 

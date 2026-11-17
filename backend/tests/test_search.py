@@ -15,6 +15,8 @@ _SONGS = [
     ("Bohemian Rhapsody", "Queen", "A Night at the Opera", "Queen"),
     ("Love of My Life", "Queen", "A Night at the Opera", "Queen"),
     ("Don't Stop Me Now", "Queen", "Jazz", "Queen"),
+    # "bohemian queen" matches it too, through its album.
+    ("Killer Queen", "Queen", "Bohemian Rhapsody (The Original Soundtrack)", "Queen"),
     ("Halo", "Beyoncé", "I Am... Sasha Fierce", "Beyoncé"),
     ("Ace of Spades", "Motörhead", "Ace of Spades", "Motörhead"),
     ("Back in Black", "AC/DC", "Back in Black", "AC/DC"),
@@ -154,7 +156,12 @@ async def test_tracks(library: None, query: str, first: str) -> None:
 
 async def test_ranking_and_nothing_found(library: None) -> None:
     assert (await _titles("love"))[:3] == ["Love", "Lovely Day", "Love of My Life"]
-    assert set(await _titles("queen")) == {"Love of My Life", "Don't Stop Me Now", "Bohemian Rhapsody"}
+    assert set(await _titles("queen")) == {
+        "Love of My Life",
+        "Don't Stop Me Now",
+        "Bohemian Rhapsody",
+        "Killer Queen",
+    }
     assert await _titles("xyzzy qwertz") == []
     assert await _artists("xyzzy qwertz") == []
 
@@ -167,7 +174,7 @@ async def test_artists_and_albums(library: None) -> None:
     # The artist's whole name in a longer query.
     assert "Queen" in await _artists("queen bohemian rhapsody")
     assert await _albums("opera queen") == ["A Night at the Opera"]
-    assert await _albums("queen") == ["Jazz", "A Night at the Opera"]
+    assert await _albums("queen") == ["Jazz", "A Night at the Opera", "Bohemian Rhapsody (The Original Soundtrack)"]
     assert await _albums("sasha fierce beyonce") == ["I Am... Sasha Fierce"]
 
 
