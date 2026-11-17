@@ -15,7 +15,8 @@ bool get isDesktop =>
 bool get isGamescope =>
     !kIsWeb &&
     defaultTargetPlatform == TargetPlatform.linux &&
-    (Platform.environment['XDG_CURRENT_DESKTOP'] == 'gamescope' || Platform.environment['GAMESCOPE_WAYLAND_DISPLAY'] != null);
+    (Platform.environment['XDG_CURRENT_DESKTOP'] == 'gamescope' ||
+        Platform.environment['GAMESCOPE_WAYLAND_DISPLAY'] != null);
 
 /// Android on a desktop screen (Samsung DeX, Android's desktop mode, Chromebooks): behaves like the desktop app.
 final androidDesktopProvider = NotifierProvider<AndroidDesktop, bool>(AndroidDesktop.new);
@@ -118,9 +119,8 @@ class _WindowSaver extends WindowListener {
 
 /// Menu entry for an AppImage started directly (Exec = the AppImage's path). Wayland desktops look up the taskbar
 /// icon by app id (de.knode.resonance) in the .desktop files, so without it KDE/GNOME show a generic icon.
-/// The icon is an absolute path: icon theme caches would hide a freshly added theme icon. [hidden] keeps the entry
-/// out of menus and search when another tool (AppImageLauncher, Gear Lever) already added one for this AppImage.
-String appImageDesktopEntry(String appImage, String icon, {bool hidden = false}) {
+/// The icon is an absolute path: icon theme caches would hide a freshly added theme icon.
+String appImageDesktopEntry(String appImage, String icon) {
   final exec = appImage.replaceAllMapped(RegExp(r'["`$\\]'), (m) => '\\${m[0]}').replaceAll('\\', '\\\\');
   return """[Desktop Entry]
 Type=Application
@@ -132,10 +132,13 @@ Icon=$icon
 Categories=AudioVideo;Audio;Player;
 StartupWMClass=de.knode.resonance
 Terminal=false
-${hidden ? 'NoDisplay=true\n' : ''}""";
+""";
 }
 
 /// Installs/updates the taskbar entry and icon of the running AppImage in ~/.local/share (also after it was moved).
+/// When another tool (Gear Lever, AppImageLauncher) already added an entry for this AppImage, ours is removed: it
+/// copies the AppImage's own entry with StartupWMClass=de.knode.resonance, so the taskbar still finds the icon, and
+/// Plasma's search lists even NoDisplay entries, which showed Resonance twice.
 Future<void> registerAppImage() async {
   final appImage = Platform.environment['APPIMAGE'];
   final home = Platform.environment['HOME'];
@@ -157,7 +160,11 @@ Future<void> registerAppImage() async {
         if ((await file.readAsString()).contains(appImage)) integrated = true;
       }
     }
-    final content = appImageDesktopEntry(appImage, iconTarget.path, hidden: integrated);
+    if (integrated) {
+      if (await entry.exists()) await entry.delete();
+      return;
+    }
+    final content = appImageDesktopEntry(appImage, iconTarget.path);
     if (await entry.exists() && await entry.readAsString() == content) return;
     await applications.create(recursive: true);
     await entry.writeAsString(content);
