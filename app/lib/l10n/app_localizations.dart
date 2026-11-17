@@ -284,6 +284,18 @@ abstract class AppLocalizations {
   /// **'Keine Treffer für „{query}“ in deiner Bibliothek.'**
   String searchNoLibraryResults(String query);
 
+  /// No description provided for @searchInLyrics.
+  ///
+  /// In de, this message translates to:
+  /// **'In Songtexten'**
+  String get searchInLyrics;
+
+  /// No description provided for @searchLyricsLine.
+  ///
+  /// In de, this message translates to:
+  /// **'„{line}“'**
+  String searchLyricsLine(String line);
+
   /// No description provided for @tvKeyboardSpace.
   ///
   /// In de, this message translates to:

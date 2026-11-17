@@ -21,6 +21,8 @@ dependencies = [
     "rapidfuzz>=3.9",
     "defusedxml>=0.7",
     "numpy>=2.1",
+    "anyascii>=0.3",
+    "pykakasi>=2.3",
 ]
 
 [project.optional-dependencies]

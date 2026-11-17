@@ -117,6 +117,14 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get searchInLyrics => 'In Songtexten';
+
+  @override
+  String searchLyricsLine(String line) {
+    return '„$line“';
+  }
+
+  @override
   String get tvKeyboardSpace => 'Leerzeichen';
 
   @override
