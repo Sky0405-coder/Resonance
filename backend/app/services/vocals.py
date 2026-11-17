@@ -8,11 +8,14 @@ time at low priority, most played songs first. The results replace the lyrics-ba
 import asyncio
 import json
 import logging
+import os
 import shutil
 import sys
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -43,6 +46,13 @@ _WORKER_IDLE = 10 * 60
 # A song that stops the worker this often in a row is stored as failed.
 _MAX_CRASHES = 3
 
+# In the evening and at night the server also runs game servers, which need the CPU at once when they generate new
+# terrain. nice does not help across containers, so the separation then uses a single thread (about a quarter of
+# its usual speed). From 18:00 to 03:00 German time; the container itself runs in UTC.
+_QUIET_HOURS = (18, 3)
+_QUIET_THREADS = 1
+_ZONE = ZoneInfo("Europe/Berlin")
+
 _state: dict[str, str | None] = {"state": "off", "message": None}
 _crashes: dict[uuid.UUID, int] = {}
 _install_failed_at = 0.0
@@ -59,6 +69,15 @@ def _python() -> Path:
 
 def _marker() -> Path:
     return _root() / f"installed-{_RUNTIME}"
+
+
+def threads(now: datetime | None = None) -> int:
+    """How many threads the separation may use now."""
+    hour = (now or datetime.now(_ZONE)).astimezone(_ZONE).hour
+    start, end = _QUIET_HOURS
+    if hour >= start or hour < end:
+        return _QUIET_THREADS
+    return max(1, (os.cpu_count() or 2) // 2)
 
 
 def installed() -> bool:
@@ -113,7 +132,7 @@ class Worker:
     async def _start(self) -> asyncio.subprocess.Process:
         root = _root()
         process = await asyncio.create_subprocess_exec(
-            # Lowest priority: the separation uses half the machine's cores and must not slow anything else down.
+            # Lowest priority: the separation uses up to half the machine's cores and must not slow anything else down.
             "nice", "-n", "19", str(_python()), str(_WORKER),
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
             env={"TORCH_HOME": str(root / "torch"), "HOME": str(root), "PATH": "/usr/local/bin:/usr/bin:/bin"},
@@ -148,6 +167,8 @@ class Worker:
         if self._process is None or self._process.returncode is not None:
             self._process = await self._start()
         process = self._process
+        # Asked per song, so the evening limit applies from the next song on without restarting the worker.
+        request = {**request, "threads": threads()}
         process.stdin.write((json.dumps(request) + "\n").encode())
         try:
             await process.stdin.drain()

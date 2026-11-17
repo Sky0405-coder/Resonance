@@ -163,7 +163,7 @@ async def test_worker_protocol_keeps_one_process(tmp_path, monkeypatch, runtime)
         "    elif r['path'].endswith('crash'):\n"
         "        sys.exit(1)\n"
         "    else:\n"
-        "        print(json.dumps({'vocals_in': 1.5, 'vocals_out': r['duration'] - 2, 'nice': os.nice(0)}), flush=True)\n"
+        "        print(json.dumps({'vocals_in': 1.5, 'vocals_out': r['duration'] - 2, 'nice': os.nice(0), 'threads': r['threads']}), flush=True)\n"
     )
     monkeypatch.setattr(vocals, "_python", lambda: Path(sys.executable))
     monkeypatch.setattr(vocals, "_WORKER", script)
@@ -179,7 +179,9 @@ async def test_worker_protocol_keeps_one_process(tmp_path, monkeypatch, runtime)
             await worker.analyze(Path("/music/crash"), 50)
         assert worker._process is None
         assert await worker.analyze(Path("/music/c"), 10) == (1.5, 8)
-        assert (await worker._request({"path": "/music/d", "duration": 5}))["nice"] == 19
+        monkeypatch.setattr(vocals, "threads", lambda: 1)
+        answer = await worker._request({"path": "/music/d", "duration": 5})
+        assert answer["nice"] == 19 and answer["threads"] == 1
     finally:
         await worker.close()
 
@@ -258,3 +260,24 @@ async def test_failed_stem_is_reported_and_not_retried_at_once(env, monkeypatch,
     result = (await client.post(url, headers=headers)).json()
     assert result["state"] == "failed" and "ffmpeg" in result["error"]
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("utc", "quiet"),
+    [
+        # Winter: Germany is UTC+1.
+        ("2026-11-18T16:59:00", False),
+        ("2026-11-18T17:00:00", True),
+        ("2026-11-18T23:30:00", True),
+        ("2026-11-19T01:59:00", True),
+        ("2026-11-19T02:00:00", False),
+        ("2026-11-19T10:00:00", False),
+        # Summer: UTC+2.
+        ("2026-07-01T16:00:00", True),
+        ("2026-07-01T01:00:00", False),
+    ],
+)
+def test_one_thread_from_six_in_the_evening_to_three_at_night(utc, quiet, monkeypatch):
+    monkeypatch.setattr(vocals.os, "cpu_count", lambda: 8)
+    now = datetime.fromisoformat(utc).replace(tzinfo=UTC)
+    assert vocals.threads(now) == (1 if quiet else 4)
