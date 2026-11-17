@@ -650,12 +650,6 @@ abstract class AppLocalizations {
   /// **'Danach'**
   String get playerLater;
 
-  /// No description provided for @playerRemovedTrack.
-  ///
-  /// In de, this message translates to:
-  /// **'„{title}“ aus der Warteschlange entfernt'**
-  String playerRemovedTrack(String title);
-
   /// No description provided for @settingsAccount.
   ///
   /// In de, this message translates to:
@@ -1820,12 +1814,6 @@ abstract class AppLocalizations {
   /// **'Zur Warteschlange hinzufügen'**
   String get playerAddToQueue;
 
-  /// No description provided for @playerQueuedTrack.
-  ///
-  /// In de, this message translates to:
-  /// **'„{title}“ in der Warteschlange'**
-  String playerQueuedTrack(String title);
-
   /// No description provided for @playerGoToAlbum.
   ///
   /// In de, this message translates to:
@@ -1843,12 +1831,6 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Metadaten korrigieren'**
   String get editorCorrectMetadata;
-
-  /// No description provided for @libraryAddedToPlaylist.
-  ///
-  /// In de, this message translates to:
-  /// **'Zu „{name}“ hinzugefügt'**
-  String libraryAddedToPlaylist(String name);
 
   /// No description provided for @commonSave.
   ///
@@ -4130,18 +4112,6 @@ abstract class AppLocalizations {
   /// **'Cover und Visualizer spiegeln'**
   String get settingsVisualizerReflectionHint;
 
-  /// No description provided for @visualizerPeaksOn.
-  ///
-  /// In de, this message translates to:
-  /// **'Punkte an'**
-  String get visualizerPeaksOn;
-
-  /// No description provided for @visualizerPeaksOff.
-  ///
-  /// In de, this message translates to:
-  /// **'Punkte aus'**
-  String get visualizerPeaksOff;
-
   /// No description provided for @settingsCoverflow.
   ///
   /// In de, this message translates to:
@@ -6205,12 +6175,6 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Hinzugefügt'**
   String get playlistAdded;
-
-  /// No description provided for @playlistAddedTo.
-  ///
-  /// In de, this message translates to:
-  /// **'„{title}“ hinzugefügt'**
-  String playlistAddedTo(Object title);
 
   /// No description provided for @transitionCustom.
   ///

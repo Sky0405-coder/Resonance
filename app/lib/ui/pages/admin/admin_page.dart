@@ -1347,7 +1347,7 @@ class _EditTrailingState extends ConsumerState<_EditTrailing> {
       final r = await ref.read(apiProvider).checkKey(widget.check!);
       if (!mounted) return;
       setState(() => _ok = r['ok'] == true);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${r['message'] ?? ''}')));
+      showInfo(context, '${r['message'] ?? ''}');
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {

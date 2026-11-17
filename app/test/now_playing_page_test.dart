@@ -404,14 +404,11 @@ void main() {
       await tester.pump();
       expect(container.read(visualizerPeaksProvider), !peaks);
       if (peaks) {
-        expect(find.text('Punkte aus'), findsOneWidget);
         expect(container.read(prefsProvider).getBool('visualizer_peaks'), isFalse);
-        ScaffoldMessenger.of(tester.element(cover)).removeCurrentSnackBar();
-        await tester.pump();
         await tester.tap(cover);
         await tester.pump();
         expect(container.read(visualizerPeaksProvider), isTrue);
-        expect(find.text('Punkte an'), findsOneWidget);
+        expect(find.byType(SnackBar), findsNothing, reason: 'the dots themselves show the change');
       }
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -553,7 +550,6 @@ void main() {
     await tester.tap(flowArtwork(1));
     await tester.pump();
     expect(container.read(visualizerPeaksProvider), isFalse);
-    expect(find.text('Peak dots off'), findsOneWidget);
   });
 
   testWidgets('a tapped coverflow cover turns over to its album and plays a song from there', (tester) async {

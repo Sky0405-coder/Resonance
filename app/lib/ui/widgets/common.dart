@@ -8,6 +8,7 @@ import '../../l10n/l10n.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderProxyBox;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -626,12 +627,63 @@ class AsyncBody<T> extends StatelessWidget {
   );
 }
 
-void showError(BuildContext context, Object e) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ApiException.from(e, context.l10n).message)));
+void showError(BuildContext context, Object e) => showMessage(context, ApiException.from(e, context.l10n).message);
+
+void showInfo(BuildContext context, String msg) => showMessage(context, msg);
+
+/// Shows [msg] as a snackbar. Shown from the shell's pages it floats above the player at the bottom (mini player,
+/// desktop player bar) instead of covering it.
+void showMessage(BuildContext context, String msg, {SnackBarAction? action, Duration? duration}) {
+  final player = context.getInheritedWidgetOfExactType<PlayerArea>() == null ? 0.0 : playerAreaHeight.value;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(msg),
+      action: action,
+      duration: duration ?? const Duration(milliseconds: 4000),
+      behavior: SnackBarBehavior.floating,
+      margin: player > 0 ? EdgeInsets.fromLTRB(15, 5, 15, 14 + player) : null,
+    ),
+  );
 }
 
-void showInfo(BuildContext context, String msg) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+/// Height of what sits at the bottom of the shell over its pages (player, offline banner), kept by [MeasureHeight].
+final playerAreaHeight = ValueNotifier<double>(0);
+
+/// Marks the shell's pages, whose snackbars appear in the shell's Scaffold above the player. Routes pushed over the
+/// shell (now playing, dialogs) are outside it and keep the default position.
+class PlayerArea extends InheritedWidget {
+  const PlayerArea({super.key, required super.child});
+
+  @override
+  bool updateShouldNotify(PlayerArea oldWidget) => false;
+}
+
+/// Writes the laid-out height of [child] to [height] (0 when the child is gone).
+class MeasureHeight extends SingleChildRenderObjectWidget {
+  const MeasureHeight({super.key, required this.height, super.child});
+
+  final ValueNotifier<double> height;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => RenderMeasureHeight(height);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderMeasureHeight renderObject) => renderObject.height = height;
+
+  @override
+  void didUnmountRenderObject(RenderMeasureHeight renderObject) => renderObject.height.value = 0;
+}
+
+class RenderMeasureHeight extends RenderProxyBox {
+  RenderMeasureHeight(this.height);
+
+  ValueNotifier<double> height;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    height.value = size.height;
+  }
 }
 
 /// Music entry points share the same error presentation as audiobook playback.

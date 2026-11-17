@@ -279,7 +279,6 @@ class TrackCover extends ConsumerWidget {
         ? () {
             final peaks = !ref.read(visualizerPeaksProvider);
             ref.read(visualizerPeaksProvider.notifier).set(peaks);
-            showInfo(context, peaks ? context.l10n.visualizerPeaksOn : context.l10n.visualizerPeaksOff);
           }
         : null;
     final reflect = ref.watch(visualizerReflectionProvider) && allowReflection;

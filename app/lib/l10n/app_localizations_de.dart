@@ -308,11 +308,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get playerLater => 'Danach';
 
   @override
-  String playerRemovedTrack(String title) {
-    return '„$title“ aus der Warteschlange entfernt';
-  }
-
-  @override
   String get settingsAccount => 'Konto';
 
   @override
@@ -979,11 +974,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get playerAddToQueue => 'Zur Warteschlange hinzufügen';
 
   @override
-  String playerQueuedTrack(String title) {
-    return '„$title“ in der Warteschlange';
-  }
-
-  @override
   String get playerGoToAlbum => 'Zum Album';
 
   @override
@@ -991,11 +981,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get editorCorrectMetadata => 'Metadaten korrigieren';
-
-  @override
-  String libraryAddedToPlaylist(String name) {
-    return 'Zu „$name“ hinzugefügt';
-  }
 
   @override
   String get commonSave => 'Speichern';
@@ -2346,12 +2331,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsVisualizerReflectionHint => 'Cover und Visualizer spiegeln';
 
   @override
-  String get visualizerPeaksOn => 'Punkte an';
-
-  @override
-  String get visualizerPeaksOff => 'Punkte aus';
-
-  @override
   String get settingsCoverflow => 'Coverflow';
 
   @override
@@ -3480,11 +3459,6 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get playlistAdded => 'Hinzugefügt';
-
-  @override
-  String playlistAddedTo(Object title) {
-    return '„$title“ hinzugefügt';
-  }
 
   @override
   String get transitionCustom => 'Benutzerdefiniert';
