@@ -1,5 +1,25 @@
 [
   {
+    "version": "1.7.10",
+    "date": "2026-11-17",
+    "de": [
+      "Suche: Song und Künstler lassen sich zusammen suchen, in beliebiger Reihenfolge, etwa „bohemian queen“ oder „Bohemian Rhapsody by Queen“.",
+      "Suche: Umlaute dürfen ausgeschrieben sein („mueller“ findet Müller), Genre, Jahr und Jahrzehnt zählen mit („rock 1985“, „80er“), und Namen in anderen Schriften finden sich in lateinischer Schreibweise („kino“ findet Кино).",
+      "Suche in Songtexten: Ab zwei Wörtern zeigt die Suche unter „In Songtexten“ Songs, in denen die Zeile vorkommt.",
+      "PC-App: Der Vollbild-Player dimmt wie auf dem Fernseher nach ein paar Sekunden ohne Eingabe auf Cover und Titel, der Mond-Knopf sofort.",
+      "Meldungen erscheinen nur noch bei Wichtigem und verdecken den Player nicht mehr.",
+      "PC-App unter Linux: Resonance steht nicht mehr doppelt im Startmenü."
+    ],
+    "en": [
+      "Search: look for a song and its artist together, in any order, such as “bohemian queen” or “Bohemian Rhapsody by Queen”.",
+      "Search: umlauts may be written out (“mueller” finds Müller), genre, year and decade count too (“rock 1985”, “80s”), and names in other scripts are found by their Latin spelling (“kino” finds Кино).",
+      "Search in lyrics: with two words or more, search shows the songs containing that line under “In lyrics”.",
+      "PC app: like on the TV, the full-screen player dims to cover and title after a few seconds without input, or right away with the moon button.",
+      "Messages only appear for important things and no longer cover the player.",
+      "PC app on Linux: Resonance no longer shows up twice in the start menu."
+    ]
+  },
+  {
     "version": "1.7.9",
     "date": "2026-11-13",
     "de": [
