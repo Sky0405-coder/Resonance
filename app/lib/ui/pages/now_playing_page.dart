@@ -11,7 +11,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api.dart';
 import '../../core/audiobooks.dart';
+import '../../core/desktop.dart';
 import '../../core/theme.dart';
+import '../tv/tv_ambient.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/library.dart';
@@ -221,6 +223,7 @@ class _TrackControls extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             const SleepTimerButton(),
+            if (isDesktop) const AmbientModeButton(),
             IconButton(
               tooltip: context.l10n.lyricsTitle,
               icon: const Icon(Icons.lyrics_outlined),
