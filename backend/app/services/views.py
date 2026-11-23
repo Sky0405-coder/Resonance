@@ -14,6 +14,7 @@ from app.models import (
     Playlist,
     PlaylistEntry,
     PlaylistShare,
+    SavedPlaylist,
     Track,
     TrackLike,
     User,
@@ -160,6 +161,13 @@ async def playlists_out(
             )
         )
     )
+    saved = set(
+        await db.scalars(
+            select(SavedPlaylist.playlist_id).where(
+                SavedPlaylist.user_id == user_id, SavedPlaylist.playlist_id.in_(ids)
+            )
+        )
+    )
     out = []
     for p in playlists:
         owner = owners[p.owner_id]
@@ -178,6 +186,7 @@ async def playlists_out(
                 shared_with=shared_with.get(p.id, []),
                 collaborative=p.collaborative,
                 can_edit=can_edit(p, user_id, p.id in shared_to_me),
+                saved=p.id in saved,
                 track_count=count,
                 duration=duration,
                 cover_album_ids=covers.get(p.id, []),

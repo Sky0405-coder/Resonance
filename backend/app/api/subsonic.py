@@ -484,9 +484,14 @@ async def _dispatch(
     if endpoint in {"search2", "search3"}:
         return await _search(db, user, params, endpoint == "search2")
     if endpoint == "getPlaylists":
-        visible = await playlist_api.list_playlists(user, db, request)
-        ids = [playlist.id for playlist in visible if playlist.kind != "mix"]
-        rows = list(await db.scalars(select(Playlist).where(Playlist.id.in_(ids)).order_by(Playlist.updated_at.desc())))
+        # Every playlist the user may play, not only the app's library: Subsonic clients cannot save playlists.
+        rows = list(
+            await db.scalars(
+                select(Playlist)
+                .where(playlist_api.visible(user), Playlist.kind != "mix")
+                .order_by(Playlist.updated_at.desc())
+            )
+        )
         return {"playlists": {"playlist": await ss.playlists(db, user, rows)}}
     if endpoint == "getPlaylist":
         return await _playlist_detail(db, user, await _visible_playlist(db, user, params.require("id")))

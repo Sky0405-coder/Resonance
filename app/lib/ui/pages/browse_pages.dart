@@ -296,7 +296,7 @@ class _PlaylistsTab extends ConsumerWidget {
             ),
             onTap: () => context.push('/liked'),
           ),
-          for (final p in list.where((p) => !p.isRadio && !p.isMix))
+          for (final p in list.where((p) => p.inLibrary))
             ListTile(
               leading: SizedBox(
                 width: 56,

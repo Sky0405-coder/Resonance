@@ -148,6 +148,12 @@ class LibraryActions {
     ref.invalidate(savedAlbumsProvider);
   }
 
+  Future<void> setPlaylistSaved(String playlistId, bool saved) async {
+    await ref.read(apiProvider).setPlaylistSaved(playlistId, saved);
+    ref.invalidate(playlistDetailProvider(playlistId));
+    ref.invalidate(playlistsProvider);
+  }
+
   Future<Playlist> createPlaylist(String name, {bool collaborative = false}) async {
     final p = await ref.read(apiProvider).createPlaylist(name, collaborative: collaborative);
     ref.invalidate(playlistsProvider);

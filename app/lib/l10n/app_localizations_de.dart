@@ -192,6 +192,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get librarySaveAlbum => 'In Bibliothek speichern';
 
   @override
+  String get librarySavePlaylist => 'In Bibliothek speichern';
+
+  @override
+  String get libraryRemovePlaylist => 'Aus Bibliothek entfernen';
+
+  @override
   String get playerAddToPlaylist => 'Zur Playlist hinzufügen';
 
   @override

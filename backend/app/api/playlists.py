@@ -25,6 +25,7 @@ from app.models import (
     PlaylistShare,
     PlaylistTransition,
     RadioPending,
+    SavedPlaylist,
     Track,
     TrackMixPoints,
     User,
@@ -50,20 +51,24 @@ from app.services.views import can_edit, playlists_out, tracks_out
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 
 
-async def _get_visible(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
-    playlist = await db.scalar(
-        select(Playlist).where(
-            Playlist.id == playlist_id,
-            or_(Playlist.owner_id == user.id, Playlist.kind == "user"),
-            or_(
-                Playlist.owner_id == user.id,
-                Playlist.is_public,
-                select(PlaylistShare.id)
-                .where(PlaylistShare.playlist_id == Playlist.id, PlaylistShare.user_id == user.id)
-                .exists(),
-            ),
-        )
+def _shared_with(user: User):
+    return (
+        select(PlaylistShare.id)
+        .where(PlaylistShare.playlist_id == Playlist.id, PlaylistShare.user_id == user.id)
+        .exists()
     )
+
+
+def visible(user: User):
+    """Own playlists of every kind, and other users' playlists that are public or shared with the user."""
+    return or_(
+        Playlist.owner_id == user.id,
+        (Playlist.kind == "user") & or_(Playlist.is_public, _shared_with(user)),
+    )
+
+
+async def _get_visible(db: DB, user: User, playlist_id: uuid.UUID) -> Playlist:
+    playlist = await db.scalar(select(Playlist).where(Playlist.id == playlist_id, visible(user)))
     if playlist is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Playlist nicht gefunden")
     return playlist
@@ -112,21 +117,35 @@ async def _position_before(
 
 @router.get("", response_model=list[PlaylistOut])
 async def list_playlists(user: CurrentUser, db: DB, request: Request) -> list[PlaylistOut]:
+    """The user's library: their own playlists (and radios and mixes), the ones shared with them, and other users'
+    public playlists they saved. Other public playlists are found by searching."""
+    saved = (
+        select(SavedPlaylist.id)
+        .where(SavedPlaylist.playlist_id == Playlist.id, SavedPlaylist.user_id == user.id)
+        .exists()
+    )
     rows = await db.scalars(
         select(Playlist)
-        .where(
-            or_(Playlist.owner_id == user.id, Playlist.kind == "user"),
-            or_(
-                Playlist.owner_id == user.id,
-                Playlist.is_public,
-                select(PlaylistShare.id)
-                .where(PlaylistShare.playlist_id == Playlist.id, PlaylistShare.user_id == user.id)
-                .exists(),
-            ),
-        )
+        .where(visible(user), or_(Playlist.owner_id == user.id, _shared_with(user), saved))
         .order_by(Playlist.updated_at.desc())
     )
     return await playlists_out(db, list(rows), user.id, language(request))
+
+
+@router.put("/{playlist_id}/saved", status_code=status.HTTP_204_NO_CONTENT)
+async def save_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> None:
+    """Keeps another user's playlist or one of the user's mixes in their library."""
+    await _get_visible(db, user, playlist_id)
+    await db.execute(insert(SavedPlaylist).values(user_id=user.id, playlist_id=playlist_id).on_conflict_do_nothing())
+    await db.commit()
+
+
+@router.delete("/{playlist_id}/saved", status_code=status.HTTP_204_NO_CONTENT)
+async def unsave_playlist(playlist_id: uuid.UUID, user: CurrentUser, db: DB) -> None:
+    await db.execute(
+        delete(SavedPlaylist).where(SavedPlaylist.user_id == user.id, SavedPlaylist.playlist_id == playlist_id)
+    )
+    await db.commit()
 
 
 @router.post("", response_model=PlaylistOut, status_code=status.HTTP_201_CREATED)

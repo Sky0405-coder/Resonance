@@ -303,6 +303,8 @@ class ApiClient {
   Future<void> setLiked(String trackId, bool liked) =>
       liked ? _put('/api/me/likes/tracks/$trackId') : _delete('/api/me/likes/tracks/$trackId');
 
+  Future<void> setPlaylistSaved(String playlistId, bool saved) =>
+      saved ? _put('/api/playlists/$playlistId/saved') : _delete('/api/playlists/$playlistId/saved');
   Future<void> setAlbumSaved(String albumId, bool saved) =>
       saved ? _put('/api/me/albums/$albumId') : _delete('/api/me/albums/$albumId');
 

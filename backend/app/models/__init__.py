@@ -10,6 +10,7 @@ from app.models.collection import (
     RadioPending,
     RadioStationFavorite,
     SavedAlbum,
+    SavedPlaylist,
     TrackLike,
 )
 from app.models.downloads import DownloadItem, DownloadRequest, QualityUpgradeAttempt
@@ -81,6 +82,7 @@ __all__ = [
     "RadioStationFavorite",
     "Role",
     "SavedAlbum",
+    "SavedPlaylist",
     "ServerSetting",
     "SpotifyAccount",
     "SpotifyImport",

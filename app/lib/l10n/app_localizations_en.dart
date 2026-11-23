@@ -191,6 +191,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get librarySaveAlbum => 'Save to library';
 
   @override
+  String get librarySavePlaylist => 'Save to library';
+
+  @override
+  String get libraryRemovePlaylist => 'Remove from library';
+
+  @override
   String get playerAddToPlaylist => 'Add to playlist';
 
   @override

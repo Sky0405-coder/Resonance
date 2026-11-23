@@ -259,12 +259,16 @@ class Playlist {
     this.mixKey,
     this.collaborative = false,
     this.canEdit = false,
+    this.saved = false,
   });
 
   final String id;
   final String name;
   final String? description;
   final bool isPublic;
+
+  /// The user keeps it in their library without owning it (another user's public playlist, or a mix).
+  final bool saved;
 
   /// Users it is shared with may add, move and remove songs.
   final bool collaborative;
@@ -288,6 +292,10 @@ class Playlist {
   /// A blend: the user's and another user's shared mix (mix key `blend:<other user>`).
   bool get isBlend => isMix && (mixKey?.startsWith('blend:') ?? false);
 
+  /// Listed in the library: the user's own and shared playlists and the saved ones (mixes only when saved; radios
+  /// have their own section).
+  bool get inLibrary => !isRadio && (!isMix || saved);
+
   factory Playlist.fromJson(Map<String, dynamic> j) => Playlist(
     id: j['id'],
     name: j['name'],
@@ -303,6 +311,7 @@ class Playlist {
     mixKey: j['mix_key'],
     collaborative: j['collaborative'] ?? false,
     canEdit: j['can_edit'] ?? false,
+    saved: j['saved'] ?? false,
   );
 }
 

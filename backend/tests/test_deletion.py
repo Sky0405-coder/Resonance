@@ -607,10 +607,12 @@ async def test_playlist_shares_sort_deduplicate_and_hide_from_public_view(env: S
     await env.client.put(f"{url}/shares", json={"user_ids": [env.b["user"]["id"]]}, headers=env.headers)
     response = await env.client.get(url, headers=auth(env.c["token"]))
     assert response.status_code == 200 and response.json()["shared_with"] == []
-    assert any(
-        item["id"] == playlist_id
-        for item in (await env.client.get("/api/playlists", headers=auth(env.c["token"]))).json()
-    )
+    # No longer shared with c, a public playlist is in c's library only once saved.
+    listed = (await env.client.get("/api/playlists", headers=auth(env.c["token"]))).json()
+    assert all(item["id"] != playlist_id for item in listed)
+    await env.client.put(f"{url}/saved", headers=auth(env.c["token"]))
+    listed = (await env.client.get("/api/playlists", headers=auth(env.c["token"]))).json()
+    assert any(item["id"] == playlist_id for item in listed)
 
 
 @pytest.mark.parametrize("invalid", ["unknown", "disabled", "owner"])

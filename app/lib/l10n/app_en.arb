@@ -63,6 +63,8 @@
   "commonDiscNumber": "CD {number}",
   "libraryRemoveAlbum": "Remove from library",
   "librarySaveAlbum": "Save to library",
+  "librarySavePlaylist": "Save to library",
+  "libraryRemovePlaylist": "Remove from library",
   "playerAddToPlaylist": "Add to playlist",
   "editorCorrectAlbum": "Edit album metadata",
   "editorMatchAlbum": "Match album",

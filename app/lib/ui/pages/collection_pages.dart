@@ -476,6 +476,17 @@ class PlaylistPage extends ConsumerWidget {
                     canShuffle: tracks.isNotEmpty,
                     children: [
                       OfflineDownloadButton(kind: 'playlist', id: id),
+                      // Mixes and other users' public playlists go into the library with this button.
+                      if (d.playlist.isMix || (d.playlist.owner.id != userId && d.playlist.isPublic))
+                        IconButton(
+                          iconSize: 28,
+                          tooltip: d.playlist.saved
+                              ? context.l10n.libraryRemovePlaylist
+                              : context.l10n.librarySavePlaylist,
+                          color: d.playlist.saved ? Theme.of(context).colorScheme.primary : Palette.textMuted,
+                          icon: Icon(d.playlist.saved ? Icons.check_circle : Icons.add_circle_outline),
+                          onPressed: () => actions.setPlaylistSaved(id, !d.playlist.saved),
+                        ),
                       if (addable)
                         IconButton(
                           iconSize: 28,

@@ -135,6 +135,19 @@ class SavedAlbum(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class SavedPlaylist(Base):
+    """A playlist the user keeps in their library without owning it: another user's public playlist, or one of their
+    mixes, which stays live (the mix's own row, made again on its schedule)."""
+
+    __tablename__ = "saved_playlists"
+    __table_args__ = (UniqueConstraint("user_id", "playlist_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    playlist_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("playlists.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class PlayEvent(Base):
     """Listening history; basis for 'recently played', mixes and scrobbling."""
 

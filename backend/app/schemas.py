@@ -299,6 +299,8 @@ class PlaylistOut(ORM):
     collaborative: bool = False
     # The viewer may add, move and remove songs (owner, or a user it is shared with when collaborative).
     can_edit: bool = False
+    # The viewer keeps it in their library without owning it (another user's playlist, or a mix).
+    saved: bool = False
     track_count: int = 0
     duration: float = 0
     # Up to 4 album ids for a mosaic cover.

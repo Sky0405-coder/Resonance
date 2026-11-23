@@ -422,6 +422,18 @@ abstract class AppLocalizations {
   /// **'In Bibliothek speichern'**
   String get librarySaveAlbum;
 
+  /// No description provided for @librarySavePlaylist.
+  ///
+  /// In de, this message translates to:
+  /// **'In Bibliothek speichern'**
+  String get librarySavePlaylist;
+
+  /// No description provided for @libraryRemovePlaylist.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus Bibliothek entfernen'**
+  String get libraryRemovePlaylist;
+
   /// No description provided for @playerAddToPlaylist.
   ///
   /// In de, this message translates to:

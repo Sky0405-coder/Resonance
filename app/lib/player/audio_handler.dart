@@ -416,7 +416,7 @@ class ResonanceAudioHandler extends BaseAudioHandler with QueueHandler, SeekHand
               artUri: Uri.parse(_api.likedCoverUrl()),
             ),
             for (final playlist in await container.read(playlistsProvider.future))
-              if (!playlist.isMix && !playlist.isRadio) _playlist(playlist),
+              if (playlist.inLibrary) _playlist(playlist),
           ];
         }
         if (id == 'albums') {

@@ -102,6 +102,8 @@
   },
   "libraryRemoveAlbum": "Aus Bibliothek entfernen",
   "librarySaveAlbum": "In Bibliothek speichern",
+  "librarySavePlaylist": "In Bibliothek speichern",
+  "libraryRemovePlaylist": "Aus Bibliothek entfernen",
   "playerAddToPlaylist": "Zur Playlist hinzufügen",
   "editorCorrectAlbum": "Album korrigieren",
   "editorMatchAlbum": "Album zuordnen",
