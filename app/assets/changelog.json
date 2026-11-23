@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.7.11",
+    "date": "2026-11-23",
+    "de": [
+      "Playlists speichern: Öffentliche Playlists anderer Nutzer und Mixe wie Daily Mix oder die Charts kommen mit ⊕ auf ihrer Seite in deine Bibliothek. Gespeicherte Mixe aktualisieren sich weiter.",
+      "Die Bibliothek zeigt deine eigenen, die mit dir geteilten und die gespeicherten Playlists. Öffentliche Playlists anderer findest du über die Suche; die bisher angezeigten sind schon gespeichert.",
+      "Die Song-Analyse für AutoMix rechnet abends von 18 bis 3 Uhr gedrosselt, damit andere Dienste auf dem Server Luft haben."
+    ],
+    "en": [
+      "Save playlists: other users' public playlists and mixes such as Daily Mix or the charts go into your library with ⊕ on their page. Saved mixes keep updating.",
+      "The library shows your own playlists, those shared with you and those you saved. Find other users' public playlists by searching; the ones shown until now are already saved.",
+      "The AutoMix song analysis runs throttled in the evening from 6 pm to 3 am, leaving room for other services on the server."
+    ]
+  },
+  {
     "version": "1.7.10",
     "date": "2026-11-17",
     "de": [
