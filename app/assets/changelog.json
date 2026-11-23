@@ -1,5 +1,23 @@
 [
   {
+    "version": "1.7.12",
+    "date": "2026-11-23",
+    "de": [
+      "Karaoke: Der Mikrofon-Knopf in der Songtext-Ansicht zeigt die aktuelle Zeile groß zum Mitsingen. Sie färbt sich beim Singen, nach längeren Pausen zählen Punkte herunter, und japanische Texte bekommen die Lesung klein über den Kanji.",
+      "Karaoke ohne Gesang: Ist es im Admin-Menü eingeschaltet, entfernt der Server den Gesang des aktuellen und des nächsten Songs, solange Karaoke an ist. Bis dahin läuft das Original.",
+      "Songtexte in anderen Schriften: Der Schrift-Knopf zeigt japanische Texte mit Kana statt Kanji oder ganz in Romaji, andere Schriften wie Chinesisch, Koreanisch oder Kyrillisch in lateinischen Buchstaben.",
+      "Admin: Ein optionales japanisches Wörterbuch liest Kanji im Zusammenhang und damit deutlich genauer.",
+      "Admin: Die Zahl der Threads für Song-Analyse und Karaoke ist einstellbar, empfohlen ist die Hälfte der Kerne. Die Song-Analyse lässt sich zu festen Zeiten pausieren; die feste Drosselung von 18 bis 3 Uhr entfällt."
+    ],
+    "en": [
+      "Karaoke: the microphone button in the lyrics view shows the current line large to sing along. It fills with colour as it is sung, dots count down after longer pauses, and Japanese lyrics get the reading in small letters above the kanji.",
+      "Karaoke without vocals: when switched on in the admin menu, the server removes the vocals of the current and the next song while karaoke is on. The original plays until then.",
+      "Lyrics in other scripts: the script button shows Japanese lyrics with kana instead of kanji or fully in romaji, and other scripts such as Chinese, Korean or Cyrillic in Latin letters.",
+      "Admin: an optional Japanese dictionary reads kanji in context and therefore much more accurately.",
+      "Admin: the number of threads for the song analysis and karaoke can be set, half the cores being recommended. The song analysis can pause at set times; the fixed throttle from 6 pm to 3 am is gone."
+    ]
+  },
+  {
     "version": "1.7.11",
     "date": "2026-11-23",
     "de": [
