@@ -30,7 +30,7 @@ from app.schemas import (
     UserOut,
 )
 from app.security import hash_password, hash_token, new_token
-from app.services import genres, scanner, upgrades
+from app.services import genres, japanese, scanner, upgrades
 from app.services.deletion import delete_empty_album, delete_tracks
 from app.services.duplicates import find_groups, merge_group
 from app.services.server_config import ServerConfig, load_config, update_config
@@ -78,6 +78,12 @@ async def lyrics_status(admin: AdminUser, db: DB) -> dict[str, int]:
         .where(Track.is_temporary.is_(False))
     )).one()
     return dict(row._mapping)
+
+
+@router.get("/lyrics/japanese")
+async def japanese_dictionary_status(admin: AdminUser) -> dict:
+    """The optional Japanese dictionary: enabled, and state off | installing | ready | failed (with a message)."""
+    return await japanese.status()
 
 
 @router.post("/genres/fill", response_model=JobOut, status_code=status.HTTP_202_ACCEPTED)

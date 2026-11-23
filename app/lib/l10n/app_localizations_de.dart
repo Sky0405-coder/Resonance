@@ -2284,6 +2284,18 @@ class AppLocalizationsDe extends AppLocalizations {
   String get lyricsAttribution => 'Songtext von LRCLIB';
 
   @override
+  String get lyricsScriptOriginal => 'Original';
+
+  @override
+  String get lyricsScriptKana => 'Kana';
+
+  @override
+  String get lyricsScriptRomaji => 'Romaji';
+
+  @override
+  String get lyricsScriptLatin => 'Lateinisch';
+
+  @override
   String get adminLyricsOnline => 'Songtexte online suchen (LRCLIB)';
 
   @override
@@ -3938,4 +3950,64 @@ class AppLocalizationsDe extends AppLocalizations {
   String wrappedPlaylistDescription(Object year) {
     return 'Deine 100 meistgehörten Songs $year';
   }
+
+  @override
+  String get lyricsKaraoke => 'Karaoke';
+
+  @override
+  String get lyricsKaraokePreparing => 'Gesang wird entfernt … bis dahin läuft das Original';
+
+  @override
+  String get lyricsKaraokeInstrumental => 'Ohne Gesang';
+
+  @override
+  String get lyricsKaraokeOff => 'Mit Gesang – Karaoke-Fassungen sind auf dem Server ausgeschaltet';
+
+  @override
+  String get lyricsKaraokeFailed => 'Mit Gesang – der Gesang ließ sich nicht entfernen';
+
+  @override
+  String get adminKaraoke => 'Karaoke ohne Gesang';
+
+  @override
+  String get adminKaraokeHint =>
+      'Entfernt den Gesang eines Songs, sobald ihn jemand im Karaoke-Modus singt – nie im Hintergrund. Nutzt Demucs wie die Song-Analyse (einmalig etwa 1 GB) und hält sich an dieselbe Thread-Zahl. Die Fassungen belegen höchstens 20 GB; was am längsten nicht gesungen wurde, wird zuerst gelöscht.';
+
+  @override
+  String get adminJapaneseDictionary => 'Japanisches Wörterbuch für Songtexte';
+
+  @override
+  String get adminJapaneseDictionaryHint =>
+      'Liest Kanji im Zusammenhang für Kana, Furigana und Romaji (einmalig etwa 250 MB). Ohne Wörterbuch werden Kanji einzeln gelesen, oft falsch.';
+
+  @override
+  String get adminInstalling => 'Wird eingerichtet …';
+
+  @override
+  String adminInstallFailed(String message) {
+    return 'Einrichtung fehlgeschlagen, neuer Versuch in einer Stunde: $message';
+  }
+
+  @override
+  String adminVocalThreads(int threads, int cpus) {
+    return 'Gesangstrennung: $threads von $cpus Threads';
+  }
+
+  @override
+  String adminVocalThreadsHint(int recommended) {
+    return 'Gilt für die Song-Analyse und Karaoke. Empfohlen für diesen Server: $recommended (die Hälfte der Kerne). Weniger Threads lassen anderen Diensten mehr Luft, dauern aber länger.';
+  }
+
+  @override
+  String get adminVocalPause => 'Song-Analyse zu bestimmten Zeiten pausieren';
+
+  @override
+  String get adminVocalPauseHint =>
+      'In diesem Zeitraum (deutsche Zeit) analysiert der Server im Hintergrund nichts, z. B. während Spieleserver die CPU brauchen. Karaoke läuft trotzdem.';
+
+  @override
+  String get adminVocalPauseFrom => 'Pause von';
+
+  @override
+  String get adminVocalPauseTo => 'Pause bis';
 }

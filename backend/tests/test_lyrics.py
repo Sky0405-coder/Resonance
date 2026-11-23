@@ -143,7 +143,10 @@ async def test_api_local_and_permissions(env: SimpleNamespace, monkeypatch: pyte
         "synced": True,
         "instrumental": False,
         "source": "file",
-        "lines": [{"time_ms": 1000, "text": "Local"}, {"time_ms": 2000, "text": "Second"}],
+        "lines": [
+            {"time_ms": 1000, "text": "Local", "kana": None, "latin": None, "ruby": None},
+            {"time_ms": 2000, "text": "Second", "kana": None, "latin": None, "ruby": None},
+        ],
     }
     async with SessionLocal() as db:
         assert await db.get(TrackLyrics, env.track.id) is None
@@ -185,6 +188,24 @@ async def test_api_online_cache(env: SimpleNamespace, monkeypatch: pytest.Monkey
     assert len(calls) == 1
     env.path.with_suffix(".lrc").write_text("Local overrides cache")
     assert (await env.client.get(url, headers=env.headers)).json()["source"] == "file"
+
+
+async def test_api_japanese_readings(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def lookup(*args: object) -> dict:
+        return {"syncedLyrics": "[00:01]東京へ\n[00:03]Baby", "plainLyrics": "", "instrumental": False}
+
+    monkeypatch.setattr(lyrics, "lrclib_lookup", lookup)
+    body = (await env.client.get(f"/api/tracks/{env.track.id}/lyrics", headers=env.headers)).json()
+    assert body["lines"] == [
+        {
+            "time_ms": 1000,
+            "text": "東京へ",
+            "kana": "とうきょうへ",
+            "latin": "toukyou he",
+            "ruby": [["東京", "とうきょう"], ["へ", None]],
+        },
+        {"time_ms": 3000, "text": "Baby", "kana": None, "latin": None, "ruby": None},
+    ]
 
 
 async def test_api_none_retry(env: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:

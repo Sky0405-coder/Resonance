@@ -22,10 +22,33 @@ final mixesProvider =
 
 final homeProvider = FutureProvider.autoDispose<Home>((ref) => ref.watch(apiProvider).home());
 
-final lyricsProvider = FutureProvider.family<Lyrics, String>((ref, id) {
+final lyricsProvider = FutureProvider.family<Lyrics, String>((ref, id) async {
   final cached = kIsWeb ? null : ref.watch(offlineProvider.select((s) => s.lyrics(id)));
-  return cached ?? ref.watch(apiProvider).lyrics(id);
+  if (cached == null) return ref.watch(apiProvider).lyrics(id);
+  if (!cached.missingScripts) return cached;
+  // Saved before the server read other scripts: ask it for the readings, the saved lyrics stay the fallback offline.
+  try {
+    return await ref.watch(apiProvider).lyrics(id);
+  } catch (_) {
+    return cached;
+  }
 });
+
+/// The script lyrics are shown in, remembered across songs; songs without that reading show their original text.
+class LyricsScriptSetting extends Notifier<LyricsScript> {
+  static const _key = 'lyrics_script';
+
+  @override
+  LyricsScript build() =>
+      LyricsScript.values.asNameMap()[ref.read(prefsProvider).getString(_key)] ?? LyricsScript.original;
+
+  void set(LyricsScript script) {
+    state = script;
+    ref.read(prefsProvider).setString(_key, script.name).ignore();
+  }
+}
+
+final lyricsScriptProvider = NotifierProvider<LyricsScriptSetting, LyricsScript>(LyricsScriptSetting.new);
 
 final albumProvider = FutureProvider.autoDispose.family<AlbumDetail, String>(
   (ref, id) =>

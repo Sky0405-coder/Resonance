@@ -1,5 +1,7 @@
 import asyncio
+import contextlib
 import dataclasses
+import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -505,6 +507,32 @@ async def get_stem(id: uuid.UUID, user: CurrentUser, db: DB) -> FileResponse:
     path = None if track is None else vocals.stem_path(track)
     if path is None or not path.exists():
         raise HTTPException(404, "Nicht gefunden")
+    return FileResponse(path, media_type="audio/ogg", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@router.post("/tracks/{id}/karaoke")
+async def prepare_karaoke(id: uuid.UUID, user: CurrentUser, db: DB) -> dict:
+    """The whole song without its voice for karaoke: ready, pending (separating or waiting), failed or unavailable
+    (karaoke is off on this server, or the song is too long)."""
+    track = await db.get(Track, id)
+    if track is None:
+        raise HTTPException(404, "Nicht gefunden")
+    state = await vocals.request_karaoke(db, track)
+    result: dict = {"state": state}
+    if state == "failed" and user.is_admin:
+        result["error"] = vocals.karaoke_error(id)
+    return result
+
+
+@router.get("/tracks/{id}/karaoke")
+async def get_karaoke(id: uuid.UUID, user: CurrentUser, db: DB) -> FileResponse:
+    track = await db.get(Track, id)
+    path = None if track is None else vocals.karaoke_path(track)
+    if path is None or not path.exists():
+        raise HTTPException(404, "Nicht gefunden")
+    # Played songs stay longest when the folder is over its limit.
+    with contextlib.suppress(OSError):
+        os.utime(path)
     return FileResponse(path, media_type="audio/ogg", headers={"Cache-Control": "private, max-age=86400"})
 
 

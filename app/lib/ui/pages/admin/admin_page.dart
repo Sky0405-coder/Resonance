@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/api.dart';
 import '../../../core/audiobooks.dart';
 import '../../../core/books.dart';
 import '../../../core/models.dart';
@@ -342,6 +343,104 @@ class _VocalAnalysisStatus extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// How many threads the separation (song analysis and karaoke) may use; the recommendation for the server until the
+/// admin picks a number (stored as 0, so it follows the machine).
+class _ThreadsTile extends ConsumerStatefulWidget {
+  const _ThreadsTile({required this.setting, required this.onChanged});
+  final int setting;
+  final ValueChanged<int> onChanged;
+
+  @override
+  ConsumerState<_ThreadsTile> createState() => _ThreadsTileState();
+}
+
+class _ThreadsTileState extends ConsumerState<_ThreadsTile> {
+  double? _dragging;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = ref.watch(_vocalAnalysisStatusProvider).value;
+    final cpus = (status?['cpus'] as int?) ?? 0;
+    final recommended = (status?['recommended_threads'] as int?) ?? 1;
+    if (cpus < 2) return const SizedBox.shrink();
+    final value = (_dragging ?? (widget.setting == 0 ? recommended : widget.setting).toDouble()).clamp(1.0, cpus);
+    return ListTile(
+      title: Text(context.l10n.adminVocalThreads(value.round(), cpus)),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Slider(
+            value: value.toDouble(),
+            min: 1,
+            max: cpus.toDouble(),
+            divisions: cpus - 1,
+            label: '${value.round()}',
+            onChanged: (v) => setState(() => _dragging = v),
+            onChangeEnd: (v) {
+              setState(() => _dragging = null);
+              widget.onChanged(v.round() == recommended ? 0 : v.round());
+            },
+          ),
+          Text(context.l10n.adminVocalThreadsHint(recommended)),
+        ],
+      ),
+    );
+  }
+}
+
+/// A switch's hint, and while it is switched on whether what it needs is still being installed (or failed to).
+class _InstallSubtitle extends ConsumerStatefulWidget {
+  const _InstallSubtitle({required this.hint, required this.enabled, required this.load});
+  final String hint;
+  final bool enabled;
+  final Future<({String state, String? message})> Function(ApiClient api) load;
+
+  @override
+  ConsumerState<_InstallSubtitle> createState() => _InstallSubtitleState();
+}
+
+class _InstallSubtitleState extends ConsumerState<_InstallSubtitle> {
+  Timer? _poll;
+  ({String state, String? message})? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    _poll = Timer.periodic(const Duration(seconds: 5), (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    if (!widget.enabled) {
+      if (_status != null) setState(() => _status = null);
+      return;
+    }
+    try {
+      final status = await widget.load(ref.read(apiProvider));
+      if (mounted) setState(() => _status = status);
+    } catch (_) {
+      // An older server: just the hint.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = widget.enabled ? _status : null;
+    final note = switch (status?.state) {
+      'installing' => context.l10n.adminInstalling,
+      'failed' => context.l10n.adminInstallFailed(status?.message ?? ''),
+      _ => null,
+    };
+    return Text(note == null ? widget.hint : '${widget.hint}\n$note');
   }
 }
 
@@ -828,6 +927,84 @@ class _ServerTab extends ConsumerWidget {
                 });
                 ref.invalidate(_vocalAnalysisStatusProvider);
               },
+            ),
+            SwitchListTile(
+              title: Text(context.l10n.adminKaraoke),
+              subtitle: _InstallSubtitle(
+                hint: context.l10n.adminKaraokeHint,
+                enabled: lib['karaoke'] ?? false,
+                load: (api) async {
+                  final s = await api.vocalAnalysisStatus();
+                  return (
+                    state: s['installed'] == true ? 'ready' : (s['runtime'] == 'failed' ? 'failed' : 'installing'),
+                    message: s['runtime_message'] as String?,
+                  );
+                },
+              ),
+              isThreeLine: true,
+              value: lib['karaoke'] ?? false,
+              onChanged: (v) => patch({
+                'library': {'karaoke': v},
+              }),
+            ),
+            if ((lib['vocal_analysis'] ?? false) || (lib['karaoke'] ?? false))
+              _ThreadsTile(
+                setting: (lib['vocal_threads'] as int?) ?? 0,
+                onChanged: (v) => patch({
+                  'library': {'vocal_threads': v},
+                }),
+              ),
+            if (lib['vocal_analysis'] ?? false) ...[
+              SwitchListTile(
+                title: Text(context.l10n.adminVocalPause),
+                subtitle: Text(context.l10n.adminVocalPauseHint),
+                value: lib['vocal_pause'] ?? false,
+                onChanged: (v) => patch({
+                  'library': {'vocal_pause': v},
+                }),
+              ),
+              if (lib['vocal_pause'] ?? false)
+                for (final (key, label, fallback) in [
+                  ('vocal_pause_from', context.l10n.adminVocalPauseFrom, '18:00'),
+                  ('vocal_pause_to', context.l10n.adminVocalPauseTo, '03:00'),
+                ])
+                  ListTile(
+                    contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                    title: Text(label),
+                    trailing: Text((lib[key] as String?) ?? fallback, style: Theme.of(context).textTheme.titleMedium),
+                    onTap: () async {
+                      final parts = ((lib[key] as String?) ?? fallback).split(':');
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
+                        builder: (context, child) => MediaQuery(
+                          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                          child: child!,
+                        ),
+                      );
+                      if (picked == null) return;
+                      String two(int n) => n.toString().padLeft(2, '0');
+                      await patch({
+                        'library': {key: '${two(picked.hour)}:${two(picked.minute)}'},
+                      });
+                    },
+                  ),
+            ],
+            SwitchListTile(
+              title: Text(context.l10n.adminJapaneseDictionary),
+              subtitle: _InstallSubtitle(
+                hint: context.l10n.adminJapaneseDictionaryHint,
+                enabled: lyrics['japanese_dictionary'] ?? false,
+                load: (api) async {
+                  final s = await api.japaneseDictionaryStatus();
+                  return (state: s['state'] as String, message: s['message'] as String?);
+                },
+              ),
+              isThreeLine: true,
+              value: lyrics['japanese_dictionary'] ?? false,
+              onChanged: (v) => patch({
+                'lyrics': {'japanese_dictionary': v},
+              }),
             ),
             SwitchListTile(
               title: Text(context.l10n.adminLyricsOnline),

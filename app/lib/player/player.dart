@@ -12,6 +12,7 @@ import 'package:just_audio/just_audio.dart';
 import 'engine.dart';
 import 'equalizer_controller.dart';
 import 'harmonic.dart';
+import 'karaoke.dart';
 import 'radio_follow.dart';
 
 import '../core/api.dart';
@@ -419,10 +420,46 @@ class PlayerController extends Notifier<PlayerView> {
   );
 
   SourceFactory _source(Track t) => () {
+    if (ref.read(karaokeProvider).ready(t.id)) {
+      _karaokeLoaded.add(t.id);
+      return AudioSource.uri(Uri.parse(_api.karaokeUrl(t.id)));
+    }
+    _karaokeLoaded.remove(t.id);
     final offline = kIsWeb ? null : ref.read(offlineProvider);
     final file = offline?.filePath(t.id);
     return file == null ? AudioSource.uri(Uri.parse(_api.streamUrl(t.id))) : AudioSource.file(file);
   };
+
+  /// Songs loaded in their version without the voice (karaoke).
+  final _karaokeLoaded = <String>{};
+
+  /// Karaoke: plays the songs the server has without their voice in place of the originals, and the originals
+  /// again when karaoke ends; the current song goes on from where it is.
+  Future<void> applyKaraoke() => _switch(() async {
+    final index = state.index;
+    if (jam != null || connect != null || state.book != null || state.station != null || index == null) return;
+    final karaoke = ref.read(karaokeProvider);
+    final wanted = {
+      for (final t in state.queue)
+        if (karaoke.ready(t.id)) t.id,
+    };
+    if (setEquals(wanted, _karaokeLoaded.intersection({for (final t in state.queue) t.id}))) return;
+    final current = state.queue[index].id;
+    final reloadCurrent = wanted.contains(current) != _karaokeLoaded.contains(current);
+    _switching = true;
+    try {
+      final sources = [for (final t in state.queue) _source(t)];
+      if (reloadCurrent) {
+        final playing = engine.playing;
+        await engine.setSources(sources, initialIndex: index, initialPosition: engine.position);
+        if (playing && !engine.playing) unawaited(engine.play());
+      } else {
+        await engine.setSources(sources, initialIndex: index, preserveCurrent: true);
+      }
+    } finally {
+      _switching = false;
+    }
+  });
 
   /// Replace the queue and start playing at [index]. Shuffle is a global toggle (like Spotify): when it is on,
   /// the queue is shuffled around the start track, which is random if no [index] is given.

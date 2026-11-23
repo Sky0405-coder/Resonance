@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import SessionLocal
+from app.lyrics_script import lyric_scripts
 from app.models import Album, PlayEvent, Track, TrackLyrics
 from app.schemas import LyricLine, LyricsOut
 from app.services.musicbrainz import VERSION
@@ -151,7 +152,11 @@ async def _lrclib_get(path: str, params: dict) -> httpx.Response:
 
 
 def _result(synced: str | None, plain: str | None, instrumental: bool, source: str | None) -> LyricsOut:
-    lines = [LyricLine(time_ms=ms if synced else None, text=text) for ms, text in parse_lrc(synced or plain or "")]
+    parsed = parse_lrc(synced or plain or "")
+    lines = [
+        LyricLine(time_ms=ms if synced else None, text=text, kana=read.kana, latin=read.latin, ruby=read.ruby)
+        for (ms, text), read in zip(parsed, lyric_scripts([text for _, text in parsed]), strict=True)
+    ]
     return LyricsOut(
         synced=bool(lines) and all(line.time_ms is not None for line in lines),
         instrumental=instrumental,
@@ -165,12 +170,14 @@ async def get_lyrics(db: AsyncSession, track: Track) -> LyricsOut:
     local = await asyncio.to_thread(local_lyrics, path)
     if local is not None:
         source = "file" if await asyncio.to_thread(sidecar_path, path) else "embedded"
-        return _result(local, None, False, source)
+        return await asyncio.to_thread(_result, local, None, False, source)
     try:
         row = await fetch_online_lyrics(db, track)
     except LyricsError:
         row = None
-    return _result(row.synced, row.plain, row.instrumental, "lrclib") if row else _result(None, None, False, None)
+    if row is None:
+        return _result(None, None, False, None)
+    return await asyncio.to_thread(_result, row.synced, row.plain, row.instrumental, "lrclib")
 
 
 async def fetch_online_lyrics(db: AsyncSession, track: Track) -> TrackLyrics | None:

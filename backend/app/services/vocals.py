@@ -13,6 +13,7 @@ import shutil
 import sys
 import time
 import uuid
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -24,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import PlayEvent, Track, TrackVocals
-from app.services.server_config import load_config
+from app.services.server_config import LibraryConfig, load_config
 from app.services.transcode import resolve_path
 
 log = logging.getLogger(__name__)
@@ -46,11 +47,7 @@ _WORKER_IDLE = 10 * 60
 # A song that stops the worker this often in a row is stored as failed.
 _MAX_CRASHES = 3
 
-# In the evening and at night the server also runs game servers, which need the CPU at once when they generate new
-# terrain. nice does not help across containers, so the separation then uses a single thread (about a quarter of
-# its usual speed). From 18:00 to 03:00 German time; the container itself runs in UTC.
-_QUIET_HOURS = (18, 3)
-_QUIET_THREADS = 1
+# The pause times are German time; the container itself runs in UTC.
 _ZONE = ZoneInfo("Europe/Berlin")
 
 _state: dict[str, str | None] = {"state": "off", "message": None}
@@ -71,13 +68,29 @@ def _marker() -> Path:
     return _root() / f"installed-{_RUNTIME}"
 
 
-def threads(now: datetime | None = None) -> int:
-    """How many threads the separation may use now."""
-    hour = (now or datetime.now(_ZONE)).astimezone(_ZONE).hour
-    start, end = _QUIET_HOURS
-    if hour >= start or hour < end:
-        return _QUIET_THREADS
+def recommended_threads() -> int:
+    """Half the machine's cores, so everything else on it keeps running."""
     return max(1, (os.cpu_count() or 2) // 2)
+
+
+def threads(setting: int) -> int:
+    """The threads the separation uses for the admin's setting (0 = recommended)."""
+    return min(setting, os.cpu_count() or setting) if setting > 0 else recommended_threads()
+
+
+def paused(library: LibraryConfig, now: datetime | None = None) -> bool:
+    """Whether the background analysis pauses now; a window like 18:00–03:00 runs past midnight."""
+    if not library.vocal_pause:
+        return False
+    local = (now or datetime.now(_ZONE)).astimezone(_ZONE)
+    minute = local.hour * 60 + local.minute
+    start, end = (int(t[:2]) * 60 + int(t[3:]) for t in (library.vocal_pause_from, library.vocal_pause_to))
+    return start <= minute < end if start <= end else minute >= start or minute < end
+
+
+async def _threads() -> int:
+    async with SessionLocal() as db:
+        return threads((await load_config(db)).library.vocal_threads)
 
 
 def installed() -> bool:
@@ -154,25 +167,27 @@ class Worker:
         return float(result["vocals_in"]), float(result["vocals_out"])
 
     async def instrumental(self, path: Path, length: float, out: Path) -> None:
-        await self._request({"path": str(path), "length": length, "stem": str(out)})
+        # A whole song for karaoke takes several times its length with one thread in the evening.
+        timeout = max(_SONG_TIMEOUT, length * 8)
+        await self._request({"path": str(path), "length": length, "stem": str(out)}, timeout)
 
-    async def _request(self, request: dict) -> dict:
+    async def _request(self, request: dict, timeout: float = _SONG_TIMEOUT) -> dict:
         async with self._lock:
             try:
-                return await self._send(request)
+                return await self._send(request, timeout)
             finally:
                 self._used_at = time.monotonic()
 
-    async def _send(self, request: dict) -> dict:
+    async def _send(self, request: dict, timeout: float = _SONG_TIMEOUT) -> dict:
         if self._process is None or self._process.returncode is not None:
             self._process = await self._start()
         process = self._process
-        # Asked per song, so the evening limit applies from the next song on without restarting the worker.
-        request = {**request, "threads": threads()}
+        # Asked per song, so a changed setting applies from the next song on without restarting the worker.
+        request = {**request, "threads": await _threads()}
         process.stdin.write((json.dumps(request) + "\n").encode())
         try:
             await process.stdin.drain()
-            line = await asyncio.wait_for(_answer(process), timeout=_SONG_TIMEOUT)
+            line = await asyncio.wait_for(_answer(process), timeout=timeout)
         except (TimeoutError, OSError):
             await self.close()
             raise
@@ -247,11 +262,12 @@ async def _store(
 async def run_once(limit: int = 20) -> int:
     """Analyzes up to `limit` songs while the analysis is switched on; returns how many."""
     async with SessionLocal() as db:
-        if not (await load_config(db)).library.vocal_analysis:
+        library = (await load_config(db)).library
+        if not library.vocal_analysis and not library.karaoke:
             _state.update(state="off", message=None)
             await _worker.close()
             return 0
-        tracks = await _next_tracks(db, limit)
+        tracks = await _next_tracks(db, limit) if library.vocal_analysis else []
     if not installed():
         # A failed install is retried after an hour (e.g. no internet at the moment).
         if _state["state"] == "failed" and time.monotonic() - _install_failed_at < 3600:
@@ -259,6 +275,9 @@ async def run_once(limit: int = 20) -> int:
         if not await install():
             return 0
     _state.update(state="ready", message=None)
+    if not library.vocal_analysis or paused(library):
+        # Installed for karaoke only, or paused at this time of day.
+        return 0
     done = 0
     for track in tracks:
         error = None
@@ -282,8 +301,9 @@ async def run_once(limit: int = 20) -> int:
         await _store(track.id, track.mtime, bounds, error)
         done += 1
         async with SessionLocal() as db:
-            if not (await load_config(db)).library.vocal_analysis:
-                break
+            library = (await load_config(db)).library
+        if not library.vocal_analysis or paused(library):
+            break
     return done
 
 
@@ -326,24 +346,102 @@ async def request_stem(db: AsyncSession, track: Track) -> str:
         return "unavailable"
     path.parent.mkdir(parents=True, exist_ok=True)
     _clean_stems(path.parent)
-    _stems_pending.add(track.id)
-    source, length = resolve_path(track.path), min(STEM_SECONDS, track.duration)
+    _separate(track.id, resolve_path(track.path), min(STEM_SECONDS, track.duration), path, _stems_pending, _stem_errors)
+    return "pending"
+
+
+def _separate(
+    track_id: uuid.UUID,
+    source: Path,
+    length: float,
+    path: Path,
+    pending: set[uuid.UUID],
+    errors: dict[uuid.UUID, tuple[float, str]],
+    done: Callable[[], None] | None = None,
+) -> None:
+    """Writes the first `length` seconds of `source` without the voice to `path` in the background."""
+    pending.add(track_id)
 
     async def run() -> None:
         partial = path.with_suffix(".part.opus")
         try:
             await _worker.instrumental(source, length, partial)
             partial.replace(path)
+            if done is not None:
+                done()
         except (ValueError, RuntimeError, OSError, TimeoutError) as e:
-            log.warning("Instrumental stem failed for %s: %s", track.id, e)
-            _stem_errors[track.id] = (time.monotonic(), str(e)[:500])
+            log.warning("Instrumental failed for %s: %s", track_id, e)
+            errors[track_id] = (time.monotonic(), str(e)[:500])
             partial.unlink(missing_ok=True)
         finally:
-            _stems_pending.discard(track.id)
+            pending.discard(track_id)
 
     task = asyncio.get_running_loop().create_task(run())
     _stem_tasks.add(task)
     task.add_done_callback(_stem_tasks.discard)
+
+
+# Karaoke: whole songs without the voice, separated only when someone sings them, and only songs up to this long
+# (a DJ set would take hours and gigabytes of memory).
+KARAOKE_MAX_SECONDS = 15 * 60
+KARAOKE_MAX_BYTES = 20 * 1024**3
+# Songs separated at once; more requests wait (the client asks again) so a long queue cannot pile up work.
+_KARAOKE_PARALLEL = 2
+_karaoke_pending: set[uuid.UUID] = set()
+_karaoke_errors: dict[uuid.UUID, tuple[float, str]] = {}
+
+
+def karaoke_path(track: Track) -> Path:
+    return get_settings().data_dir / "karaoke" / f"{track.id}-{int(track.mtime or 0)}.opus"
+
+
+def karaoke_error(track_id: uuid.UUID) -> str | None:
+    failed = _karaoke_errors.get(track_id)
+    return failed[1] if failed and time.monotonic() - failed[0] < 3600 else None
+
+
+def clean_karaoke(directory: Path, limit: int = KARAOKE_MAX_BYTES) -> None:
+    """Deletes the songs sung longest ago (their files are touched when played) until the rest fits the limit."""
+    files = []
+    for path in directory.glob("*.opus"):
+        if path.name.endswith(".part.opus"):
+            continue
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        files.append((stat.st_mtime, stat.st_size, path))
+    total = sum(size for _, size, _ in files)
+    for _, size, path in sorted(files):
+        if total <= limit:
+            break
+        path.unlink(missing_ok=True)
+        total -= size
+
+
+async def request_karaoke(db: AsyncSession, track: Track) -> str:
+    """ready | pending | failed | unavailable: starts separating the whole song when karaoke is switched on."""
+    path = karaoke_path(track)
+    if path.exists():
+        return "ready"
+    if track.id in _karaoke_pending:
+        return "pending"
+    if karaoke_error(track.id) is not None:
+        return "failed"
+    if (
+        not (await load_config(db)).library.karaoke
+        or not track.duration
+        or track.duration > KARAOKE_MAX_SECONDS
+    ):
+        return "unavailable"
+    if not installed() or len(_karaoke_pending) >= _KARAOKE_PARALLEL:
+        # Demucs is still being installed, or other songs are being separated: the client asks again.
+        return "pending"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _separate(
+        track.id, resolve_path(track.path), track.duration, path, _karaoke_pending, _karaoke_errors,
+        done=lambda: clean_karaoke(path.parent),
+    )
     return "pending"
 
 
@@ -361,7 +459,8 @@ async def bounds_for(db: AsyncSession, tracks: list[Track]) -> dict[uuid.UUID, t
 
 
 async def status(db: AsyncSession) -> dict:
-    enabled = (await load_config(db)).library.vocal_analysis
+    library = (await load_config(db)).library
+    enabled = library.vocal_analysis
     current = select(TrackVocals.failed).where(
         TrackVocals.track_id == Track.id, TrackVocals.version == VERSION, TrackVocals.mtime == Track.mtime
     ).scalar_subquery()
@@ -373,7 +472,13 @@ async def status(db: AsyncSession) -> dict:
     shown = state() if enabled else {"state": "off", "message": None}
     if enabled and shown["state"] == "off":
         shown["state"] = "ready" if installed() else "installing"
-    return {**shown, "enabled": enabled, "total": total, "analyzed": analyzed, "failed": failed}
+    return {
+        **shown, "enabled": enabled, "total": total, "analyzed": analyzed, "failed": failed,
+        "karaoke": library.karaoke, "installed": installed(), "runtime": state()["state"],
+        "runtime_message": state()["message"],
+        "threads": threads(library.vocal_threads), "recommended_threads": recommended_threads(),
+        "cpus": os.cpu_count() or 1, "paused": paused(library),
+    }
 
 
 async def _loop() -> None:

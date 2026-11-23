@@ -717,6 +717,7 @@ class _LyricsCard extends ConsumerWidget {
     final position = ref.watch(positionProvider).value ?? Duration.zero;
     final current = lyrics.synced ? lyrics.lines.lastIndexWhere((line) => line.timeMs! <= position.inMilliseconds) : -1;
     final start = current < 0 ? 0 : current;
+    final script = lyrics.shownIn(ref.watch(lyricsScriptProvider));
     final accent = Theme.of(context).colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -752,7 +753,7 @@ class _LyricsCard extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Text(
-                      lyrics.lines[i].text.isEmpty ? '♪' : lyrics.lines[i].text,
+                      lyrics.lines[i].text.isEmpty ? '♪' : lyrics.lines[i].textIn(script),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,

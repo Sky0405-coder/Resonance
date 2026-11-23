@@ -78,6 +78,9 @@ class DownloadConfig(BaseModel):
 
 class LyricsConfig(BaseModel):
     background_fetch: bool = True
+    # Reads Japanese lyrics with a dictionary (MeCab with UniDic, installed on first use, about 250 MB) instead of
+    # kanji by kanji: better kana, furigana and romaji.
+    japanese_dictionary: bool = False
 
 
 class LibraryConfig(BaseModel):
@@ -97,6 +100,17 @@ class LibraryConfig(BaseModel):
     # Song analysis for AutoMix: finds where the voice starts and ends with a stem separation (Demucs, installed on
     # first use, about 1 GB) – about a minute of CPU per song, in the background.
     vocal_analysis: bool = False
+    # Karaoke without the voice: separates a song with Demucs (installed like the song analysis) when someone sings
+    # it in karaoke mode, never in the background; the results keep up to 20 GB.
+    karaoke: bool = False
+    # Threads the separation (song analysis and karaoke) may use; 0 = the recommendation for this machine (half its
+    # cores).
+    vocal_threads: int = Field(0, ge=0, le=1024)
+    # No background song analysis between these times (German time), e.g. while game servers on the same machine need
+    # the CPU; karaoke, which someone is waiting for, still runs.
+    vocal_pause: bool = False
+    vocal_pause_from: str = Field("18:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    vocal_pause_to: str = Field("03:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 class AudiobookshelfConfig(BaseModel):

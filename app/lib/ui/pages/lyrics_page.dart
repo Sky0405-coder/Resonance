@@ -8,8 +8,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/library.dart';
 import '../../core/models.dart';
 import '../../l10n/l10n.dart';
+import '../../player/karaoke.dart';
 import '../../player/player.dart';
 import '../widgets/common.dart';
+import '../widgets/karaoke_view.dart';
 import '../widgets/player_bar.dart';
 
 class LyricsPage extends ConsumerWidget {
@@ -21,6 +23,7 @@ class LyricsPage extends ConsumerWidget {
     final track = player.book == null ? player.current : null;
     final accent = Theme.of(context).colorScheme.primary;
     final background = Color.alphaBlend(Colors.black.withValues(alpha: 0.55), accent);
+    final karaoke = ref.watch(karaokeProvider.select((k) => k.on));
     return Scaffold(
       backgroundColor: background,
       body: SafeArea(
@@ -56,9 +59,12 @@ class LyricsPage extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  if (track != null) _ScriptButton(trackId: track.id),
+                  if (track != null) _KaraokeButton(trackId: track.id),
                 ],
               ),
             ),
+            if (track != null && karaoke) _KaraokeAudio(trackId: track.id),
             Expanded(
               child: track == null
                   ? Center(child: Text(context.l10n.lyricsNotFound))
@@ -69,6 +75,8 @@ class LyricsPage extends ConsumerWidget {
                           ? Center(child: Text(context.l10n.lyricsInstrumental))
                           : lyrics.lines.isEmpty
                           ? Center(child: Text(context.l10n.lyricsNotFound))
+                          : karaoke && lyrics.synced
+                          ? KaraokeView(key: ValueKey(track.id), lyrics: lyrics)
                           : _LyricsLines(key: ValueKey(track.id), lyrics: lyrics),
                     ),
             ),
@@ -85,6 +93,94 @@ class LyricsPage extends ConsumerWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Switches between the original text, kana readings and the Latin spelling; only for lyrics in another script.
+class _ScriptButton extends ConsumerWidget {
+  const _ScriptButton({required this.trackId});
+  final String trackId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lyrics = ref.watch(lyricsProvider(trackId)).value;
+    if (lyrics == null || lyrics.scripts.length < 2) return const SizedBox.shrink();
+    final scripts = lyrics.scripts;
+    final shown = lyrics.shownIn(ref.watch(lyricsScriptProvider));
+    final l10n = context.l10n;
+    return TextButton.icon(
+      style: TextButton.styleFrom(foregroundColor: Colors.white),
+      icon: const Icon(Icons.translate, size: 18),
+      label: Text(switch (shown) {
+        LyricsScript.original => l10n.lyricsScriptOriginal,
+        LyricsScript.kana => l10n.lyricsScriptKana,
+        LyricsScript.latin => lyrics.japanese ? l10n.lyricsScriptRomaji : l10n.lyricsScriptLatin,
+      }),
+      onPressed: () =>
+          ref.read(lyricsScriptProvider.notifier).set(scripts[(scripts.indexOf(shown) + 1) % scripts.length]),
+    );
+  }
+}
+
+/// Karaoke on and off; only for synced lyrics.
+class _KaraokeButton extends ConsumerWidget {
+  const _KaraokeButton({required this.trackId});
+  final String trackId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(karaokeProvider.select((k) => k.on));
+    final synced = ref.watch(lyricsProvider(trackId)).value?.synced ?? false;
+    if (!synced && !on) return const SizedBox.shrink();
+    return IconButton(
+      tooltip: context.l10n.lyricsKaraoke,
+      isSelected: on,
+      color: Colors.white,
+      icon: const Icon(Icons.mic_none),
+      selectedIcon: const Icon(Icons.mic),
+      style: on ? IconButton.styleFrom(backgroundColor: Colors.white24) : null,
+      onPressed: () => ref.read(karaokeProvider.notifier).toggle(),
+    );
+  }
+}
+
+/// Whether the song plays without its voice yet.
+class _KaraokeAudio extends ConsumerWidget {
+  const _KaraokeAudio({required this.trackId});
+  final String trackId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final song = ref.watch(karaokeProvider.select((k) => k.songs[trackId]));
+    final text = switch (song) {
+      'ready' => l10n.lyricsKaraokeInstrumental,
+      'unavailable' => l10n.lyricsKaraokeOff,
+      'failed' => l10n.lyricsKaraokeFailed,
+      _ => l10n.lyricsKaraokePreparing,
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
+      child: Row(
+        children: [
+          if (song == null || song == 'pending')
+            const SizedBox.square(
+              dimension: 12,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+            )
+          else
+            Icon(
+              song == 'ready' ? Icons.music_off_outlined : Icons.music_note_outlined,
+              size: 14,
+              color: Colors.white70,
+            ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          ),
+        ],
       ),
     );
   }
@@ -136,15 +232,17 @@ class _LyricsLinesState extends ConsumerState<_LyricsLines> {
     final lyrics = widget.lyrics;
     final position = ref.watch(positionProvider).value ?? Duration.zero;
     final current = lyrics.synced ? lyrics.lines.lastIndexWhere((line) => line.timeMs! <= position.inMilliseconds) : -1;
+    final script = lyrics.shownIn(ref.watch(lyricsScriptProvider));
+    final texts = [for (final line in lyrics.lines) line.textIn(script)];
     const style = TextStyle(fontSize: 26, fontWeight: FontWeight.w800, height: 1.3);
     return LayoutBuilder(
       builder: (context, constraints) {
         _offsets = [];
         var offset = 24.0;
-        for (final line in lyrics.lines) {
+        for (final text in texts) {
           _offsets.add(offset + 7);
           final painter = TextPainter(
-            text: TextSpan(text: line.text.isEmpty ? '♪' : line.text, style: style),
+            text: TextSpan(text: text.isEmpty ? '♪' : text, style: style),
             textDirection: Directionality.of(context),
             textScaler: MediaQuery.textScalerOf(context),
           )..layout(maxWidth: constraints.maxWidth - 48);
@@ -180,7 +278,7 @@ class _LyricsLinesState extends ConsumerState<_LyricsLines> {
                             if (mounted && !ref.read(playerProvider).playing) ctrl.togglePlay();
                           },
                     child: Text(
-                      lyrics.lines[i].text.isEmpty ? '♪' : lyrics.lines[i].text,
+                      texts[i].isEmpty ? '♪' : texts[i],
                       style: style.copyWith(
                         color: !lyrics.synced || i <= current ? Colors.white : Colors.white.withValues(alpha: 0.5),
                       ),

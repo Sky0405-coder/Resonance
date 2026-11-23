@@ -23,6 +23,7 @@ class _AdminApi extends ApiClient {
   int calls = 0;
   int lyricsCalls = 0;
   bool backgroundFetch = true;
+  Map<String, dynamic> library = {};
   Map<String, dynamic>? lastPatch;
 
   @override
@@ -60,12 +61,14 @@ class _AdminApi extends ApiClient {
       'daily_limit_per_user': 50,
     },
     'lyrics': {'background_fetch': backgroundFetch},
+    'library': library,
   };
 
   @override
   Future<Map<String, dynamic>> patchAdminConfig(Map<String, dynamic> patch) async {
     lastPatch = patch;
-    backgroundFetch = patch['lyrics']['background_fetch'] as bool;
+    if (patch['lyrics'] case {'background_fetch': final bool fetch}) backgroundFetch = fetch;
+    if (patch['library'] case final Map<String, dynamic> changes) library = {...library, ...changes};
     return adminConfig();
   }
 
@@ -188,6 +191,8 @@ void main() {
           .byWidgetPredicate((widget) => widget is Scrollable && widget.axisDirection == AxisDirection.down)
           .last;
       await tester.scrollUntilVisible(toggle, 400, scrollable: settingsList);
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
       expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
       await tester.tap(toggle);
       await tester.pumpAndSettle();
@@ -198,6 +203,47 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  testWidgets('thread count and pause times show only with the analysis on', (tester) async {
+    final api = _AdminApi((total: 0, analyzed: 0, failed: 0));
+    api.vocals = {...api.vocals, 'cpus': 8, 'recommended_threads': 4};
+    await _showAdmin(tester, api, 'en');
+    DefaultTabController.of(tester.element(find.byType(TabBar))).animateTo(5);
+    await tester.pumpAndSettle();
+    final settingsList = find
+        .byWidgetPredicate((widget) => widget is Scrollable && widget.axisDirection == AxisDirection.down)
+        .last;
+    final analysis = find.widgetWithText(SwitchListTile, 'Vocal detection for AutoMix');
+    await tester.scrollUntilVisible(analysis, 400, scrollable: settingsList);
+    expect(find.text('Vocal separation: 4 of 8 threads'), findsNothing);
+    expect(find.text('Pause the song analysis at certain times'), findsNothing);
+
+    await tester.ensureVisible(analysis);
+    await tester.pumpAndSettle();
+    await tester.tap(analysis);
+    await tester.pumpAndSettle();
+    expect(find.text('Vocal separation: 4 of 8 threads'), findsOneWidget);
+    final pause = find.widgetWithText(SwitchListTile, 'Pause the song analysis at certain times');
+    await tester.scrollUntilVisible(pause, 200, scrollable: settingsList);
+    expect(find.text('Pause from'), findsNothing);
+    await tester.ensureVisible(pause);
+    await tester.pumpAndSettle();
+    await tester.tap(pause);
+    await tester.pumpAndSettle();
+    expect(api.library['vocal_pause'], isTrue);
+    expect(find.text('Pause from'), findsOneWidget);
+    expect(find.text('18:00'), findsOneWidget);
+    expect(find.text('03:00'), findsOneWidget);
+
+    final slider = find.byType(Slider);
+    await tester.scrollUntilVisible(slider, -200, scrollable: settingsList);
+    await tester.ensureVisible(slider);
+    await tester.pumpAndSettle();
+    await tester.drag(slider, const Offset(-2000, 0));
+    await tester.pumpAndSettle();
+    expect(api.library['vocal_threads'], 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('empty libraries show zero progress', (tester) async {
     final api = _AdminApi((total: 0, analyzed: 0, failed: 0));

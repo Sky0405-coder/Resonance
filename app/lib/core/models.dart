@@ -129,27 +129,87 @@ class Track {
 }
 
 class LyricLine {
-  const LyricLine({required this.timeMs, required this.text});
+  const LyricLine({required this.timeMs, required this.text, this.kana, this.latin, this.ruby});
   final int? timeMs;
   final String text;
 
-  factory LyricLine.fromJson(Map<String, dynamic> j) => LyricLine(timeMs: j['time_ms'], text: j['text']);
+  /// The line with kanji read as kana (Japanese lines with kanji only).
+  final String? kana;
 
-  Map<String, dynamic> toJson() => {'time_ms': timeMs, 'text': text};
+  /// The line in the Latin alphabet (lines in other scripts only).
+  final String? latin;
+
+  /// Furigana: the line as pieces with the reading over kanji (Japanese lines with kanji only).
+  final List<({String text, String? reading})>? ruby;
+
+  factory LyricLine.fromJson(Map<String, dynamic> j) => LyricLine(
+    timeMs: j['time_ms'],
+    text: j['text'],
+    kana: j['kana'],
+    latin: j['latin'],
+    ruby: (j['ruby'] as List?)
+        ?.map((piece) => (text: (piece as List)[0] as String, reading: piece[1] as String?))
+        .toList(),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'time_ms': timeMs,
+    'text': text,
+    'kana': kana,
+    'latin': latin,
+    'ruby': ruby?.map((piece) => [piece.text, piece.reading]).toList(),
+  };
+
+  String textIn(LyricsScript script) => switch (script) {
+    LyricsScript.original => text,
+    LyricsScript.kana => kana ?? text,
+    LyricsScript.latin => latin ?? text,
+  };
 }
 
+/// How lyrics in other scripts are shown: as written, Japanese kanji read as kana, or everything in Latin letters.
+enum LyricsScript { original, kana, latin }
+
+final _foreignLetter = RegExp(r'[^\u0000-\u024F\u1E00-\u1EFF\s\p{P}\p{S}\p{N}]', unicode: true);
+
 class Lyrics {
-  const Lyrics({required this.synced, required this.instrumental, required this.source, required this.lines});
+  const Lyrics({
+    required this.synced,
+    required this.instrumental,
+    required this.source,
+    required this.lines,
+    this.scriptsKnown = true,
+  });
   final bool synced;
   final bool instrumental;
   final String? source;
   final List<LyricLine> lines;
+
+  /// False for lyrics saved for offline use by an app from before readings existed.
+  final bool scriptsKnown;
+
+  /// Saved without readings although some lines are in another script.
+  bool get missingScripts => !scriptsKnown && lines.any((line) => _foreignLetter.hasMatch(line.text));
+
+  /// The scripts these lyrics can be shown in, the original first; just the original when there is nothing to read.
+  List<LyricsScript> get scripts => [
+    LyricsScript.original,
+    if (lines.any((line) => line.kana != null)) LyricsScript.kana,
+    if (lines.any((line) => line.latin != null)) LyricsScript.latin,
+  ];
+
+  /// The wanted script when these lyrics have it, else the original.
+  LyricsScript shownIn(LyricsScript wanted) => scripts.contains(wanted) ? wanted : LyricsScript.original;
+
+  /// Japanese when there are kana readings: their Latin spelling is romaji.
+  bool get japanese => lines.any((line) => line.kana != null);
 
   factory Lyrics.fromJson(Map<String, dynamic> j) => Lyrics(
     synced: j['synced'],
     instrumental: j['instrumental'],
     source: j['source'],
     lines: [for (final line in j['lines']) LyricLine.fromJson(line)],
+    scriptsKnown: (j['lines'] as List).every((line) => (line as Map).containsKey('latin')),
   );
 
   Map<String, dynamic> toJson() => {

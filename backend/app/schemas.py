@@ -182,6 +182,11 @@ class AlbumRef(ORM):
 class LyricLine(BaseModel):
     time_ms: int | None
     text: str
+    # The line with kanji read as kana (Japanese lines with kanji), and in the Latin alphabet (lines in other scripts).
+    kana: str | None = None
+    latin: str | None = None
+    # Furigana: the line as [text, reading] pieces with the reading over kanji (Japanese lines with kanji).
+    ruby: list[tuple[str, str | None]] | None = None
 
 
 class LyricsOut(BaseModel):

@@ -4022,6 +4022,30 @@ abstract class AppLocalizations {
   /// **'Songtext von LRCLIB'**
   String get lyricsAttribution;
 
+  /// No description provided for @lyricsScriptOriginal.
+  ///
+  /// In de, this message translates to:
+  /// **'Original'**
+  String get lyricsScriptOriginal;
+
+  /// No description provided for @lyricsScriptKana.
+  ///
+  /// In de, this message translates to:
+  /// **'Kana'**
+  String get lyricsScriptKana;
+
+  /// No description provided for @lyricsScriptRomaji.
+  ///
+  /// In de, this message translates to:
+  /// **'Romaji'**
+  String get lyricsScriptRomaji;
+
+  /// No description provided for @lyricsScriptLatin.
+  ///
+  /// In de, this message translates to:
+  /// **'Lateinisch'**
+  String get lyricsScriptLatin;
+
   /// No description provided for @adminLyricsOnline.
   ///
   /// In de, this message translates to:
@@ -7033,6 +7057,108 @@ abstract class AppLocalizations {
   /// In de, this message translates to:
   /// **'Deine 100 meistgehörten Songs {year}'**
   String wrappedPlaylistDescription(Object year);
+
+  /// No description provided for @lyricsKaraoke.
+  ///
+  /// In de, this message translates to:
+  /// **'Karaoke'**
+  String get lyricsKaraoke;
+
+  /// No description provided for @lyricsKaraokePreparing.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesang wird entfernt … bis dahin läuft das Original'**
+  String get lyricsKaraokePreparing;
+
+  /// No description provided for @lyricsKaraokeInstrumental.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne Gesang'**
+  String get lyricsKaraokeInstrumental;
+
+  /// No description provided for @lyricsKaraokeOff.
+  ///
+  /// In de, this message translates to:
+  /// **'Mit Gesang – Karaoke-Fassungen sind auf dem Server ausgeschaltet'**
+  String get lyricsKaraokeOff;
+
+  /// No description provided for @lyricsKaraokeFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Mit Gesang – der Gesang ließ sich nicht entfernen'**
+  String get lyricsKaraokeFailed;
+
+  /// No description provided for @adminKaraoke.
+  ///
+  /// In de, this message translates to:
+  /// **'Karaoke ohne Gesang'**
+  String get adminKaraoke;
+
+  /// No description provided for @adminKaraokeHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Entfernt den Gesang eines Songs, sobald ihn jemand im Karaoke-Modus singt – nie im Hintergrund. Nutzt Demucs wie die Song-Analyse (einmalig etwa 1 GB) und hält sich an dieselbe Thread-Zahl. Die Fassungen belegen höchstens 20 GB; was am längsten nicht gesungen wurde, wird zuerst gelöscht.'**
+  String get adminKaraokeHint;
+
+  /// No description provided for @adminJapaneseDictionary.
+  ///
+  /// In de, this message translates to:
+  /// **'Japanisches Wörterbuch für Songtexte'**
+  String get adminJapaneseDictionary;
+
+  /// No description provided for @adminJapaneseDictionaryHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Liest Kanji im Zusammenhang für Kana, Furigana und Romaji (einmalig etwa 250 MB). Ohne Wörterbuch werden Kanji einzeln gelesen, oft falsch.'**
+  String get adminJapaneseDictionaryHint;
+
+  /// No description provided for @adminInstalling.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird eingerichtet …'**
+  String get adminInstalling;
+
+  /// No description provided for @adminInstallFailed.
+  ///
+  /// In de, this message translates to:
+  /// **'Einrichtung fehlgeschlagen, neuer Versuch in einer Stunde: {message}'**
+  String adminInstallFailed(String message);
+
+  /// No description provided for @adminVocalThreads.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesangstrennung: {threads} von {cpus} Threads'**
+  String adminVocalThreads(int threads, int cpus);
+
+  /// No description provided for @adminVocalThreadsHint.
+  ///
+  /// In de, this message translates to:
+  /// **'Gilt für die Song-Analyse und Karaoke. Empfohlen für diesen Server: {recommended} (die Hälfte der Kerne). Weniger Threads lassen anderen Diensten mehr Luft, dauern aber länger.'**
+  String adminVocalThreadsHint(int recommended);
+
+  /// No description provided for @adminVocalPause.
+  ///
+  /// In de, this message translates to:
+  /// **'Song-Analyse zu bestimmten Zeiten pausieren'**
+  String get adminVocalPause;
+
+  /// No description provided for @adminVocalPauseHint.
+  ///
+  /// In de, this message translates to:
+  /// **'In diesem Zeitraum (deutsche Zeit) analysiert der Server im Hintergrund nichts, z. B. während Spieleserver die CPU brauchen. Karaoke läuft trotzdem.'**
+  String get adminVocalPauseHint;
+
+  /// No description provided for @adminVocalPauseFrom.
+  ///
+  /// In de, this message translates to:
+  /// **'Pause von'**
+  String get adminVocalPauseFrom;
+
+  /// No description provided for @adminVocalPauseTo.
+  ///
+  /// In de, this message translates to:
+  /// **'Pause bis'**
+  String get adminVocalPauseTo;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

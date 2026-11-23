@@ -2309,6 +2309,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lyricsAttribution => 'Lyrics from LRCLIB';
 
   @override
+  String get lyricsScriptOriginal => 'Original';
+
+  @override
+  String get lyricsScriptKana => 'Kana';
+
+  @override
+  String get lyricsScriptRomaji => 'Romaji';
+
+  @override
+  String get lyricsScriptLatin => 'Latin';
+
+  @override
   String get adminLyricsOnline => 'Look up lyrics online (LRCLIB)';
 
   @override
@@ -3957,4 +3969,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String wrappedPlaylistDescription(Object year) {
     return 'Your 100 most played songs of $year';
   }
+
+  @override
+  String get lyricsKaraoke => 'Karaoke';
+
+  @override
+  String get lyricsKaraokePreparing => 'Removing the vocals … the original plays until then';
+
+  @override
+  String get lyricsKaraokeInstrumental => 'Without vocals';
+
+  @override
+  String get lyricsKaraokeOff => 'With vocals – karaoke versions are switched off on the server';
+
+  @override
+  String get lyricsKaraokeFailed => 'With vocals – the vocals could not be removed';
+
+  @override
+  String get adminKaraoke => 'Karaoke without vocals';
+
+  @override
+  String get adminKaraokeHint =>
+      'Removes a song\'s vocals as soon as someone sings it in karaoke mode – never in the background. Uses Demucs like the song analysis (about 1 GB once) and uses the same number of threads. The versions take at most 20 GB; those not sung for the longest are deleted first.';
+
+  @override
+  String get adminJapaneseDictionary => 'Japanese dictionary for lyrics';
+
+  @override
+  String get adminJapaneseDictionaryHint =>
+      'Reads kanji in context for kana, furigana and romaji (about 250 MB once). Without it kanji are read one by one, often wrongly.';
+
+  @override
+  String get adminInstalling => 'Setting up …';
+
+  @override
+  String adminInstallFailed(String message) {
+    return 'Setup failed, trying again in an hour: $message';
+  }
+
+  @override
+  String adminVocalThreads(int threads, int cpus) {
+    return 'Vocal separation: $threads of $cpus threads';
+  }
+
+  @override
+  String adminVocalThreadsHint(int recommended) {
+    return 'Applies to the song analysis and karaoke. Recommended for this server: $recommended (half the cores). Fewer threads leave more room for other services but take longer.';
+  }
+
+  @override
+  String get adminVocalPause => 'Pause the song analysis at certain times';
+
+  @override
+  String get adminVocalPauseHint =>
+      'During this time (German time) the server analyzes nothing in the background, e.g. while game servers need the CPU. Karaoke still runs.';
+
+  @override
+  String get adminVocalPauseFrom => 'Pause from';
+
+  @override
+  String get adminVocalPauseTo => 'Pause until';
 }

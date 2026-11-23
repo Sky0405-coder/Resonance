@@ -1,3 +1,4 @@
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,7 +10,7 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.models import PlayEvent, Track, TrackLyrics, TrackVocals, User
 from app.services import mixpoints, vocals
-from app.services.server_config import update_config
+from app.services.server_config import LibraryConfig, update_config
 from tests.test_mixpoints import env  # noqa: F401
 
 
@@ -86,7 +87,12 @@ async def test_installs_once_then_analyzes_the_most_played_first(env, monkeypatc
     assert await vocals.run_once() == 0 and commands == []
 
     status = (await client.get("/api/mixpoints/status", headers=headers)).json()["vocals"]
-    assert status == {"state": "ready", "message": None, "enabled": True, "total": 2, "analyzed": 1, "failed": 1}
+    assert status.pop("threads") == status.pop("recommended_threads") >= 1
+    assert status.pop("cpus") >= 1 and status.pop("paused") is False
+    assert status == {
+        "state": "ready", "message": None, "enabled": True, "total": 2, "analyzed": 1, "failed": 1,
+        "karaoke": False, "installed": True, "runtime": "ready", "runtime_message": None,
+    }
 
     # The heard voice replaces the lyrics; a changed file falls back to them until it is analyzed again.
     async def analyze(path):
@@ -179,7 +185,10 @@ async def test_worker_protocol_keeps_one_process(tmp_path, monkeypatch, runtime)
             await worker.analyze(Path("/music/crash"), 50)
         assert worker._process is None
         assert await worker.analyze(Path("/music/c"), 10) == (1.5, 8)
-        monkeypatch.setattr(vocals, "threads", lambda: 1)
+        async def one_thread() -> int:
+            return 1
+
+        monkeypatch.setattr(vocals, "_threads", one_thread)
         answer = await worker._request({"path": "/music/d", "duration": 5})
         assert answer["nice"] == 19 and answer["threads"] == 1
     finally:
@@ -262,22 +271,142 @@ async def test_failed_stem_is_reported_and_not_retried_at_once(env, monkeypatch,
     assert len(calls) == 1
 
 
+async def enable_karaoke(on: bool = True) -> None:
+    async with SessionLocal() as db:
+        await update_config(db, {"library": {"karaoke": on}})
+
+
+async def test_karaoke_alone_installs_demucs_but_analyzes_nothing(env, monkeypatch, runtime):  # noqa: F811
+    installs = []
+
+    async def install():
+        installs.append(1)
+        return True
+
+    monkeypatch.setattr(vocals, "install", install)
+    worker = FakeWorker()
+    monkeypatch.setattr(vocals, "_worker", worker)
+    await enable_karaoke()
+    assert await vocals.run_once() == 0
+    assert installs == [1] and worker.paths == [] and vocals.state()["state"] == "ready"
+
+
+async def test_karaoke_separates_the_whole_song_only_when_asked(env, monkeypatch, runtime):  # noqa: F811
+    client, headers, track_id, missing_id = env
+    calls: list[float] = []
+
+    class StemWorker(FakeWorker):
+        async def instrumental(self, path: Path, length: float, out: Path) -> None:
+            calls.append(length)
+            out.write_bytes(b"OggS-karaoke")
+
+    monkeypatch.setattr(vocals, "_worker", StemWorker())
+    monkeypatch.setattr(vocals, "_karaoke_errors", {})
+    url = f"/api/tracks/{track_id}/karaoke"
+    # Karaoke off on the server: the app shows the lyrics with the original song.
+    assert (await client.post(url, headers=headers)).json() == {"state": "unavailable"}
+    await enable_karaoke()
+    # Demucs not installed yet: the app asks again.
+    assert (await client.post(url, headers=headers)).json() == {"state": "pending"}
+    assert calls == []
+    monkeypatch.setattr(vocals, "installed", lambda: True)
+    assert (await client.post(url, headers=headers)).json() == {"state": "pending"}
+    for task in list(vocals._stem_tasks):
+        await task
+    assert (await client.post(url, headers=headers)).json() == {"state": "ready"}
+    assert calls == [40.0], "the whole song, once"
+    response = await client.get(url, headers=headers)
+    assert response.status_code == 200 and response.content == b"OggS-karaoke"
+    assert response.headers["content-type"] == "audio/ogg"
+    assert (await client.get(f"/api/tracks/{missing_id}/karaoke", headers=headers)).status_code == 404
+    async with SessionLocal() as db:
+        (await db.get(Track, missing_id)).duration = vocals.KARAOKE_MAX_SECONDS + 1
+        await db.commit()
+    missing = f"/api/tracks/{missing_id}/karaoke"
+    assert (await client.post(missing, headers=headers)).json() == {"state": "unavailable"}, "too long"
+
+
+async def test_karaoke_waits_while_two_songs_are_separated(env, monkeypatch, runtime):  # noqa: F811
+    client, headers, track_id, _missing = env
+    monkeypatch.setattr(vocals, "installed", lambda: True)
+    monkeypatch.setattr(vocals, "_karaoke_pending", {"a", "b"})
+    started = []
+    monkeypatch.setattr(vocals, "_separate", lambda *args, **kwargs: started.append(args))
+    await enable_karaoke()
+    assert (await client.post(f"/api/tracks/{track_id}/karaoke", headers=headers)).json() == {"state": "pending"}
+    assert started == []
+
+
+def test_karaoke_keeps_the_songs_sung_last_within_the_limit(tmp_path):
+    for age, name in enumerate(["new", "middle", "old"]):
+        path = tmp_path / f"{name}.opus"
+        path.write_bytes(b"x" * 100)
+        os.utime(path, (1000 - age, 1000 - age))
+    (tmp_path / "busy.part.opus").write_bytes(b"x" * 500)
+    vocals.clean_karaoke(tmp_path, limit=250)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["busy.part.opus", "middle.opus", "new.opus"]
+
+
 @pytest.mark.parametrize(
-    ("utc", "quiet"),
+    ("window", "utc", "paused"),
     [
-        # Winter: Germany is UTC+1.
-        ("2026-11-18T16:59:00", False),
-        ("2026-11-18T17:00:00", True),
-        ("2026-11-18T23:30:00", True),
-        ("2026-11-19T01:59:00", True),
-        ("2026-11-19T02:00:00", False),
-        ("2026-11-19T10:00:00", False),
+        # 18:00–03:00 German time runs past midnight. Winter: Germany is UTC+1.
+        (("18:00", "03:00"), "2026-11-18T16:59:00", False),
+        (("18:00", "03:00"), "2026-11-18T17:00:00", True),
+        (("18:00", "03:00"), "2026-11-18T23:30:00", True),
+        (("18:00", "03:00"), "2026-11-19T01:59:00", True),
+        (("18:00", "03:00"), "2026-11-19T02:00:00", False),
         # Summer: UTC+2.
-        ("2026-07-01T16:00:00", True),
-        ("2026-07-01T01:00:00", False),
+        (("18:00", "03:00"), "2026-07-01T16:00:00", True),
+        (("18:00", "03:00"), "2026-07-01T01:00:00", False),
+        # Within one day.
+        (("09:30", "17:00"), "2026-11-18T08:29:00", False),
+        (("09:30", "17:00"), "2026-11-18T08:30:00", True),
+        (("09:30", "17:00"), "2026-11-18T16:00:00", False),
     ],
 )
-def test_one_thread_from_six_in_the_evening_to_three_at_night(utc, quiet, monkeypatch):
-    monkeypatch.setattr(vocals.os, "cpu_count", lambda: 8)
+def test_pause_window_in_german_time(window, utc, paused):
+    library = LibraryConfig(vocal_pause=True, vocal_pause_from=window[0], vocal_pause_to=window[1])
     now = datetime.fromisoformat(utc).replace(tzinfo=UTC)
-    assert vocals.threads(now) == (1 if quiet else 4)
+    assert vocals.paused(library, now) is paused
+    assert vocals.paused(LibraryConfig(vocal_pause_from=window[0], vocal_pause_to=window[1]), now) is False
+
+
+def test_threads_follow_the_setting_and_default_to_half_the_cores(monkeypatch):
+    monkeypatch.setattr(vocals.os, "cpu_count", lambda: 8)
+    assert vocals.threads(0) == vocals.recommended_threads() == 4
+    assert vocals.threads(1) == 1
+    assert vocals.threads(6) == 6
+    assert vocals.threads(64) == 8, "never more than the machine has"
+
+
+async def test_paused_analysis_waits_but_karaoke_still_runs(env, monkeypatch, runtime):  # noqa: F811
+    client, headers, track_id, _missing = env
+    worker = FakeWorker()
+    monkeypatch.setattr(vocals, "_worker", worker)
+    monkeypatch.setattr(vocals, "installed", lambda: True)
+    async with SessionLocal() as db:
+        await update_config(db, {"library": {
+            "vocal_analysis": True, "karaoke": True, "vocal_pause": True,
+            "vocal_pause_from": "00:00", "vocal_pause_to": "23:59",
+        }})
+    monkeypatch.setattr(vocals, "paused", lambda library, now=None: library.vocal_pause)
+    assert await vocals.run_once() == 0 and worker.paths == []
+    started = []
+    monkeypatch.setattr(vocals, "_separate", lambda *args, **kwargs: started.append(args[0]))
+    monkeypatch.setattr(vocals, "_karaoke_errors", {})
+    assert (await client.post(f"/api/tracks/{track_id}/karaoke", headers=headers)).json() == {"state": "pending"}
+    assert started == [track_id]
+    status = (await client.get("/api/mixpoints/status", headers=headers)).json()["vocals"]
+    assert status["paused"] is True
+    async with SessionLocal() as db:
+        await update_config(db, {"library": {"vocal_pause": False}})
+    assert await vocals.run_once() == 2
+
+
+async def test_bad_pause_time_is_rejected(env):  # noqa: F811
+    client, headers, *_ = env
+    response = await client.patch(
+        "/api/admin/config", json={"library": {"vocal_pause_from": "25:00"}}, headers=headers
+    )
+    assert response.status_code == 422
