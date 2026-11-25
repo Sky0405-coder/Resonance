@@ -57,6 +57,7 @@ from app.services import (
     search,
     upgrades,
     vocals,
+    ytdlp,
 )
 from app.services import audiobookshelf as abs_service
 from app.services import mixes as mixes_service
@@ -91,6 +92,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await vocals.start()
     await lyrics.start()
     await japanese.start()
+    await ytdlp.start()
     await search.start()
     await podcasts_service.start()
     await podcast_ads.start()
@@ -105,6 +107,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await vocals.stop()
         await lyrics.stop()
         await japanese.stop()
+        await ytdlp.stop()
         await search.stop()
         await podcasts_service.stop()
         await podcast_ads.stop()
