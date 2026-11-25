@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.7.13",
+    "date": "2026-11-25",
+    "de": [
+      "Downloads von YouTube funktionieren wieder: YouTube hatte seinen Player geändert, und die eingebaute yt-dlp-Version fand nur noch Vorschaubilder.",
+      "Der Server hält yt-dlp jetzt selbst aktuell: Er sucht einmal am Tag nach einer neuen Version und nutzt sie sofort, ohne neues Release."
+    ],
+    "en": [
+      "Downloads from YouTube work again: YouTube had changed its player and the bundled yt-dlp only found thumbnails.",
+      "The server now keeps yt-dlp up to date by itself: it checks for a new version once a day and uses it right away, without a new release."
+    ]
+  },
+  {
     "version": "1.7.12",
     "date": "2026-11-23",
     "de": [
